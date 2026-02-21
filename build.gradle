@@ -1,0 +1,195 @@
+// 构建脚本配置
+buildscript {
+}
+
+// 插件配置
+plugins {
+    id 'eclipse'                          // Eclipse IDE支持
+    id 'idea'                             // IntelliJ IDEA支持
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'  // Forge Gradle插件
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'  // Parchment映射支持插件
+}
+
+// 资源目录配置
+// 添加额外的资源包目录
+sourceSets.main.resources {
+    srcDirs += "src/main/resources/resourcepacks"
+}
+
+// 项目基本信息
+// 从gradle.properties读取配置
+group = mod_group_id                    // 项目组ID
+version = mod_version                   // 项目版本
+
+base {
+    archivesName = mod_id               // 构建产物名称
+}
+
+// Java配置
+// Forge 1.20.1要求Java 17
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+// Minecraft/Forge配置
+minecraft {
+    // 映射配置，从gradle.properties读取
+    mappings channel: mapping_channel, version: mapping_version
+
+    // 复制IDE资源到运行目录
+    copyIdeResources = true
+
+    // 运行配置
+    runs {
+        // 所有运行配置的通用设置
+        configureEach {
+            workingDirectory project.file('run')  // 工作目录
+            property 'forge.logging.markers', 'REGISTRIES'  // 日志标记
+            property 'forge.logging.console.level', 'debug'  // 日志级别
+
+            // Mixin配置
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${buildDir}/createSrgToMcp/output.srg"
+
+            // 模组配置
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main  // 模组源代码目录
+                }
+            }
+        }
+
+        // 客户端运行配置
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id  // 启用GameTest命名空间
+        }
+
+        // 服务器运行配置
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id  // 启用GameTest命名空间
+            args '--nogui'  // 无GUI模式
+        }
+
+        // GameTest服务器运行配置
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id  // 启用GameTest命名空间
+        }
+
+        // 数据生成运行配置
+        data {
+            workingDirectory project.file('run-data')  // 数据生成工作目录
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+// 添加生成的资源目录
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+sourceSets.main.java {
+    srcDir 'src/main/java'
+    include '**/*.java'
+}
+
+// 依赖仓库配置
+repositories {
+
+    maven { url = "https://api.modrinth.com/maven" }
+    maven { url = "https://maven.parchmentmc.org/" }
+    maven { url = "https://cursemaven.com" }
+
+}
+
+// 依赖项配置
+dependencies {
+    // Minecraft Forge依赖，从gradle.properties读取版本
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    //Cloth-Config-API前置依赖
+    implementation fg.deobf("maven.modrinth:cloth-config:11.1.136+forge")
+
+    // 可选Tacz前置依赖
+    compileOnly fg.deobf("maven.modrinth:timeless-and-classics-zero:1.1.7-hotfix")
+    runtimeOnly fg.deobf("maven.modrinth:timeless-and-classics-zero:1.1.7-hotfix")
+
+    // 运行时前置依赖
+    compileOnly fg.deobf("maven.modrinth:gd656motionhud:0.0.3-1.20.1-forge")
+    runtimeOnly fg.deobf("maven.modrinth:gd656motionhud:0.0.3-1.20.1-forge")
+
+    compileOnly fg.deobf("maven.modrinth:gd656peek:0.0.5-1.20.1-forge")
+    runtimeOnly fg.deobf("maven.modrinth:gd656peek:0.0.5-1.20.1-forge")
+    
+    //lr-tactical前置依赖
+    compileOnly fg.deobf("maven.modrinth:lr-tactical:wMn7gapK")
+    runtimeOnly fg.deobf("maven.modrinth:lr-tactical:wMn7gapK")
+
+    compileOnly fg.deobf("maven.modrinth:modern-ui:6ksT8CWg")
+    runtimeOnly fg.deobf("maven.modrinth:modern-ui:6ksT8CWg")
+
+    // 永无止境前置依赖
+    compileOnly fg.deobf("curse.maven:limitless-vehicle-1446269:7559897")
+    runtimeOnly fg.deobf("curse.maven:limitless-vehicle-1446269:7559897")
+
+    // 沉浸式飞机前置依赖
+    compileOnly fg.deobf("maven.modrinth:immersive-aircraft:jPZ0GRsN")
+    runtimeOnly fg.deobf("maven.modrinth:immersive-aircraft:jPZ0GRsN")
+
+    // 卓越前线前置依赖
+    compileOnly fg.deobf("maven.modrinth:superb-warfare:DdiwkiSV")
+    runtimeOnly fg.deobf("maven.modrinth:superb-warfare:DdiwkiSV")
+
+    // 卓越前线所需的前置依赖
+    compileOnly fg.deobf("maven.modrinth:curios:5.14.1+1.20.1")
+    runtimeOnly fg.deobf("maven.modrinth:curios:5.14.1+1.20.1")
+    compileOnly fg.deobf("maven.modrinth:geckolib:aVW7Z5da") //forge-4.8.2-1.20.1
+    runtimeOnly fg.deobf("maven.modrinth:geckolib:aVW7Z5da")
+
+}
+
+// 资源处理任务配置
+tasks.named('processResources', ProcessResources).configure {
+    // 替换属性映射
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+
+    inputs.properties replaceProperties  // 声明输入属性
+
+    // 处理指定文件，替换占位符
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta', 'mixin.gd656killicon.json']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+// JAR打包任务配置
+tasks.named('jar', Jar).configure {
+    // 清单文件配置
+    manifest {
+        attributes([
+                "Specification-Title": mod_id,
+                "Specification-Vendor": mod_authors,
+                "Specification-Version": "1",
+                "Implementation-Title": project.name,
+                "Implementation-Version": project.jar.archiveVersion,
+                "Implementation-Vendor": mod_authors,
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+    finalizedBy 'reobfJar'  // 打包后执行重新混淆任务
+}
+
+// Java编译配置
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'  // 设置编译编码为UTF-8
+    source("src/main/java/org/mods/gd656killicon/client/gui/tabs/PresetConfigTab.java")
+}

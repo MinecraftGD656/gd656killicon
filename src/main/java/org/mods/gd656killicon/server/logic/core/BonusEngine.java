@@ -1,0 +1,90 @@
+package org.mods.gd656killicon.server.logic.core;
+
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656killicon.common.BonusType;
+import org.mods.gd656killicon.network.NetworkHandler;
+import org.mods.gd656killicon.network.packet.BonusScorePacket;
+import org.mods.gd656killicon.server.data.ServerData;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class BonusEngine {
+    private record Entry(int type, float score, String extra, int victimId) {}
+
+    /**
+     * Map of player UUID to a list of pending bonus entries.
+     * Uses ConcurrentHashMap and synchronized lists for thread safety.
+     */
+    private final Map<UUID, List<Entry>> pending = new ConcurrentHashMap<>();
+
+    public void add(ServerPlayer player, int type, float scale, String extra) {
+        add(player, type, scale, extra, -1);
+    }
+
+    /**
+     * Adds a bonus entry for a player.
+     */
+    public void add(ServerPlayer player, int type, float scale, String extra, int victimId) {
+        if (!ServerData.get().isBonusEnabled(type)) return;
+        
+        double multiplier = ServerData.get().getBonusMultiplier(type);
+        if (multiplier <= 0) return;
+
+        float score = (float) (scale * multiplier);
+        if (score <= 0) return;
+        
+        int max = ServerData.get().getScoreMaxLimit();
+        if (score > max) score = max;
+        
+        pending.computeIfAbsent(player.getUUID(), k -> Collections.synchronizedList(new ArrayList<>()))
+               .add(new Entry(type, score, extra == null ? "" : extra, victimId));
+    }
+
+    /**
+     * Processes pending bonuses and sends packets to players.
+     * Runs every 2 ticks to batch updates.
+     */
+    public void tick(MinecraftServer server) {
+        if (server.getTickCount() % 2 != 0 || pending.isEmpty()) return;
+
+        Iterator<Map.Entry<UUID, List<Entry>>> it = pending.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<UUID, List<Entry>> mapEntry = it.next();
+            ServerPlayer player = server.getPlayerList().getPlayer(mapEntry.getKey());
+            
+            if (player == null) {
+                it.remove();
+                continue;
+            }
+
+            processPlayerBonuses(player, mapEntry.getValue());
+        }
+    }
+
+    private void processPlayerBonuses(ServerPlayer player, List<Entry> list) {
+        synchronized (list) {
+            if (list.isEmpty()) return;
+
+            // Merge similar bonuses to reduce packet count
+            Map<String, Entry> merged = new LinkedHashMap<>();
+            for (Entry e : list) {
+                String key = (e.type == BonusType.KILL_COMBO) ? "COMBO" : (e.type + "|" + e.extra);
+                merged.merge(key, e, (old, val) -> new Entry(
+                    old.type, 
+                    old.score + val.score, 
+                    val.extra, 
+                    old.victimId != -1 ? old.victimId : val.victimId
+                ));
+            }
+
+            // Send merged bonuses and update score
+            for (Entry e : merged.values()) {
+                NetworkHandler.sendToPlayer(new BonusScorePacket(e.type, e.score, e.extra, e.victimId), player);
+                ServerData.get().addScore(player, e.score);
+            }
+            list.clear();
+        }
+    }
+}
