@@ -20,6 +20,7 @@ public class StringConfigEntry extends GDRowRenderer {
     private String value;
     private final String defaultValue;
     private final Consumer<String> onValueChange;
+    private final String key;
 
     private final TextInputDialog textInputDialog;
     private final String configName;
@@ -30,6 +31,7 @@ public class StringConfigEntry extends GDRowRenderer {
 
     public StringConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, Consumer<String> onValueChange, TextInputDialog textInputDialog, Supplier<Boolean> activeCondition) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
+        this.key = configId;
         this.setActiveCondition(activeCondition);
         this.setSeparateFirstColumn(true); // 第一列与后续列之间增加1像素间隔
         this.setHoverInfo(configName, "   " + description); // 设置悬停显示信息，简介前加两个空格
@@ -68,6 +70,10 @@ public class StringConfigEntry extends GDRowRenderer {
                 this.onValueChange.accept(this.value);
             }
         });
+    }
+
+    public String getKey() {
+        return key;
     }
 
     @Override

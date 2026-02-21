@@ -149,6 +149,52 @@ public class CardBarRenderer implements IHudRenderer {
         renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration);
     }
 
+    public void renderPreviewAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY, JsonObject config) {
+        if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
+            return;
+        }
+
+        float scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
+        String team = config.has("team") ? config.get("team").getAsString() : "ct";
+        boolean dynamicCardStyle = config.has("dynamic_card_style") && config.get("dynamic_card_style").getAsBoolean();
+        float animationDuration = config.has("animation_duration") ? config.get("animation_duration").getAsFloat() : 0.2f;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (dynamicCardStyle && mc.player != null) {
+            Team pt = mc.player.getTeam();
+            if (pt != null) {
+                ChatFormatting color = pt.getColor();
+                if (color == ChatFormatting.BLUE || color == ChatFormatting.AQUA 
+                        || color == ChatFormatting.DARK_AQUA || color == ChatFormatting.DARK_BLUE) {
+                    team = "ct";
+                } else if (color == ChatFormatting.YELLOW || color == ChatFormatting.GOLD) {
+                    team = "t";
+                }
+            }
+        }
+
+        boolean showLight = config.has("show_light") && config.get("show_light").getAsBoolean();
+        float lightWidth = config.has("light_width") ? config.get("light_width").getAsFloat() : 300.0f;
+        float lightHeight = config.has("light_height") ? config.get("light_height").getAsFloat() : 20.0f;
+        String lightColorCt = config.has("color_light_ct") ? config.get("color_light_ct").getAsString() : "9cc1eb";
+        String lightColorT = config.has("color_light_t") ? config.get("color_light_t").getAsString() : "d9ac5b";
+
+        String textureName = "killicon_card_bar_ct.png";
+        boolean isT = "t".equalsIgnoreCase(team);
+        if (isT) {
+            textureName = "killicon_card_bar_t.png";
+        }
+        
+        ResourceLocation texture = ExternalTextureManager.getTexture(textureName);
+        if (texture == null) return;
+
+        float aspectRatio = getTextureAspectRatio(texture);
+        int drawHeight = BASE_LOGICAL_HEIGHT;
+        int drawWidth = (int) (drawHeight * aspectRatio);
+
+        renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration);
+    }
+
     private void renderInternal(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY, float scale, boolean isT, ResourceLocation texture, int drawWidth, int drawHeight, boolean showLight, float lightWidth, float lightHeight, String lightColorCt, String lightColorT, float animationDuration) {
         PoseStack poseStack = guiGraphics.pose();
         poseStack.pushPose();

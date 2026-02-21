@@ -21,6 +21,7 @@ public class FloatConfigEntry extends GDRowRenderer {
     private float value;
     private final float defaultValue;
     private final Consumer<Float> onValueChange;
+    private final String key;
 
     private final TextInputDialog textInputDialog;
     private final String configName;
@@ -31,6 +32,7 @@ public class FloatConfigEntry extends GDRowRenderer {
 
     public FloatConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, float initialValue, float defaultValue, Consumer<Float> onValueChange, TextInputDialog textInputDialog, Supplier<Boolean> activeCondition) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
+        this.key = configId;
         this.setActiveCondition(activeCondition);
         this.setSeparateFirstColumn(true);
         this.setHoverInfo(configName, "   " + description);
@@ -89,6 +91,10 @@ public class FloatConfigEntry extends GDRowRenderer {
     // So if I type "-", it's not a valid float yet, so button disabled. Good.
     // Regex for valid float with max 2 decimals: ^-?\d+(\.\d{1,2})?$
     // But we need to allow typing "12." which is technically valid float "12.0".
+    public String getKey() {
+        return key;
+    }
+
     private boolean isValidFloat(String text) {
         if (text == null || text.isEmpty()) return false;
         

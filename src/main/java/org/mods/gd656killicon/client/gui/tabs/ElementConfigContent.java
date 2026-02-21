@@ -1,6 +1,7 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
 import com.google.gson.JsonObject;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
@@ -8,9 +9,17 @@ import net.minecraft.network.chat.Component;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDButton;
+import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
 import org.mods.gd656killicon.client.gui.elements.InfiniteGridWidget;
+import org.mods.gd656killicon.client.gui.elements.entries.BooleanConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.FixedChoiceConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.FloatConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.HexColorConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.IntegerConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.StringConfigEntry;
 import org.mods.gd656killicon.client.gui.screens.ElementConfigBuilder;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.impl.Battlefield1Renderer;
 import org.mods.gd656killicon.client.render.impl.CardBarRenderer;
@@ -23,6 +32,7 @@ import org.mods.gd656killicon.client.render.impl.SubtitleRenderer;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -42,30 +52,44 @@ public class ElementConfigContent extends ConfigTabContent {
     private GDTextRenderer elementInfoRenderer;
     private int calculatedBottom;
     private InfiniteGridWidget gridWidget;
-    private final ScrollingIconRenderer scrollingPreviewRenderer = new ScrollingIconRenderer();
+    private ScrollingIconRenderer scrollingPreviewRenderer = new ScrollingIconRenderer();
     private long lastPreviewTriggerTime = 0L;
     private int previewKillTypeIndex = 0;
-    private final ComboIconRenderer comboPreviewRenderer = new ComboIconRenderer();
+    private ComboIconRenderer comboPreviewRenderer = new ComboIconRenderer();
     private long lastComboPreviewTriggerTime = 0L;
     private int previewComboCount = 1;
     private int previewComboKillTypeIndex = 0;
-    private final CardRenderer cardPreviewRenderer = new CardRenderer();
+    private CardRenderer cardPreviewRenderer = new CardRenderer();
     private long lastCardPreviewTriggerTime = 0L;
     private int previewCardComboCount = 1;
     private int previewCardKillTypeIndex = 0;
-    private final CardBarRenderer cardBarPreviewRenderer = new CardBarRenderer();
+    private CardBarRenderer cardBarPreviewRenderer = new CardBarRenderer();
     private long lastCardBarPreviewTriggerTime = 0L;
     private int previewCardBarComboCount = 1;
     private int previewCardBarKillTypeIndex = 0;
-    private final Battlefield1Renderer battlefield1PreviewRenderer = new Battlefield1Renderer();
+    private Battlefield1Renderer battlefield1PreviewRenderer = new Battlefield1Renderer();
     private long lastBattlefieldPreviewTriggerTime = 0L;
     private int previewBattlefieldKillTypeIndex = 0;
-    private final SubtitleRenderer subtitlePreviewRenderer = new SubtitleRenderer();
+    private SubtitleRenderer subtitlePreviewRenderer = new SubtitleRenderer();
     private long lastSubtitlePreviewTriggerTime = 0L;
-    private final ScoreSubtitleRenderer scorePreviewRenderer = ScoreSubtitleRenderer.getInstance();
+    private ScoreSubtitleRenderer scorePreviewRenderer = ScoreSubtitleRenderer.getInstance();
     private long lastScorePreviewTriggerTime = 0L;
-    private final BonusListRenderer bonusListPreviewRenderer = BonusListRenderer.getInstance();
+    private BonusListRenderer bonusListPreviewRenderer = BonusListRenderer.getInstance();
     private long lastBonusListPreviewTriggerTime = 0L;
+    private final List<SecondaryTab> secondaryTabs = new ArrayList<>();
+    private SecondaryTab selectedSecondaryTab;
+    private final List<GDRowRenderer> allConfigRows = new ArrayList<>();
+    private double secondaryScrollX = 0;
+    private double secondaryTargetScrollX = 0;
+    private double secondaryMaxScroll = 0;
+    private boolean secondaryDragging = false;
+    private boolean secondaryPressed = false;
+    private double secondaryLastMouseX = 0;
+    private int secondaryAreaX1 = 0;
+    private int secondaryAreaX2 = 0;
+    private int secondaryAreaTop = 0;
+    private int secondaryAreaBottom = 0;
+    private long lastSecondaryRenderTime = 0L;
 
     private static final long PREVIEW_TRIGGER_INTERVAL_MS = 2000L;
     private static final long PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS = 2000L;
@@ -122,7 +146,61 @@ public class ElementConfigContent extends ConfigTabContent {
         if (builder != null) {
             builder.build(this);
         }
+        this.allConfigRows.clear();
+        this.allConfigRows.addAll(this.configRows);
+        refreshVisibleRows();
+    }
+    
+    private void refreshVisibleRows() {
+        this.configRows.clear();
+        
+        // If no secondary tabs (e.g. not a kill_icon element), just show everything
+        if (!isKillIconElement() || !ElementTextureDefinition.hasTextures(elementId)) {
+            this.configRows.addAll(this.allConfigRows);
+            sortConfigRows();
+            return;
+        }
+
+        // If secondary tabs exist but none selected, select first (should be General)
+        if (selectedSecondaryTab == null) {
+            ensureSecondaryTabs();
+        }
+        
+        if (selectedSecondaryTab == null) return; // Should not happen
+        
+        boolean isGeneral = "general".equals(selectedSecondaryTab.elementId);
+        String texturePrefix = "anim_" + selectedSecondaryTab.elementId + "_";
+        
+        for (GDRowRenderer row : allConfigRows) {
+            String key = getConfigKey(row);
+            if (key == null) continue;
+            
+            boolean isAnimKey = key.startsWith("anim_");
+            
+            if (isGeneral) {
+                // Show everything EXCEPT animation keys
+                if (!isAnimKey) {
+                    this.configRows.add(row);
+                }
+            } else {
+                // Show ONLY animation keys for THIS texture
+                if (key.startsWith(texturePrefix)) {
+                    this.configRows.add(row);
+                }
+            }
+        }
+        
         sortConfigRows();
+    }
+    
+    private String getConfigKey(GDRowRenderer row) {
+        if (row instanceof BooleanConfigEntry) return ((BooleanConfigEntry) row).getKey();
+        if (row instanceof IntegerConfigEntry) return ((IntegerConfigEntry) row).getKey();
+        if (row instanceof FloatConfigEntry) return ((FloatConfigEntry) row).getKey();
+        if (row instanceof StringConfigEntry) return ((StringConfigEntry) row).getKey();
+        if (row instanceof HexColorConfigEntry) return ((HexColorConfigEntry) row).getKey();
+        if (row instanceof FixedChoiceConfigEntry) return ((FixedChoiceConfigEntry) row).getKey();
+        return null;
     }
 
     public String getPresetId() {
@@ -139,7 +217,7 @@ public class ElementConfigContent extends ConfigTabContent {
         String presetName = ElementConfigManager.getPresetDisplayName(presetId);
         
         List<GDTextRenderer.ColoredText> presetTexts = new ArrayList<>();
-        presetTexts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.config.element.current_preset"), GuiConstants.COLOR_WHITE));
+        presetTexts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.config.generic.current_preset"), GuiConstants.COLOR_WHITE));
         presetTexts.add(new GDTextRenderer.ColoredText("[" + presetId + "] ", GuiConstants.COLOR_GRAY));
         presetTexts.add(new GDTextRenderer.ColoredText(presetName, GuiConstants.COLOR_GOLD));
         
@@ -158,7 +236,7 @@ public class ElementConfigContent extends ConfigTabContent {
         String elementName = I18n.exists(nameKey) ? I18n.get(nameKey) : elementId;
 
         List<GDTextRenderer.ColoredText> elementTexts = new ArrayList<>();
-        elementTexts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.config.element.current_element"), GuiConstants.COLOR_WHITE));
+        elementTexts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.config.generic.current_element"), GuiConstants.COLOR_WHITE));
         elementTexts.add(new GDTextRenderer.ColoredText("[" + elementId + "] ", GuiConstants.COLOR_GRAY));
         elementTexts.add(new GDTextRenderer.ColoredText(elementName, GuiConstants.COLOR_GOLD));
 
@@ -207,6 +285,8 @@ public class ElementConfigContent extends ConfigTabContent {
                 gridWidget.setBounds(gridX, gridY, gridWidth, gridHeight);
             }
         }
+
+        updateSecondaryTabLayout(screenWidth);
     }
 
     @Override
@@ -236,6 +316,7 @@ public class ElementConfigContent extends ConfigTabContent {
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick, screenWidth, screenHeight, headerHeight);
+        renderSecondaryTabs(guiGraphics, mouseX, mouseY, partialTick);
         
         // Handle reset button timer logic locally (Silent timeout)
         if (isConfirmingReset) {
@@ -250,17 +331,124 @@ public class ElementConfigContent extends ConfigTabContent {
         }
     }
 
+    @Override
+    protected void updateScroll(float dt, int screenHeight) {
+        if (!useDefaultScroll) return;
+
+        int contentY = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING + getContentTopOffset();
+        int viewHeight = screenHeight - contentY - GuiConstants.DEFAULT_PADDING;
+
+        double maxScroll = Math.max(0, totalContentHeight - viewHeight);
+        targetScrollY = Math.max(0, Math.min(maxScroll, targetScrollY));
+
+        double diff = targetScrollY - scrollY;
+        if (Math.abs(diff) < 0.01) {
+            scrollY = targetScrollY;
+        } else {
+            scrollY += diff * GuiConstants.SCROLL_SMOOTHING * dt;
+        }
+    }
+
+    @Override
+    protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+        if (!configRows.isEmpty()) {
+            if (useDefaultScroll) {
+                float dt = minecraft.getDeltaFrameTime() / 20.0f;
+                updateScroll(dt, screenHeight);
+
+                int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
+                int contentX = area1Right + GuiConstants.DEFAULT_PADDING;
+                int contentY = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING + getContentTopOffset();
+                int contentWidth = screenWidth - contentX - GuiConstants.DEFAULT_PADDING;
+                int contentHeight = screenHeight - contentY - GuiConstants.DEFAULT_PADDING;
+
+                guiGraphics.enableScissor(contentX, contentY, contentX + contentWidth, contentY + contentHeight);
+                guiGraphics.pose().pushPose();
+                guiGraphics.pose().translate(0, -scrollY, 0);
+
+                for (GDRowRenderer row : configRows) {
+                    row.render(guiGraphics, mouseX, (int)(mouseY + scrollY), partialTick);
+                }
+
+                guiGraphics.pose().popPose();
+                guiGraphics.disableScissor();
+            } else {
+                for (GDRowRenderer row : configRows) {
+                    row.render(guiGraphics, mouseX, mouseY, partialTick);
+                }
+            }
+            return;
+        }
+
+        Component noContent = Component.translatable("gd656killicon.client.gui.config.no_content");
+        int textWidth = minecraft.font.width(noContent);
+
+        int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
+        int contentX = area1Right + GuiConstants.DEFAULT_PADDING + (screenWidth - area1Right - 2 * GuiConstants.DEFAULT_PADDING - textWidth) / 2;
+        int contentY = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING + getContentTopOffset() + (screenHeight - (GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING + getContentTopOffset()) - 9) / 2;
+
+        guiGraphics.drawString(minecraft.font, noContent, contentX, contentY, GuiConstants.COLOR_GRAY, true);
+    }
+
+    @Override
+    protected void updateConfigRowsLayout(int screenWidth, int screenHeight) {
+        int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
+        int contentX = area1Right + GuiConstants.DEFAULT_PADDING;
+        int contentY = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING + getContentTopOffset();
+        int contentWidth = screenWidth - contentX - GuiConstants.DEFAULT_PADDING;
+
+        int currentY = contentY;
+        for (int i = 0; i < configRows.size(); i++) {
+            GDRowRenderer row = configRows.get(i);
+            int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;
+
+            row.setBounds(contentX, currentY, contentX + contentWidth, currentY + rowHeight);
+
+            if (i % 2 != 0) {
+                row.setBackgroundAlpha(0.15f);
+            } else {
+                row.setBackgroundAlpha(0.3f);
+            }
+
+            currentY += rowHeight + 1;
+        }
+
+        this.totalContentHeight = currentY - contentY;
+    }
+
     private void renderScrollingPreview(GuiGraphics guiGraphics, float partialTick) {
         if (!"kill_icon/scrolling".equals(elementId) || gridWidget == null) {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
-            int killType = PREVIEW_KILL_TYPES[previewKillTypeIndex % PREVIEW_KILL_TYPES.length];
-            previewKillTypeIndex++;
-            scrollingPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1));
-            lastPreviewTriggerTime = now;
+        
+        boolean isSpecific = selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId);
+        
+        if (isSpecific) {
+            String tex = selectedSecondaryTab.elementId;
+            int killType = -1;
+            if ("default".equals(tex)) killType = KillType.NORMAL;
+            else if ("headshot".equals(tex)) killType = KillType.HEADSHOT;
+            else if ("explosion".equals(tex)) killType = KillType.EXPLOSION;
+            else if ("crit".equals(tex)) killType = KillType.CRIT;
+            else if ("destroy_vehicle".equals(tex)) killType = KillType.DESTROY_VEHICLE;
+            else if ("assist".equals(tex)) killType = KillType.ASSIST;
+            
+            if (killType != -1) {
+                if (now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
+                    scrollingPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1));
+                    lastPreviewTriggerTime = now;
+                }
+            }
+        } else {
+            if (now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
+                int killType = PREVIEW_KILL_TYPES[previewKillTypeIndex % PREVIEW_KILL_TYPES.length];
+                previewKillTypeIndex++;
+                scrollingPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1));
+                lastPreviewTriggerTime = now;
+            }
         }
+        
         float originX = gridWidget.getOriginX();
         float originY = gridWidget.getOriginY();
         int scissorX1 = gridWidget.getX();
@@ -280,14 +468,33 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastComboPreviewTriggerTime >= PREVIEW_COMBO_TRIGGER_INTERVAL_MS) {
-            int killType = PREVIEW_COMBO_KILL_TYPES[previewComboKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
-            int comboCount = previewComboCount;
-            previewComboKillTypeIndex++;
-            previewComboCount = previewComboCount >= 6 ? 1 : previewComboCount + 1;
-            comboPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
-            lastComboPreviewTriggerTime = now;
+        
+        boolean isSpecific = selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId);
+        
+        if (isSpecific) {
+            String tex = selectedSecondaryTab.elementId;
+            int combo = 1;
+            try {
+                if (tex.startsWith("combo_")) {
+                    combo = Integer.parseInt(tex.substring(6));
+                }
+            } catch (Exception e) {}
+            
+            if (now - lastComboPreviewTriggerTime >= PREVIEW_COMBO_TRIGGER_INTERVAL_MS) {
+                comboPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(KillType.NORMAL, -1, combo));
+                lastComboPreviewTriggerTime = now;
+            }
+        } else {
+            if (now - lastComboPreviewTriggerTime >= PREVIEW_COMBO_TRIGGER_INTERVAL_MS) {
+                int killType = PREVIEW_COMBO_KILL_TYPES[previewComboKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
+                int comboCount = previewComboCount;
+                previewComboKillTypeIndex++;
+                previewComboCount = previewComboCount >= 6 ? 1 : previewComboCount + 1;
+                comboPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
+                lastComboPreviewTriggerTime = now;
+            }
         }
+        
         float originX = gridWidget.getOriginX();
         float originY = gridWidget.getOriginY();
         int scissorX1 = gridWidget.getX();
@@ -307,14 +514,43 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastCardPreviewTriggerTime >= PREVIEW_CARD_TRIGGER_INTERVAL_MS) {
-            int killType = PREVIEW_COMBO_KILL_TYPES[previewCardKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
-            int comboCount = previewCardComboCount;
-            previewCardKillTypeIndex++;
-            previewCardComboCount = previewCardComboCount >= 6 ? 1 : previewCardComboCount + 1;
-            cardPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
-            lastCardPreviewTriggerTime = now;
+        
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId).deepCopy();
+        boolean isSpecific = selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId);
+        
+        if (isSpecific) {
+            String tex = selectedSecondaryTab.elementId;
+            String team = "ct";
+            if (tex.contains("_ct")) team = "ct";
+            else if (tex.contains("_t")) team = "t";
+            config.addProperty("team", team);
+            
+            int killType = KillType.NORMAL;
+            if (tex.startsWith("headshot")) killType = KillType.HEADSHOT;
+            else if (tex.startsWith("explosion")) killType = KillType.EXPLOSION;
+            else if (tex.startsWith("crit")) killType = KillType.CRIT;
+            
+            if (tex.startsWith("light")) {
+                config.addProperty("show_light", true);
+            } else {
+                config.addProperty("show_light", false);
+            }
+            
+            if (now - lastCardPreviewTriggerTime >= PREVIEW_CARD_TRIGGER_INTERVAL_MS) {
+                cardPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, 1));
+                lastCardPreviewTriggerTime = now;
+            }
+        } else {
+            if (now - lastCardPreviewTriggerTime >= PREVIEW_CARD_TRIGGER_INTERVAL_MS) {
+                int killType = PREVIEW_COMBO_KILL_TYPES[previewCardKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
+                int comboCount = previewCardComboCount;
+                previewCardKillTypeIndex++;
+                previewCardComboCount = previewCardComboCount >= 6 ? 1 : previewCardComboCount + 1;
+                cardPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
+                lastCardPreviewTriggerTime = now;
+            }
         }
+
         float originX = gridWidget.getOriginX();
         float originY = gridWidget.getOriginY();
         int scissorX1 = gridWidget.getX();
@@ -324,7 +560,6 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
         cardPreviewRenderer.renderPreviewAt(guiGraphics, partialTick, originX, originY, config);
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
@@ -335,14 +570,32 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastCardBarPreviewTriggerTime >= PREVIEW_CARD_BAR_TRIGGER_INTERVAL_MS) {
-            int killType = PREVIEW_COMBO_KILL_TYPES[previewCardBarKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
-            int comboCount = previewCardBarComboCount;
-            previewCardBarKillTypeIndex++;
-            previewCardBarComboCount = previewCardBarComboCount >= 6 ? 1 : previewCardBarComboCount + 1;
-            cardBarPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
-            lastCardBarPreviewTriggerTime = now;
+        
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId).deepCopy();
+        boolean isSpecific = selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId);
+        
+        if (isSpecific) {
+            String tex = selectedSecondaryTab.elementId;
+            String team = "ct";
+            if (tex.contains("_ct")) team = "ct";
+            else if (tex.contains("_t")) team = "t";
+            config.addProperty("team", team);
+            
+            if (now - lastCardBarPreviewTriggerTime >= PREVIEW_CARD_BAR_TRIGGER_INTERVAL_MS) {
+                cardBarPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(KillType.NORMAL, -1, 1));
+                lastCardBarPreviewTriggerTime = now;
+            }
+        } else {
+            if (now - lastCardBarPreviewTriggerTime >= PREVIEW_CARD_BAR_TRIGGER_INTERVAL_MS) {
+                int killType = PREVIEW_COMBO_KILL_TYPES[previewCardBarKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
+                int comboCount = previewCardBarComboCount;
+                previewCardBarKillTypeIndex++;
+                previewCardBarComboCount = previewCardBarComboCount >= 6 ? 1 : previewCardBarComboCount + 1;
+                cardBarPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
+                lastCardBarPreviewTriggerTime = now;
+            }
         }
+        
         float originX = gridWidget.getOriginX();
         float originY = gridWidget.getOriginY();
         int scissorX1 = gridWidget.getX();
@@ -352,7 +605,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        cardBarPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        cardBarPreviewRenderer.renderPreviewAt(guiGraphics, partialTick, originX, originY, config);
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -362,13 +615,35 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastBattlefieldPreviewTriggerTime >= PREVIEW_BATTLEFIELD_TRIGGER_INTERVAL_MS) {
-            int killType = PREVIEW_BATTLEFIELD_KILL_TYPES[previewBattlefieldKillTypeIndex % PREVIEW_BATTLEFIELD_KILL_TYPES.length];
-            previewBattlefieldKillTypeIndex++;
-            String weaponName = resolveRandomItemName();
-            battlefield1PreviewRenderer.triggerPreview(killType, weaponName, "Minecraft_GD656", "20");
-            lastBattlefieldPreviewTriggerTime = now;
+        
+        boolean isSpecific = selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId);
+        
+        if (isSpecific) {
+            String tex = selectedSecondaryTab.elementId;
+            int killType = -1;
+            if ("default".equals(tex)) killType = KillType.NORMAL;
+            else if ("headshot".equals(tex)) killType = KillType.HEADSHOT;
+            else if ("explosion".equals(tex)) killType = KillType.EXPLOSION;
+            else if ("crit".equals(tex)) killType = KillType.CRIT;
+            else if ("destroy_vehicle".equals(tex)) killType = KillType.DESTROY_VEHICLE;
+            
+            if (killType != -1) {
+                if (now - lastBattlefieldPreviewTriggerTime >= PREVIEW_BATTLEFIELD_TRIGGER_INTERVAL_MS) {
+                    String weaponName = resolveRandomItemName();
+                    battlefield1PreviewRenderer.triggerPreview(killType, weaponName, "Minecraft_GD656", "20");
+                    lastBattlefieldPreviewTriggerTime = now;
+                }
+            }
+        } else {
+            if (now - lastBattlefieldPreviewTriggerTime >= PREVIEW_BATTLEFIELD_TRIGGER_INTERVAL_MS) {
+                int killType = PREVIEW_BATTLEFIELD_KILL_TYPES[previewBattlefieldKillTypeIndex % PREVIEW_BATTLEFIELD_KILL_TYPES.length];
+                previewBattlefieldKillTypeIndex++;
+                String weaponName = resolveRandomItemName();
+                battlefield1PreviewRenderer.triggerPreview(killType, weaponName, "Minecraft_GD656", "20");
+                lastBattlefieldPreviewTriggerTime = now;
+            }
         }
+        
         float originX = gridWidget.getOriginX();
         float originY = gridWidget.getOriginY();
         int scissorX1 = gridWidget.getX();
@@ -628,11 +903,17 @@ public class ElementConfigContent extends ConfigTabContent {
         if (saveButton != null && saveButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
+        if (handleSecondaryTabClick(mouseX, mouseY, button)) {
+            return true;
+        }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (handleSecondaryTabRelease()) {
+            return true;
+        }
         if (gridWidget != null && gridWidget.mouseReleased(mouseX, mouseY, button)) {
             return true;
         }
@@ -641,9 +922,273 @@ public class ElementConfigContent extends ConfigTabContent {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (handleSecondaryTabDrag(mouseX, mouseY, dragX)) {
+            return true;
+        }
         if (gridWidget != null && gridWidget.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (handleSecondaryTabScroll(mouseX, mouseY, delta)) {
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    public boolean isKillIconElement() {
+        return elementId != null && elementId.startsWith("kill_icon");
+    }
+
+    public boolean isMouseInSecondaryTabArea(double mouseX, double mouseY) {
+        if (!isKillIconElement()) return false;
+        updateSecondaryTabLayout(minecraft.getWindow().getGuiScaledWidth());
+        return mouseX >= secondaryAreaX1 && mouseX <= secondaryAreaX2 && mouseY >= secondaryAreaTop && mouseY <= secondaryAreaBottom;
+    }
+
+    public int getSecondaryTabHeight() {
+        return GuiConstants.ROW_HEADER_HEIGHT;
+    }
+
+    private int getContentTopOffset() {
+        return isKillIconElement() ? getSecondaryTabHeight() + 1 : 0;
+    }
+
+    private void updateSecondaryTabLayout(int screenWidth) {
+        if (!isKillIconElement()) {
+            secondaryTabs.clear();
+            selectedSecondaryTab = null;
+            return;
+        }
+        ensureSecondaryTabs();
+
+        int padding = GuiConstants.DEFAULT_PADDING;
+        int area1Right = (screenWidth - 2 * padding) / 3 + padding;
+        secondaryAreaX1 = area1Right + padding;
+        secondaryAreaX2 = screenWidth - padding;
+        int baseTop = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + padding;
+        secondaryAreaTop = baseTop;
+        secondaryAreaBottom = baseTop + getSecondaryTabHeight();
+
+        int currentX = 0;
+        for (SecondaryTab tab : secondaryTabs) {
+            tab.width = minecraft.font.width(tab.label) + 10;
+            tab.x = currentX;
+            tab.height = getSecondaryTabHeight();
+            currentX += tab.width + GuiConstants.TAB_SPACING;
+        }
+        int totalWidth = Math.max(0, currentX - GuiConstants.TAB_SPACING);
+        int visibleWidth = secondaryAreaX2 - secondaryAreaX1;
+        secondaryMaxScroll = Math.max(0, totalWidth - visibleWidth);
+        secondaryTargetScrollX = Mth.clamp(secondaryTargetScrollX, 0, secondaryMaxScroll);
+        if (secondaryScrollX > secondaryMaxScroll) secondaryScrollX = secondaryMaxScroll;
+    }
+
+    private void ensureSecondaryTabs() {
+        if (!secondaryTabs.isEmpty()) return;
+        
+        if (!ElementTextureDefinition.hasTextures(elementId)) {
+            return;
+        }
+
+        // 1. General Tab
+        String generalKey = "gd656killicon.client.gui.config.tab.general";
+        String generalLabel = I18n.exists(generalKey) ? I18n.get(generalKey) : "General";
+        secondaryTabs.add(new SecondaryTab("general", generalLabel));
+        
+        // 2. Texture Tabs
+        List<String> textures = ElementTextureDefinition.getTextures(elementId);
+        for (String texture : textures) {
+            String key = "gd656killicon.client.gui.config.tab.texture." + texture;
+            String label = I18n.exists(key) ? I18n.get(key) : texture;
+            secondaryTabs.add(new SecondaryTab(texture, label));
+        }
+
+        if (selectedSecondaryTab == null && !secondaryTabs.isEmpty()) {
+            selectedSecondaryTab = secondaryTabs.get(0);
+        }
+    }
+
+    private String getElementDisplayName(String id) {
+        String nameKey = "gd656killicon.element.name." + id.replace("/", ".");
+        return I18n.exists(nameKey) ? I18n.get(nameKey) : id;
+    }
+
+    private void renderSecondaryTabs(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        if (!isKillIconElement() || secondaryTabs.isEmpty()) {
+            return;
+        }
+        float dt = 0.0f;
+        long now = System.currentTimeMillis();
+        if (lastSecondaryRenderTime > 0) {
+            dt = (now - lastSecondaryRenderTime) / 1000.0f;
+        }
+        lastSecondaryRenderTime = now;
+
+        if (!secondaryDragging) {
+            double diff = secondaryTargetScrollX - secondaryScrollX;
+            if (Math.abs(diff) < 0.1) {
+                secondaryScrollX = secondaryTargetScrollX;
+            } else {
+                secondaryScrollX += diff * GuiConstants.SCROLL_SMOOTHING * dt;
+            }
+        }
+
+        int localMouseX = (int)(mouseX - secondaryAreaX1 + secondaryScrollX);
+        boolean inArea = mouseX >= secondaryAreaX1 && mouseX <= secondaryAreaX2 && mouseY >= secondaryAreaTop && mouseY <= secondaryAreaBottom;
+        int borderColor = getRegionBorderColor();
+
+        guiGraphics.enableScissor(secondaryAreaX1, secondaryAreaTop, secondaryAreaX2, secondaryAreaBottom);
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate((float)(secondaryAreaX1 - secondaryScrollX), 0, 0);
+
+        renderSecondaryBaseLine(guiGraphics, borderColor);
+        for (SecondaryTab tab : secondaryTabs) {
+            boolean isSelected = tab == selectedSecondaryTab;
+            boolean hovered = inArea && localMouseX >= tab.x && localMouseX <= tab.x + tab.width;
+
+            int baseColor = isSelected ? GuiConstants.COLOR_WHITE : (hovered ? GuiConstants.COLOR_DARK_GRAY : GuiConstants.COLOR_GRAY);
+            int textX = tab.x + (tab.width - minecraft.font.width(tab.label)) / 2;
+            int textY = secondaryAreaTop + (getSecondaryTabHeight() - 9) / 2;
+            guiGraphics.drawString(minecraft.font, tab.label, textX, textY, baseColor, true);
+
+            if (isSelected) {
+                int borderY = secondaryAreaTop;
+                guiGraphics.fill(tab.x, borderY, tab.x + tab.width, borderY + 1, borderColor);
+                guiGraphics.fill(tab.x, borderY, tab.x + 1, secondaryAreaBottom, borderColor);
+                guiGraphics.fill(tab.x + tab.width - 1, borderY, tab.x + tab.width, secondaryAreaBottom, borderColor);
+            }
+        }
+
+        guiGraphics.pose().popPose();
+        guiGraphics.disableScissor();
+    }
+
+    private void resetPreviews() {
+        scrollingPreviewRenderer = new ScrollingIconRenderer();
+        comboPreviewRenderer = new ComboIconRenderer();
+        cardPreviewRenderer = new CardRenderer();
+        cardBarPreviewRenderer = new CardBarRenderer();
+        battlefield1PreviewRenderer = new Battlefield1Renderer();
+        subtitlePreviewRenderer = new SubtitleRenderer();
+        // Score and BonusList are singletons, can't reset easily but they aren't kill_icon so maybe fine
+        
+        // Force immediate trigger on next render
+        lastPreviewTriggerTime = 0;
+        lastComboPreviewTriggerTime = 0;
+        lastCardPreviewTriggerTime = 0;
+        lastCardBarPreviewTriggerTime = 0;
+        lastBattlefieldPreviewTriggerTime = 0;
+        lastSubtitlePreviewTriggerTime = 0;
+        lastScorePreviewTriggerTime = 0;
+        lastBonusListPreviewTriggerTime = 0;
+    }
+
+    private boolean handleSecondaryTabClick(double mouseX, double mouseY, int button) {
+        if (!isKillIconElement() || button != 0) return false;
+        updateSecondaryTabLayout(minecraft.getWindow().getGuiScaledWidth());
+        if (mouseX < secondaryAreaX1 || mouseX > secondaryAreaX2 || mouseY < secondaryAreaTop || mouseY > secondaryAreaBottom) return false;
+
+        int localMouseX = (int)(mouseX - secondaryAreaX1 + secondaryScrollX);
+        for (SecondaryTab tab : secondaryTabs) {
+            if (localMouseX >= tab.x && localMouseX <= tab.x + tab.width) {
+                if (selectedSecondaryTab != tab) {
+                    selectedSecondaryTab = tab;
+                    refreshVisibleRows(); // Refresh content
+                    resetPreviews();
+                }
+                secondaryPressed = true;
+                secondaryDragging = false;
+                secondaryLastMouseX = mouseX;
+                return true;
+            }
+        }
+        secondaryPressed = true;
+        secondaryDragging = false;
+        secondaryLastMouseX = mouseX;
+        return true;
+    }
+
+    private boolean handleSecondaryTabRelease() {
+        if (!isKillIconElement()) return false;
+        if (secondaryDragging || secondaryPressed) {
+            secondaryDragging = false;
+            secondaryPressed = false;
+            return true;
+        }
+        return false;
+    }
+
+    private boolean handleSecondaryTabDrag(double mouseX, double mouseY, double dragX) {
+        if (!isKillIconElement()) return false;
+        updateSecondaryTabLayout(minecraft.getWindow().getGuiScaledWidth());
+        if (secondaryDragging) {
+            secondaryTargetScrollX -= dragX;
+            secondaryScrollX = secondaryTargetScrollX;
+            clampSecondaryScroll();
+            return true;
+        }
+        if (secondaryPressed && mouseY <= secondaryAreaTop + GuiConstants.HEADER_SCROLL_ZONE && mouseX >= secondaryAreaX1 && mouseX <= secondaryAreaX2) {
+            secondaryDragging = true;
+            secondaryTargetScrollX -= dragX;
+            secondaryScrollX = secondaryTargetScrollX;
+            clampSecondaryScroll();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean handleSecondaryTabScroll(double mouseX, double mouseY, double delta) {
+        if (!isKillIconElement()) return false;
+        updateSecondaryTabLayout(minecraft.getWindow().getGuiScaledWidth());
+        if (mouseX >= secondaryAreaX1 && mouseX <= secondaryAreaX2 && mouseY <= secondaryAreaTop + GuiConstants.HEADER_SCROLL_ZONE) {
+            secondaryTargetScrollX -= delta * GuiConstants.SCROLL_AMOUNT;
+            clampSecondaryScroll();
+            return true;
+        }
+        return false;
+    }
+
+    private void clampSecondaryScroll() {
+        secondaryTargetScrollX = Mth.clamp(secondaryTargetScrollX, 0, secondaryMaxScroll);
+        if (secondaryDragging) {
+            secondaryScrollX = secondaryTargetScrollX;
+        }
+    }
+
+    private int getRegionBorderColor() {
+        return (0x80 << 24) | (GuiConstants.COLOR_GRAY & 0x00FFFFFF);
+    }
+
+    private void renderSecondaryBaseLine(GuiGraphics guiGraphics, int color) {
+        int lineY = secondaryAreaBottom - 1;
+        int drawEnd = Math.max((secondaryAreaX2 - secondaryAreaX1) + (int)secondaryMaxScroll, 5000);
+        if (selectedSecondaryTab == null) {
+            guiGraphics.fill(0, lineY, drawEnd, lineY + 1, color);
+            return;
+        }
+        if (selectedSecondaryTab.x > 0) {
+            guiGraphics.fill(0, lineY, selectedSecondaryTab.x, lineY + 1, color);
+        }
+        int tabRight = selectedSecondaryTab.x + selectedSecondaryTab.width;
+        if (tabRight < drawEnd) {
+            guiGraphics.fill(tabRight, lineY, drawEnd, lineY + 1, color);
+        }
+    }
+
+    private static class SecondaryTab {
+        String elementId;
+        String label;
+        int x;
+        int width;
+        int height;
+
+        SecondaryTab(String elementId, String label) {
+            this.elementId = elementId;
+            this.label = label;
+        }
     }
 }

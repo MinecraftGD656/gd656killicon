@@ -14,6 +14,7 @@ import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 public class BooleanConfigEntry extends GDRowRenderer {
     private boolean value;
     private final boolean defaultValue;
+    private final String key;
 
     private final Consumer<Boolean> onValueChange;
 
@@ -23,6 +24,7 @@ public class BooleanConfigEntry extends GDRowRenderer {
 
     public BooleanConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, boolean initialValue, boolean defaultValue, Consumer<Boolean> onValueChange, Supplier<Boolean> activeCondition) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
+        this.key = configId;
         this.setActiveCondition(activeCondition);
         this.setSeparateFirstColumn(true); // 第一列与后续列之间增加1像素间隔
         this.setHoverInfo(configName, "   " + description); // 设置悬停显示信息，简介前加两个空格
@@ -53,6 +55,10 @@ public class BooleanConfigEntry extends GDRowRenderer {
                 this.onValueChange.accept(this.value);
             }
         });
+    }
+
+    public String getKey() {
+        return key;
     }
 
     @Override

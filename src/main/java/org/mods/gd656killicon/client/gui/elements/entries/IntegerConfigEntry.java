@@ -19,6 +19,7 @@ public class IntegerConfigEntry extends GDRowRenderer {
     private final Consumer<Integer> onValueChange;
     private final TextInputDialog textInputDialog;
     private final String configName;
+    private final String key;
 
     public IntegerConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, int initialValue, int defaultValue, Consumer<Integer> onValueChange, TextInputDialog textInputDialog) {
         this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, onValueChange, textInputDialog, () -> true);
@@ -26,6 +27,7 @@ public class IntegerConfigEntry extends GDRowRenderer {
 
     public IntegerConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, int initialValue, int defaultValue, Consumer<Integer> onValueChange, TextInputDialog textInputDialog, Supplier<Boolean> activeCondition) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
+        this.key = configId;
         this.setActiveCondition(activeCondition);
         this.setSeparateFirstColumn(true);
         this.setHoverInfo(configName, "   " + description);
@@ -61,6 +63,10 @@ public class IntegerConfigEntry extends GDRowRenderer {
                 this.onValueChange.accept(this.value);
             }
         });
+    }
+
+    public String getKey() {
+        return key;
     }
 
     @Override

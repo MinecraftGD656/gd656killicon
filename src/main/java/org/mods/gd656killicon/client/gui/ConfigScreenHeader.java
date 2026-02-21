@@ -257,7 +257,13 @@ public class ConfigScreenHeader {
         // If sidebar is floating, Area 2 extends to the left (DEFAULT_PADDING)
         // Otherwise, it starts after Area 1
         int area2X1 = isSidebarFloating ? DEFAULT_PADDING : (area1Right + DEFAULT_PADDING);
-        drawBorderRect(guiGraphics, area2X1, goldBarBottom + DEFAULT_PADDING, screenWidth - DEFAULT_PADDING, screenHeight - DEFAULT_PADDING, translucentGray);
+        int area2Top = goldBarBottom + DEFAULT_PADDING;
+        if (activeTab instanceof ElementConfigContent elementContent && elementContent.isKillIconElement()) {
+            area2Top += elementContent.getSecondaryTabHeight();
+            drawBorderRectNoTop(guiGraphics, area2X1, area2Top, screenWidth - DEFAULT_PADDING, screenHeight - DEFAULT_PADDING, translucentGray);
+        } else {
+            drawBorderRect(guiGraphics, area2X1, area2Top, screenWidth - DEFAULT_PADDING, screenHeight - DEFAULT_PADDING, translucentGray);
+        }
         
         // Area 3 (Sub Control) - 位于 Area 1 下方，Area 4 上方
         drawBorderRect(guiGraphics, sideX1, area1Bottom + DEFAULT_PADDING, sideX2, area4Top - DEFAULT_PADDING, translucentGray);
@@ -272,7 +278,14 @@ public class ConfigScreenHeader {
         guiGraphics.fill(x1, y1, x1 + 1, y2, color); // Left
         guiGraphics.fill(x2 - 1, y1, x2, y2, color); // Right
     }
-    
+
+    private void drawBorderRectNoTop(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int color) {
+        guiGraphics.fill(x1, y2 - 1, x2, y2, color);
+        guiGraphics.fill(x1, y1, x1 + 1, y2, color);
+        guiGraphics.fill(x2 - 1, y1, x2, y2, color);
+    }
+
+
     private void updateScroll(float dt) {
         if (!isDragging) {
             double diff = targetScrollX - scrollX;

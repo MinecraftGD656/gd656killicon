@@ -22,7 +22,7 @@ public class InfiniteGridWidget {
     private static final int GRID_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x40 << 24); // ~25% opacity
     private static final int CROSS_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x90 << 24);
     private static final int TEXT_COLOR = GuiConstants.COLOR_GRAY;
-    private static final int BORDER_COLOR = GuiConstants.COLOR_GRAY;
+    private static final int BORDER_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x80 << 24); // 50% opacity
     private static final int ICON_SIZE = 64;
 
     public static final class ScrollingIcon {
@@ -88,13 +88,14 @@ public class InfiniteGridWidget {
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, List<ScrollingIcon> icons) {
+        // Draw border
         guiGraphics.fill(x, y, x + width, y + 1, BORDER_COLOR);
         guiGraphics.fill(x, y + height - 1, x + width, y + height, BORDER_COLOR);
         guiGraphics.fill(x, y, x + 1, y + height, BORDER_COLOR);
         guiGraphics.fill(x + width - 1, y, x + width, y + height, BORDER_COLOR);
         
         // Enable Scissor Test
-        guiGraphics.enableScissor(x, y, x + width, y + height);
+        guiGraphics.enableScissor(x + 1, y + 1, x + width - 1, y + height - 1);
         
         // Calculate visible grid range
         // Grid lines are drawn at: viewX + n * gridSize

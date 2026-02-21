@@ -21,6 +21,7 @@ public class HexColorConfigEntry extends GDRowRenderer {
     private String value;
     private final String defaultValue;
     private final Consumer<String> onValueChange;
+    private final String key;
 
     private final TextInputDialog textInputDialog;
     private final ColorPickerDialog colorPickerDialog;
@@ -35,6 +36,7 @@ public class HexColorConfigEntry extends GDRowRenderer {
 
     public HexColorConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, Consumer<String> onValueChange, TextInputDialog textInputDialog, ColorPickerDialog colorPickerDialog, Supplier<Boolean> activeCondition) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
+        this.key = configId;
         this.setActiveCondition(activeCondition);
         this.setSeparateFirstColumn(true);
         this.setHoverInfo(configName, "   " + description);
@@ -87,6 +89,10 @@ public class HexColorConfigEntry extends GDRowRenderer {
                  this.onValueChange.accept(this.value);
              }
         });
+    }
+
+    public String getKey() {
+        return key;
     }
 
     private void openDialog() {

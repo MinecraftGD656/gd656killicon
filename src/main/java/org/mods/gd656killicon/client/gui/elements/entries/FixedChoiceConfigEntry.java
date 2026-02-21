@@ -31,6 +31,7 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
     private int index;
     private final String defaultValue;
     private final Consumer<String> onValueChange;
+    private final String key;
 
     public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange) {
         this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, () -> true);
@@ -38,6 +39,7 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
 
     public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, Supplier<Boolean> activeCondition) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
+        this.key = configId;
         this.setActiveCondition(activeCondition);
         this.setSeparateFirstColumn(true);
         this.setHoverInfo(configName, "   " + description);
@@ -60,6 +62,10 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
                 this.onValueChange.accept(getCurrentValue());
             }
         });
+    }
+
+    public String getKey() {
+        return key;
     }
 
     @Override

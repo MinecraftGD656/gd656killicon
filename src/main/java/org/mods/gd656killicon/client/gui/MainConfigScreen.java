@@ -206,10 +206,16 @@ public class MainConfigScreen extends Screen {
         if (showExitConfirmation) {
             return super.mouseScrolled(mouseX, mouseY, delta);
         }
+        ConfigTabContent activeTab = header.getSelectedTabContent();
+        if (activeTab instanceof org.mods.gd656killicon.client.gui.tabs.ElementConfigContent elementContent
+            && elementContent.isMouseInSecondaryTabArea(mouseX, mouseY)) {
+            if (activeTab.mouseScrolled(mouseX, mouseY, delta)) {
+                return true;
+            }
+        }
         if (header.mouseScrolled(mouseX, mouseY, delta)) {
             return true;
         }
-        ConfigTabContent activeTab = header.getSelectedTabContent();
         if (activeTab != null && activeTab.mouseScrolled(mouseX, mouseY, delta)) {
             return true;
         }

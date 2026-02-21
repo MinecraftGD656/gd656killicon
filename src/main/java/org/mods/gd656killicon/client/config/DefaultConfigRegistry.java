@@ -139,18 +139,6 @@ public class DefaultConfigRegistry {
         // --- 1. Global Defaults (Base/First Default) ---
         // Derived from 00001 (or the primary preset for that element)
 
-        // Helper to add icon animation defaults
-        java.util.function.Consumer<JsonObject> addAnimDefaults = (config) -> {
-            config.addProperty("enable_icon_animation", false);
-            config.addProperty("icon_animation_frames", 1);
-            config.addProperty("icon_frame_height_ratio", 1.0f);
-            config.addProperty("icon_frame_width_ratio", 1.0f);
-            config.addProperty("icon_animation_orientation", "vertical");
-            config.addProperty("icon_frame_duration", 100);
-            config.addProperty("icon_animation_loop", true);
-            config.addProperty("icon_animation_style", "sequential");
-        };
-
         // subtitle/kill_feed (Base: 00001)
         JsonObject killFeed = new JsonObject();
         killFeed.addProperty("visible", true);
@@ -289,7 +277,7 @@ public class DefaultConfigRegistry {
         scrolling.addProperty("max_visible_icons", 7);
         scrolling.addProperty("display_interval_ms", 100);
         scrolling.addProperty("max_pending_icons", 30);
-        addAnimDefaults.accept(scrolling);
+        injectTextureAnimationConfigs("kill_icon/scrolling", scrolling);
         registerGlobal("kill_icon/scrolling", scrolling);
 
         // kill_icon/combo (Base: 00002)
@@ -299,7 +287,7 @@ public class DefaultConfigRegistry {
         combo.addProperty("x_offset", 0);
         combo.addProperty("y_offset", 120);
         combo.addProperty("enable_icon_effect", true);
-        addAnimDefaults.accept(combo);
+        injectTextureAnimationConfigs("kill_icon/combo", combo);
         registerGlobal("kill_icon/combo", combo);
 
         // kill_icon/card_bar (Base: 00003)
@@ -316,7 +304,7 @@ public class DefaultConfigRegistry {
         cardBar.addProperty("color_light_t", "#d9ac5b");
         cardBar.addProperty("dynamic_card_style", false);
         cardBar.addProperty("animation_duration", 0.2f);
-        addAnimDefaults.accept(cardBar);
+        injectTextureAnimationConfigs("kill_icon/card_bar", cardBar);
         registerGlobal("kill_icon/card_bar", cardBar);
 
         // kill_icon/card (Base: 00003)
@@ -332,7 +320,7 @@ public class DefaultConfigRegistry {
         card.addProperty("color_text_t", "#d9ac5b");
         card.addProperty("text_scale", 10.0f);
         card.addProperty("max_stack_count", 6);
-        addAnimDefaults.accept(card);
+        injectTextureAnimationConfigs("kill_icon/card", card);
         registerGlobal("kill_icon/card", card);
 
         // kill_icon/battlefield1 (Base: 00004)
@@ -351,7 +339,7 @@ public class DefaultConfigRegistry {
         bf1.addProperty("color_victim", "#FF0000");
         bf1.addProperty("animation_duration", 0.2f);
         bf1.addProperty("display_duration", 4.5f);
-        addAnimDefaults.accept(bf1);
+        injectTextureAnimationConfigs("kill_icon/battlefield1", bf1);
         registerGlobal("kill_icon/battlefield1", bf1);
 
         // --- 2. Preset Overrides (Second/Third Defaults) ---
@@ -407,5 +395,22 @@ public class DefaultConfigRegistry {
 
     private static void registerOverride(String presetId, String elementId, JsonObject config) {
         PRESET_OVERRIDES.computeIfAbsent(presetId, k -> new HashMap<>()).put(elementId, config);
+    }
+
+    private static void injectTextureAnimationConfigs(String elementId, JsonObject config) {
+        if (!ElementTextureDefinition.hasTextures(elementId)) return;
+        
+        for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+            String prefix = "anim_" + texture + "_";
+            
+            config.addProperty(prefix + "enable_texture_animation", false);
+            config.addProperty(prefix + "texture_animation_total_frames", 1);
+            config.addProperty(prefix + "texture_animation_interval_ms", 100);
+            config.addProperty(prefix + "texture_animation_orientation", "horizontal");
+            config.addProperty(prefix + "texture_animation_loop", false);
+            config.addProperty(prefix + "texture_animation_play_style", "sequential");
+            config.addProperty(prefix + "texture_frame_width_ratio", 1);
+            config.addProperty(prefix + "texture_frame_height_ratio", 1);
+        }
     }
 }
