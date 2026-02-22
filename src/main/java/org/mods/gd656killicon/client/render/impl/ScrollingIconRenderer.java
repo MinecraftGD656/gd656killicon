@@ -68,6 +68,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private long lastIconDisplayTime = 0L;
     private boolean hasCustomCenter = false;
     private float lastCustomCenterX = 0f;
+    private JsonObject currentConfig;
 
     // ================================================================================================================
     // Constructor
@@ -154,13 +155,18 @@ public class ScrollingIconRenderer implements IHudRenderer {
             }
 
             String texturePath = getTexturePath(icon.killType);
+            String textureKey = getTextureKey(icon.killType);
+            float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+            float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+            float drawWidth = BASE_ICON_SIZE * frameWidthRatio;
+            float drawHeight = BASE_ICON_SIZE * frameHeightRatio;
 
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(icon.currentX, centerY, 0);
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
-            guiGraphics.pose().translate(-BASE_ICON_SIZE / 2f, -BASE_ICON_SIZE / 2f, 0);
-            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, BASE_ICON_SIZE, BASE_ICON_SIZE, BASE_ICON_SIZE, BASE_ICON_SIZE);
+            guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
+            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight);
             guiGraphics.pose().popPose();
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -210,13 +216,18 @@ public class ScrollingIconRenderer implements IHudRenderer {
             }
 
             String texturePath = getTexturePath(icon.killType);
+            String textureKey = getTextureKey(icon.killType);
+            float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+            float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+            float drawWidth = BASE_ICON_SIZE * frameWidthRatio;
+            float drawHeight = BASE_ICON_SIZE * frameHeightRatio;
 
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(icon.currentX, originY, 0);
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
-            guiGraphics.pose().translate(-BASE_ICON_SIZE / 2f, -BASE_ICON_SIZE / 2f, 0);
-            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, BASE_ICON_SIZE, BASE_ICON_SIZE, BASE_ICON_SIZE, BASE_ICON_SIZE);
+            guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
+            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight);
             guiGraphics.pose().popPose();
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -238,6 +249,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
 
     private void loadConfig(JsonObject config) {
         try {
+            this.currentConfig = config;
             this.configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
             this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
@@ -269,6 +281,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
 
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.scrolling.config_error");
+            this.currentConfig = null;
             this.configScale = 1.0f;
             this.configXOffset = 0;
             this.configYOffset = 0;
@@ -282,6 +295,18 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.displayIntervalMs = DEFAULT_DISPLAY_INTERVAL_MS;
             this.maxPendingIcons = DEFAULT_MAX_PENDING_ICONS;
         }
+    }
+
+    private float resolveFrameRatio(String textureKey, String suffixKey) {
+        if (currentConfig == null || textureKey == null) {
+            return 1.0f;
+        }
+        String key = "anim_" + textureKey + "_" + suffixKey;
+        if (!currentConfig.has(key)) {
+            return 1.0f;
+        }
+        int value = currentConfig.get(key).getAsInt();
+        return value > 0 ? value : 1.0f;
     }
 
     private void processPendingIcons(long currentTime, float centerX) {
@@ -424,6 +449,18 @@ public class ScrollingIconRenderer implements IHudRenderer {
             case KillType.DESTROY_VEHICLE -> "killicon_scrolling_destroyvehicle.png";
             case KillType.NORMAL -> "killicon_scrolling_default.png";
             default -> "killicon_scrolling_default.png";
+        };
+    }
+
+    private String getTextureKey(int killType) {
+        return switch (killType) {
+            case KillType.HEADSHOT -> "headshot";
+            case KillType.EXPLOSION -> "explosion";
+            case KillType.CRIT -> "crit";
+            case KillType.ASSIST -> "assist";
+            case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
+            case KillType.NORMAL -> "default";
+            default -> "default";
         };
     }
 

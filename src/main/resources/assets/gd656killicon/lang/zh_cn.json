@@ -455,6 +455,7 @@
   "gd656killicon.client.gui.config.generic.texture_animation_play_style": "播放样式",
   "gd656killicon.client.gui.config.generic.texture_frame_width_ratio": "单帧宽比",
   "gd656killicon.client.gui.config.generic.texture_frame_height_ratio": "单帧高比",
+  "gd656killicon.client.gui.prompt.texture_replace_success": "材质替换成功",
 
   "gd656killicon.config.choice.horizontal": "横排",
   "gd656killicon.config.choice.vertical": "竖排",

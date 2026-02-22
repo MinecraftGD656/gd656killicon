@@ -8,10 +8,12 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
+import org.mods.gd656killicon.client.gui.elements.ConfirmDialog;
 import org.mods.gd656killicon.client.gui.elements.GDButton;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
 import org.mods.gd656killicon.client.gui.elements.InfiniteGridWidget;
+import org.mods.gd656killicon.client.gui.elements.PromptDialog;
 import org.mods.gd656killicon.client.gui.elements.entries.BooleanConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.FixedChoiceConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.FloatConfigEntry;
@@ -20,6 +22,7 @@ import org.mods.gd656killicon.client.gui.elements.entries.IntegerConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.StringConfigEntry;
 import org.mods.gd656killicon.client.gui.screens.ElementConfigBuilder;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.impl.Battlefield1Renderer;
 import org.mods.gd656killicon.client.render.impl.CardBarRenderer;
@@ -41,6 +44,7 @@ import net.minecraft.world.item.Items;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.nio.file.Path;
 
 public class ElementConfigContent extends ConfigTabContent {
     private final String presetId;
@@ -122,6 +126,7 @@ public class ElementConfigContent extends ConfigTabContent {
     private static final RandomSource PREVIEW_RANDOM = RandomSource.create();
     
     private GDButton saveButton;
+    private ConfirmDialog textureResetDialog;
     
     // Use local field to avoid any interference from parent class logic
     private boolean isConfirmingReset = false;
@@ -133,6 +138,7 @@ public class ElementConfigContent extends ConfigTabContent {
         this.elementId = elementId;
         this.builder = builder;
         this.onClose = onClose;
+        this.textureResetDialog = new ConfirmDialog(minecraft, null, null);
         
         // Store initial config state for cancellation
         JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
@@ -291,13 +297,18 @@ public class ElementConfigContent extends ConfigTabContent {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+        boolean resetDialogVisible = textureResetDialog != null && textureResetDialog.isVisible();
+        boolean promptVisible = promptDialog.isVisible();
+        boolean dialogVisible = resetDialogVisible || promptVisible || textInputDialog.isVisible() || colorPickerDialog.isVisible();
+        int effectiveMouseX = dialogVisible ? -1 : mouseX;
+        int effectiveMouseY = dialogVisible ? -1 : mouseY;
         // Render Grid Widget first (behind info/dialogs if any overlap, though unlikely)
         if (gridWidget == null) {
             updateLayout(screenWidth, screenHeight);
         }
         if (gridWidget != null) {
             guiGraphics.pose().pushPose();
-            gridWidget.render(guiGraphics, mouseX, mouseY, partialTick, Collections.emptyList());
+            gridWidget.render(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick, Collections.emptyList());
             guiGraphics.pose().popPose();
             renderScrollingPreview(guiGraphics, partialTick);
             renderComboPreview(guiGraphics, partialTick);
@@ -315,8 +326,12 @@ public class ElementConfigContent extends ConfigTabContent {
             elementInfoRenderer.render(guiGraphics, partialTick);
         }
 
-        super.render(guiGraphics, mouseX, mouseY, partialTick, screenWidth, screenHeight, headerHeight);
-        renderSecondaryTabs(guiGraphics, mouseX, mouseY, partialTick);
+        if (resetDialogVisible) {
+            super.render(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick, screenWidth, screenHeight, headerHeight);
+        } else {
+            super.render(guiGraphics, mouseX, mouseY, partialTick, screenWidth, screenHeight, headerHeight);
+        }
+        renderSecondaryTabs(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick);
         
         // Handle reset button timer logic locally (Silent timeout)
         if (isConfirmingReset) {
@@ -328,6 +343,9 @@ public class ElementConfigContent extends ConfigTabContent {
                     resetButton.setTextColor(GuiConstants.COLOR_WHITE);
                 }
             }
+        }
+        if (resetDialogVisible) {
+            textureResetDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         }
     }
 
@@ -787,6 +805,9 @@ public class ElementConfigContent extends ConfigTabContent {
     
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (textureResetDialog != null && textureResetDialog.isVisible()) {
+            return textureResetDialog.keyPressed(keyCode, scanCode, modifiers);
+        }
         // Let super (TextInputDialog) handle it first
         if (super.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
@@ -832,6 +853,7 @@ public class ElementConfigContent extends ConfigTabContent {
                     if (!safeDefaults.entrySet().isEmpty()) {
                         ElementConfigManager.setElementConfig(presetId, elementId, safeDefaults);
                         // No need to rebuild UI locally since we are exiting
+                        ExternalTextureManager.resetTexturesForElement(presetId, elementId);
                     }
                     
                     isConfirmingReset = false;
@@ -857,9 +879,7 @@ public class ElementConfigContent extends ConfigTabContent {
         // 2. Cancel Button (Top Right)
         if (cancelButton == null) {
             cancelButton = new GDButton(x1 + row1ButtonWidth + 1, row1Y, row1ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.button.cancel"), (btn) -> {
-                // Revert changes
-                ElementConfigManager.setElementConfig(presetId, elementId, initialConfig);
-                if (onClose != null) onClose.run();
+                discardElementChangesAndClose();
             });
         }
         
@@ -887,8 +907,17 @@ public class ElementConfigContent extends ConfigTabContent {
     
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (textureResetDialog != null && textureResetDialog.isVisible()) {
+            return textureResetDialog.mouseClicked(mouseX, mouseY, button);
+        }
+        if (promptDialog.isVisible()) {
+            return promptDialog.mouseClicked(mouseX, mouseY, button);
+        }
         if (getTextInputDialog().isVisible()) {
             return getTextInputDialog().mouseClicked(mouseX, mouseY, button);
+        }
+        if (getColorPickerDialog().isVisible()) {
+            return getColorPickerDialog().mouseClicked(mouseX, mouseY, button);
         }
 
         if (button == 1 && "subtitle/score".equals(elementId) && gridWidget != null && gridWidget.isMouseOver(mouseX, mouseY)) {
@@ -933,10 +962,58 @@ public class ElementConfigContent extends ConfigTabContent {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (textureResetDialog != null && textureResetDialog.isVisible()) {
+            return textureResetDialog.mouseScrolled(mouseX, mouseY, delta);
+        }
+        if (promptDialog.isVisible()) {
+            return promptDialog.mouseScrolled(mouseX, mouseY, delta);
+        }
         if (handleSecondaryTabScroll(mouseX, mouseY, delta)) {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (textureResetDialog != null && textureResetDialog.isVisible()) {
+            return textureResetDialog.charTyped(codePoint, modifiers);
+        }
+        if (promptDialog.isVisible()) {
+            return promptDialog.charTyped(codePoint, modifiers);
+        }
+        return super.charTyped(codePoint, modifiers);
+    }
+
+    @Override
+    public void onFilesDrop(List<Path> paths) {
+        if (paths == null || paths.isEmpty()) {
+            return;
+        }
+        if (!isKillIconElement() || !ElementTextureDefinition.hasTextures(elementId)) {
+            return;
+        }
+        if (selectedSecondaryTab == null || "general".equals(selectedSecondaryTab.elementId)) {
+            return;
+        }
+        Path pngPath = null;
+        for (Path path : paths) {
+            if (path != null && path.toString().toLowerCase().endsWith(".png")) {
+                pngPath = path;
+                break;
+            }
+        }
+        if (pngPath == null) {
+            return;
+        }
+        String targetFileName = ElementTextureDefinition.getTextureFileName(elementId, selectedSecondaryTab.elementId);
+        if (targetFileName == null) {
+            return;
+        }
+        boolean replaced = ExternalTextureManager.replaceTextureWithBackup(presetId, targetFileName, pngPath);
+        if (replaced) {
+            promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_success"), PromptDialog.PromptType.SUCCESS, null);
+        }
     }
 
     public boolean isKillIconElement() {
@@ -1049,8 +1126,17 @@ public class ElementConfigContent extends ConfigTabContent {
         for (SecondaryTab tab : secondaryTabs) {
             boolean isSelected = tab == selectedSecondaryTab;
             boolean hovered = inArea && localMouseX >= tab.x && localMouseX <= tab.x + tab.width;
-
+            boolean isModified = false;
+            if (!"general".equals(tab.elementId)) {
+                String fileName = ElementTextureDefinition.getTextureFileName(elementId, tab.elementId);
+                if (fileName != null) {
+                    isModified = ExternalTextureManager.isTextureModified(presetId, fileName);
+                }
+            }
             int baseColor = isSelected ? GuiConstants.COLOR_WHITE : (hovered ? GuiConstants.COLOR_DARK_GRAY : GuiConstants.COLOR_GRAY);
+            if (isModified) {
+                baseColor = isSelected ? GuiConstants.COLOR_GOLD : (hovered ? GuiConstants.COLOR_DARK_GOLD_ORANGE : GuiConstants.COLOR_GOLD_ORANGE);
+            }
             int textX = tab.x + (tab.width - minecraft.font.width(tab.label)) / 2;
             int textY = secondaryAreaTop + (getSecondaryTabHeight() - 9) / 2;
             guiGraphics.drawString(minecraft.font, tab.label, textX, textY, baseColor, true);
@@ -1088,16 +1174,32 @@ public class ElementConfigContent extends ConfigTabContent {
     }
 
     private boolean handleSecondaryTabClick(double mouseX, double mouseY, int button) {
-        if (!isKillIconElement() || button != 0) return false;
+        if (!isKillIconElement()) return false;
+        if (button != 0 && button != 1) return false;
         updateSecondaryTabLayout(minecraft.getWindow().getGuiScaledWidth());
         if (mouseX < secondaryAreaX1 || mouseX > secondaryAreaX2 || mouseY < secondaryAreaTop || mouseY > secondaryAreaBottom) return false;
 
         int localMouseX = (int)(mouseX - secondaryAreaX1 + secondaryScrollX);
         for (SecondaryTab tab : secondaryTabs) {
             if (localMouseX >= tab.x && localMouseX <= tab.x + tab.width) {
+                if (button == 1) {
+                    if ("general".equals(tab.elementId)) {
+                        return false;
+                    }
+                    String fileName = ElementTextureDefinition.getTextureFileName(elementId, tab.elementId);
+                    if (fileName == null || !ExternalTextureManager.isTextureModified(presetId, fileName)) {
+                        return false;
+                    }
+                    if (textureResetDialog != null) {
+                        textureResetDialog.show("是否重置此材质", ConfirmDialog.PromptType.WARNING, () -> {
+                            ExternalTextureManager.resetTextureWithBackup(presetId, fileName);
+                        });
+                    }
+                    return true;
+                }
                 if (selectedSecondaryTab != tab) {
                     selectedSecondaryTab = tab;
-                    refreshVisibleRows(); // Refresh content
+                    refreshVisibleRows();
                     resetPreviews();
                 }
                 secondaryPressed = true;
@@ -1106,10 +1208,19 @@ public class ElementConfigContent extends ConfigTabContent {
                 return true;
             }
         }
-        secondaryPressed = true;
-        secondaryDragging = false;
-        secondaryLastMouseX = mouseX;
-        return true;
+        if (button == 0) {
+            secondaryPressed = true;
+            secondaryDragging = false;
+            secondaryLastMouseX = mouseX;
+            return true;
+        }
+        return false;
+    }
+
+    private void discardElementChangesAndClose() {
+        ElementConfigManager.setElementConfig(presetId, elementId, initialConfig);
+        ExternalTextureManager.revertPendingTextureReplacementsForElement(presetId, elementId);
+        if (onClose != null) onClose.run();
     }
 
     private boolean handleSecondaryTabRelease() {

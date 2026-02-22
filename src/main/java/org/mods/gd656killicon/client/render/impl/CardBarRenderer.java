@@ -33,6 +33,7 @@ public class CardBarRenderer implements IHudRenderer {
     private long flashStartTime = -1;
     private final WaveEffectSystem waveSystem = new WaveEffectSystem();
     private final IconRingEffect ringEffect = new IconRingEffect();
+    private JsonObject currentConfig;
     {
         ringEffect.setScale(1.0f);
     }
@@ -44,6 +45,7 @@ public class CardBarRenderer implements IHudRenderer {
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
             return;
         }
+        this.currentConfig = config;
 
         // Load config
         float scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
@@ -86,10 +88,11 @@ public class CardBarRenderer implements IHudRenderer {
         ResourceLocation texture = ExternalTextureManager.getTexture(textureName);
         if (texture == null) return;
 
-        // Calculate logical dimensions based on texture aspect ratio
-        float aspectRatio = getTextureAspectRatio(texture);
-        int drawHeight = BASE_LOGICAL_HEIGHT;
-        int drawWidth = (int) (drawHeight * aspectRatio);
+        String textureKey = isT ? "bar_t" : "bar_ct";
+        float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+        float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+        int drawHeight = Math.round(BASE_LOGICAL_HEIGHT * frameHeightRatio);
+        int drawWidth = Math.round(BASE_LOGICAL_HEIGHT * frameWidthRatio);
 
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
@@ -106,6 +109,7 @@ public class CardBarRenderer implements IHudRenderer {
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
             return;
         }
+        this.currentConfig = config;
 
         float scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
         String team = config.has("team") ? config.get("team").getAsString() : "ct";
@@ -142,9 +146,11 @@ public class CardBarRenderer implements IHudRenderer {
         ResourceLocation texture = ExternalTextureManager.getTexture(textureName);
         if (texture == null) return;
 
-        float aspectRatio = getTextureAspectRatio(texture);
-        int drawHeight = BASE_LOGICAL_HEIGHT;
-        int drawWidth = (int) (drawHeight * aspectRatio);
+        String textureKey = isT ? "bar_t" : "bar_ct";
+        float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+        float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+        int drawHeight = Math.round(BASE_LOGICAL_HEIGHT * frameHeightRatio);
+        int drawWidth = Math.round(BASE_LOGICAL_HEIGHT * frameWidthRatio);
 
         renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration);
     }
@@ -153,6 +159,7 @@ public class CardBarRenderer implements IHudRenderer {
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
             return;
         }
+        this.currentConfig = config;
 
         float scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
         String team = config.has("team") ? config.get("team").getAsString() : "ct";
@@ -188,9 +195,11 @@ public class CardBarRenderer implements IHudRenderer {
         ResourceLocation texture = ExternalTextureManager.getTexture(textureName);
         if (texture == null) return;
 
-        float aspectRatio = getTextureAspectRatio(texture);
-        int drawHeight = BASE_LOGICAL_HEIGHT;
-        int drawWidth = (int) (drawHeight * aspectRatio);
+        String textureKey = isT ? "bar_t" : "bar_ct";
+        float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+        float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+        int drawHeight = Math.round(BASE_LOGICAL_HEIGHT * frameHeightRatio);
+        int drawWidth = Math.round(BASE_LOGICAL_HEIGHT * frameWidthRatio);
 
         renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration);
     }
@@ -357,6 +366,18 @@ public class CardBarRenderer implements IHudRenderer {
         } catch (NumberFormatException e) {
             return 0xFFFFFF;
         }
+    }
+
+    private float resolveFrameRatio(String textureKey, String suffixKey) {
+        if (currentConfig == null || textureKey == null) {
+            return 1.0f;
+        }
+        String key = "anim_" + textureKey + "_" + suffixKey;
+        if (!currentConfig.has(key)) {
+            return 1.0f;
+        }
+        int value = currentConfig.get(key).getAsInt();
+        return value > 0 ? value : 1.0f;
     }
 
     @Override

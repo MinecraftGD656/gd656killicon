@@ -32,6 +32,7 @@ public class CardRenderer implements IHudRenderer {
     private String team = "ct";
     private boolean dynamicCardStyle = false;
     private int maxStackCount = 5;
+    private JsonObject currentConfig;
 
     // Constants
     private static final int CARD_SIZE = 256;
@@ -279,6 +280,8 @@ public class CardRenderer implements IHudRenderer {
         String suffix = isT ? "_t.png" : "_ct.png";
         String cardTextureName = getCardTextureName(card.killType) + suffix;
         String lightTextureName = "killicon_card_light" + suffix;
+        String cardTextureKey = getCardTextureKey(card.killType, isT);
+        String lightTextureKey = isT ? "light_t" : "light_ct";
         
         ResourceLocation cardTexture = ExternalTextureManager.getTexture(cardTextureName);
         ResourceLocation lightTexture = ExternalTextureManager.getTexture(lightTextureName);
@@ -291,8 +294,10 @@ public class CardRenderer implements IHudRenderer {
 
         // Light
         if (lightTexture != null && lightAlpha > 0.01f) {
-            float lightW = CARD_SIZE * configScale;
-            float lightH = lightW * 5.0f; 
+            float lightWidthRatio = resolveFrameRatio(lightTextureKey, "texture_frame_width_ratio");
+            float lightHeightRatio = resolveFrameRatio(lightTextureKey, "texture_frame_height_ratio");
+            float lightW = CARD_SIZE * configScale * lightWidthRatio;
+            float lightH = CARD_SIZE * configScale * lightHeightRatio; 
             
             poseStack.pushPose();
             // Align light with card:
@@ -329,8 +334,11 @@ public class CardRenderer implements IHudRenderer {
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
         
-        int size = CARD_SIZE;
-        guiGraphics.blit(cardTexture, -size/2, -size/2, size, size, 0, 0, size, size, size, size);
+        float cardWidthRatio = resolveFrameRatio(cardTextureKey, "texture_frame_width_ratio");
+        float cardHeightRatio = resolveFrameRatio(cardTextureKey, "texture_frame_height_ratio");
+        int drawWidth = Math.round(CARD_SIZE * cardWidthRatio);
+        int drawHeight = Math.round(CARD_SIZE * cardHeightRatio);
+        guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
         
         // Flash
         float flashAlpha = 0.0f;
@@ -348,10 +356,10 @@ public class CardRenderer implements IHudRenderer {
         if (flashAlpha > 0.01f) {
             RenderSystem.blendFunc(com.mojang.blaze3d.platform.GlStateManager.SourceFactor.SRC_ALPHA, com.mojang.blaze3d.platform.GlStateManager.DestFactor.ONE);
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, flashAlpha * alpha);
-            guiGraphics.blit(cardTexture, -size/2, -size/2, size, size, 0, 0, size, size, size, size);
+            guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
              if (flashAlpha > 0.5f) {
                  RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, (flashAlpha - 0.5f) * 2.0f * alpha);
-                 guiGraphics.blit(cardTexture, -size/2, -size/2, size, size, 0, 0, size, size, size, size);
+                 guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
             }
             RenderSystem.defaultBlendFunc();
         }
@@ -400,6 +408,7 @@ public class CardRenderer implements IHudRenderer {
     }
 
     private void loadConfig(JsonObject config) {
+        this.currentConfig = config;
         this.configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
         this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
         this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
@@ -427,6 +436,28 @@ public class CardRenderer implements IHudRenderer {
             case KillType.CRIT -> "killicon_card_crit";
             default -> "killicon_card_default";
         };
+    }
+
+    private String getCardTextureKey(int killType, boolean isT) {
+        String base = switch (killType) {
+            case KillType.HEADSHOT -> "headshot";
+            case KillType.EXPLOSION -> "explosion";
+            case KillType.CRIT -> "crit";
+            default -> "default";
+        };
+        return isT ? base + "_t" : base + "_ct";
+    }
+
+    private float resolveFrameRatio(String textureKey, String suffixKey) {
+        if (currentConfig == null || textureKey == null) {
+            return 1.0f;
+        }
+        String key = "anim_" + textureKey + "_" + suffixKey;
+        if (!currentConfig.has(key)) {
+            return 1.0f;
+        }
+        int value = currentConfig.get(key).getAsInt();
+        return value > 0 ? value : 1.0f;
     }
 
     private int parseColor(String hex) {

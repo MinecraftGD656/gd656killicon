@@ -48,6 +48,7 @@ public class ComboIconRenderer implements IHudRenderer {
     private int configYOffset = 0;
     private long displayDuration = DEFAULT_DISPLAY_DURATION;
     private boolean enableIconEffect = IconRingEffect.DEFAULT_ENABLE_ICON_EFFECT;
+    private JsonObject currentConfig;
 
     // State Fields
     private long startTime = -1;
@@ -161,14 +162,19 @@ public class ComboIconRenderer implements IHudRenderer {
 
         int displayCombo = Mth.clamp(this.comboCount, 1, 6);
         String texturePath = "killicon_combo_" + displayCombo + ".png";
+        String textureKey = "combo_" + displayCombo;
+        float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+        float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+        float drawWidth = 64.0f * frameWidthRatio;
+        float drawHeight = 64.0f * frameHeightRatio;
 
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
         try {
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(centerX, centerY, 0);
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
-            guiGraphics.pose().translate(-32.0f, -32.0f, 0);
-            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, 64, 64, 64, 64);
+            guiGraphics.pose().translate(-drawWidth / 2.0f, -drawHeight / 2.0f, 0);
+            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight);
             guiGraphics.pose().popPose();
             ringEffect.render(guiGraphics, centerX, centerY, currentTime);
         } finally {
@@ -187,6 +193,7 @@ public class ComboIconRenderer implements IHudRenderer {
      */
     private void loadConfig(JsonObject config) {
         try {
+            this.currentConfig = config;
             this.configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
             this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
@@ -194,12 +201,25 @@ public class ComboIconRenderer implements IHudRenderer {
             this.enableIconEffect = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.combo.config_error");
+            this.currentConfig = null;
             this.configScale = 1.0f;
             this.configXOffset = 0;
             this.configYOffset = 0;
             this.displayDuration = resolveDisplayDuration(null);
             this.enableIconEffect = IconRingEffect.DEFAULT_ENABLE_ICON_EFFECT;
         }
+    }
+
+    private float resolveFrameRatio(String textureKey, String suffixKey) {
+        if (currentConfig == null || textureKey == null) {
+            return 1.0f;
+        }
+        String key = "anim_" + textureKey + "_" + suffixKey;
+        if (!currentConfig.has(key)) {
+            return 1.0f;
+        }
+        int value = currentConfig.get(key).getAsInt();
+        return value > 0 ? value : 1.0f;
     }
 
     /**

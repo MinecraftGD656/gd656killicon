@@ -321,6 +321,10 @@ public class DefaultConfigRegistry {
         card.addProperty("text_scale", 10.0f);
         card.addProperty("max_stack_count", 6);
         injectTextureAnimationConfigs("kill_icon/card", card);
+        card.addProperty("anim_light_ct_texture_frame_width_ratio", 1);
+        card.addProperty("anim_light_ct_texture_frame_height_ratio", 5);
+        card.addProperty("anim_light_t_texture_frame_width_ratio", 1);
+        card.addProperty("anim_light_t_texture_frame_height_ratio", 5);
         registerGlobal("kill_icon/card", card);
 
         // kill_icon/battlefield1 (Base: 00004)

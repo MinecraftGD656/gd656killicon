@@ -52,6 +52,7 @@ public class Battlefield1Renderer implements IHudRenderer {
     private int colorVictim = 0xFF0000;
     private long animationDuration = 200L;
     private long displayDuration = 300L;
+    private JsonObject currentConfig;
 
     // ================================================================================================================
     // State Fields
@@ -432,10 +433,17 @@ public class Battlefield1Renderer implements IHudRenderer {
 
     private void renderIcon(GuiGraphics guiGraphics, float x, float y, float size, float alpha) {
         ResourceLocation texture = ExternalTextureManager.getTexture(this.currentIconPath);
+        String textureKey = getBattlefieldTextureKey();
+        float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+        float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+        float drawWidth = size * frameWidthRatio;
+        float drawHeight = size * frameHeightRatio;
+        float drawX = x + (size - drawWidth) / 2.0f;
+        float drawY = y + (size - drawHeight) / 2.0f;
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
         RenderSystem.enableBlend();
         
-        guiGraphics.blit(texture, (int)x, (int)y, 0, 0, (int)size, (int)size, (int)size, (int)size);
+        guiGraphics.blit(texture, (int)drawX, (int)drawY, 0, 0, (int)drawWidth, (int)drawHeight, (int)drawWidth, (int)drawHeight);
         
         RenderSystem.disableBlend();
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -456,6 +464,7 @@ public class Battlefield1Renderer implements IHudRenderer {
 
     private void loadConfig(JsonObject config) {
         try {
+            this.currentConfig = config;
             this.visible = !config.has("visible") || config.get("visible").getAsBoolean();
             this.iconSize = config.has("icon_size") ? config.get("icon_size").getAsInt() : 40;
             this.borderSize = config.has("border_size") ? config.get("border_size").getAsInt() : 3;
@@ -484,6 +493,28 @@ public class Battlefield1Renderer implements IHudRenderer {
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.config_error", "battlefield1");
         }
+    }
+
+    private String getBattlefieldTextureKey() {
+        return switch (this.killType) {
+            case KillType.HEADSHOT -> "headshot";
+            case KillType.EXPLOSION -> "explosion";
+            case KillType.CRIT -> "crit";
+            case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
+            default -> "default";
+        };
+    }
+
+    private float resolveFrameRatio(String textureKey, String suffixKey) {
+        if (currentConfig == null || textureKey == null) {
+            return 1.0f;
+        }
+        String key = "anim_" + textureKey + "_" + suffixKey;
+        if (!currentConfig.has(key)) {
+            return 1.0f;
+        }
+        int value = currentConfig.get(key).getAsInt();
+        return value > 0 ? value : 1.0f;
     }
 
     private int parseHex(String hex, int def) {

@@ -455,6 +455,7 @@
   "gd656killicon.client.gui.config.generic.texture_animation_play_style": "Play Style",
   "gd656killicon.client.gui.config.generic.texture_frame_width_ratio": "Frame Width Ratio",
   "gd656killicon.client.gui.config.generic.texture_frame_height_ratio": "Frame Height Ratio",
+  "gd656killicon.client.gui.prompt.texture_replace_success": "Texture replaced successfully",
 
   "gd656killicon.config.choice.horizontal": "Horizontal",
   "gd656killicon.config.choice.vertical": "Vertical",

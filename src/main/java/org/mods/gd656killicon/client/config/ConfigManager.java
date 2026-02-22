@@ -2,6 +2,7 @@ package org.mods.gd656killicon.client.config;
 
 import com.google.gson.JsonObject;
 import java.util.Set;
+import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 
 public class ConfigManager {
 
@@ -18,15 +19,19 @@ public class ConfigManager {
     public static void saveChanges() {
         ClientConfigManager.saveChanges();
         ElementConfigManager.saveChanges();
+        ExternalTextureManager.confirmPendingTextureReplacements();
     }
 
     public static void discardChanges() {
         ClientConfigManager.discardChanges();
         ElementConfigManager.discardChanges();
+        ExternalTextureManager.revertPendingTextureReplacements();
     }
 
     public static boolean hasUnsavedChanges() {
-        return ClientConfigManager.hasUnsavedChanges() || ElementConfigManager.hasUnsavedChanges();
+        return ClientConfigManager.hasUnsavedChanges()
+                || ElementConfigManager.hasUnsavedChanges()
+                || ExternalTextureManager.hasPendingTextureChanges();
     }
 
     public static void loadConfig() {

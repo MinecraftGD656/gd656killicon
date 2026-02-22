@@ -7,6 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.fml.loading.FMLPaths;
 import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 import java.io.FileInputStream;
@@ -15,7 +16,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -40,6 +43,7 @@ public class ExternalTextureManager {
         "killicon_scrolling_explosion.png",
         "killicon_scrolling_crit.png",
         "killicon_scrolling_assist.png",
+        "killicon_scrolling_destroyvehicle.png",
         "killicon_combo_1.png",
         "killicon_combo_2.png",
         "killicon_combo_3.png",
@@ -61,8 +65,13 @@ public class ExternalTextureManager {
         "killicon_battlefield1_default.png",
         "killicon_battlefield1_headshot.png",
         "killicon_battlefield1_explosion.png",
-        "killicon_battlefield1_crit.png"
+        "killicon_battlefield1_crit.png",
+        "killicon_battlefield1_destroyvehicle.png"
     };
+    private static final Set<String> DEFAULT_TEXTURE_SET = new HashSet<>(Arrays.asList(DEFAULT_TEXTURES));
+    private static final Map<String, Map<String, TextureBackup>> PENDING_TEXTURE_BACKUPS = new HashMap<>();
+    private static final Map<String, byte[]> DEFAULT_TEXTURE_BYTES = new HashMap<>();
+    private static final Map<String, TextureState> TEXTURE_STATE_CACHE = new HashMap<>();
 
     public static void init() {
         ensureAllPresetsTextureFiles(false);
@@ -240,6 +249,231 @@ public class ExternalTextureManager {
         return java.util.Arrays.asList(DEFAULT_TEXTURES);
     }
 
+    public static boolean replaceTextureWithBackup(String presetId, String textureName, Path sourcePath) {
+        if (presetId == null || textureName == null || sourcePath == null) {
+            return false;
+        }
+        if (!DEFAULT_TEXTURE_SET.contains(textureName)) {
+            return false;
+        }
+        if (!Files.exists(sourcePath)) {
+            return false;
+        }
+        ensureTextureFilesForPreset(presetId, false);
+        Path targetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(textureName);
+        try {
+            if (!Files.exists(targetPath.getParent())) {
+                Files.createDirectories(targetPath.getParent());
+            }
+            Map<String, TextureBackup> presetBackups = PENDING_TEXTURE_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
+            if (!presetBackups.containsKey(textureName)) {
+                if (Files.exists(targetPath)) {
+                    byte[] original = Files.readAllBytes(targetPath);
+                    presetBackups.put(textureName, new TextureBackup(true, original));
+                } else {
+                    presetBackups.put(textureName, new TextureBackup(false, null));
+                }
+            }
+            Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            refreshTextureCache(presetId, textureName);
+            invalidateTextureState(presetId, textureName);
+            return true;
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.texture.replace_fail", presetId, textureName, e.getMessage());
+            return false;
+        }
+    }
+
+    public static boolean resetTextureWithBackup(String presetId, String textureName) {
+        if (presetId == null || textureName == null) {
+            return false;
+        }
+        if (!DEFAULT_TEXTURE_SET.contains(textureName)) {
+            return false;
+        }
+        ensureTextureFilesForPreset(presetId, false);
+        Path targetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(textureName);
+        try {
+            if (!Files.exists(targetPath.getParent())) {
+                Files.createDirectories(targetPath.getParent());
+            }
+            Map<String, TextureBackup> presetBackups = PENDING_TEXTURE_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
+            if (!presetBackups.containsKey(textureName)) {
+                if (Files.exists(targetPath)) {
+                    byte[] original = Files.readAllBytes(targetPath);
+                    presetBackups.put(textureName, new TextureBackup(true, original));
+                } else {
+                    presetBackups.put(textureName, new TextureBackup(false, null));
+                }
+            }
+            ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + textureName);
+            try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
+                Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception e) {
+                try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + textureName)) {
+                    if (stream != null) {
+                        Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    } else {
+                        ClientMessageLogger.error("gd656killicon.client.texture.extract_fail", textureName, e.getMessage());
+                        return false;
+                    }
+                }
+            }
+            refreshTextureCache(presetId, textureName);
+            invalidateTextureState(presetId, textureName);
+            return true;
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.texture.reset_error", presetId, textureName, e.getMessage());
+            return false;
+        }
+    }
+
+    public static boolean resetTexturesForElement(String presetId, String elementId) {
+        if (presetId == null || elementId == null) {
+            return false;
+        }
+        if (!ElementTextureDefinition.hasTextures(elementId)) {
+            return false;
+        }
+        boolean any = false;
+        for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+            String fileName = ElementTextureDefinition.getTextureFileName(elementId, texture);
+            if (fileName != null) {
+                any = resetTextureWithBackup(presetId, fileName) || any;
+            }
+        }
+        return any;
+    }
+
+    public static void confirmPendingTextureReplacements() {
+        PENDING_TEXTURE_BACKUPS.clear();
+    }
+
+    public static void revertPendingTextureReplacements() {
+        if (PENDING_TEXTURE_BACKUPS.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, Map<String, TextureBackup>> presetEntry : PENDING_TEXTURE_BACKUPS.entrySet()) {
+            String presetId = presetEntry.getKey();
+            for (Map.Entry<String, TextureBackup> entry : presetEntry.getValue().entrySet()) {
+                String textureName = entry.getKey();
+                TextureBackup backup = entry.getValue();
+                Path targetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(textureName);
+                try {
+                    if (backup.existed) {
+                        Files.write(targetPath, backup.data);
+                    } else {
+                        Files.deleteIfExists(targetPath);
+                    }
+                    refreshTextureCache(presetId, textureName);
+                    invalidateTextureState(presetId, textureName);
+                } catch (IOException e) {
+                    ClientMessageLogger.error("gd656killicon.client.texture.revert_fail", presetId, textureName, e.getMessage());
+                }
+            }
+        }
+        PENDING_TEXTURE_BACKUPS.clear();
+    }
+
+    public static void revertPendingTextureReplacementsForElement(String presetId, String elementId) {
+        if (presetId == null || elementId == null) {
+            return;
+        }
+        Map<String, TextureBackup> presetBackups = PENDING_TEXTURE_BACKUPS.get(presetId);
+        if (presetBackups == null || presetBackups.isEmpty()) {
+            return;
+        }
+        if (!ElementTextureDefinition.hasTextures(elementId)) {
+            return;
+        }
+        for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+            String fileName = ElementTextureDefinition.getTextureFileName(elementId, texture);
+            if (fileName == null) {
+                continue;
+            }
+            TextureBackup backup = presetBackups.remove(fileName);
+            if (backup == null) {
+                continue;
+            }
+            Path targetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(fileName);
+            try {
+                if (backup.existed) {
+                    Files.write(targetPath, backup.data);
+                } else {
+                    Files.deleteIfExists(targetPath);
+                }
+                refreshTextureCache(presetId, fileName);
+                invalidateTextureState(presetId, fileName);
+            } catch (IOException e) {
+                ClientMessageLogger.error("gd656killicon.client.texture.revert_fail", presetId, fileName, e.getMessage());
+            }
+        }
+        if (presetBackups.isEmpty()) {
+            PENDING_TEXTURE_BACKUPS.remove(presetId);
+        }
+    }
+
+    public static boolean hasPendingTextureChanges() {
+        for (Map<String, TextureBackup> presetBackups : PENDING_TEXTURE_BACKUPS.values()) {
+            if (presetBackups != null && !presetBackups.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean hasPendingTextureChangesForElement(String presetId, String elementId) {
+        if (presetId == null || elementId == null) {
+            return false;
+        }
+        Map<String, TextureBackup> presetBackups = PENDING_TEXTURE_BACKUPS.get(presetId);
+        if (presetBackups == null || presetBackups.isEmpty()) {
+            return false;
+        }
+        if (!ElementTextureDefinition.hasTextures(elementId)) {
+            return false;
+        }
+        for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+            String fileName = ElementTextureDefinition.getTextureFileName(elementId, texture);
+            if (fileName != null && presetBackups.containsKey(fileName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean isTextureModified(String presetId, String textureName) {
+        if (presetId == null || textureName == null) {
+            return false;
+        }
+        if (!DEFAULT_TEXTURE_SET.contains(textureName)) {
+            return false;
+        }
+        Path targetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(textureName);
+        if (!Files.exists(targetPath)) {
+            return false;
+        }
+        byte[] defaultBytes = getDefaultTextureBytes(textureName);
+        if (defaultBytes == null) {
+            return false;
+        }
+        try {
+            long lastModified = Files.getLastModifiedTime(targetPath).toMillis();
+            long size = Files.size(targetPath);
+            String key = presetId + ":" + textureName;
+            TextureState cachedState = TEXTURE_STATE_CACHE.get(key);
+            if (cachedState != null && cachedState.lastModified == lastModified && cachedState.size == size) {
+                return cachedState.modified;
+            }
+            byte[] currentBytes = Files.readAllBytes(targetPath);
+            boolean modified = !Arrays.equals(currentBytes, defaultBytes);
+            TEXTURE_STATE_CACHE.put(key, new TextureState(lastModified, size, modified));
+            return modified;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     private static void ensureAllPresetsTextureFiles(boolean forceReset) {
         Set<String> presets = ConfigManager.getPresetIds();
         // Always ensure default presets exist
@@ -330,5 +564,63 @@ public class ExternalTextureManager {
             Minecraft.getInstance().getTextureManager().release(loc);
         }
         TEXTURE_CACHE.clear();
+    }
+
+    private static void refreshTextureCache(String presetId, String textureName) {
+        String cacheKey = presetId + ":" + textureName;
+        ResourceLocation cached = TEXTURE_CACHE.remove(cacheKey);
+        if (cached != null) {
+            Minecraft.getInstance().getTextureManager().release(cached);
+        }
+        loadExternalTexture(presetId, textureName);
+    }
+
+    private static byte[] getDefaultTextureBytes(String textureName) {
+        byte[] cached = DEFAULT_TEXTURE_BYTES.get(textureName);
+        if (cached != null) {
+            return cached;
+        }
+        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + textureName);
+        try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
+            byte[] data = stream.readAllBytes();
+            DEFAULT_TEXTURE_BYTES.put(textureName, data);
+            return data;
+        } catch (Exception e) {
+            try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + textureName)) {
+                if (stream != null) {
+                    byte[] data = stream.readAllBytes();
+                    DEFAULT_TEXTURE_BYTES.put(textureName, data);
+                    return data;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static void invalidateTextureState(String presetId, String textureName) {
+        TEXTURE_STATE_CACHE.remove(presetId + ":" + textureName);
+    }
+
+    private static final class TextureBackup {
+        private final boolean existed;
+        private final byte[] data;
+
+        private TextureBackup(boolean existed, byte[] data) {
+            this.existed = existed;
+            this.data = data;
+        }
+    }
+
+    private static final class TextureState {
+        private final long lastModified;
+        private final long size;
+        private final boolean modified;
+
+        private TextureState(long lastModified, long size, boolean modified) {
+            this.lastModified = lastModified;
+            this.size = size;
+            this.modified = modified;
+        }
     }
 }
