@@ -46,4 +46,6 @@ public class GuiConstants {
     public static final int AREA1_BOTTOM_OFFSET = 40; // 区域1（大标题区）的底部偏移
     public static final int ROW_HEADER_HEIGHT = 17; // 表头高度
     public static final int FLEX_COLUMN_MIN_WIDTH = 60; // 自由压缩列的最小宽度
+
+    public static final String MOD_VERSION = "Forge-1.1.0.006Alpha";
 }

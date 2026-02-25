@@ -103,8 +103,22 @@ public class ElementConfigBuilderRegistry {
                          if (!getConfigBoolean.apply("visible")) return false;
                          
                          // Specific dependencies
-                         if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
-                         if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
+                        if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
+                        if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
+                        if (k.startsWith("ring_effect_") && configKeys.contains("enable_icon_effect")) return getConfigBoolean.apply("enable_icon_effect");
+                         
+                         if (k.equals("combo_reset_timeout")) {
+                             JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
+                             JsonObject liveDefault = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+                             
+                             String killReset = liveConfig != null && liveConfig.has("reset_kill_combo") ? liveConfig.get("reset_kill_combo").getAsString() 
+                                                : (liveDefault != null && liveDefault.has("reset_kill_combo") ? liveDefault.get("reset_kill_combo").getAsString() : "death");
+                                                
+                             String assistReset = liveConfig != null && liveConfig.has("reset_assist_combo") ? liveConfig.get("reset_assist_combo").getAsString()
+                                                  : (liveDefault != null && liveDefault.has("reset_assist_combo") ? liveDefault.get("reset_assist_combo").getAsString() : "death");
+                                                  
+                             return "time".equals(killReset) || "time".equals(assistReset);
+                         }
                          
                          // Battlefield 1 specific
                          if (elementId.equals("kill_icon/battlefield1")) {
@@ -128,10 +142,15 @@ public class ElementConfigBuilderRegistry {
                                  String property = k.substring(prefix.length());
                                  
                                  if (property.equals("enable_texture_animation")) return true;
-                                 if (property.equals("texture_frame_width_ratio")) return true;
-                                 if (property.equals("texture_frame_height_ratio")) return true;
-                                 
-                                 String enableKey = prefix + "enable_texture_animation";
+                                if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
+                                    String enableKey = prefix + "enable_texture_animation";
+                                    if (configKeys.contains(enableKey)) {
+                                        return !getConfigBoolean.apply(enableKey);
+                                    }
+                                    return true;
+                                }
+                                
+                                String enableKey = prefix + "enable_texture_animation";
                                  if (configKeys.contains(enableKey)) {
                                      return getConfigBoolean.apply(enableKey);
                                  }
@@ -146,7 +165,21 @@ public class ElementConfigBuilderRegistry {
                 return () -> {
                      if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
                      if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
+                     if (k.startsWith("ring_effect_") && configKeys.contains("enable_icon_effect")) return getConfigBoolean.apply("enable_icon_effect");
                      
+                     if (k.equals("combo_reset_timeout")) {
+                         JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
+                         JsonObject liveDefault = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+                         
+                         String killReset = liveConfig != null && liveConfig.has("reset_kill_combo") ? liveConfig.get("reset_kill_combo").getAsString() 
+                                            : (liveDefault != null && liveDefault.has("reset_kill_combo") ? liveDefault.get("reset_kill_combo").getAsString() : "death");
+                                            
+                         String assistReset = liveConfig != null && liveConfig.has("reset_assist_combo") ? liveConfig.get("reset_assist_combo").getAsString()
+                                              : (liveDefault != null && liveDefault.has("reset_assist_combo") ? liveDefault.get("reset_assist_combo").getAsString() : "death");
+                                              
+                         return "time".equals(killReset) || "time".equals(assistReset);
+                     }
+
                      // Animation dependency logic
                      if (k.startsWith("anim_")) {
                          // Robust parsing: Find which texture this key belongs to
@@ -166,8 +199,13 @@ public class ElementConfigBuilderRegistry {
                              
                              // Always enabled properties
                              if (property.equals("enable_texture_animation")) return true;
-                             if (property.equals("texture_frame_width_ratio")) return true;
-                             if (property.equals("texture_frame_height_ratio")) return true;
+                             if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
+                                 String enableKey = prefix + "enable_texture_animation";
+                                 if (configKeys.contains(enableKey)) {
+                                     return !getConfigBoolean.apply(enableKey);
+                                 }
+                                 return true;
+                             }
                              
                              // Dependent properties
                              String enableKey = prefix + "enable_texture_animation";
@@ -353,6 +391,37 @@ public class ElementConfigBuilderRegistry {
                              new FixedChoiceConfigEntry.Choice("pingpong", I18n.get("gd656killicon.config.choice.pingpong")),
                              new FixedChoiceConfigEntry.Choice("random", I18n.get("gd656killicon.config.choice.random"))
                          );
+                         FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                             0, 0, 0, 0,
+                             GuiConstants.COLOR_BG,
+                             0.3f,
+                             displayName,
+                             key,
+                             "gd656killicon.config.desc." + key,
+                             currentValue,
+                             defaultValue,
+                             choices,
+                             (newValue) -> {
+                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                             },
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.equals("reset_kill_combo") || key.equals("reset_assist_combo")) {
+                         List<FixedChoiceConfigEntry.Choice> choices = key.equals("reset_assist_combo")
+                             ? List.of(
+                                 new FixedChoiceConfigEntry.Choice("death", I18n.get("gd656killicon.config.choice.reset_death")),
+                                 new FixedChoiceConfigEntry.Choice("time", I18n.get("gd656killicon.config.choice.reset_time")),
+                                 new FixedChoiceConfigEntry.Choice("logout", I18n.get("gd656killicon.config.choice.reset_logout")),
+                                 new FixedChoiceConfigEntry.Choice("never", I18n.get("gd656killicon.config.choice.reset_never"))
+                             )
+                             : List.of(
+                                 new FixedChoiceConfigEntry.Choice("server", I18n.get("gd656killicon.config.choice.reset_server")),
+                                 new FixedChoiceConfigEntry.Choice("death", I18n.get("gd656killicon.config.choice.reset_death")),
+                                 new FixedChoiceConfigEntry.Choice("time", I18n.get("gd656killicon.config.choice.reset_time")),
+                                 new FixedChoiceConfigEntry.Choice("logout", I18n.get("gd656killicon.config.choice.reset_logout")),
+                                 new FixedChoiceConfigEntry.Choice("never", I18n.get("gd656killicon.config.choice.reset_never"))
+                             );
                          FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
                              0, 0, 0, 0,
                              GuiConstants.COLOR_BG,

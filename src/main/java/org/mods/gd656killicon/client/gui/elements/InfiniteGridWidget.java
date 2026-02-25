@@ -55,12 +55,16 @@ public class InfiniteGridWidget {
     public void setBounds(int x, int y, int width, int height) {
         double dx = x - this.x;
         double dy = y - this.y;
+        double dw = width - this.width;
+        double dh = height - this.height;
+
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
-        this.viewX += dx;
-        this.viewY += dy;
+        
+        this.viewX += dx + dw / 2.0;
+        this.viewY += dy + dh / 2.0;
     }
 
     public float getOriginX() {

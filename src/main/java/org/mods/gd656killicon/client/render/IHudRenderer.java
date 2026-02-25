@@ -26,21 +26,25 @@ public interface IHudRenderer {
     /**
      * 触发上下文，用于封装触发事件所需的原始数据。
      */
-    record TriggerContext(int type, int entityId, int comboCount, String extraData) {
+    record TriggerContext(int type, int entityId, int comboCount, String extraData, float distance) {
         public static TriggerContext of(int type, int entityId) {
-            return new TriggerContext(type, entityId, 0, "");
+            return new TriggerContext(type, entityId, 0, "", 0.0f);
         }
 
         public static TriggerContext of(int type, int entityId, int comboCount) {
-            return new TriggerContext(type, entityId, comboCount, "");
+            return new TriggerContext(type, entityId, comboCount, "", 0.0f);
         }
         
         public static TriggerContext of(int type, int entityId, int comboCount, String extraData) {
-            return new TriggerContext(type, entityId, comboCount, extraData);
+            return new TriggerContext(type, entityId, comboCount, extraData, 0.0f);
+        }
+
+        public static TriggerContext of(int type, int entityId, int comboCount, String extraData, float distance) {
+            return new TriggerContext(type, entityId, comboCount, extraData, distance);
         }
 
         public static TriggerContext of(int type, String extraData) {
-            return new TriggerContext(type, -1, 0, extraData);
+            return new TriggerContext(type, -1, 0, extraData, 0.0f);
         }
     }
 }

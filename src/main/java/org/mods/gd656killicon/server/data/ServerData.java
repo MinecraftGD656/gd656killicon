@@ -49,6 +49,8 @@ public class ServerData {
     }
 
     private void initDefaults() {
+        disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
+
         defaultExpressions.put(BonusType.KILL, "5");
         defaultExpressions.put(BonusType.KILL_HEADSHOT, "5");
         defaultExpressions.put(BonusType.KILL_EXPLOSION, "5");
@@ -90,6 +92,14 @@ public class ServerData {
         defaultExpressions.put(BonusType.DESTROY_VEHICLE, "1.5");
         defaultExpressions.put(BonusType.VEHICLE_REPAIR, "10");
         defaultExpressions.put(BonusType.VALUE_TARGET_DESTROYED, "1");
+        defaultExpressions.put(BonusType.LOCKED_TARGET, "12");
+        defaultExpressions.put(BonusType.HOLD_POSITION, "10");
+        defaultExpressions.put(BonusType.CHARGE_ASSAULT, "15");
+        defaultExpressions.put(BonusType.FIRE_SUPPRESSION, "15");
+        defaultExpressions.put(BonusType.DESTROY_BLOCK, "1");
+        defaultExpressions.put(BonusType.SPOTTING, "5");
+        defaultExpressions.put(BonusType.SPOTTING_KILL, "30");
+        defaultExpressions.put(BonusType.SPOTTING_TEAM_ASSIST, "15");
     
         defaultExpressions.put(BonusType.DAMAGE, "1");
         defaultExpressions.put(BonusType.HEADSHOT, "1");
@@ -240,12 +250,14 @@ public class ServerData {
         deathboardDisplayName = "玩家死亡";
         assistboardDisplayName = "玩家助攻";
         disabledBonusTypes.clear();
+        disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
         bonusExpressions.clear();
         saveConfig();
     }
     
     public void resetBonusConfig() {
         disabledBonusTypes.clear();
+        disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
         bonusExpressions.clear();
         saveConfig();
     }

@@ -20,6 +20,7 @@ public class KillIconPacket implements IPacket {
     private final String customVictimName;
     private final boolean isVictimPlayer;
     private final boolean shouldRecordStats;
+    private final float distance;
 
     public KillIconPacket(String category, String name, int killType, int victimId) {
         this(category, name, killType, 0, victimId, -1.0, false, "", false, false);
@@ -30,22 +31,26 @@ public class KillIconPacket implements IPacket {
     }
 
     public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds) {
-        this(category, name, killType, comboCount, victimId, comboWindowSeconds, false, "", false, false);
+        this(category, name, killType, comboCount, victimId, comboWindowSeconds, false, "", false, false, 0.0f);
     }
 
     public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet) {
-        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, "", false, false);
+        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, "", false, false, 0.0f);
     }
 
     public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet, String customVictimName) {
-        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, customVictimName, false, false);
+        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, customVictimName, false, false, 0.0f);
     }
 
     public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet, String customVictimName, boolean isVictimPlayer) {
-        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, customVictimName, isVictimPlayer, false);
+        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, customVictimName, isVictimPlayer, false, 0.0f);
+    }
+    
+    public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet, String customVictimName, boolean isVictimPlayer, boolean shouldRecordStats) {
+        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, customVictimName, isVictimPlayer, shouldRecordStats, 0.0f);
     }
 
-    public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet, String customVictimName, boolean isVictimPlayer, boolean shouldRecordStats) {
+    public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet, String customVictimName, boolean isVictimPlayer, boolean shouldRecordStats, float distance) {
         this.category = category;
         this.name = name;
         this.killType = killType;
@@ -56,6 +61,7 @@ public class KillIconPacket implements IPacket {
         this.customVictimName = customVictimName == null ? "" : customVictimName;
         this.isVictimPlayer = isVictimPlayer;
         this.shouldRecordStats = shouldRecordStats;
+        this.distance = distance;
     }
 
     public KillIconPacket(FriendlyByteBuf buffer) {
@@ -69,6 +75,7 @@ public class KillIconPacket implements IPacket {
         this.customVictimName = buffer.readUtf();
         this.isVictimPlayer = buffer.readBoolean();
         this.shouldRecordStats = buffer.readBoolean();
+        this.distance = buffer.readFloat();
     }
 
     @Override
@@ -83,6 +90,7 @@ public class KillIconPacket implements IPacket {
         buffer.writeUtf(this.customVictimName);
         buffer.writeBoolean(this.isVictimPlayer);
         buffer.writeBoolean(this.shouldRecordStats);
+        buffer.writeFloat(this.distance);
     }
 
     @Override
@@ -104,7 +112,7 @@ public class KillIconPacket implements IPacket {
             
             HudElementManager.trigger(this.category, this.name, 
                 new org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext(
-                    this.killType, this.victimId, this.comboCount, displayName
+                    this.killType, this.victimId, this.comboCount, displayName, this.distance
                 )
             );
 
@@ -112,6 +120,9 @@ public class KillIconPacket implements IPacket {
             if (this.shouldRecordStats && displayName != null && !displayName.isEmpty()) {
                 org.mods.gd656killicon.client.stats.ClientStatsManager.recordGeneralKillStats(displayName, this.isVictimPlayer);
             }
+
+            // Trigger ACE Lag Simulator
+            org.mods.gd656killicon.client.util.AceLagSimulator.onKillEvent();
         });
         context.get().setPacketHandled(true);
     }

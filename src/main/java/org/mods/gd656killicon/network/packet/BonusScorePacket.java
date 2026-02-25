@@ -17,22 +17,28 @@ public class BonusScorePacket implements IPacket {
     private final float score;
     private final String extraData;
     private final int victimId;
+    private final String victimName;
 
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("<(\\w+)>");
 
     public BonusScorePacket(int bonusType, float score) {
-        this(bonusType, score, "", -1);
+        this(bonusType, score, "", -1, null);
     }
 
     public BonusScorePacket(int bonusType, float score, String extraData) {
-        this(bonusType, score, extraData, -1);
+        this(bonusType, score, extraData, -1, null);
     }
     
     public BonusScorePacket(int bonusType, float score, String extraData, int victimId) {
+        this(bonusType, score, extraData, victimId, null);
+    }
+
+    public BonusScorePacket(int bonusType, float score, String extraData, int victimId, String victimName) {
         this.bonusType = bonusType;
         this.score = score;
         this.extraData = extraData != null ? extraData : "";
         this.victimId = victimId;
+        this.victimName = victimName;
     }
 
     public BonusScorePacket(FriendlyByteBuf buffer) {
@@ -40,6 +46,11 @@ public class BonusScorePacket implements IPacket {
         this.score = buffer.readFloat();
         this.extraData = buffer.readUtf(32767);
         this.victimId = buffer.readInt();
+        if (buffer.readBoolean()) {
+            this.victimName = buffer.readUtf(32767);
+        } else {
+            this.victimName = null;
+        }
     }
 
     @Override
@@ -48,6 +59,12 @@ public class BonusScorePacket implements IPacket {
         buffer.writeFloat(this.score);
         buffer.writeUtf(this.extraData != null ? this.extraData : "", 32767);
         buffer.writeInt(this.victimId);
+        if (this.victimName != null) {
+            buffer.writeBoolean(true);
+            buffer.writeUtf(this.victimName, 32767);
+        } else {
+            buffer.writeBoolean(false);
+        }
     }
 
     public int getBonusType() {
@@ -74,7 +91,17 @@ public class BonusScorePacket implements IPacket {
             ScoreSubtitleRenderer.getInstance().addScore(this.score);
             
             // Trigger bonus list element with combined data string
-            String data = this.extraData != null && !this.extraData.isEmpty() ? this.score + "|" + this.extraData : String.valueOf(this.score);
+            // Format: score|extraData|victimName
+            StringBuilder dataBuilder = new StringBuilder();
+            dataBuilder.append(this.score);
+            if ((this.extraData != null && !this.extraData.isEmpty()) || (this.victimName != null && !this.victimName.isEmpty())) {
+                dataBuilder.append("|").append(this.extraData != null ? this.extraData : "");
+                if (this.victimName != null && !this.victimName.isEmpty()) {
+                    dataBuilder.append("|").append(this.victimName);
+                }
+            }
+            String data = dataBuilder.toString();
+
             HudElementManager.trigger("subtitle", "bonus_list", 
                 org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(this.bonusType, this.victimId, 0, data)
             );

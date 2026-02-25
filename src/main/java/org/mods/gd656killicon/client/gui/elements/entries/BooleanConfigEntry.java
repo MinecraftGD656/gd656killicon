@@ -45,7 +45,7 @@ public class BooleanConfigEntry extends GDRowRenderer {
         });
 
         // 3. 重置按钮 (GuiConstants.ROW_HEADER_HEIGHT, 深色)
-        this.addColumn("R", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
+        this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
             if (this.value == this.defaultValue) return; // Already default, do nothing
 
             // Reset immediately without confirmation
@@ -83,7 +83,7 @@ public class BooleanConfigEntry extends GDRowRenderer {
         Column resetCol = getColumn(2);
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();
-            resetCol.text = "R";
+            resetCol.text = "↺";
             
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);

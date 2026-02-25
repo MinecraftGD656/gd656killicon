@@ -2,6 +2,7 @@ package org.mods.gd656killicon.client.config;
 
 import com.google.gson.JsonObject;
 import java.util.Set;
+import org.mods.gd656killicon.client.sounds.ExternalSoundManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 
 public class ConfigManager {
@@ -20,18 +21,21 @@ public class ConfigManager {
         ClientConfigManager.saveChanges();
         ElementConfigManager.saveChanges();
         ExternalTextureManager.confirmPendingTextureReplacements();
+        ExternalSoundManager.confirmPendingSoundReplacements();
     }
 
     public static void discardChanges() {
         ClientConfigManager.discardChanges();
         ElementConfigManager.discardChanges();
         ExternalTextureManager.revertPendingTextureReplacements();
+        ExternalSoundManager.revertPendingSoundReplacements();
     }
 
     public static boolean hasUnsavedChanges() {
         return ClientConfigManager.hasUnsavedChanges()
                 || ElementConfigManager.hasUnsavedChanges()
-                || ExternalTextureManager.hasPendingTextureChanges();
+                || ExternalTextureManager.hasPendingTextureChanges()
+                || ExternalSoundManager.hasPendingSoundChanges();
     }
 
     public static void loadConfig() {
@@ -67,6 +71,10 @@ public class ConfigManager {
 
     public static void setShowBonusMessage(boolean show) {
         ClientConfigManager.setShowBonusMessage(show);
+    }
+
+    public static void setSoundVolume(int volume) {
+        ClientConfigManager.setSoundVolume(volume);
     }
 
     public static String getCurrentPresetId() {

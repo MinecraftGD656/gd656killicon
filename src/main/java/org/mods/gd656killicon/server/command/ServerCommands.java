@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 
 @Mod.EventBusSubscriber(modid = Gd656killicon.MODID)
 public class ServerCommands {
+    private static final String[] SCOREBOARD_DEBUG_PREFIXES = {"Pro", "Noob", "God", "Master", "Legend", "Ghost", "Shadow", "Flame", "Ice", "Storm"};
+    private static final String[] SCOREBOARD_DEBUG_SUFFIXES = {"Hunter", "Killer", "Player", "Warrior", "Seeker", "X", "Alpha", "Omega", "King", "Lord"};
     
     @SubscribeEvent
     public static void register(RegisterCommandsEvent event) {
@@ -136,7 +138,7 @@ public class ServerCommands {
                 )
                 .then(Commands.literal("debug").requires(s -> s.hasPermission(2))
                     .then(Commands.literal("scoreboarddebug")
-                        .then(Commands.argument("count", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("count", IntegerArgumentType.integer(-1))
                             .executes(ServerCommands::scoreboardDebug))))
             )
         );
@@ -144,13 +146,16 @@ public class ServerCommands {
 
     private static int scoreboardDebug(CommandContext<CommandSourceStack> c) {
         int count = IntegerArgumentType.getInteger(c, "count");
+        if (count == -1) {
+            return clearScoreboardDebugData(c);
+        }
         java.util.Random random = new java.util.Random();
-        String[] prefixes = {"Pro", "Noob", "God", "Master", "Legend", "Ghost", "Shadow", "Flame", "Ice", "Storm"};
-        String[] suffixes = {"Hunter", "Killer", "Player", "Warrior", "Seeker", "X", "Alpha", "Omega", "King", "Lord"};
 
         for (int i = 0; i < count; i++) {
             java.util.UUID uuid = java.util.UUID.randomUUID();
-            String name = prefixes[random.nextInt(prefixes.length)] + suffixes[random.nextInt(suffixes.length)] + random.nextInt(999);
+            String name = SCOREBOARD_DEBUG_PREFIXES[random.nextInt(SCOREBOARD_DEBUG_PREFIXES.length)]
+                + SCOREBOARD_DEBUG_SUFFIXES[random.nextInt(SCOREBOARD_DEBUG_SUFFIXES.length)]
+                + random.nextInt(999);
             
             org.mods.gd656killicon.server.data.PlayerData data = org.mods.gd656killicon.server.data.PlayerDataManager.get().getOrCreatePlayerData(uuid);
             data.setLastLoginName(name);
@@ -158,12 +163,52 @@ public class ServerCommands {
             data.setKill(random.nextInt(100));
             data.setDeath(random.nextInt(100));
             data.setAssist(random.nextInt(100));
+            data.setMetadata("scoreboard_debug", true);
             
             org.mods.gd656killicon.server.data.PlayerDataManager.get().forceSave(uuid);
         }
 
-        ServerLog.sendSuccess(c.getSource(), "Successfully generated " + count + " random scoreboard entries.");
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.debug_generated", count);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static int clearScoreboardDebugData(CommandContext<CommandSourceStack> c) {
+        int removed = 0;
+        var manager = org.mods.gd656killicon.server.data.PlayerDataManager.get();
+        for (var entry : manager.getAllPlayerData().entrySet()) {
+            org.mods.gd656killicon.server.data.PlayerData data = entry.getValue();
+            Boolean marked = data.getMetadata("scoreboard_debug", Boolean.class);
+            boolean nameMatch = isScoreboardDebugName(data.getLastLoginName());
+            if (Boolean.TRUE.equals(marked) || nameMatch) {
+                manager.removePlayerData(entry.getKey());
+                removed++;
+            }
+        }
+        ServerData.get().refreshScoreboard(c.getSource().getServer());
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.debug_removed", removed);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static boolean isScoreboardDebugName(String name) {
+        if (name == null || name.isEmpty()) return false;
+        for (String prefix : SCOREBOARD_DEBUG_PREFIXES) {
+            if (!name.startsWith(prefix)) continue;
+            String rest = name.substring(prefix.length());
+            for (String suffix : SCOREBOARD_DEBUG_SUFFIXES) {
+                if (!rest.startsWith(suffix)) continue;
+                String digits = rest.substring(suffix.length());
+                if (digits.isEmpty()) continue;
+                boolean allDigits = true;
+                for (int i = 0; i < digits.length(); i++) {
+                    if (!Character.isDigit(digits.charAt(i))) {
+                        allDigits = false;
+                        break;
+                    }
+                }
+                if (allDigits) return true;
+            }
+        }
+        return false;
     }
 
     private static int setWindow(CommandContext<CommandSourceStack> c, double val) {

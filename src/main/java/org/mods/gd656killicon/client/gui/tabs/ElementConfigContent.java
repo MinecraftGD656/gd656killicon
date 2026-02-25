@@ -1,5 +1,9 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
+import org.mods.gd656killicon.client.util.GifToSpriteSheetConverter;
+import java.io.File;
+import java.io.IOException;
+
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -31,6 +35,7 @@ import org.mods.gd656killicon.client.render.impl.BonusListRenderer;
 import org.mods.gd656killicon.client.render.impl.ComboIconRenderer;
 import org.mods.gd656killicon.client.render.impl.ScrollingIconRenderer;
 import org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer;
+import org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.SubtitleRenderer;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
@@ -44,6 +49,7 @@ import net.minecraft.world.item.Items;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 import java.nio.file.Path;
 
 public class ElementConfigContent extends ConfigTabContent {
@@ -76,6 +82,8 @@ public class ElementConfigContent extends ConfigTabContent {
     private int previewBattlefieldKillTypeIndex = 0;
     private SubtitleRenderer subtitlePreviewRenderer = new SubtitleRenderer();
     private long lastSubtitlePreviewTriggerTime = 0L;
+    private ComboSubtitleRenderer comboSubtitlePreviewRenderer = ComboSubtitleRenderer.getInstance();
+    private long lastComboSubtitlePreviewTriggerTime = 0L;
     private ScoreSubtitleRenderer scorePreviewRenderer = ScoreSubtitleRenderer.getInstance();
     private long lastScorePreviewTriggerTime = 0L;
     private BonusListRenderer bonusListPreviewRenderer = BonusListRenderer.getInstance();
@@ -160,6 +168,9 @@ public class ElementConfigContent extends ConfigTabContent {
     private void refreshVisibleRows() {
         this.configRows.clear();
         
+        // Update active conditions for all rows
+        updateRowActiveConditions();
+
         // If no secondary tabs (e.g. not a kill_icon element), just show everything
         if (!isKillIconElement() || !ElementTextureDefinition.hasTextures(elementId)) {
             this.configRows.addAll(this.allConfigRows);
@@ -199,6 +210,98 @@ public class ElementConfigContent extends ConfigTabContent {
         sortConfigRows();
     }
     
+    private void updateRowActiveConditions() {
+        for (GDRowRenderer row : allConfigRows) {
+            String key = getConfigKey(row);
+            if (key == null) continue;
+
+            // Kill Feed Specific Logic
+            if ("subtitle/kill_feed".equals(elementId)) {
+                // Stacking configs depend on enable_stacking
+                if (key.equals("max_lines") || key.equals("line_spacing")) {
+                    row.setActiveCondition(() -> {
+                        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                        return config != null && config.has("enable_stacking") && config.get("enable_stacking").getAsBoolean();
+                    });
+                }
+                
+                // Headshot configs depend on enable_headshot_kill
+                else if (key.contains("headshot")) {
+                    if (!key.equals("enable_headshot_kill")) {
+                        row.setActiveCondition(() -> {
+                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                            // Default to true if missing, matching SubtitleRenderer logic
+                            return config == null || !config.has("enable_headshot_kill") || config.get("enable_headshot_kill").getAsBoolean();
+                        });
+                    }
+                }
+                
+                // Explosion configs depend on enable_explosion_kill
+                else if (key.contains("explosion")) {
+                    if (!key.equals("enable_explosion_kill")) {
+                        row.setActiveCondition(() -> {
+                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                            return config == null || !config.has("enable_explosion_kill") || config.get("enable_explosion_kill").getAsBoolean();
+                        });
+                    }
+                }
+                
+                // Crit configs depend on enable_crit_kill
+                else if (key.contains("crit")) {
+                    if (!key.equals("enable_crit_kill")) {
+                        row.setActiveCondition(() -> {
+                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                            return config == null || !config.has("enable_crit_kill") || config.get("enable_crit_kill").getAsBoolean();
+                        });
+                    }
+                }
+                
+                // Assist configs depend on enable_assist_kill
+                else if (key.contains("assist")) {
+                    if (!key.equals("enable_assist_kill")) {
+                        row.setActiveCondition(() -> {
+                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                            return config == null || !config.has("enable_assist_kill") || config.get("enable_assist_kill").getAsBoolean();
+                        });
+                    }
+                }
+                
+                // Destroy Vehicle configs depend on enable_destroy_vehicle_kill
+                else if (key.contains("destroy_vehicle")) {
+                    if (!key.equals("enable_destroy_vehicle_kill")) {
+                        row.setActiveCondition(() -> {
+                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                            return config == null || !config.has("enable_destroy_vehicle_kill") || config.get("enable_destroy_vehicle_kill").getAsBoolean();
+                        });
+                    }
+                }
+                
+                // Normal kill format/color depends on enable_normal_kill
+                 // (Assuming there is an enable_normal_kill toggle, which SubtitleRenderer has)
+                 else if (key.equals("format_normal") || key.equals("color_normal_placeholder") || key.equals("color_normal_emphasis")) {
+                      row.setActiveCondition(() -> {
+                         JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                         return config == null || !config.has("enable_normal_kill") || config.get("enable_normal_kill").getAsBoolean();
+                     });
+                 }
+             }
+         }
+         
+         // Apply global visibility dependency to ALL rows (except "visible" itself)
+         for (GDRowRenderer row : allConfigRows) {
+             String key = getConfigKey(row);
+             if (key == null || key.equals("visible")) continue;
+             
+             Supplier<Boolean> specificCondition = row.getActiveCondition();
+             row.setActiveCondition(() -> {
+                 JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                 boolean isVisible = config == null || !config.has("visible") || config.get("visible").getAsBoolean();
+                 if (!isVisible) return false;
+                 return specificCondition.get();
+             });
+         }
+     }
+
     private String getConfigKey(GDRowRenderer row) {
         if (row instanceof BooleanConfigEntry) return ((BooleanConfigEntry) row).getKey();
         if (row instanceof IntegerConfigEntry) return ((IntegerConfigEntry) row).getKey();
@@ -316,6 +419,7 @@ public class ElementConfigContent extends ConfigTabContent {
             renderCardBarPreview(guiGraphics, partialTick);
             renderBattlefieldPreview(guiGraphics, partialTick);
             renderKillFeedPreview(guiGraphics, partialTick);
+            renderComboSubtitlePreview(guiGraphics, partialTick);
             renderScorePreview(guiGraphics, partialTick);
             renderBonusListPreview(guiGraphics, partialTick);
         }
@@ -372,6 +476,14 @@ public class ElementConfigContent extends ConfigTabContent {
         if (!configRows.isEmpty()) {
             if (useDefaultScroll) {
                 float dt = minecraft.getDeltaFrameTime() / 20.0f;
+
+                // 处理拖拽逻辑 (在调用 updateScroll 之前)
+                if (isDragging) {
+                    double diff = mouseY - lastMouseY;
+                    targetScrollY -= diff;
+                    lastMouseY = mouseY;
+                }
+
                 updateScroll(dt, screenHeight);
 
                 int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
@@ -702,6 +814,61 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.disableScissor();
     }
 
+    private void renderComboSubtitlePreview(GuiGraphics guiGraphics, float partialTick) {
+        if (!"subtitle/combo".equals(elementId) || gridWidget == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastComboSubtitlePreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
+            // Random combo 1-8
+            int combo = 1 + PREVIEW_RANDOM.nextInt(8);
+            boolean isAssist = PREVIEW_RANDOM.nextBoolean();
+            comboSubtitlePreviewRenderer.triggerPreview(isAssist, combo);
+            lastComboSubtitlePreviewTriggerTime = now;
+        }
+        float originX = gridWidget.getOriginX();
+        float originY = gridWidget.getOriginY();
+        int scissorX1 = gridWidget.getX();
+        int scissorY1 = gridWidget.getY();
+        int scissorX2 = scissorX1 + gridWidget.getWidth();
+        int scissorY2 = scissorY1 + gridWidget.getHeight();
+        guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
+        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+        // ComboSubtitleRenderer renders at configured offset. 
+        // We need to temporarily adjust offset or translate?
+        // IHudRenderer.render() uses configured offset.
+        // But for preview, we usually use renderAt() if available, or hack the offset.
+        // ComboSubtitleRenderer.render() uses:
+        // int centerX = screenWidth / 2 + this.xOffset;
+        // int centerY = screenHeight - this.yOffset;
+        // poseStack.translate(centerX, centerY, 0);
+        
+        // We want to render relative to originX, originY (which is center of preview box).
+        // If we call render(), it will render at screen position, not preview position.
+        // We need renderAt(x, y) method in ComboSubtitleRenderer or modify render to accept offsets.
+        // SubtitleRenderer has renderAt.
+        // I should add renderAt to ComboSubtitleRenderer.
+        
+        // Wait, I implemented render() only.
+        // I need to add renderAt() to ComboSubtitleRenderer.
+        // Or I can use poseStack translation before calling render?
+        // render() calculates centerX/centerY based on screen size.
+        // If I translate before, it will be added to screen center? No.
+        // render() calls guiGraphics.pose().translate(centerX, centerY, 0).
+        // If I call render(), it resets translation? No, it pushes pose.
+        // But it calculates translation based on Screen Width/Height.
+        // This means it will render at the HUD position, not inside the preview box.
+        // This is bad for preview.
+        // I MUST add renderAt() to ComboSubtitleRenderer.
+        
+        // Let's assume I will add renderAt() and call it here.
+        comboSubtitlePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        
+        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+        guiGraphics.disableScissor();
+    }
+
     private void renderScorePreview(GuiGraphics guiGraphics, float partialTick) {
         if (!"subtitle/score".equals(elementId) || gridWidget == null) {
             return;
@@ -814,7 +981,7 @@ public class ElementConfigContent extends ConfigTabContent {
         }
 
         if (keyCode == 256) { // ESC
-            if (onClose != null) onClose.run();
+            closeContent();
             return true;
         }
         return false;
@@ -858,7 +1025,7 @@ public class ElementConfigContent extends ConfigTabContent {
                     
                     isConfirmingReset = false;
                     // Exit immediately
-                    if (onClose != null) onClose.run();
+                    closeContent();
                 } else {
                     // Request Confirmation
                     isConfirmingReset = true;
@@ -895,7 +1062,7 @@ public class ElementConfigContent extends ConfigTabContent {
         if (saveButton == null) {
             saveButton = new GDButton(x1, row2Y, row2ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.save_and_exit"), (btn) -> {
                 // Changes are already in memory, just close
-                if (onClose != null) onClose.run();
+                closeContent();
             });
         }
         
@@ -996,24 +1163,110 @@ public class ElementConfigContent extends ConfigTabContent {
         if (selectedSecondaryTab == null || "general".equals(selectedSecondaryTab.elementId)) {
             return;
         }
+        
         Path pngPath = null;
+        Path gifPath = null;
+        
         for (Path path : paths) {
-            if (path != null && path.toString().toLowerCase().endsWith(".png")) {
+            String lower = path.toString().toLowerCase();
+            if (lower.endsWith(".png")) {
                 pngPath = path;
+                break;
+            } else if (lower.endsWith(".gif")) {
+                gifPath = path;
                 break;
             }
         }
-        if (pngPath == null) {
-            return;
-        }
+        
         String targetFileName = ElementTextureDefinition.getTextureFileName(elementId, selectedSecondaryTab.elementId);
         if (targetFileName == null) {
             return;
         }
-        boolean replaced = ExternalTextureManager.replaceTextureWithBackup(presetId, targetFileName, pngPath);
-        if (replaced) {
-            promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_success"), PromptDialog.PromptType.SUCCESS, null);
+
+        if (gifPath != null) {
+            // Handle GIF
+            handleGifDrop(gifPath, targetFileName);
+        } else if (pngPath != null) {
+            // Handle PNG (Existing logic)
+            boolean replaced = ExternalTextureManager.replaceTextureWithBackup(presetId, targetFileName, pngPath);
+            if (replaced) {
+                promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_success"), PromptDialog.PromptType.SUCCESS, null);
+            }
         }
+    }
+
+    private void handleGifDrop(Path gifPath, String targetFileName) {
+        // Create a temporary file for the converted PNG
+        try {
+            File tempFile = File.createTempFile("gd656_gif_convert_", ".png");
+            tempFile.deleteOnExit();
+            
+            GifToSpriteSheetConverter.ConversionResult result = GifToSpriteSheetConverter.convertGifToSpriteSheet(gifPath, tempFile.toPath());
+            
+            if (result.success && result.outputPng != null) {
+                // 1. Replace Texture
+                boolean replaced = ExternalTextureManager.replaceTextureWithBackup(presetId, targetFileName, result.outputPng.toPath());
+                
+                if (replaced) {
+                    // 2. Update Config
+                    String textureKey = selectedSecondaryTab.elementId; // e.g., "headshot", "default"
+                    String prefix = "anim_" + textureKey + "_";
+                    
+                    JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+                    if (current == null) current = new JsonObject();
+                    
+                    current.addProperty(prefix + "enable_texture_animation", true);
+                    current.addProperty(prefix + "texture_animation_total_frames", result.frameCount);
+                    current.addProperty(prefix + "texture_animation_interval_ms", result.intervalMs);
+                    current.addProperty(prefix + "texture_animation_orientation", "vertical");
+                    // Optionally set loop to true by default for GIFs?
+                    // current.addProperty(prefix + "texture_animation_loop", true); 
+                    
+                    ElementConfigManager.setElementConfig(presetId, elementId, current);
+                    
+                    // Refresh UI to reflect config changes
+                    rebuildUI();
+                    
+                    promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_import_success"), PromptDialog.PromptType.SUCCESS, null);
+                } else {
+                     promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_fail"), PromptDialog.PromptType.ERROR, null);
+                }
+            } else {
+                promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_convert_fail"), PromptDialog.PromptType.ERROR, null);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_convert_fail") + ": " + e.getMessage(), PromptDialog.PromptType.ERROR, null);
+        }
+    }
+
+    private void resetTextureRelatedConfigs(String textureKey) {
+        if (textureKey == null) {
+            return;
+        }
+        JsonObject defaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+        if (defaults == null) {
+            return;
+        }
+        JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+        JsonObject target = current != null ? current : defaults.deepCopy();
+        String prefix = "anim_" + textureKey + "_";
+        String[] keys = new String[] {
+            prefix + "enable_texture_animation",
+            prefix + "texture_animation_total_frames",
+            prefix + "texture_animation_interval_ms",
+            prefix + "texture_animation_orientation",
+            prefix + "texture_animation_loop",
+            prefix + "texture_animation_play_style",
+            prefix + "texture_frame_width_ratio",
+            prefix + "texture_frame_height_ratio"
+        };
+        for (String key : keys) {
+            if (defaults.has(key)) {
+                target.add(key, defaults.get(key));
+            }
+        }
+        ElementConfigManager.setElementConfig(presetId, elementId, target);
     }
 
     public boolean isKillIconElement() {
@@ -1160,7 +1413,9 @@ public class ElementConfigContent extends ConfigTabContent {
         cardBarPreviewRenderer = new CardBarRenderer();
         battlefield1PreviewRenderer = new Battlefield1Renderer();
         subtitlePreviewRenderer = new SubtitleRenderer();
-        // Score and BonusList are singletons, can't reset easily but they aren't kill_icon so maybe fine
+        comboSubtitlePreviewRenderer.resetPreview();
+        scorePreviewRenderer.resetPreview();
+        bonusListPreviewRenderer.resetPreview();
         
         // Force immediate trigger on next render
         lastPreviewTriggerTime = 0;
@@ -1171,6 +1426,11 @@ public class ElementConfigContent extends ConfigTabContent {
         lastSubtitlePreviewTriggerTime = 0;
         lastScorePreviewTriggerTime = 0;
         lastBonusListPreviewTriggerTime = 0;
+    }
+
+    private void closeContent() {
+        resetPreviews();
+        if (onClose != null) onClose.run();
     }
 
     private boolean handleSecondaryTabClick(double mouseX, double mouseY, int button) {
@@ -1191,8 +1451,11 @@ public class ElementConfigContent extends ConfigTabContent {
                         return false;
                     }
                     if (textureResetDialog != null) {
+                        String textureKey = tab.elementId;
                         textureResetDialog.show("是否重置此材质", ConfirmDialog.PromptType.WARNING, () -> {
                             ExternalTextureManager.resetTextureWithBackup(presetId, fileName);
+                            resetTextureRelatedConfigs(textureKey);
+                            rebuildUI();
                         });
                     }
                     return true;
@@ -1220,7 +1483,7 @@ public class ElementConfigContent extends ConfigTabContent {
     private void discardElementChangesAndClose() {
         ElementConfigManager.setElementConfig(presetId, elementId, initialConfig);
         ExternalTextureManager.revertPendingTextureReplacementsForElement(presetId, elementId);
-        if (onClose != null) onClose.run();
+        closeContent();
     }
 
     private boolean handleSecondaryTabRelease() {

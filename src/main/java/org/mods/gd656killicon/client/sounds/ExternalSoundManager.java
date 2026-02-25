@@ -21,7 +21,9 @@ import java.nio.ShortBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -61,6 +63,9 @@ public class ExternalSoundManager {
         "headshotkillsound_bf1.ogg",
         "addscore_df.ogg"
     };
+    private static final Set<String> DEFAULT_SOUND_SET = new HashSet<>(Arrays.asList(DEFAULT_SOUNDS));
+    private static final Map<String, Map<String, SoundBackup>> PENDING_SOUND_BACKUPS = new HashMap<>();
+    private static final Map<String, byte[]> DEFAULT_SOUND_BYTES = new HashMap<>();
 
     public static void init() {
         ensureAllPresetsSoundFiles(false);
@@ -168,7 +173,12 @@ public class ExternalSoundManager {
 
             for (String soundName : DEFAULT_SOUNDS) {
                 Path targetPath = presetDir.resolve(soundName);
-                if (forceReset || !Files.exists(targetPath)) {
+                String baseName = resolveBaseName(soundName);
+                Path wavPath = presetDir.resolve(baseName + ".wav");
+                if (forceReset) {
+                    Files.deleteIfExists(wavPath);
+                }
+                if (forceReset || (!Files.exists(targetPath) && !Files.exists(wavPath))) {
                     // Try to copy from JAR using ResourceLocation
                     ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
                     try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
@@ -190,6 +200,258 @@ public class ExternalSoundManager {
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.sound.init_fail", presetId, e.getMessage());
         }
+    }
+
+    public static java.util.List<String> getDefaultSoundNames() {
+        return Arrays.asList(DEFAULT_SOUNDS);
+    }
+
+    public static String getSoundExtensionForPreset(String presetId, String soundName) {
+        if (presetId == null || soundName == null) {
+            return "OGG";
+        }
+        String baseName = resolveBaseName(soundName);
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        Path oggPath = presetDir.resolve(baseName + ".ogg");
+        if (Files.exists(oggPath)) {
+            return "OGG";
+        }
+        Path wavPath = presetDir.resolve(baseName + ".wav");
+        if (Files.exists(wavPath)) {
+            return "WAV";
+        }
+        return "OGG";
+    }
+
+    public static boolean replaceSoundWithBackup(String presetId, String soundName, Path sourcePath) {
+        if (presetId == null || soundName == null || sourcePath == null) {
+            return false;
+        }
+        if (!DEFAULT_SOUND_SET.contains(soundName)) {
+            return false;
+        }
+        if (!Files.exists(sourcePath)) {
+            return false;
+        }
+        String lower = sourcePath.toString().toLowerCase();
+        String sourceExt = lower.endsWith(".ogg") ? ".ogg" : (lower.endsWith(".wav") ? ".wav" : null);
+        if (sourceExt == null) {
+            return false;
+        }
+        ensureSoundFilesForPreset(presetId, false);
+        String baseName = resolveBaseName(soundName);
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        Path targetPath = presetDir.resolve(baseName + sourceExt);
+        Path otherPath = presetDir.resolve(baseName + (".ogg".equals(sourceExt) ? ".wav" : ".ogg"));
+        try {
+            if (!Files.exists(targetPath.getParent())) {
+                Files.createDirectories(targetPath.getParent());
+            }
+            Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
+            backupFileIfNeeded(presetBackups, targetPath);
+            backupFileIfNeeded(presetBackups, otherPath);
+            Files.deleteIfExists(otherPath);
+            Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            refreshSoundCache(presetId, baseName);
+            return true;
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.sound.replace_fail", presetId, soundName, e.getMessage());
+            return false;
+        }
+    }
+
+    public static boolean resetSoundWithBackup(String presetId, String soundName) {
+        if (presetId == null || soundName == null) {
+            return false;
+        }
+        if (!DEFAULT_SOUND_SET.contains(soundName)) {
+            return false;
+        }
+        ensureSoundFilesForPreset(presetId, false);
+        String baseName = resolveBaseName(soundName);
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        Path oggPath = presetDir.resolve(baseName + ".ogg");
+        Path wavPath = presetDir.resolve(baseName + ".wav");
+        try {
+            if (!Files.exists(presetDir)) {
+                Files.createDirectories(presetDir);
+            }
+            Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
+            backupFileIfNeeded(presetBackups, oggPath);
+            backupFileIfNeeded(presetBackups, wavPath);
+            Files.deleteIfExists(wavPath);
+            ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+            try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
+                Files.copy(stream, oggPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception e) {
+                try (InputStream stream = ExternalSoundManager.class.getResourceAsStream("/assets/gd656killicon/sounds/" + soundName)) {
+                    if (stream != null) {
+                        Files.copy(stream, oggPath, StandardCopyOption.REPLACE_EXISTING);
+                    } else {
+                        ClientMessageLogger.error("gd656killicon.client.sound.extract_fail", soundName, e.getMessage());
+                        return false;
+                    }
+                }
+            }
+            refreshSoundCache(presetId, baseName);
+            return true;
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.sound.reset_error", presetId, soundName, e.getMessage());
+            return false;
+        }
+    }
+
+    public static void confirmPendingSoundReplacements() {
+        PENDING_SOUND_BACKUPS.clear();
+    }
+
+    public static void clearPendingSoundReplacementsForPreset(String presetId) {
+        if (presetId == null) {
+            return;
+        }
+        PENDING_SOUND_BACKUPS.remove(presetId);
+    }
+
+    public static void revertPendingSoundReplacements() {
+        if (PENDING_SOUND_BACKUPS.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, Map<String, SoundBackup>> presetEntry : PENDING_SOUND_BACKUPS.entrySet()) {
+            String presetId = presetEntry.getKey();
+            for (Map.Entry<String, SoundBackup> entry : presetEntry.getValue().entrySet()) {
+                String fileName = entry.getKey();
+                SoundBackup backup = entry.getValue();
+                Path targetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds").resolve(fileName);
+                try {
+                    if (backup.existed) {
+                        Files.write(targetPath, backup.data);
+                    } else {
+                        Files.deleteIfExists(targetPath);
+                    }
+                    refreshSoundCache(presetId, resolveBaseName(fileName));
+                } catch (IOException e) {
+                    ClientMessageLogger.error("gd656killicon.client.sound.revert_fail", presetId, fileName, e.getMessage());
+                }
+            }
+        }
+        PENDING_SOUND_BACKUPS.clear();
+    }
+
+    public static void revertPendingSoundReplacementsForPreset(String presetId) {
+        if (presetId == null) {
+            return;
+        }
+        Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.get(presetId);
+        if (presetBackups == null || presetBackups.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, SoundBackup> entry : presetBackups.entrySet()) {
+            String fileName = entry.getKey();
+            SoundBackup backup = entry.getValue();
+            Path targetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds").resolve(fileName);
+            try {
+                if (backup.existed) {
+                    Files.write(targetPath, backup.data);
+                } else {
+                    Files.deleteIfExists(targetPath);
+                }
+                refreshSoundCache(presetId, resolveBaseName(fileName));
+            } catch (IOException e) {
+                ClientMessageLogger.error("gd656killicon.client.sound.revert_fail", presetId, fileName, e.getMessage());
+            }
+        }
+        PENDING_SOUND_BACKUPS.remove(presetId);
+    }
+
+    public static boolean hasPendingSoundChanges() {
+        for (Map<String, SoundBackup> presetBackups : PENDING_SOUND_BACKUPS.values()) {
+            if (presetBackups != null && !presetBackups.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean isSoundModified(String presetId, String soundName) {
+        if (presetId == null || soundName == null) {
+            return false;
+        }
+        if (!DEFAULT_SOUND_SET.contains(soundName)) {
+            return false;
+        }
+        Path currentPath = getSoundPathForPreset(presetId, resolveBaseName(soundName));
+        if (currentPath == null || !Files.exists(currentPath)) {
+            return false;
+        }
+        byte[] defaultBytes = getDefaultSoundBytes(soundName);
+        if (defaultBytes == null) {
+            return false;
+        }
+        try {
+            byte[] currentBytes = Files.readAllBytes(currentPath);
+            return !Arrays.equals(defaultBytes, currentBytes);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    public static boolean resetSound(String presetId, String soundName) {
+        if (presetId == null || soundName == null) return false;
+        
+        // Check pending first
+        Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.get(presetId);
+        if (presetBackups != null && presetBackups.containsKey(soundName)) {
+            SoundBackup backup = presetBackups.remove(soundName);
+            Path targetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds").resolve(soundName);
+            try {
+                if (backup.existed) {
+                    Files.write(targetPath, backup.data);
+                } else {
+                    Files.deleteIfExists(targetPath);
+                }
+                if (presetBackups.isEmpty()) {
+                    PENDING_SOUND_BACKUPS.remove(presetId);
+                }
+                refreshSoundCache(presetId, resolveBaseName(soundName));
+                return true;
+            } catch (IOException e) {
+                ClientMessageLogger.error("gd656killicon.client.sound.revert_fail", presetId, soundName, e.getMessage());
+                return false;
+            }
+        }
+
+        // If not pending, check if modified on disk and reset to default
+        if (isSoundModified(presetId, soundName)) {
+            // Force extract this specific sound
+            try {
+                Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+                Path targetPath = presetDir.resolve(soundName);
+                String baseName = resolveBaseName(soundName);
+                
+                // Remove both .ogg and .wav variants to be clean
+                Files.deleteIfExists(presetDir.resolve(baseName + ".ogg"));
+                Files.deleteIfExists(presetDir.resolve(baseName + ".wav"));
+                
+                // Copy default
+                ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+                try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
+                    Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                } catch (Exception e) {
+                    try (InputStream stream = ExternalSoundManager.class.getResourceAsStream("/assets/gd656killicon/sounds/" + soundName)) {
+                         if (stream != null) {
+                             Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                         }
+                    }
+                }
+                refreshSoundCache(presetId, baseName);
+                return true;
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        
+        return false;
     }
 
     public static void resetSounds(String presetId) {
@@ -390,12 +652,18 @@ public class ExternalSoundManager {
         }
     }
 
+    private static final Map<String, Long> SOUND_START_TIMES = new ConcurrentHashMap<>();
+    private static final Map<String, Long> SOUND_DURATIONS_MS = new ConcurrentHashMap<>();
+    private static final Map<String, java.util.concurrent.atomic.AtomicInteger> ACTIVE_PLAY_COUNTS = new ConcurrentHashMap<>();
+
     public static void playSound(String name) {
         playSound(name, false);
     }
 
     public static void playSound(String name, boolean blocking) {
         if (!ClientConfigManager.isEnableSound()) return;
+        int soundVolume = ClientConfigManager.getSoundVolume();
+        if (soundVolume <= 0) return;
 
         if (blocking && BLOCKING_STATUS.getOrDefault(name, false)) {
             return;
@@ -407,6 +675,7 @@ public class ExternalSoundManager {
         SOUND_LAST_PLAY_TIMES.put(name, now);
 
         SoundData data = SOUND_CACHE.get(name);
+        String resolvedName = name;
         if (data == null) {
             // Try looking for default suffix if exact match failed (compatibility)
             if (!name.endsWith("_cf") && !name.endsWith("_df")) {
@@ -414,6 +683,7 @@ public class ExternalSoundManager {
                 for (String key : SOUND_CACHE.keySet()) {
                     if (key.startsWith(name)) {
                         data = SOUND_CACHE.get(key);
+                        resolvedName = key;
                         break;
                     }
                 }
@@ -422,10 +692,27 @@ public class ExternalSoundManager {
         }
 
         final SoundData finalData = data;
+        final String finalName = resolvedName;
+        
+        // Calculate duration
+        long frameLength = finalData.pcmData.length / finalData.format.getFrameSize();
+        double durationInSeconds = frameLength / finalData.format.getFrameRate();
+        long durationMs = (long) (durationInSeconds * 1000);
+        SOUND_DURATIONS_MS.put(name, durationMs); // Use original name for lookup key consistency
+
         if (blocking) {
             BLOCKING_STATUS.put(name, true);
         }
         
+        ACTIVE_PLAY_COUNTS.compute(name, (key, count) -> {
+            if (count == null) {
+                count = new java.util.concurrent.atomic.AtomicInteger(0);
+            }
+            count.incrementAndGet();
+            return count;
+        });
+        SOUND_START_TIMES.put(name, System.currentTimeMillis());
+
         SOUND_THREAD_POOL.submit(() -> {
             try {
                 DataLine.Info info = new DataLine.Info(SourceDataLine.class, finalData.format);
@@ -440,15 +727,13 @@ public class ExternalSoundManager {
                 if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                     FloatControl gainControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
                     float masterVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MASTER);
+                    masterVolume *= Math.max(0.0f, soundVolume / 100.0f);
                     
                     // Convert linear volume (0.0 - 1.0) to decibels
-                    // Formula: 20 * log10(volume)
-                    // But we should clamp low values to avoid -Infinity
                     if (masterVolume <= 0.0001f) {
                         masterVolume = 0.0001f;
                     }
                     float dB = (float) (20.0 * Math.log10(masterVolume));
-                    // Clamp to min/max of control
                     dB = Math.max(gainControl.getMinimum(), Math.min(gainControl.getMaximum(), dB));
                     
                     gainControl.setValue(dB);
@@ -464,13 +749,122 @@ public class ExternalSoundManager {
                 if (blocking) {
                     BLOCKING_STATUS.put(name, false);
                 }
+                ACTIVE_PLAY_COUNTS.computeIfPresent(name, (key, count) -> {
+                    if (count.decrementAndGet() <= 0) {
+                        return null;
+                    }
+                    return count;
+                });
             }
         });
     }
 
-    private static class SoundData {
-        final byte[] pcmData;
-        final AudioFormat format;
+    public static boolean isSoundPlaying(String name) {
+        java.util.concurrent.atomic.AtomicInteger count = ACTIVE_PLAY_COUNTS.get(name);
+        return count != null && count.get() > 0;
+    }
+
+    public static float getSoundProgress(String name) {
+        if (!isSoundPlaying(name)) return 0.0f;
+        Long start = SOUND_START_TIMES.get(name);
+        Long duration = SOUND_DURATIONS_MS.get(name);
+        if (start == null || duration == null || duration == 0) return 0.0f;
+        
+        long elapsed = System.currentTimeMillis() - start;
+        float progress = (float) elapsed / duration;
+        return Math.min(1.0f, Math.max(0.0f, progress));
+    }
+
+    private static void backupFileIfNeeded(Map<String, SoundBackup> presetBackups, Path path) throws IOException {
+        String fileName = path.getFileName().toString();
+        if (presetBackups.containsKey(fileName)) {
+            return;
+        }
+        if (Files.exists(path)) {
+            byte[] original = Files.readAllBytes(path);
+            presetBackups.put(fileName, new SoundBackup(true, original));
+        } else {
+            presetBackups.put(fileName, new SoundBackup(false, null));
+        }
+    }
+
+    private static Path getSoundPathForPreset(String presetId, String baseName) {
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        Path oggPath = presetDir.resolve(baseName + ".ogg");
+        if (Files.exists(oggPath)) {
+            return oggPath;
+        }
+        Path wavPath = presetDir.resolve(baseName + ".wav");
+        if (Files.exists(wavPath)) {
+            return wavPath;
+        }
+        return oggPath;
+    }
+
+    private static String resolveBaseName(String soundName) {
+        return soundName.replaceFirst("[.][^.]+$", "");
+    }
+
+    private static byte[] getDefaultSoundBytes(String soundName) {
+        if (DEFAULT_SOUND_BYTES.containsKey(soundName)) {
+            return DEFAULT_SOUND_BYTES.get(soundName);
+        }
+        byte[] bytes = null;
+        try {
+            ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+            try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
+                bytes = stream.readAllBytes();
+            }
+        } catch (Exception e) {
+            try (InputStream stream = ExternalSoundManager.class.getResourceAsStream("/assets/gd656killicon/sounds/" + soundName)) {
+                if (stream != null) {
+                    bytes = stream.readAllBytes();
+                }
+            } catch (IOException ex) {
+                bytes = null;
+            }
+        }
+        if (bytes != null) {
+            DEFAULT_SOUND_BYTES.put(soundName, bytes);
+        }
+        return bytes;
+    }
+
+    private static void refreshSoundCache(String presetId, String baseName) {
+        if (!ConfigManager.getCurrentPresetId().equals(presetId)) {
+            return;
+        }
+        SOUND_CACHE.remove(baseName);
+        Path path = getSoundPathForPreset(presetId, baseName);
+        if (path != null && Files.exists(path)) {
+            try {
+                SoundData data = loadSoundFile(path);
+                if (data != null) {
+                    SOUND_CACHE.put(baseName, data);
+                }
+            } catch (Exception e) {
+                SOUND_CACHE.remove(baseName);
+            }
+        }
+    }
+
+    public static SoundData getSoundData(String name) {
+        return SOUND_CACHE.get(name);
+    }
+
+    private static class SoundBackup {
+        private final boolean existed;
+        private final byte[] data;
+
+        private SoundBackup(boolean existed, byte[] data) {
+            this.existed = existed;
+            this.data = data;
+        }
+    }
+
+    public static class SoundData {
+        public final byte[] pcmData;
+        public final AudioFormat format;
 
         public SoundData(byte[] pcmData, AudioFormat format) {
             this.pcmData = pcmData;

@@ -69,7 +69,6 @@ public class ConfigScreenHeader {
         
         tabs.add(new Tab(new ScoreboardTab(minecraft)));
         tabs.add(new Tab(new HelpTab(minecraft)));
-        tabs.add(new Tab(new AboutTab(minecraft)));
         
         if (!tabs.isEmpty()) {
             selectedTab = tabs.get(0);

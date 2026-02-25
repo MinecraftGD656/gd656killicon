@@ -20,22 +20,34 @@ public class ClientConfigManager {
     private static final String DEFAULT_CURRENT_PRESET = "00001";
     private static final boolean DEFAULT_ENABLE_SOUND = true;
     private static final boolean DEFAULT_SHOW_BONUS_MESSAGE = false;
+    private static final int DEFAULT_SOUND_VOLUME = 100;
+    private static final boolean DEFAULT_ENABLE_ACE_LAG = false;
+    private static final int DEFAULT_ACE_LAG_INTENSITY = 5;
 
     // Current Config Values
     private static String currentPresetId = DEFAULT_CURRENT_PRESET;
     private static boolean enableSound = DEFAULT_ENABLE_SOUND;
     private static boolean showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
+    private static int soundVolume = DEFAULT_SOUND_VOLUME;
+    private static boolean enableAceLag = DEFAULT_ENABLE_ACE_LAG;
+    private static int aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
 
     // Temporary Config Values (Editing Mode)
     private static String tempCurrentPresetId = null;
     private static Boolean tempEnableSound = null;
     private static Boolean tempShowBonusMessage = null;
+    private static Integer tempSoundVolume = null;
+    private static Boolean tempEnableAceLag = null;
+    private static Integer tempAceLagIntensity = null;
     private static boolean isEditing = false;
 
     public static void startEditing() {
         tempCurrentPresetId = currentPresetId;
         tempEnableSound = enableSound;
         tempShowBonusMessage = showBonusMessage;
+        tempSoundVolume = soundVolume;
+        tempEnableAceLag = enableAceLag;
+        tempAceLagIntensity = aceLagIntensity;
         isEditing = true;
     }
 
@@ -44,12 +56,18 @@ public class ClientConfigManager {
             currentPresetId = tempCurrentPresetId;
             enableSound = tempEnableSound;
             showBonusMessage = tempShowBonusMessage;
+            soundVolume = tempSoundVolume == null ? soundVolume : clampSoundVolume(tempSoundVolume);
+            enableAceLag = tempEnableAceLag != null ? tempEnableAceLag : enableAceLag;
+            aceLagIntensity = tempAceLagIntensity == null ? aceLagIntensity : clampAceLagIntensity(tempAceLagIntensity);
             isEditing = false;
             saveGlobalConfig();
             
             tempCurrentPresetId = null;
             tempEnableSound = null;
             tempShowBonusMessage = null;
+            tempSoundVolume = null;
+            tempEnableAceLag = null;
+            tempAceLagIntensity = null;
         }
     }
 
@@ -59,6 +77,9 @@ public class ClientConfigManager {
             tempCurrentPresetId = null;
             tempEnableSound = null;
             tempShowBonusMessage = null;
+            tempSoundVolume = null;
+            tempEnableAceLag = null;
+            tempAceLagIntensity = null;
         }
     }
 
@@ -67,6 +88,9 @@ public class ClientConfigManager {
         if (tempCurrentPresetId != null && !tempCurrentPresetId.equals(currentPresetId)) return true;
         if (tempEnableSound != null && !tempEnableSound.equals(enableSound)) return true;
         if (tempShowBonusMessage != null && !tempShowBonusMessage.equals(showBonusMessage)) return true;
+        if (tempSoundVolume != null && tempSoundVolume != soundVolume) return true;
+        if (tempEnableAceLag != null && !tempEnableAceLag.equals(enableAceLag)) return true;
+        if (tempAceLagIntensity != null && tempAceLagIntensity != aceLagIntensity) return true;
         return false;
     }
 
@@ -89,6 +113,9 @@ public class ClientConfigManager {
             currentPresetId = json.has("current_preset") ? json.get("current_preset").getAsString() : DEFAULT_CURRENT_PRESET;
             enableSound = json.has("enable_sound") ? json.get("enable_sound").getAsBoolean() : DEFAULT_ENABLE_SOUND;
             showBonusMessage = json.has("show_bonus_message") ? json.get("show_bonus_message").getAsBoolean() : DEFAULT_SHOW_BONUS_MESSAGE;
+            soundVolume = json.has("sound_volume") ? clampSoundVolume(json.get("sound_volume").getAsInt()) : DEFAULT_SOUND_VOLUME;
+            enableAceLag = json.has("enable_ace_lag") ? json.get("enable_ace_lag").getAsBoolean() : DEFAULT_ENABLE_ACE_LAG;
+            aceLagIntensity = json.has("ace_lag_intensity") ? clampAceLagIntensity(json.get("ace_lag_intensity").getAsInt()) : DEFAULT_ACE_LAG_INTENSITY;
         } catch (Exception e) {
             ClientMessageLogger.error("gd656killicon.client.config.load_fail", e.getMessage());
             e.printStackTrace();
@@ -96,6 +123,9 @@ public class ClientConfigManager {
             currentPresetId = DEFAULT_CURRENT_PRESET;
             enableSound = DEFAULT_ENABLE_SOUND;
             showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
+            soundVolume = DEFAULT_SOUND_VOLUME;
+            enableAceLag = DEFAULT_ENABLE_ACE_LAG;
+            aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
         }
     }
 
@@ -104,11 +134,17 @@ public class ClientConfigManager {
         json.addProperty("current_preset", DEFAULT_CURRENT_PRESET);
         json.addProperty("enable_sound", DEFAULT_ENABLE_SOUND);
         json.addProperty("show_bonus_message", DEFAULT_SHOW_BONUS_MESSAGE);
+        json.addProperty("sound_volume", DEFAULT_SOUND_VOLUME);
+        json.addProperty("enable_ace_lag", DEFAULT_ENABLE_ACE_LAG);
+        json.addProperty("ace_lag_intensity", DEFAULT_ACE_LAG_INTENSITY);
         
         // Update memory state as well
         currentPresetId = DEFAULT_CURRENT_PRESET;
         enableSound = DEFAULT_ENABLE_SOUND;
         showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
+        soundVolume = DEFAULT_SOUND_VOLUME;
+        enableAceLag = DEFAULT_ENABLE_ACE_LAG;
+        aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
 
         try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
             GSON.toJson(json, writer);
@@ -123,6 +159,9 @@ public class ClientConfigManager {
         root.addProperty("current_preset", currentPresetId);
         root.addProperty("enable_sound", enableSound);
         root.addProperty("show_bonus_message", showBonusMessage);
+        root.addProperty("sound_volume", soundVolume);
+        root.addProperty("enable_ace_lag", enableAceLag);
+        root.addProperty("ace_lag_intensity", aceLagIntensity);
 
         try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
             GSON.toJson(root, writer);
@@ -172,5 +211,54 @@ public class ClientConfigManager {
             showBonusMessage = show;
             saveGlobalConfig();
         }
+    }
+
+    public static int getSoundVolume() {
+        return isEditing && tempSoundVolume != null ? tempSoundVolume : soundVolume;
+    }
+
+    public static void setSoundVolume(int volume) {
+        int clamped = clampSoundVolume(volume);
+        if (isEditing) {
+            tempSoundVolume = clamped;
+        } else {
+            soundVolume = clamped;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean isEnableAceLag() {
+        return isEditing && tempEnableAceLag != null ? tempEnableAceLag : enableAceLag;
+    }
+
+    public static void setEnableAceLag(boolean enable) {
+        if (isEditing) {
+            tempEnableAceLag = enable;
+        } else {
+            enableAceLag = enable;
+            saveGlobalConfig();
+        }
+    }
+
+    public static int getAceLagIntensity() {
+        return isEditing && tempAceLagIntensity != null ? tempAceLagIntensity : aceLagIntensity;
+    }
+
+    public static void setAceLagIntensity(int intensity) {
+        int clamped = clampAceLagIntensity(intensity);
+        if (isEditing) {
+            tempAceLagIntensity = clamped;
+        } else {
+            aceLagIntensity = clamped;
+            saveGlobalConfig();
+        }
+    }
+
+    private static int clampSoundVolume(int volume) {
+        return Math.max(0, Math.min(200, volume));
+    }
+
+    private static int clampAceLagIntensity(int intensity) {
+        return Math.max(1, Math.min(10, intensity));
     }
 }

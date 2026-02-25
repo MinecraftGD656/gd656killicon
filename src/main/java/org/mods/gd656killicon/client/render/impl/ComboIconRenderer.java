@@ -48,6 +48,12 @@ public class ComboIconRenderer implements IHudRenderer {
     private int configYOffset = 0;
     private long displayDuration = DEFAULT_DISPLAY_DURATION;
     private boolean enableIconEffect = IconRingEffect.DEFAULT_ENABLE_ICON_EFFECT;
+    private float ringNormalRadius = 42.0f;
+    private float ringNormalThickness = 1.8f;
+    private float ringHeadshotRadius = 42.0f;
+    private float ringHeadshotThickness = 3.0f;
+    private float ringExplosionRadius = 42.0f;
+    private float ringExplosionThickness = 5.4f;
     private JsonObject currentConfig;
 
     // State Fields
@@ -199,6 +205,24 @@ public class ComboIconRenderer implements IHudRenderer {
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
             this.displayDuration = resolveDisplayDuration(config);
             this.enableIconEffect = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
+            this.ringNormalRadius = config.has("ring_effect_normal_radius")
+                    ? config.get("ring_effect_normal_radius").getAsFloat()
+                    : 42.0f;
+            this.ringNormalThickness = config.has("ring_effect_normal_thickness")
+                    ? config.get("ring_effect_normal_thickness").getAsFloat()
+                    : 1.8f;
+            this.ringHeadshotRadius = config.has("ring_effect_headshot_radius")
+                    ? config.get("ring_effect_headshot_radius").getAsFloat()
+                    : 42.0f;
+            this.ringHeadshotThickness = config.has("ring_effect_headshot_thickness")
+                    ? config.get("ring_effect_headshot_thickness").getAsFloat()
+                    : 3.0f;
+            this.ringExplosionRadius = config.has("ring_effect_explosion_radius")
+                    ? config.get("ring_effect_explosion_radius").getAsFloat()
+                    : 42.0f;
+            this.ringExplosionThickness = config.has("ring_effect_explosion_thickness")
+                    ? config.get("ring_effect_explosion_thickness").getAsFloat()
+                    : 5.4f;
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.combo.config_error");
             this.currentConfig = null;
@@ -207,6 +231,12 @@ public class ComboIconRenderer implements IHudRenderer {
             this.configYOffset = 0;
             this.displayDuration = resolveDisplayDuration(null);
             this.enableIconEffect = IconRingEffect.DEFAULT_ENABLE_ICON_EFFECT;
+            this.ringNormalRadius = 42.0f;
+            this.ringNormalThickness = 1.8f;
+            this.ringHeadshotRadius = 42.0f;
+            this.ringHeadshotThickness = 3.0f;
+            this.ringExplosionRadius = 42.0f;
+            this.ringExplosionThickness = 5.4f;
         }
     }
 
@@ -244,6 +274,14 @@ public class ComboIconRenderer implements IHudRenderer {
      */
     private void triggerRingEffect() {
         if (this.enableIconEffect && isSpecialKillType(this.currentKillType)) {
+            ringEffect.setRingParams(
+                    ringNormalRadius,
+                    ringNormalThickness,
+                    ringHeadshotRadius,
+                    ringHeadshotThickness,
+                    ringExplosionRadius,
+                    ringExplosionThickness
+            );
             ringEffect.trigger(
                     this.startTime,
                     true,
@@ -261,26 +299,23 @@ public class ComboIconRenderer implements IHudRenderer {
         return type == KillType.HEADSHOT || type == KillType.EXPLOSION || type == KillType.CRIT;
     }
 
-    private static int resolveHeadshotEffectRgb() {
-        return resolveEffectRgb("color_headshot_placeholder", "color_normal_placeholder", DEFAULT_HEADSHOT_COLOR);
+    private int resolveHeadshotEffectRgb() {
+        return resolveEffectRgb("ring_effect_headshot_color", DEFAULT_HEADSHOT_COLOR);
     }
 
-    private static int resolveExplosionEffectRgb() {
-        return resolveEffectRgb("color_explosion_placeholder", null, DEFAULT_EXPLOSION_COLOR);
+    private int resolveExplosionEffectRgb() {
+        return resolveEffectRgb("ring_effect_explosion_color", DEFAULT_EXPLOSION_COLOR);
     }
 
-    private static int resolveCritEffectRgb() {
-        return resolveEffectRgb("color_crit_placeholder", null, DEFAULT_CRIT_COLOR);
+    private int resolveCritEffectRgb() {
+        return resolveEffectRgb("ring_effect_normal_color", DEFAULT_CRIT_COLOR);
     }
 
-    private static int resolveEffectRgb(String primaryKey, String secondaryKey, int defaultValue) {
-        JsonObject subtitleConfig = ConfigManager.getElementConfig("subtitle", "kill_feed");
-        if (subtitleConfig == null) {
+    private int resolveEffectRgb(String key, int defaultValue) {
+        if (currentConfig == null) {
             return defaultValue;
         }
-        String hex = subtitleConfig.has(primaryKey)
-                ? subtitleConfig.get(primaryKey).getAsString()
-                : (secondaryKey != null && subtitleConfig.has(secondaryKey) ? subtitleConfig.get(secondaryKey).getAsString() : null);
+        String hex = currentConfig.has(key) ? currentConfig.get(key).getAsString() : null;
         return parseRgbHexOrDefault(hex, defaultValue);
     }
 

@@ -48,6 +48,11 @@ public abstract class ConfigTabContent {
     protected ColorPickerDialog colorPickerDialog;
     protected PromptDialog promptDialog;
 
+    // 拖拽相关
+    protected boolean isDragging = false;
+    protected double lastMouseY = 0;
+    protected long lastFrameTime = 0;
+
     public ConfigTabContent(Minecraft minecraft, String titleKey) {
         this.minecraft = minecraft;
         title = Component.translatable(titleKey);
@@ -186,7 +191,7 @@ public abstract class ConfigTabContent {
         if (isResetConfirming && System.currentTimeMillis() - resetConfirmTime > RESET_CONFIRM_TIMEOUT) {
             isResetConfirming = false;
             if (resetButton != null) {
-                resetButton.setMessage(Component.literal("重置"));
+                resetButton.setMessage(Component.translatable("gd656killicon.client.gui.button.reset"));
             }
         }
         */
@@ -300,7 +305,20 @@ public abstract class ConfigTabContent {
     protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         if (!configRows.isEmpty()) {
             if (useDefaultScroll) {
-                float dt = minecraft.getDeltaFrameTime() / 20.0f;
+                // 更新时间步进
+                long now = System.nanoTime();
+                if (lastFrameTime == 0) lastFrameTime = now;
+                float dt = (now - lastFrameTime) / 1_000_000_000.0f;
+                lastFrameTime = now;
+                if (dt > 0.1f) dt = 0.1f;
+
+                // 处理拖拽逻辑 (在调用 updateScroll 之前)
+                if (isDragging) {
+                    double diff = mouseY - lastMouseY;
+                    targetScrollY -= diff;
+                    lastMouseY = mouseY;
+                }
+
                 updateScroll(dt, screenHeight);
 
                 int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
@@ -486,6 +504,11 @@ public abstract class ConfigTabContent {
                          return true;
                      }
                  }
+                 
+                 // 如果没有点击到任何行内元素，则开始拖拽
+                 isDragging = true;
+                 lastMouseY = mouseY;
+                 return true;
              }
         } else {
             for (GDRowRenderer row : configRows) {
@@ -498,6 +521,7 @@ public abstract class ConfigTabContent {
     }
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        isDragging = false;
         if (promptDialog.isVisible()) {
             return true;
         }

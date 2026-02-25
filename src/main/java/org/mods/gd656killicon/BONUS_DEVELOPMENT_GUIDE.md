@@ -31,6 +31,7 @@
 ### 2.1 定义默认加分表达式 (重要)
 在 `org.mods.gd656killicon.server.ServerData.initDefaults` 中注册该加分项的默认分值表达式。
 - **如果不注册，加分项将默认得分为0**。
+- **配置落盘**：`world/gd656killicon/server_config.json`，字段 `disabled_bonuses` 和 `bonus_expressions` 会覆盖默认值。
 - **示例**：
   ```java
   // 固定分数
@@ -60,25 +61,23 @@
 ## 3. 客户端配置 (Client Config)
 
 ### 3.1 定义默认配置
-在 `org.mods.gd656killicon.client.config.ElementConfigManager` 的 `createDefaultConfig` 方法中添加该加分项的显示格式。
+在 `org.mods.gd656killicon.client.config.DefaultConfigRegistry` 中为 `subtitle/bonus_list` 添加该加分项的格式项。
+`ElementConfigManager` 在创建预设时会读取此默认值。
 - **键名规范**：
     - 字幕格式：`format_<bonus_name_lower>`
 - **注意事项**：加分项不应拥有独立的占位符颜色配置，除非有特殊需求（如摧毁载具的特殊颜色）。
 - **示例**：
   ```java
-  config.addProperty("format_new_type", "gd656killicon.client.format.new_type");
+  bonusList.addProperty("format_new_type", "gd656killicon.client.format.bonus_new_type");
   ```
 
 ---
 
 ## 4. 客户端处理与渲染 (Client Handling & Rendering)
 
-### 4.1 注册网络包处理器 (重要)
-所有加分项必须在 `org.mods.gd656killicon.network.packet.BonusScorePacket` 的静态代码块中注册处理器。
-- **示例**：
-  ```java
-  PROCESSORS.put(BonusType.NEW_BONUS_ITEM, p -> ClientMessageLogger.chatInfo("gd656killicon.client.format.bonus_new_type", p.score));
-  ```
+### 4.1 网络包处理流程
+`BonusScorePacket` 会统一触发 HUD 加分列表与分数字幕，不需要额外注册处理器。
+新增加分项只需保证 `BonusListRenderer` 的格式映射与本地化键可用。
 
 ### 4.2 HUD 渲染适配 (BonusListRenderer)
 在 `org.mods.gd656killicon.client.render.impl.BonusListRenderer` 中完成配置映射与占位符处理：
@@ -100,13 +99,18 @@
 - **图标**：在 `ScrollingIconRenderer.getTexturePath` 中添加映射（`killicon_scrolling_<type>.png`）。
 - **音效**：在 `SoundTriggerManager.onKillIconPacket` 中添加逻辑。
 
+### 4.6 帮助页与更新日志 (HelpTab & Update Log)
+1. 在 `HelpTab` 中为对应加分项标题添加灰色 `[bonustype] ` 前缀，前缀与标题之间保留一个空格。
+2. 在 `HelpTab` 的 `1.1.0.006Alpha` 更新日志中补充该加分项与相关修复/配置变更内容。
+
 ---
 
 ## 5. 语言文件 (Localization)
 
-在 `src/main/resources/assets/gd656killicon/lang/` 下的 `zh_cn.json` 和 `en_us.json` 中添加对应的键值对。
+在 `src/main/resources/assets/gd656killicon/lang/` 下的 `zh_cn.json`、`zh_tw.json` 和 `en_us.json` 中添加对应的键值对。
 - **HUD 格式**：使用 `<score>` 占位符。
 - **字幕格式**：支持 `%s` (武器/目标) 等标准格式化符。
+- **名称与说明**：用于帮助页和配置展示。
 
 ---
 

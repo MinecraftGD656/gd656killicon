@@ -141,6 +141,10 @@ public class ElementPreview {
             int size = (int)(this.scale * 70);
             this.width = size;
             this.height = size;
+        } else if ("subtitle/combo".equals(elementId)) {
+            // S*10, S*30
+            this.width = (int)(this.scale * 30);
+            this.height = (int)(this.scale * 10);
         } else if ("kill_icon/combo".equals(elementId)) {
             // Size calculation: S * 55
             int size = (int)(this.scale * 55);

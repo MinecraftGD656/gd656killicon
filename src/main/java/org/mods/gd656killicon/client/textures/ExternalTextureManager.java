@@ -33,11 +33,6 @@ public class ExternalTextureManager {
     
     // 需要复制的默认纹理列表
     private static final String[] DEFAULT_TEXTURES = {
-        "killicon_default.png",
-        "killicon_headshot.png",
-        "killicon_explosion.png",
-        "killicon_crit.png",
-        "killicon_assist.png",
         "killicon_scrolling_default.png",
         "killicon_scrolling_headshot.png",
         "killicon_scrolling_explosion.png",
@@ -598,8 +593,62 @@ public class ExternalTextureManager {
         return null;
     }
 
+    private static final Map<String, TextureDimensions> TEXTURE_DIMENSIONS = new HashMap<>();
+
+    public static class TextureDimensions {
+        public final int width;
+        public final int height;
+        public TextureDimensions(int width, int height) {
+            this.width = width;
+            this.height = height;
+        }
+    }
+
+    public static TextureDimensions getTextureDimensions(String presetId, String path) {
+        String key = presetId + ":" + path;
+        if (TEXTURE_DIMENSIONS.containsKey(key)) {
+            return TEXTURE_DIMENSIONS.get(key);
+        }
+        
+        // Try external
+        Path file = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(path);
+        if (Files.exists(file)) {
+             try (InputStream stream = new FileInputStream(file.toFile());
+                  NativeImage image = NativeImage.read(stream)) {
+                 TextureDimensions dims = new TextureDimensions(image.getWidth(), image.getHeight());
+                 TEXTURE_DIMENSIONS.put(key, dims);
+                 return dims;
+             } catch (IOException ignored) {}
+        }
+        
+        // Try internal
+        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
+        try {
+             try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open();
+                  NativeImage image = NativeImage.read(stream)) {
+                 TextureDimensions dims = new TextureDimensions(image.getWidth(), image.getHeight());
+                 TEXTURE_DIMENSIONS.put(key, dims);
+                 return dims;
+             }
+        } catch (Exception e) {
+             // Fallback classpath
+             try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + path)) {
+                if (stream != null) {
+                     try (NativeImage image = NativeImage.read(stream)) {
+                        TextureDimensions dims = new TextureDimensions(image.getWidth(), image.getHeight());
+                        TEXTURE_DIMENSIONS.put(key, dims);
+                        return dims;
+                     }
+                }
+            } catch (Exception ignored) {}
+        }
+        
+        return new TextureDimensions(0, 0); // Unknown
+    }
+
     private static void invalidateTextureState(String presetId, String textureName) {
         TEXTURE_STATE_CACHE.remove(presetId + ":" + textureName);
+        TEXTURE_DIMENSIONS.remove(presetId + ":" + textureName);
     }
 
     private static final class TextureBackup {

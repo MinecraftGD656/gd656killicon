@@ -42,6 +42,9 @@ public class GDTextRenderer {
     private boolean centered = false; // 是否水平居中
     private Integer overrideColor = null;
 
+    // 垂直滚动相关 (AutoWrap模式)
+    private float scrollY = 0;
+
     public void setOverrideColor(Integer color) {
         this.overrideColor = color;
     }
@@ -84,12 +87,16 @@ public class GDTextRenderer {
     }
 
     public void render(GuiGraphics guiGraphics, float partialTick) {
+        render(guiGraphics, partialTick, true);
+    }
+
+    public void render(GuiGraphics guiGraphics, float partialTick, boolean useScissor) {
         // 在顶层 render 中更新时间步进
         long now = System.currentTimeMillis();
         float dt = (now - lastTime) / 1000.0f;
         lastTime = now;
         
-        renderInternal(guiGraphics, partialTick, true, dt);
+        renderInternal(guiGraphics, partialTick, useScissor, dt);
     }
 
     /**
@@ -123,6 +130,30 @@ public class GDTextRenderer {
     }
 
     private void renderWrappedText(GuiGraphics guiGraphics, float maxWidth) {
+        // 垂直滚动逻辑由外部控制 (setScrollY)
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0, -scrollY, 0);
+        drawWrappedInternal(guiGraphics, maxWidth);
+        guiGraphics.pose().popPose();
+    }
+
+    public void setScrollY(float scrollY) {
+        this.scrollY = scrollY;
+    }
+
+    public float getScrollY() {
+        return scrollY;
+    }
+
+    public float getMaxScrollY() {
+        if (!autoWrap) return 0;
+        int contentHeight = getFinalHeight();
+        // 容器高度 (缩放后的有效高度)
+        float containerHeight = this.height / fontSize;
+        return Math.max(0, contentHeight - containerHeight);
+    }
+
+    private void drawWrappedInternal(GuiGraphics guiGraphics, float maxWidth) {
         if (coloredTexts != null) {
             renderMixedColorWrapped(guiGraphics, maxWidth);
             return;
@@ -171,19 +202,32 @@ public class GDTextRenderer {
 
     private List<String> wrapText(String text, float maxWidth) {
         List<String> lines = new ArrayList<>();
-        StringBuilder currentLine = new StringBuilder();
-        
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            String nextText = currentLine.toString() + c;
-            if (minecraft.font.width(nextText) > maxWidth && currentLine.length() > 0) {
-                lines.add(currentLine.toString());
-                currentLine = new StringBuilder();
+        // 预处理文本，处理可能存在的转义换行符和不同平台的换行符
+        // 1. 将 "\\n" (字面量) 替换为 "\n" (换行符)，以防 I18n 或 JSON 解析导致的转义问题
+        // 2. 统一行尾为 "\n"
+        String processedText = text.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n");
+        String[] paragraphs = processedText.split("\n", -1);
+
+        for (String paragraph : paragraphs) {
+            if (paragraph.isEmpty()) {
+                lines.add("");
+                continue;
             }
-            currentLine.append(c);
-        }
-        if (currentLine.length() > 0) {
-            lines.add(currentLine.toString());
+
+            StringBuilder currentLine = new StringBuilder();
+            
+            for (int i = 0; i < paragraph.length(); i++) {
+                char c = paragraph.charAt(i);
+                String nextText = currentLine.toString() + c;
+                if (minecraft.font.width(nextText) > maxWidth && currentLine.length() > 0) {
+                    lines.add(currentLine.toString());
+                    currentLine = new StringBuilder();
+                }
+                currentLine.append(c);
+            }
+            if (currentLine.length() > 0) {
+                lines.add(currentLine.toString());
+            }
         }
         return lines;
     }

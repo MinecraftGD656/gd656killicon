@@ -10,7 +10,9 @@ import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
+import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.sounds.ExternalSoundManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
@@ -76,7 +78,7 @@ public class ClientCommand {
     }
 
     public static int info(CommandContext<CommandSourceStack> context) {
-        ClientMessageLogger.chatInfo("gd656killicon.client.command.info");
+        ClientMessageLogger.chatInfo("gd656killicon.client.command.info" + GuiConstants.MOD_VERSION);
         return 1;
     }
 
@@ -241,7 +243,22 @@ public class ClientCommand {
                 ConfigManager.setShowBonusMessage(bonus);
                 ClientMessageLogger.chatSuccess("gd656killicon.client.command.global_config_updated", key, value);
                 break;
-                
+
+            case "sound_volume":
+                try {
+                    int volume = Integer.parseInt(value);
+                    if (volume < 0 || volume > 200) {
+                        ClientMessageLogger.chatError("gd656killicon.client.command.global_config_invalid_value", value);
+                        return 0;
+                    }
+                    ConfigManager.setSoundVolume(volume);
+                    ClientMessageLogger.chatSuccess("gd656killicon.client.command.global_config_updated", key, value);
+                } catch (NumberFormatException e) {
+                    ClientMessageLogger.chatError("gd656killicon.client.command.global_config_invalid_value", value);
+                    return 0;
+                }
+                break;
+
             default:
                 ClientMessageLogger.chatError("gd656killicon.client.command.global_config_invalid_key", key);
                 return 0;
@@ -283,7 +300,7 @@ public class ClientCommand {
                     .then(Commands.literal("reload").executes(ClientCommand::reload))                                                                         //   重新加载配置文件
                     .then(Commands.literal("global")
                         .then(Commands.argument("key", StringArgumentType.word())
-                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"current_preset", "enable_sound", "show_bonus_message"}, builder))
+                            .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"current_preset", "enable_sound", "sound_volume", "show_bonus_message"}, builder))
                             .then(Commands.argument("value", StringArgumentType.string())
                                 .executes(ClientCommand::setGlobalConfig)
                             )

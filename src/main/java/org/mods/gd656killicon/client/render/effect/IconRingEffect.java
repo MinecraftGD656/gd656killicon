@@ -38,6 +38,21 @@ public final class IconRingEffect {
     private int headshotRgb = 0;
     private int explosionRgb = 0;
     private int critRgb = 0;
+    private float normalMaxRadius = BASE_RADIUS_PX + RADIUS_GROWTH_PX;
+    private float normalThickness = BASE_THICKNESS_PX * CRIT_RING_THICKNESS_MULTIPLIER;
+    private float headshotMaxRadius = BASE_RADIUS_PX + RADIUS_GROWTH_PX;
+    private float headshotThickness = BASE_THICKNESS_PX;
+    private float explosionMaxRadius = BASE_RADIUS_PX + RADIUS_GROWTH_PX;
+    private float explosionThickness = BASE_THICKNESS_PX * EXPLOSION_SECOND_RING_THICKNESS_MULTIPLIER;
+
+    public void setRingParams(float normalMaxRadius, float normalThickness, float headshotMaxRadius, float headshotThickness, float explosionMaxRadius, float explosionThickness) {
+        this.normalMaxRadius = normalMaxRadius;
+        this.normalThickness = normalThickness;
+        this.headshotMaxRadius = headshotMaxRadius;
+        this.headshotThickness = headshotThickness;
+        this.explosionMaxRadius = explosionMaxRadius;
+        this.explosionThickness = explosionThickness;
+    }
 
     public void trigger(long triggerTimeMs, boolean enabled, int killType, int headshotRgb, int explosionRgb, int critRgb) {
         this.killType = killType;
@@ -68,20 +83,21 @@ public final class IconRingEffect {
 
         float t = Mth.clamp((float) effectElapsed / (float) EFFECT_DURATION_MS, 0.0f, 1.0f);
         float eased = 1.0f - (float) Math.pow(1.0f - t, 3);
-        float radius = (BASE_RADIUS_PX + eased * RADIUS_GROWTH_PX) * scale;
         float effectAlpha = 1.0f - t;
         effectAlpha = effectAlpha * effectAlpha;
 
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         if (killType == KillType.HEADSHOT) {
-            float thickness = BASE_THICKNESS_PX * (1.0f - t) * scale;
+            float radius = resolveRadius(headshotMaxRadius, eased);
+            float thickness = headshotThickness * (1.0f - t) * scale;
             drawRing(guiGraphics, centerX, centerY, radius, thickness, headshotRgb, effectAlpha);
             return;
         }
 
         if (killType == KillType.EXPLOSION) {
-            float thickness1 = BASE_THICKNESS_PX * (1.0f - t) * scale;
+            float radius = resolveRadius(headshotMaxRadius, eased);
+            float thickness1 = headshotThickness * (1.0f - t) * scale;
             drawRing(guiGraphics, centerX, centerY, radius, thickness1, headshotRgb, effectAlpha);
 
             long ring2Elapsed = effectElapsed - EXPLOSION_SECOND_RING_DELAY_MS;
@@ -91,18 +107,25 @@ public final class IconRingEffect {
 
             float t2 = (float) ring2Elapsed / (float) EFFECT_DURATION_MS;
             float eased2 = 1.0f - (float) Math.pow(1.0f - t2, 3);
-            float radius2 = (BASE_RADIUS_PX + eased2 * RADIUS_GROWTH_PX) * scale;
+            float radius2 = resolveRadius(explosionMaxRadius, eased2);
             float alpha2 = 1.0f - t2;
             alpha2 = alpha2 * alpha2;
-            float thickness2 = BASE_THICKNESS_PX * EXPLOSION_SECOND_RING_THICKNESS_MULTIPLIER * (1.0f - t2) * scale;
+            float thickness2 = explosionThickness * (1.0f - t2) * scale;
             drawRing(guiGraphics, centerX, centerY, radius2, thickness2, explosionRgb, alpha2);
             return;
         }
 
         if (killType == KillType.CRIT) {
-            float thickness = BASE_THICKNESS_PX * CRIT_RING_THICKNESS_MULTIPLIER * (1.0f - t) * scale;
+            float radius = resolveRadius(normalMaxRadius, eased);
+            float thickness = normalThickness * (1.0f - t) * scale;
             drawRing(guiGraphics, centerX, centerY, radius, thickness, critRgb, effectAlpha);
         }
+    }
+
+    private float resolveRadius(float maxRadius, float eased) {
+        float baseRatio = BASE_RADIUS_PX / (BASE_RADIUS_PX + RADIUS_GROWTH_PX);
+        float minRadius = maxRadius * baseRatio;
+        return (minRadius + (maxRadius - minRadius) * eased) * scale;
     }
 
     private static void drawRing(GuiGraphics guiGraphics, float centerX, float centerY, float radius, float thickness, int rgb, float alpha) {

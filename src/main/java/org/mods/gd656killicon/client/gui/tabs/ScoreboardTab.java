@@ -42,8 +42,8 @@ public class ScoreboardTab extends ConfigTabContent {
     private static boolean isAscending = false;
 
     // 滚动相关
-
-    private boolean isDragging = false;
+    private boolean isDraggingArea2 = false;
+    private boolean isDraggingArea3 = false;
     private double lastMouseY = 0;
     private long lastFrameTime = 0;
 
@@ -228,15 +228,16 @@ public class ScoreboardTab extends ConfigTabContent {
             }
         }
         
-        // 拖拽开始判定（仅限主显示区）
-        int area1Right = (minecraft.getWindow().getGuiScaledWidth() - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
-        int x1 = area1Right + GuiConstants.DEFAULT_PADDING;
-        int y1 = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING;
-        int x2 = minecraft.getWindow().getGuiScaledWidth() - GuiConstants.DEFAULT_PADDING;
-        int y2 = minecraft.getWindow().getGuiScaledHeight() - GuiConstants.DEFAULT_PADDING;
-        
-        if (mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2) {
-            isDragging = true;
+        // 拖拽开始判定（仅限主显示区 Area 2）
+        if (mouseX >= area2X1 && mouseX <= area2X2 && mouseY >= area2Y1 && mouseY <= area2Y2) {
+            isDraggingArea2 = true;
+            lastMouseY = mouseY;
+            return true;
+        }
+
+        // 拖拽开始判定（仅限左侧统计区 Area 3）
+        if (mouseX >= area3X1 && mouseX <= area3X2 && mouseY >= area3Y1 && mouseY <= area3Y2) {
+            isDraggingArea3 = true;
             lastMouseY = mouseY;
             return true;
         }
@@ -246,7 +247,8 @@ public class ScoreboardTab extends ConfigTabContent {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        isDragging = false;
+        isDraggingArea2 = false;
+        isDraggingArea3 = false;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -349,9 +351,13 @@ public class ScoreboardTab extends ConfigTabContent {
         if (dt > 0.1f) dt = 0.1f;
         
         // 处理拖拽逻辑 (在调用 updateScroll 之前)
-        if (isDragging) {
+        if (isDraggingArea2) {
             double diff = mouseY - lastMouseY;
             targetScrollY -= diff;
+            lastMouseY = mouseY;
+        } else if (isDraggingArea3) {
+            double diff = mouseY - lastMouseY;
+            targetScrollY3 -= diff;
             lastMouseY = mouseY;
         }
 
@@ -691,9 +697,9 @@ public class ScoreboardTab extends ConfigTabContent {
 
         headerRenderer.addColoredColumn(getTeamInfo(), -1, false, false, (btn) -> handleHeaderClick(SortType.NAME, btn));
         headerRenderer.addColumn(net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.tab.scoreboard.header.score"), 50, GuiConstants.COLOR_WHITE, true, true, (btn) -> handleHeaderClick(SortType.SCORE, btn));
-        headerRenderer.addColumn(net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.header.kill"), 25, GuiConstants.COLOR_WHITE, false, true, (btn) -> handleHeaderClick(SortType.KILL, btn));
-        headerRenderer.addColumn(net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.header.death"), 25, GuiConstants.COLOR_WHITE, false, true, (btn) -> handleHeaderClick(SortType.DEATH, btn));
-        headerRenderer.addColumn(net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.header.assist"), 25, GuiConstants.COLOR_WHITE, false, true, (btn) -> handleHeaderClick(SortType.ASSIST, btn));
+        headerRenderer.addColumn(net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.tab.scoreboard.header.kill"), 25, GuiConstants.COLOR_WHITE, false, true, (btn) -> handleHeaderClick(SortType.KILL, btn));
+        headerRenderer.addColumn(net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.tab.scoreboard.header.death"), 25, GuiConstants.COLOR_WHITE, false, true, (btn) -> handleHeaderClick(SortType.DEATH, btn));
+        headerRenderer.addColumn(net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.tab.scoreboard.header.assist"), 25, GuiConstants.COLOR_WHITE, false, true, (btn) -> handleHeaderClick(SortType.ASSIST, btn));
         headerRenderer.addColoredColumn(getPingInfo(), 40, true, true, (btn) -> handleHeaderClick(SortType.PING, btn));
 
         headerRenderer.render(guiGraphics, mouseX, mouseY, partialTick);

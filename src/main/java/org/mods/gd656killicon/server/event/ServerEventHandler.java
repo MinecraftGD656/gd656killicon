@@ -4,10 +4,12 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -17,6 +19,7 @@ import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
@@ -54,6 +57,9 @@ public class ServerEventHandler {
     private static final Map<UUID, Long> lastItemSwitchTime = new ConcurrentHashMap<>(); // playerUUID -> timestamp
     private static final Map<UUID, Integer> lastSelectedSlot = new ConcurrentHashMap<>(); // playerUUID -> slotIndex
     private static final Map<UUID, Integer> consecutiveAssists = new ConcurrentHashMap<>(); // playerUUID -> assistCount
+    // Use HashMap for better single-thread performance on server thread
+    private static final Map<UUID, Vec3> lastSprintPositions = new HashMap<>();
+    private static final Map<UUID, Double> sprintDistances = new HashMap<>();
 
     private static final List<PendingKill> pendingKills = new ArrayList<>();
     private static ScheduledExecutorService scoreboardRefreshExecutor;
@@ -62,10 +68,19 @@ public class ServerEventHandler {
     private static final int TYPE_EXPLOSION = 1;
     private static final int TYPE_HEADSHOT = 2;
     private static final int TYPE_CRIT = 3;
+    private static final long LOCKED_TARGET_WINDOW_MS = 10000;
+    private static final double HOLD_POSITION_MAX_DISTANCE = 1.0;
 
     // ================================================================================================================
     // Event Handlers
     // ================================================================================================================
+
+    @SubscribeEvent
+    public static void onBlockBreak(BlockEvent.BreakEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer player) {
+            ServerCore.BONUS.add(player, BonusType.DESTROY_BLOCK, 1.0f, "");
+        }
+    }
 
     @SubscribeEvent
     public static void onStarting(ServerStartingEvent event) {
@@ -75,6 +90,8 @@ public class ServerEventHandler {
         ServerCore.TACZ.init();
         ServerCore.YWZJ_VEHICLE.init();
         ServerCore.SUPERB_WARFARE.init();
+        ServerCore.IMMERSIVE_AIRCRAFT.init();
+        ServerCore.SPOTTING.init();
         startScoreboardRefreshTask();
     }
 
@@ -135,6 +152,8 @@ public class ServerEventHandler {
         ServerCore.TACZ.tick();
         ServerCore.SUPERB_WARFARE.tick();
         ServerCore.YWZJ_VEHICLE.tick();
+        ServerCore.IMMERSIVE_AIRCRAFT.tick();
+        ServerCore.SPOTTING.tick();
         
         // Reset explosion counter every tick
         explosionKillCounter.clear();
@@ -174,7 +193,62 @@ public class ServerEventHandler {
             ServerData.get().syncScoreToPlayer(player);
             // Initialize selected slot
             lastSelectedSlot.put(player.getUUID(), player.getInventory().selected);
+            lastSprintPositions.put(player.getUUID(), player.position());
         }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            UUID playerId = player.getUUID();
+            lastSprintPositions.remove(playerId);
+            sprintDistances.remove(playerId);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        if (event.player.level().isClientSide) return;
+        if (!(event.player instanceof ServerPlayer player)) return;
+
+        // Optimization: Fast fail for spectators/creative flight
+        if (player.getAbilities().flying || player.isSpectator()) {
+            lastSprintPositions.put(player.getUUID(), player.position());
+            return;
+        }
+
+        UUID playerId = player.getUUID();
+        Vec3 currentPos = player.position();
+        
+        // Get last position
+        Vec3 lastPos = lastSprintPositions.get(playerId);
+        
+        // Update position for next tick
+        // Optimization: Only update map if position changed significantly to avoid unnecessary writes
+        if (lastPos == null || !currentPos.equals(lastPos)) {
+            lastSprintPositions.put(playerId, currentPos);
+        }
+
+        if (lastPos == null) return;
+        if (!player.isSprinting()) return;
+
+        double dx = currentPos.x - lastPos.x;
+        double dz = currentPos.z - lastPos.z;
+        double distSqr = dx * dx + dz * dz;
+
+        // Optimization: Skip sqrt for very small movements or unrealistic jumps
+        if (distSqr < 0.0001 || distSqr > 100.0) return;
+
+        double distance = Math.sqrt(distSqr);
+        double total = sprintDistances.getOrDefault(playerId, 0.0) + distance;
+        
+        while (total >= 200.0) {
+            // Changed scale from 15.0f to 1.0f as requested (bonus controlled by expression)
+            ServerCore.BONUS.add(player, BonusType.CHARGE_ASSAULT, 1.0f, "");
+            total -= 200.0;
+        }
+        sprintDistances.put(playerId, total);
     }
 
     @SubscribeEvent
@@ -266,8 +340,6 @@ public class ServerEventHandler {
                 
                 // Update death count
                 ServerData.get().addDeath(player, 1);
-                // 增加助攻统计逻辑
-                awardAssists(victimId, victim.getId());
                 
                 String killerName = "";
                 if (src.getEntity() instanceof ServerPlayer killer) {
@@ -286,7 +358,8 @@ public class ServerEventHandler {
             }
         
         // Record kill for vengeance tracking
-        if (src.getEntity() instanceof LivingEntity attacker) {
+        LivingEntity attacker = resolveLivingAttacker(src);
+        if (attacker != null) {
             killHistory.computeIfAbsent(victimId, k -> new ConcurrentHashMap<>())
                        .put(attacker.getUUID(), System.currentTimeMillis());
 
@@ -303,11 +376,15 @@ public class ServerEventHandler {
             }
         }
         
-        if (src.getEntity() instanceof ServerPlayer player) {
-            handlePlayerKill(player, victim, src);
+        boolean hasHelmet = !victim.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty();
+        boolean isVictimPlayer = victim instanceof net.minecraft.world.entity.player.Player;
+        String victimName = isVictimPlayer ? victim.getScoreboardName() : (victim.hasCustomName() ? victim.getCustomName().getString() : victim.getType().getDescriptionId());
+        ServerPlayer killer = resolvePlayerAttacker(src);
+        if (killer != null) {
+            handlePlayerKill(killer, victim, src);
+            processAssist(victimId, victim.getId(), hasHelmet, victimName, isVictimPlayer, killer.getUUID());
         } else {
-            boolean hasHelmet = !victim.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty();
-            processAssist(victimId, victim.getId(), hasHelmet, victim instanceof net.minecraft.world.entity.player.Player ? victim.getScoreboardName() : victim.getDisplayName().getString(), victim instanceof net.minecraft.world.entity.player.Player);
+            processAssist(victimId, victim.getId(), hasHelmet, victimName, isVictimPlayer, null);
         }
 
         // Clear streak on death (Done after handlePlayerKill to allow capturing streak count)
@@ -414,13 +491,16 @@ public class ServerEventHandler {
         // Reset POTATO_AIM counter on kill
         consecutiveAssists.put(player.getUUID(), 0);
 
-        // Retrieve and remove Flawless state
         boolean isFlawless = false;
+        boolean isHoldPosition = false;
         Map<UUID, CombatState> combats = activeCombats.get(player.getUUID());
         if (combats != null) {
-            CombatState cs = combats.remove(victimId);
+            CombatState cs = combats.get(victimId);
             if (cs != null) {
                 isFlawless = cs.flawless;
+                if (cs.initialPosition != null) {
+                    isHoldPosition = cs.initialPosition.distanceTo(player.position()) <= HOLD_POSITION_MAX_DISTANCE;
+                }
             }
         }
 
@@ -429,7 +509,7 @@ public class ServerEventHandler {
         pendingKills.add(new PendingKill(
             player, 
             victim, 
-            victim instanceof net.minecraft.world.entity.player.Player ? victim.getScoreboardName() : victim.getDisplayName().getString(), 
+            victim instanceof net.minecraft.world.entity.player.Player ? victim.getScoreboardName() : (victim.hasCustomName() ? victim.getCustomName().getString() : victim.getType().getDescriptionId()), 
             ServerCore.COMBO.recordKill(player),
             type,
             victim.getMaxHealth(),
@@ -437,7 +517,8 @@ public class ServerEventHandler {
             sourceId,
             tick,
             isGun,
-            isFlawless
+            isFlawless,
+            isHoldPosition
         ));
         
         // Send kill distance packet to client
@@ -482,25 +563,11 @@ public class ServerEventHandler {
         });
     }
 
-    private static void processAssist(UUID victimId, int victimIdInt, boolean hasHelmet, String victimName, boolean isVictimPlayer) {
+    private static void processAssist(UUID victimId, int victimIdInt, boolean hasHelmet, String victimName, boolean isVictimPlayer, UUID excludedPlayerId) {
         List<DamageRecord> records = damageHistory.get(victimId);
         if (records == null || records.isEmpty()) return;
 
-        // 如果是生物，尝试使用翻译键作为名称
-        String resolvedName = victimName;
-        if (!isVictimPlayer) {
-             net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
-             if (server != null) {
-                 for (net.minecraft.server.level.ServerLevel level : server.getAllLevels()) {
-                     net.minecraft.world.entity.Entity entity = level.getEntity(victimId);
-                     if (entity instanceof LivingEntity living) {
-                         resolvedName = living.getType().getDescriptionId();
-                         break;
-                     }
-                 }
-             }
-        }
-        final String finalVictimName = resolvedName;
+        final String finalVictimName = victimName;
 
         long now = System.currentTimeMillis();
         Map<UUID, Integer> playerDamages = new HashMap<>();
@@ -518,11 +585,15 @@ public class ServerEventHandler {
         }
 
         playerDamages.forEach((playerId, totalDamage) -> {
+            if (excludedPlayerId != null && excludedPlayerId.equals(playerId)) {
+                return;
+            }
             if (totalDamage > 0) {
                 ServerPlayer player = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(playerId);
                 if (player != null) {
-                    ServerCore.BONUS.add(player, BonusType.ASSIST, (float) totalDamage, "");
-                    sendKillEffects(player, KillType.ASSIST, 0, victimIdInt, hasHelmet, finalVictimName, isVictimPlayer);
+                    ServerCore.BONUS.add(player, BonusType.ASSIST, (float) totalDamage, "", victimIdInt, finalVictimName);
+                    // Assist kill type, distance is irrelevant (0.0f)
+                    sendKillEffects(player, KillType.ASSIST, 0, victimIdInt, hasHelmet, finalVictimName, isVictimPlayer, 0.0f);
                     
                     // Add assist count
                     ServerData.get().addAssist(player, 1);
@@ -541,32 +612,29 @@ public class ServerEventHandler {
     private static void processKill(PendingKill pk) {
         if (pk.player.getUUID().equals(pk.victimId)) return;
 
-        // 如果是生物，使用翻译键作为名称
         String finalVictimName = pk.victimName;
-        if (!pk.isVictimPlayer) {
-             net.minecraft.server.level.ServerLevel level = pk.player.serverLevel();
-             net.minecraft.world.entity.Entity entity = level.getEntity(pk.victimId);
-             if (entity instanceof LivingEntity living) {
-                 finalVictimName = living.getType().getDescriptionId();
-             }
-        }
 
         // 1. Determine and Award Base Kill Bonus
         int killType = determineKillType(pk);
         int bonusType = mapKillTypeToBonus(killType, pk.damageType);
-        ServerCore.BONUS.add(pk.player, bonusType, pk.maxHealth, "", pk.victimIdInt);
+        // Base Kill Bonus moved to end to ensure it appears on top in client list
 
         // 2. Award Conditional Bonuses
         awardSpecialKills(pk);
         awardPositionalKills(pk);
+        awardHoldPosition(pk);
         awardStatusKills(pk);
+        awardLockedTarget(pk);
         awardStreakKills(pk);
+
+        // Award Base Kill Bonus (Last so it appears on top)
+        ServerCore.BONUS.add(pk.player, bonusType, pk.maxHealth, "", pk.victimIdInt, finalVictimName);
 
         // 3. Reset and Update States
         updatePostKillStates(pk);
 
         // 4. Visual/Audio Effects
-        sendKillEffects(pk.player, killType, pk.combo, pk.victimIdInt, pk.hasHelmet, finalVictimName, pk.isVictimPlayer);
+        sendKillEffects(pk.player, killType, pk.combo, pk.victimIdInt, pk.hasHelmet, finalVictimName, pk.isVictimPlayer, pk.distance);
     }
 
     private static int determineKillType(PendingKill pk) {
@@ -622,6 +690,12 @@ public class ServerEventHandler {
         }
     }
 
+    private static void awardHoldPosition(PendingKill pk) {
+        if (pk.isHoldPosition) {
+            ServerCore.BONUS.add(pk.player, BonusType.HOLD_POSITION, 1.0f, "");
+        }
+    }
+
     private static void awardStatusKills(PendingKill pk) {
         if (pk.player.getHealth() <= 4.0f) {
             ServerCore.BONUS.add(pk.player, BonusType.DESPERATE_COUNTERATTACK, 1.0f, "");
@@ -639,6 +713,12 @@ public class ServerEventHandler {
 
         // Buff/Debuff
         awardBuffDebuffKills(pk.player);
+    }
+
+    private static void awardLockedTarget(PendingKill pk) {
+        if (pk.isLockedTarget) {
+            ServerCore.BONUS.add(pk.player, BonusType.LOCKED_TARGET, 1.0f, "");
+        }
     }
 
     private static void awardStreakKills(PendingKill pk) {
@@ -749,6 +829,10 @@ public class ServerEventHandler {
         
         long now = System.currentTimeMillis();
         playerKillTimestamps.computeIfAbsent(pk.player.getUUID(), k -> Collections.synchronizedList(new ArrayList<>())).add(now);
+        Map<UUID, CombatState> combats = activeCombats.get(pk.player.getUUID());
+        if (combats != null) {
+            combats.remove(pk.victimId);
+        }
     }
 
     private static void updateCombatTracking(DamageSource src, LivingEntity victim, UUID victimId, float amount) {
@@ -761,41 +845,74 @@ public class ServerEventHandler {
                 playerCombats.values().forEach(cs -> cs.flawless = false);
             }
             
-            if (src.getEntity() instanceof LivingEntity attacker) {
-                activeCombats.computeIfAbsent(playerVictim.getUUID(), k -> new ConcurrentHashMap<>())
-                             .compute(attacker.getUUID(), (k, v) -> {
-                                 if (v == null) {
-                                     CombatState cs = new CombatState(now);
-                                     cs.flawless = false;
-                                     return cs;
-                                 }
-                                 v.lastInteractionTime = now;
-                                 v.flawless = false;
-                                 return v;
-                             });
+        LivingEntity attacker = resolveLivingAttacker(src);
+        if (attacker != null) {
+            activeCombats.computeIfAbsent(playerVictim.getUUID(), k -> new ConcurrentHashMap<>())
+                         .compute(attacker.getUUID(), (k, v) -> {
+                             if (v == null) {
+                                CombatState cs = new CombatState(now, playerVictim.position());
+                                 cs.flawless = false;
+                                 return cs;
+                             }
+                             v.lastInteractionTime = now;
+                             v.flawless = false;
+                             return v;
+                         });
             }
         }
 
         // Attacker handling
-        if (src.getEntity() instanceof ServerPlayer player) {
+        ServerPlayer player = resolvePlayerAttacker(src);
+        if (player != null) {
             activeCombats.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
                          .compute(victimId, (k, v) -> {
-                             if (v == null) return new CombatState(now);
+                             if (v == null) return new CombatState(now, player.position());
                              v.lastInteractionTime = now;
                              return v;
                          });
         }
     }
 
-    private static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, boolean hasHelmet, String victimName, boolean isVictimPlayer) {
+    private static boolean checkLockedTarget(ServerPlayer player, LivingEntity victim) {
+        Map<UUID, CombatState> playerCombats = activeCombats.get(player.getUUID());
+        if (playerCombats == null) return false;
+        CombatState state = playerCombats.get(victim.getUUID());
+        if (state == null) return false;
+        long now = System.currentTimeMillis();
+        return now - state.firstInteractionTime >= LOCKED_TARGET_WINDOW_MS;
+    }
+
+    private static LivingEntity resolveLivingAttacker(DamageSource src) {
+        Entity source = src.getEntity();
+        if (source instanceof LivingEntity living) {
+            return living;
+        }
+        Entity direct = src.getDirectEntity();
+        if (direct instanceof Projectile projectile) {
+            Entity owner = projectile.getOwner();
+            if (owner instanceof LivingEntity living) {
+                return living;
+            }
+        }
+        return null;
+    }
+
+    private static ServerPlayer resolvePlayerAttacker(DamageSource src) {
+        LivingEntity attacker = resolveLivingAttacker(src);
+        return attacker instanceof ServerPlayer player ? player : null;
+    }
+
+    private static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance) {
         double window = ServerData.get().getComboWindowSeconds();
         
         // 确保使用翻译后的名称（如果传入的是翻译键）
         // 这里不需要做额外处理，因为上层调用已经处理好了 finalVictimName
 
         // Icons
-        // 只有第一个包 (scrolling) 负责记录统计数据，避免重复计数
-        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, true), player);
+        // Only the first packet (scrolling) is responsible for recording stats to avoid duplicate counting
+        // Only record stats for actual kills, not assists or vehicle destruction
+        boolean recordStats = killType != KillType.ASSIST && killType != KillType.DESTROY_VEHICLE;
+        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, recordStats), player);
         
         // 其他视觉效果包不记录统计数据 (recordStats = false)
         if (combo > 0) {
@@ -807,7 +924,11 @@ public class ServerEventHandler {
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
         
         // Subtitle
-        NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
+        // Pass distance here
+        NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false, distance), player);
+        if ((combo > 0 || killType == KillType.ASSIST) && killType != KillType.DESTROY_VEHICLE) {
+            NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "combo", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
+        }
     }
 
     private static boolean isObstructed(PendingKill pk) {
@@ -827,8 +948,14 @@ public class ServerEventHandler {
 
     private static class CombatState {
         boolean flawless = true;
+        long firstInteractionTime;
         long lastInteractionTime;
-        CombatState(long time) { this.lastInteractionTime = time; }
+        Vec3 initialPosition;
+        CombatState(long time, Vec3 position) {
+            this.firstInteractionTime = time;
+            this.lastInteractionTime = time;
+            this.initialPosition = position;
+        }
     }
 
     private static class PendingKill {
@@ -853,10 +980,12 @@ public class ServerEventHandler {
         boolean isVictimBlinded;
         boolean hasHelmet;
         boolean isVictimPlayer;
+        boolean isLockedTarget;
+        boolean isHoldPosition;
 
         long streakCount;
 
-        PendingKill(ServerPlayer p, LivingEntity v, String vname, int c, int type, float hp, float dist, int sourceId, long t, boolean gun, boolean flawless) {
+        PendingKill(ServerPlayer p, LivingEntity v, String vname, int c, int type, float hp, float dist, int sourceId, long t, boolean gun, boolean flawless, boolean holdPosition) {
             this.player = p;
             this.victimId = v.getUUID();
             this.victimIdInt = v.getId();
@@ -870,6 +999,7 @@ public class ServerEventHandler {
             this.tick = t;
             this.isGun = gun;
             this.isFlawless = flawless;
+            this.isHoldPosition = holdPosition;
 
             this.streakCount = calculateStreakCount(this.victimId);
             this.isVictimThreat = checkVictimThreat(p, v);
@@ -877,6 +1007,7 @@ public class ServerEventHandler {
             this.isGliding = p.isFallFlying();
             this.isJusticeFromAbove = checkJusticeFromAbove(p, v, this.isGliding);
             this.isVictimBlinded = checkBlinded(v);
+            this.isLockedTarget = checkLockedTarget(p, v);
             this.hasHelmet = !v.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty();
             this.isVictimPlayer = v instanceof net.minecraft.world.entity.player.Player;
         }

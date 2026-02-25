@@ -81,7 +81,7 @@ public class HexColorConfigEntry extends GDRowRenderer {
         });
 
         // 4. Reset Button
-        this.addColumn("R", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
+        this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
              if (this.value != null && this.value.equals(this.defaultValue)) return;
              this.value = this.defaultValue;
              updateState();
@@ -143,7 +143,7 @@ public class HexColorConfigEntry extends GDRowRenderer {
         Column resetCol = getColumn(3);
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();
-            resetCol.text = "R";
+            resetCol.text = "↺";
 
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);

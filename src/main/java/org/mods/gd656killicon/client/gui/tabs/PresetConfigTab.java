@@ -76,6 +76,7 @@ public class PresetConfigTab extends ConfigTabContent {
     private GDTextRenderer rightTitleRenderer;
     private GDTextRenderer rightInfoRenderer;
     private GDButton rightAddButton;
+    private GDButton rightSoundButton;
     
     // Add Element List State
     private boolean isAddElementExpanded = false;
@@ -812,13 +813,15 @@ public class PresetConfigTab extends ConfigTabContent {
             // Padding: 1px around the button inside the gray border
             int buttonHeight = 17;
             int buttonPadding = 1;
+            int buttonSpacing = 1;
+            int totalButtonsHeight = buttonHeight * 2 + buttonSpacing;
             int bottomBoxHeight;
             
             if (isAddElementExpanded) {
                 // Expanded height: Button + 3 Rows + 4px
-                bottomBoxHeight = buttonHeight + 3 * GuiConstants.ROW_HEADER_HEIGHT + 4;
+                bottomBoxHeight = totalButtonsHeight + 3 * GuiConstants.ROW_HEADER_HEIGHT + 4;
             } else {
-                bottomBoxHeight = buttonPadding + buttonHeight + buttonPadding;
+                bottomBoxHeight = buttonPadding + totalButtonsHeight + buttonPadding;
             }
             
             // Y Position: Bottom of screen - DEFAULT_PADDING - Box Height
@@ -841,8 +844,9 @@ public class PresetConfigTab extends ConfigTabContent {
                 // Bottom: Button Top - 2px
                 // Button Top = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight
                 int listTop = bottomBoxY + 1;
-                int buttonTop = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight;
-                int listBottom = buttonTop - 2;
+                int soundButtonY = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight;
+                int addButtonY = soundButtonY - buttonSpacing - buttonHeight;
+                int listBottom = addButtonY - 2;
                 int listHeight = listBottom - listTop;
                 
                 // Update Scroll
@@ -888,10 +892,13 @@ public class PresetConfigTab extends ConfigTabContent {
             }
             
             // Render Button
+            int soundButtonY = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight;
+            int addButtonY = soundButtonY - buttonSpacing - buttonHeight;
+            
             if (rightAddButton == null) {
                 rightAddButton = new GDButton(
                     contentX + buttonPadding, 
-                    bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight, 
+                    addButtonY, 
                     contentWidth - 2 * buttonPadding, 
                     buttonHeight, 
                     Component.translatable("gd656killicon.client.gui.config.preset.add_element"), 
@@ -907,11 +914,33 @@ public class PresetConfigTab extends ConfigTabContent {
                 );
             } else {
                 rightAddButton.setX(contentX + buttonPadding);
-                rightAddButton.setY(bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight);
+                rightAddButton.setY(addButtonY);
                 rightAddButton.setWidth(contentWidth - 2 * buttonPadding);
-                // Message update is handled in click callback
             }
             rightAddButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            
+            if (rightSoundButton == null) {
+                rightSoundButton = new GDButton(
+                    contentX + buttonPadding,
+                    soundButtonY,
+                    contentWidth - 2 * buttonPadding,
+                    buttonHeight,
+                    Component.translatable("gd656killicon.client.gui.config.preset.configure_sound"),
+                    (btn) -> {
+                        if (header != null) {
+                            String currentPresetId = ClientConfigManager.getCurrentPresetId();
+                            header.setOverrideContent(new SoundConfigContent(minecraft, currentPresetId, () -> {
+                                header.setOverrideContent(null);
+                            }));
+                        }
+                    }
+                );
+            } else {
+                rightSoundButton.setX(contentX + buttonPadding);
+                rightSoundButton.setY(soundButtonY);
+                rightSoundButton.setWidth(contentWidth - 2 * buttonPadding);
+            }
+            rightSoundButton.render(guiGraphics, mouseX, mouseY, partialTick);
             
             // 3. Middle Area (Dynamic Height)
             // Between Title Box and Bottom Box, separated by DEFAULT_PADDING
@@ -1093,24 +1122,30 @@ public class PresetConfigTab extends ConfigTabContent {
             // Calculate Bottom Box Y
             int buttonHeight = 17;
             int buttonPadding = 1;
+            int buttonSpacing = 1;
+            int totalButtonsHeight = buttonHeight * 2 + buttonSpacing;
             int bottomBoxHeight;
             if (isAddElementExpanded) {
-                bottomBoxHeight = buttonHeight + 3 * GuiConstants.ROW_HEADER_HEIGHT + 4;
+                bottomBoxHeight = totalButtonsHeight + 3 * GuiConstants.ROW_HEADER_HEIGHT + 4;
             } else {
-                bottomBoxHeight = buttonPadding + buttonHeight + buttonPadding;
+                bottomBoxHeight = buttonPadding + totalButtonsHeight + buttonPadding;
             }
             int bottomBoxY = screenHeight - GuiConstants.DEFAULT_PADDING - bottomBoxHeight;
+            int soundButtonY = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight;
+            int addButtonY = soundButtonY - buttonSpacing - buttonHeight;
 
             // Check Button
             if (rightAddButton != null && rightAddButton.mouseClicked(mouseX, mouseY, button)) {
+                return true;
+            }
+            if (rightSoundButton != null && rightSoundButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
 
             // Check Element List (if expanded)
             if (isAddElementExpanded) {
                 int listTop = bottomBoxY + 1;
-                int buttonTop = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight;
-                int listBottom = buttonTop - 2;
+                int listBottom = addButtonY - 2;
                 
                 // Check if click is within list vertical bounds and horizontal bounds (right panel content area)
                 if (mouseY >= listTop && mouseY <= listBottom && mouseX >= contentX && mouseX <= contentX + (panelWidth - 2 * GuiConstants.DEFAULT_PADDING)) {

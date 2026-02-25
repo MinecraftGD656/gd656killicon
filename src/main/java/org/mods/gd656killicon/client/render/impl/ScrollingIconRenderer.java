@@ -9,6 +9,8 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
 import org.mods.gd656killicon.client.textures.ModTextures;
+import org.mods.gd656killicon.client.textures.IconTextureAnimationManager;
+import org.mods.gd656killicon.client.textures.IconTextureAnimationManager.TextureFrame;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.common.KillType;
 
@@ -60,6 +62,12 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private int maxVisibleIcons = DEFAULT_MAX_VISIBLE_ICONS;
     private long displayIntervalMs = DEFAULT_DISPLAY_INTERVAL_MS;
     private int maxPendingIcons = DEFAULT_MAX_PENDING_ICONS;
+    private float ringNormalRadius = 42.0f;
+    private float ringNormalThickness = 1.8f;
+    private float ringHeadshotRadius = 42.0f;
+    private float ringHeadshotThickness = 3.0f;
+    private float ringExplosionRadius = 42.0f;
+    private float ringExplosionThickness = 5.4f;
 
     // State Fields
     private boolean isVisible = false;
@@ -156,17 +164,37 @@ public class ScrollingIconRenderer implements IHudRenderer {
 
             String texturePath = getTexturePath(icon.killType);
             String textureKey = getTextureKey(icon.killType);
-            float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
-            float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
-            float drawWidth = BASE_ICON_SIZE * frameWidthRatio;
-            float drawHeight = BASE_ICON_SIZE * frameHeightRatio;
+            
+            TextureFrame frame = IconTextureAnimationManager.getTextureFrame(
+                ConfigManager.getCurrentPresetId(), 
+                "kill_icon/scrolling", 
+                textureKey,
+                texturePath,
+                icon.startTime, 
+                currentConfig
+            );
+
+            float drawWidth, drawHeight;
+            String prefix = "anim_" + textureKey + "_";
+            boolean animEnabled = currentConfig != null && currentConfig.has(prefix + "enable_texture_animation") && currentConfig.get(prefix + "enable_texture_animation").getAsBoolean();
+            
+            if (animEnabled) {
+                float aspectRatio = (float) frame.height / (float) Math.max(1, frame.width);
+                drawWidth = BASE_ICON_SIZE;
+                drawHeight = BASE_ICON_SIZE * aspectRatio;
+            } else {
+                float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+                float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+                drawWidth = BASE_ICON_SIZE * frameWidthRatio;
+                drawHeight = BASE_ICON_SIZE * frameHeightRatio;
+            }
 
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(icon.currentX, centerY, 0);
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
             guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
-            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight);
+            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, (int)drawWidth, (int)drawHeight, frame.u, frame.v, frame.width, frame.height, frame.totalWidth, frame.totalHeight);
             guiGraphics.pose().popPose();
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -217,17 +245,37 @@ public class ScrollingIconRenderer implements IHudRenderer {
 
             String texturePath = getTexturePath(icon.killType);
             String textureKey = getTextureKey(icon.killType);
-            float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
-            float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
-            float drawWidth = BASE_ICON_SIZE * frameWidthRatio;
-            float drawHeight = BASE_ICON_SIZE * frameHeightRatio;
+            
+            TextureFrame frame = IconTextureAnimationManager.getTextureFrame(
+                ConfigManager.getCurrentPresetId(), 
+                "kill_icon/scrolling", 
+                textureKey,
+                texturePath,
+                icon.startTime, 
+                currentConfig
+            );
+
+            float drawWidth, drawHeight;
+            String prefix = "anim_" + textureKey + "_";
+            boolean animEnabled = currentConfig != null && currentConfig.has(prefix + "enable_texture_animation") && currentConfig.get(prefix + "enable_texture_animation").getAsBoolean();
+            
+            if (animEnabled) {
+                float aspectRatio = (float) frame.height / (float) Math.max(1, frame.width);
+                drawWidth = BASE_ICON_SIZE;
+                drawHeight = BASE_ICON_SIZE * aspectRatio;
+            } else {
+                float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+                float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+                drawWidth = BASE_ICON_SIZE * frameWidthRatio;
+                drawHeight = BASE_ICON_SIZE * frameHeightRatio;
+            }
 
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(icon.currentX, originY, 0);
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
             guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
-            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight);
+            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, (int)drawWidth, (int)drawHeight, frame.u, frame.v, frame.width, frame.height, frame.totalWidth, frame.totalHeight);
             guiGraphics.pose().popPose();
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -278,6 +326,24 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.maxPendingIcons = config.has("max_pending_icons")
                     ? config.get("max_pending_icons").getAsInt()
                     : DEFAULT_MAX_PENDING_ICONS;
+            this.ringNormalRadius = config.has("ring_effect_normal_radius")
+                    ? config.get("ring_effect_normal_radius").getAsFloat()
+                    : 42.0f;
+            this.ringNormalThickness = config.has("ring_effect_normal_thickness")
+                    ? config.get("ring_effect_normal_thickness").getAsFloat()
+                    : 1.8f;
+            this.ringHeadshotRadius = config.has("ring_effect_headshot_radius")
+                    ? config.get("ring_effect_headshot_radius").getAsFloat()
+                    : 42.0f;
+            this.ringHeadshotThickness = config.has("ring_effect_headshot_thickness")
+                    ? config.get("ring_effect_headshot_thickness").getAsFloat()
+                    : 3.0f;
+            this.ringExplosionRadius = config.has("ring_effect_explosion_radius")
+                    ? config.get("ring_effect_explosion_radius").getAsFloat()
+                    : 42.0f;
+            this.ringExplosionThickness = config.has("ring_effect_explosion_thickness")
+                    ? config.get("ring_effect_explosion_thickness").getAsFloat()
+                    : 5.4f;
 
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.scrolling.config_error");
@@ -294,6 +360,12 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.maxVisibleIcons = DEFAULT_MAX_VISIBLE_ICONS;
             this.displayIntervalMs = DEFAULT_DISPLAY_INTERVAL_MS;
             this.maxPendingIcons = DEFAULT_MAX_PENDING_ICONS;
+            this.ringNormalRadius = 42.0f;
+            this.ringNormalThickness = 1.8f;
+            this.ringHeadshotRadius = 42.0f;
+            this.ringHeadshotThickness = 3.0f;
+            this.ringExplosionRadius = 42.0f;
+            this.ringExplosionThickness = 5.4f;
         }
     }
 
@@ -316,6 +388,14 @@ public class ScrollingIconRenderer implements IHudRenderer {
             lastIconDisplayTime = currentTime;
 
             if (this.enableIconEffect) {
+                nextIcon.ringEffect.setRingParams(
+                        ringNormalRadius,
+                        ringNormalThickness,
+                        ringHeadshotRadius,
+                        ringHeadshotThickness,
+                        ringExplosionRadius,
+                        ringExplosionThickness
+                );
                 nextIcon.ringEffect.trigger(
                         currentTime,
                         true,
@@ -464,26 +544,23 @@ public class ScrollingIconRenderer implements IHudRenderer {
         };
     }
 
-    private static int resolveHeadshotEffectRgb() {
-        return resolveEffectRgb("color_headshot_placeholder", "color_normal_placeholder", DEFAULT_HEADSHOT_COLOR);
+    private int resolveHeadshotEffectRgb() {
+        return resolveEffectRgb("ring_effect_headshot_color", DEFAULT_HEADSHOT_COLOR);
     }
 
-    private static int resolveExplosionEffectRgb() {
-        return resolveEffectRgb("color_explosion_placeholder", null, DEFAULT_EXPLOSION_COLOR);
+    private int resolveExplosionEffectRgb() {
+        return resolveEffectRgb("ring_effect_explosion_color", DEFAULT_EXPLOSION_COLOR);
     }
 
-    private static int resolveCritEffectRgb() {
-        return resolveEffectRgb("color_crit_placeholder", null, DEFAULT_CRIT_COLOR);
+    private int resolveCritEffectRgb() {
+        return resolveEffectRgb("ring_effect_normal_color", DEFAULT_CRIT_COLOR);
     }
 
-    private static int resolveEffectRgb(String primaryKey, String secondaryKey, int defaultValue) {
-        JsonObject subtitleConfig = ConfigManager.getElementConfig("subtitle", "kill_feed");
-        if (subtitleConfig == null) {
+    private int resolveEffectRgb(String key, int defaultValue) {
+        if (currentConfig == null) {
             return defaultValue;
         }
-        String hex = subtitleConfig.has(primaryKey)
-                ? subtitleConfig.get(primaryKey).getAsString()
-                : (secondaryKey != null && subtitleConfig.has(secondaryKey) ? subtitleConfig.get(secondaryKey).getAsString() : null);
+        String hex = currentConfig.has(key) ? currentConfig.get(key).getAsString() : null;
         return parseRgbHexOrDefault(hex, defaultValue);
     }
 

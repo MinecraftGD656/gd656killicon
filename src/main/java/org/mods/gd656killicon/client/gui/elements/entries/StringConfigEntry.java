@@ -60,7 +60,7 @@ public class StringConfigEntry extends GDRowRenderer {
         });
 
         // 3. 重置按钮 (GuiConstants.ROW_HEADER_HEIGHT, 深色)
-        this.addColumn("R", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
+        this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
             if (this.value != null && this.value.equals(this.defaultValue)) return; // Already default, do nothing
 
             // Reset immediately without confirmation
@@ -94,7 +94,7 @@ public class StringConfigEntry extends GDRowRenderer {
         Column resetCol = getColumn(2);
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();
-            resetCol.text = "R";
+            resetCol.text = "↺";
 
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);
@@ -112,7 +112,10 @@ public class StringConfigEntry extends GDRowRenderer {
         // 文本前面需要多一个空格
         String processingText = " " + (text == null ? "" : text);
 
-        Pattern pattern = Pattern.compile("<.*?>");
+        // Pattern to match <...> OR /...\
+        // Group 1: <...>
+        // Group 2: /...\
+        Pattern pattern = Pattern.compile("(<.*?>)|(/.*?\\\\)");
         Matcher matcher = pattern.matcher(processingText);
 
         int lastEnd = 0;
@@ -120,8 +123,16 @@ public class StringConfigEntry extends GDRowRenderer {
             if (matcher.start() > lastEnd) {
                 list.add(new GDTextRenderer.ColoredText(processingText.substring(lastEnd, matcher.start()), GuiConstants.COLOR_WHITE));
             }
-            // 识别到占位符即被"<>"包裹的部分仅包括"<>"在内为金色的文本
-            list.add(new GDTextRenderer.ColoredText(matcher.group(), GuiConstants.COLOR_GOLD));
+            
+            String match = matcher.group();
+            if (matcher.group(1) != null) {
+                // <...> placeholders -> Gold
+                list.add(new GDTextRenderer.ColoredText(match, GuiConstants.COLOR_GOLD));
+            } else if (matcher.group(2) != null) {
+                // /...\ emphasis -> Gold Orange
+                list.add(new GDTextRenderer.ColoredText(match, GuiConstants.COLOR_GOLD_ORANGE));
+            }
+            
             lastEnd = matcher.end();
         }
         if (lastEnd < processingText.length()) {

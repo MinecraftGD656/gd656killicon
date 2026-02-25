@@ -54,7 +54,7 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
             advanceChoice();
         });
 
-        this.addColumn("R", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
+        this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
             if (getCurrentValue().equals(this.defaultValue)) return;
             this.index = resolveIndex(this.defaultValue, this.defaultValue);
             updateState();
@@ -119,7 +119,8 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
         Column resetCol = getColumn(2);
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();
-            resetCol.text = "R";
+            resetCol.text = "↺";
+            
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);
                 resetCol.textRenderer.setText(resetCol.text);

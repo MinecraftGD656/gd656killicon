@@ -69,7 +69,7 @@ public class FloatConfigEntry extends GDRowRenderer {
         });
 
         // 3. 重置按钮
-        this.addColumn("R", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
+        this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
             if (Math.abs(this.value - this.defaultValue) < 0.0001f) return;
 
             this.value = this.defaultValue;
@@ -122,7 +122,8 @@ public class FloatConfigEntry extends GDRowRenderer {
         Column resetCol = getColumn(2);
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();
-            resetCol.text = "R";
+            resetCol.text = "↺";
+            
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);
                 resetCol.textRenderer.setText(resetCol.text);

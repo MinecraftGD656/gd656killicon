@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BonusEngine {
-    private record Entry(int type, float score, String extra, int victimId) {}
+    private record Entry(int type, float score, String extra, int victimId, String victimName) {}
 
     /**
      * Map of player UUID to a list of pending bonus entries.
@@ -20,13 +20,17 @@ public class BonusEngine {
     private final Map<UUID, List<Entry>> pending = new ConcurrentHashMap<>();
 
     public void add(ServerPlayer player, int type, float scale, String extra) {
-        add(player, type, scale, extra, -1);
+        add(player, type, scale, extra, -1, null);
+    }
+
+    public void add(ServerPlayer player, int type, float scale, String extra, int victimId) {
+        add(player, type, scale, extra, victimId, null);
     }
 
     /**
      * Adds a bonus entry for a player.
      */
-    public void add(ServerPlayer player, int type, float scale, String extra, int victimId) {
+    public void add(ServerPlayer player, int type, float scale, String extra, int victimId, String victimName) {
         if (!ServerData.get().isBonusEnabled(type)) return;
         
         double multiplier = ServerData.get().getBonusMultiplier(type);
@@ -39,7 +43,7 @@ public class BonusEngine {
         if (score > max) score = max;
         
         pending.computeIfAbsent(player.getUUID(), k -> Collections.synchronizedList(new ArrayList<>()))
-               .add(new Entry(type, score, extra == null ? "" : extra, victimId));
+               .add(new Entry(type, score, extra == null ? "" : extra, victimId, victimName));
     }
 
     /**
@@ -52,14 +56,17 @@ public class BonusEngine {
         Iterator<Map.Entry<UUID, List<Entry>>> it = pending.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<UUID, List<Entry>> mapEntry = it.next();
-            ServerPlayer player = server.getPlayerList().getPlayer(mapEntry.getKey());
+            UUID playerId = mapEntry.getKey();
+            List<Entry> list = mapEntry.getValue();
+            
+            ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             
             if (player == null) {
                 it.remove();
                 continue;
             }
 
-            processPlayerBonuses(player, mapEntry.getValue());
+            processPlayerBonuses(player, list);
         }
     }
 
@@ -75,13 +82,14 @@ public class BonusEngine {
                     old.type, 
                     old.score + val.score, 
                     val.extra, 
-                    old.victimId != -1 ? old.victimId : val.victimId
+                    old.victimId != -1 ? old.victimId : val.victimId,
+                    old.victimName != null ? old.victimName : val.victimName
                 ));
             }
 
             // Send merged bonuses and update score
             for (Entry e : merged.values()) {
-                NetworkHandler.sendToPlayer(new BonusScorePacket(e.type, e.score, e.extra, e.victimId), player);
+                NetworkHandler.sendToPlayer(new BonusScorePacket(e.type, e.score, e.extra, e.victimId, e.victimName), player);
                 ServerData.get().addScore(player, e.score);
             }
             list.clear();

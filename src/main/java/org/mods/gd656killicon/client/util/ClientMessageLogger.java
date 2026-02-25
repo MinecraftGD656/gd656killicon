@@ -11,20 +11,20 @@ public class ClientMessageLogger {
     private static final Logger LOGGER = LoggerFactory.getLogger("gd656killicon-client");
     private static final MutableComponent PREFIX = Component.translatable("gd656killicon.prefix").withStyle(ChatFormatting.GOLD);
 
-    public static void info(String key, Object... args) {
-        LOGGER.info(Component.translatable(key, args).getString());
+    public static void info(String message, Object... args) {
+        LOGGER.info(String.format(message, args));
     }
 
-    public static void warn(String key, Object... args) {
-        LOGGER.warn(Component.translatable(key, args).getString());
+    public static void warn(String message, Object... args) {
+        LOGGER.warn(String.format(message, args));
     }
 
-    public static void error(String key, Object... args) {
-        LOGGER.error(Component.translatable(key, args).getString());
+    public static void error(String message, Object... args) {
+        LOGGER.error(String.format(message, args));
     }
 
-    public static void success(String key, Object... args) {
-        LOGGER.info(Component.translatable(key, args).getString());
+    public static void success(String message, Object... args) {
+        LOGGER.info(String.format(message, args));
     }
 
     public static void chatInfo(String key, Object... args) {

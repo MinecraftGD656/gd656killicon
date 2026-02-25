@@ -26,6 +26,7 @@ public class ClientSetup {
             org.mods.gd656killicon.client.render.HudElementManager.register("kill_icon", "battlefield1", new org.mods.gd656killicon.client.render.impl.Battlefield1Renderer());
             org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "kill_feed", new org.mods.gd656killicon.client.render.impl.SubtitleRenderer());
             org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "score", org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer.getInstance());
+            org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "combo", org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer.getInstance());
             org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "bonus_list", org.mods.gd656killicon.client.render.impl.BonusListRenderer.getInstance());
             
             // Register Config Screen

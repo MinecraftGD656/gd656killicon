@@ -38,6 +38,10 @@ public class GDRowRenderer {
         this.activeCondition = activeCondition;
     }
 
+    public Supplier<Boolean> getActiveCondition() {
+        return this.activeCondition;
+    }
+
     public interface CellRenderer {
         void render(GuiGraphics guiGraphics, int x, int y, int width, int height);
     }
@@ -460,7 +464,7 @@ public class GDRowRenderer {
             
             // Check active condition
             boolean isActive = activeCondition.get();
-            if (colIndex == 0 && !isActive) {
+            if (!isActive) {
                 col.textRenderer.setOverrideColor(GuiConstants.COLOR_GRAY);
             } else {
                 col.textRenderer.setOverrideColor(null);
@@ -476,6 +480,7 @@ public class GDRowRenderer {
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!isHovered(mouseX, mouseY)) return false;
+        if (!activeCondition.get()) return false;
         
         int currentX = x1;
         int totalW = x2 - x1;

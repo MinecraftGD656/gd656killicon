@@ -21,6 +21,7 @@ import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
@@ -114,6 +115,16 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         if (event.isHeadshot()) {
             headshotDamageVictims.put(living.getUUID(), System.currentTimeMillis());
         }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onProjectileHitBlock(ProjectileHitEvent.HitBlock event) {
+        if (event.getProjectile().level().isClientSide()) return;
+        Entity owner = event.getOwner();
+        if (!(owner instanceof ServerPlayer player)) return;
+        if (event.getState().isAir()) return;
+        if (!event.getProjectile().level().getBlockState(event.getPos()).isAir()) return;
+        ServerCore.BONUS.add(player, BonusType.DESTROY_BLOCK, 1.0f, "");
     }
 
     @SubscribeEvent
@@ -403,6 +414,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         
         // Subtitle
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
+        NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
     }
 
     private static class VehicleCombatTracker {

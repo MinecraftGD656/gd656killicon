@@ -50,6 +50,14 @@ public final class BonusType {
     public static final int DESTROY_VEHICLE = 42; // 摧毁装甲
     public static final int VEHICLE_REPAIR = 43; // 载具修理
     public static final int VALUE_TARGET_DESTROYED = 44; // 价值目标摧毁
+    public static final int LOCKED_TARGET = 45; // 锁定目标
+    public static final int HOLD_POSITION = 46; // 坚守阵地
+    public static final int CHARGE_ASSAULT = 47; // 冲锋陷阵
+    public static final int FIRE_SUPPRESSION = 48;// 火力压制
+    public static final int DESTROY_BLOCK = 49; // 道具摧毁
+    public static final int SPOTTING = 50;
+    public static final int SPOTTING_KILL = 51;
+    public static final int SPOTTING_TEAM_ASSIST = 52;
 
     private static final Map<String, Integer> NAME_TO_TYPE = new HashMap<>();
     private static final Map<Integer, String> TYPE_TO_NAME = new HashMap<>();
@@ -100,6 +108,14 @@ public final class BonusType {
         register("DESTROY_VEHICLE", DESTROY_VEHICLE);
         register("VEHICLE_REPAIR", VEHICLE_REPAIR);
         register("VALUE_TARGET_DESTROYED", VALUE_TARGET_DESTROYED);
+        register("LOCKED_TARGET", LOCKED_TARGET);
+        register("HOLD_POSITION", HOLD_POSITION);
+        register("CHARGE_ASSAULT", CHARGE_ASSAULT);
+        register("FIRE_SUPPRESSION", FIRE_SUPPRESSION);
+        register("DESTROY_BLOCK", DESTROY_BLOCK);
+        register("SPOTTING", SPOTTING);
+        register("SPOTTING_KILL", SPOTTING_KILL);
+        register("SPOTTING_TEAM_ASSIST", SPOTTING_TEAM_ASSIST);
     }
 
     private static void register(String name, int type) {

@@ -100,6 +100,14 @@ public class BonusListRenderer implements IHudRenderer {
         registerConfig(BonusType.DESTROY_VEHICLE, "format_destroy_vehicle", "gd656killicon.client.format.bonus_destroy_vehicle");
         registerConfig(BonusType.VALUE_TARGET_DESTROYED, "format_value_target_destroyed", "gd656killicon.client.format.bonus_value_target_destroyed");
         registerConfig(BonusType.VEHICLE_REPAIR, "format_vehicle_repair", "gd656killicon.client.format.bonus_vehicle_repair");
+        registerConfig(BonusType.LOCKED_TARGET, "format_locked_target", "gd656killicon.client.format.bonus_locked_target");
+        registerConfig(BonusType.HOLD_POSITION, "format_hold_position", "gd656killicon.client.format.bonus_hold_position");
+        registerConfig(BonusType.CHARGE_ASSAULT, "format_charge_assault", "gd656killicon.client.format.bonus_charge_assault");
+        registerConfig(BonusType.FIRE_SUPPRESSION, "format_fire_suppression", "gd656killicon.client.format.bonus_fire_suppression");
+        registerConfig(BonusType.DESTROY_BLOCK, "format_destroy_block", "gd656killicon.client.format.bonus_destroy_block");
+        registerConfig(BonusType.SPOTTING, "format_spotting", "gd656killicon.client.format.bonus_spotting");
+        registerConfig(BonusType.SPOTTING_KILL, "format_spotting_kill", "gd656killicon.client.format.bonus_spotting_kill");
+        registerConfig(BonusType.SPOTTING_TEAM_ASSIST, "format_spotting_team_assist", "gd656killicon.client.format.bonus_spotting_team_assist");
     }
 
     private static void registerConfig(int type, String configKey, String defaultFormatKey) {
@@ -227,15 +235,22 @@ public class BonusListRenderer implements IHudRenderer {
         String victimName = "";
         
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level != null && context.entityId() != -1) {
+        
+        if (parsed.victimName != null && !parsed.victimName.isEmpty()) {
+            if (net.minecraft.client.resources.language.I18n.exists(parsed.victimName)) {
+                victimName = net.minecraft.client.resources.language.I18n.get(parsed.victimName);
+            } else {
+                victimName = parsed.victimName;
+            }
+        } else if (mc.level != null && context.entityId() != -1) {
             Entity entity = mc.level.getEntity(context.entityId());
             if (entity != null) {
                 victimName = entity.getDisplayName().getString();
             } else {
-                victimName = "Unknown";
+                victimName = net.minecraft.client.resources.language.I18n.get("gd656killicon.client.text.unknown");
             }
         } else {
-            victimName = "Unknown";
+            victimName = net.minecraft.client.resources.language.I18n.get("gd656killicon.client.text.unknown");
         }
         
         if (mc.player != null) {
@@ -298,6 +313,16 @@ public class BonusListRenderer implements IHudRenderer {
             BonusItem newItem = new BonusItem(format, score, resolvedExtraData, type, specialColor, weaponName, victimName);
             pendingQueue.add(newItem);
         }
+    }
+
+    public void resetPreview() {
+        synchronized (items) {
+            items.clear();
+            pendingQueue.clear();
+        }
+        lastProcessTime = 0;
+        lastRenderTime = 0;
+        nextFadeTriggerTime = 0;
     }
 
     // ================================================================================================================
@@ -491,13 +516,11 @@ public class BonusListRenderer implements IHudRenderer {
         
         // 2. Position-based Transparency
         float lineIndex = item.currentY / lineSpacing;
-        float fadeStartLine = Math.max(0, maxLines - 2);
-        float fadeEndLine = Math.max(1, maxLines - 1);
-        
-        if (lineIndex > fadeStartLine) {
-            float posFadeProgress = (lineIndex - fadeStartLine) / (fadeEndLine - fadeStartLine);
-            alpha *= Math.max(0.0f, 1.0f - posFadeProgress);
-        }
+        // User request: linear fade from line 0 (alpha 1.0) to line maxLines-1 (alpha 0.0)
+        // Example: maxLines=5. Line 0->1.0, Line 1->0.75, Line 2->0.5, Line 3->0.25, Line 4->0.0
+        float fadeRange = Math.max(1.0f, (float)maxLines - 1.0f);
+        float posFadeProgress = lineIndex / fadeRange;
+        alpha *= Math.max(0.0f, 1.0f - posFadeProgress);
 
         // 3. Idle Fade Out
         if (item.isFading) {
@@ -547,24 +570,29 @@ public class BonusListRenderer implements IHudRenderer {
     // Helper Record & Classes
     // ================================================================================================================
     
-    private record ParsedData(float score, String extraData) {
+    private record ParsedData(float score, String extraData, String victimName) {
         static ParsedData parse(String data) {
             float score = 0;
             String extraData = "";
+            String victimName = null;
+            
             if (data != null && !data.isEmpty()) {
-                int pipeIndex = data.indexOf('|');
-                if (pipeIndex >= 0) {
+                String[] parts = data.split("\\|", -1);
+                if (parts.length > 0) {
                     try {
-                        score = Float.parseFloat(data.substring(0, pipeIndex));
-                        extraData = data.substring(pipeIndex + 1);
+                        score = Float.parseFloat(parts[0]);
                     } catch (NumberFormatException e) {
-                        score = parseScore(data);
+                        score = parseScore(parts[0]);
                     }
-                } else {
-                    score = parseScore(data);
+                }
+                if (parts.length > 1) {
+                    extraData = parts[1];
+                }
+                if (parts.length > 2) {
+                    victimName = parts[2];
                 }
             }
-            return new ParsedData(score, extraData);
+            return new ParsedData(score, extraData, victimName);
         }
         
         private static float parseScore(String data) {
@@ -959,7 +987,8 @@ public class BonusListRenderer implements IHudRenderer {
                 if ("<weapon>".equals(tag)) {
                     root.append(Component.literal(this.weaponName).withStyle(Style.EMPTY.withColor(0xFFFFFF)));
                 } else if ("<target>".equals(tag)) {
-                    root.append(Component.literal(this.victimName).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(this.killFeedVictimColorVal))));
+                    String translatedVName = net.minecraft.client.resources.language.I18n.get(this.victimName);
+                    root.append(Component.literal(translatedVName).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(this.killFeedVictimColorVal))));
                 } else if ("<score>".equals(tag)) {
                     String scoreStr;
                     if (Math.abs(score) < 1.0f && Math.abs(score) > 0.001f) {

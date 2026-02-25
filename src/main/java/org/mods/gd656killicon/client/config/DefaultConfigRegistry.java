@@ -33,6 +33,7 @@ public class DefaultConfigRegistry {
         OFFICIAL_PRESET_NAMES.put("00003", "CS2卡牌模式");
         OFFICIAL_PRESET_NAMES.put("00004", "Battlefield 1模式");
         OFFICIAL_PRESET_NAMES.put("00005", "Battlefield 4模式");
+        OFFICIAL_PRESET_NAMES.put("00006", "PUBG淘汰字幕模式");
     }
 
     public static java.util.Set<String> getOfficialPresetElements(String presetId) {
@@ -86,6 +87,12 @@ public class DefaultConfigRegistry {
         p00005.add("subtitle/score");
         p00005.add("subtitle/bonus_list");
         OFFICIAL_PRESET_STRUCTURE.put("00005", p00005);
+
+        // 00006
+        java.util.Set<String> p00006 = new java.util.HashSet<>();
+        p00006.add("subtitle/combo");
+        p00006.add("subtitle/kill_feed");
+        OFFICIAL_PRESET_STRUCTURE.put("00006", p00006);
     }
 
     public static JsonObject getDefaultConfig(String presetId, String elementId) {
@@ -131,7 +138,7 @@ public class DefaultConfigRegistry {
         }
     }
 
-    private static boolean isTranslatableKey(String key) {
+    public static boolean isTranslatableKey(String key) {
         return key.startsWith("format_") || key.equals("kill_feed_format");
     }
 
@@ -159,6 +166,29 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("format_destroy_vehicle", "gd656killicon.client.format.destroy_vehicle");
         killFeed.addProperty("color_destroy_vehicle_placeholder", "#D4B800");
         killFeed.addProperty("enable_placeholder_bold", false);
+        
+        // Toggles for specific kill types
+        killFeed.addProperty("enable_normal_kill", true);
+        killFeed.addProperty("enable_headshot_kill", true);
+        killFeed.addProperty("enable_explosion_kill", true);
+        killFeed.addProperty("enable_crit_kill", true);
+        killFeed.addProperty("enable_assist_kill", true);
+        killFeed.addProperty("enable_destroy_vehicle_kill", true);
+        killFeed.addProperty("enable_scale_animation", true);
+
+        // Emphasis colors (for /text\)
+        killFeed.addProperty("color_normal_emphasis", "#FFFFFF");
+        killFeed.addProperty("color_headshot_emphasis", "#FFFFFF");
+        killFeed.addProperty("color_explosion_emphasis", "#FFFFFF");
+        killFeed.addProperty("color_crit_emphasis", "#FFFFFF");
+        killFeed.addProperty("color_assist_emphasis", "#FFFFFF");
+        killFeed.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
+
+        // Stacking configuration
+        killFeed.addProperty("enable_stacking", false);
+        killFeed.addProperty("max_lines", 3);
+        killFeed.addProperty("line_spacing", 12);
+
         registerGlobal("subtitle/kill_feed", killFeed);
 
         // subtitle/score (Base: 00001)
@@ -230,6 +260,14 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("format_fierce", "gd656killicon.client.format.bonus_fierce");
         bonusList.addProperty("format_savage", "gd656killicon.client.format.bonus_savage");
         bonusList.addProperty("format_potato_aim", "gd656killicon.client.format.bonus_potato_aim");
+        bonusList.addProperty("format_locked_target", "gd656killicon.client.format.bonus_locked_target");
+        bonusList.addProperty("format_hold_position", "gd656killicon.client.format.bonus_hold_position");
+        bonusList.addProperty("format_charge_assault", "gd656killicon.client.format.bonus_charge_assault");
+        bonusList.addProperty("format_fire_suppression", "gd656killicon.client.format.bonus_fire_suppression");
+        bonusList.addProperty("format_destroy_block", "gd656killicon.client.format.bonus_destroy_block");
+        bonusList.addProperty("format_spotting", "gd656killicon.client.format.bonus_spotting");
+        bonusList.addProperty("format_spotting_kill", "gd656killicon.client.format.bonus_spotting_kill");
+        bonusList.addProperty("format_spotting_team_assist", "gd656killicon.client.format.bonus_spotting_team_assist");
         bonusList.addProperty("format_kill_combo", "gd656killicon.client.format.bonus_combo");
         bonusList.addProperty("enable_special_streak_subtitles", false);
         bonusList.addProperty("enable_text_scrolling", false);
@@ -261,6 +299,30 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("glow_intensity", 0.5f);
         registerGlobal("subtitle/bonus_list", bonusList);
 
+        // subtitle/combo (Base: 00002)
+        JsonObject comboSubtitle = new JsonObject();
+        comboSubtitle.addProperty("visible", true);
+        comboSubtitle.addProperty("scale", 1.5);
+        comboSubtitle.addProperty("x_offset", 0.0);
+        comboSubtitle.addProperty("y_offset", 70.0);
+        comboSubtitle.addProperty("color_kill_combo", "#FF3500");
+        comboSubtitle.addProperty("color_assist_combo", "#FFD700");
+        comboSubtitle.addProperty("format_kill_single", "\u003ccombo\u003e 淘汰");
+        comboSubtitle.addProperty("format_kill_multi", "\u003ccombo\u003e 淘汰数");
+        comboSubtitle.addProperty("format_assist_single", "\u003ccombo\u003e 助攻");
+        comboSubtitle.addProperty("format_assist_multi", "\u003ccombo\u003e 助攻数");
+        comboSubtitle.addProperty("enable_animation", true);
+        comboSubtitle.addProperty("enable_light_effect", true);
+        comboSubtitle.addProperty("enable_bold", true);
+        comboSubtitle.addProperty("light_height", 10.0);
+        comboSubtitle.addProperty("light_hold_duration", 0.0);
+        comboSubtitle.addProperty("enable_scale_animation", false);
+        comboSubtitle.addProperty("display_duration", 5.0);
+        comboSubtitle.addProperty("reset_kill_combo", "death");
+        comboSubtitle.addProperty("reset_assist_combo", "death");
+        comboSubtitle.addProperty("combo_reset_timeout", 10.0);
+        registerGlobal("subtitle/combo", comboSubtitle);
+
         // kill_icon/scrolling (Base: 00001)
         JsonObject scrolling = new JsonObject();
         scrolling.addProperty("visible", true);
@@ -277,6 +339,15 @@ public class DefaultConfigRegistry {
         scrolling.addProperty("max_visible_icons", 7);
         scrolling.addProperty("display_interval_ms", 100);
         scrolling.addProperty("max_pending_icons", 30);
+        scrolling.addProperty("ring_effect_normal_color", "#9CCC65");
+        scrolling.addProperty("ring_effect_normal_radius", 42.0f);
+        scrolling.addProperty("ring_effect_normal_thickness", 1.8f);
+        scrolling.addProperty("ring_effect_headshot_color", "#D4B800");
+        scrolling.addProperty("ring_effect_headshot_radius", 42.0f);
+        scrolling.addProperty("ring_effect_headshot_thickness", 3.0f);
+        scrolling.addProperty("ring_effect_explosion_color", "#F77F00");
+        scrolling.addProperty("ring_effect_explosion_radius", 42.0f);
+        scrolling.addProperty("ring_effect_explosion_thickness", 5.4f);
         injectTextureAnimationConfigs("kill_icon/scrolling", scrolling);
         registerGlobal("kill_icon/scrolling", scrolling);
 
@@ -287,6 +358,15 @@ public class DefaultConfigRegistry {
         combo.addProperty("x_offset", 0);
         combo.addProperty("y_offset", 120);
         combo.addProperty("enable_icon_effect", true);
+        combo.addProperty("ring_effect_normal_color", "#9CCC65");
+        combo.addProperty("ring_effect_normal_radius", 42.0f);
+        combo.addProperty("ring_effect_normal_thickness", 1.8f);
+        combo.addProperty("ring_effect_headshot_color", "#D4B800");
+        combo.addProperty("ring_effect_headshot_radius", 42.0f);
+        combo.addProperty("ring_effect_headshot_thickness", 3.0f);
+        combo.addProperty("ring_effect_explosion_color", "#F77F00");
+        combo.addProperty("ring_effect_explosion_radius", 42.0f);
+        combo.addProperty("ring_effect_explosion_thickness", 5.4f);
         injectTextureAnimationConfigs("kill_icon/combo", combo);
         registerGlobal("kill_icon/combo", combo);
 
@@ -391,6 +471,44 @@ public class DefaultConfigRegistry {
         bonusList00005.addProperty("glow_intensity", 0.3f);
         bonusList00005.addProperty("kill_bonus_scale", 1.2f);
         registerOverride("00005", "subtitle/bonus_list", bonusList00005);
+
+        // 00006 Overrides
+        JsonObject comboSubtitle00006 = comboSubtitle.deepCopy();
+        comboSubtitle00006.addProperty("format_kill_single", "gd656killicon.client.format.preset_00006.combo.kill_single");
+        comboSubtitle00006.addProperty("format_kill_multi", "gd656killicon.client.format.preset_00006.combo.kill_multi");
+        comboSubtitle00006.addProperty("format_assist_single", "gd656killicon.client.format.preset_00006.combo.assist_single");
+        comboSubtitle00006.addProperty("format_assist_multi", "gd656killicon.client.format.preset_00006.combo.assist_multi");
+        comboSubtitle00006.addProperty("reset_kill_combo", "death");
+        comboSubtitle00006.addProperty("reset_assist_combo", "death");
+        registerOverride("00006", "subtitle/combo", comboSubtitle00006);
+
+        JsonObject killFeed00006 = killFeed.deepCopy();
+        killFeed00006.addProperty("y_offset", 88.0);
+        killFeed00006.addProperty("display_duration", 5.0);
+        killFeed00006.addProperty("format_normal", "gd656killicon.client.format.preset_00006.kill_feed.normal");
+        killFeed00006.addProperty("color_normal_placeholder", "#FFFFFF");
+        killFeed00006.addProperty("format_headshot", "gd656killicon.client.format.preset_00006.kill_feed.headshot");
+        killFeed00006.addProperty("color_headshot_placeholder", "#FFFFFF");
+        killFeed00006.addProperty("format_explosion", "gd656killicon.client.format.preset_00006.kill_feed.explosion");
+        killFeed00006.addProperty("color_explosion_placeholder", "#FFFFFF");
+        killFeed00006.addProperty("format_crit", "gd656killicon.client.format.preset_00006.kill_feed.crit");
+        killFeed00006.addProperty("color_crit_placeholder", "#FFFFFF");
+        killFeed00006.addProperty("format_assist", "gd656killicon.client.format.preset_00006.kill_feed.assist");
+        killFeed00006.addProperty("color_assist_placeholder", "#FFFFFF");
+        killFeed00006.addProperty("format_destroy_vehicle", "gd656killicon.client.format.preset_00006.kill_feed.destroy_vehicle");
+        killFeed00006.addProperty("color_destroy_vehicle_placeholder", "#D4B800");
+        killFeed00006.addProperty("enable_placeholder_bold", false);
+        killFeed00006.addProperty("enable_scale_animation", false);
+        killFeed00006.addProperty("enable_destroy_vehicle_kill", false);
+        killFeed00006.addProperty("color_normal_emphasis", "#FF3500");
+        killFeed00006.addProperty("color_headshot_emphasis", "#FF3500");
+        killFeed00006.addProperty("color_explosion_emphasis", "#FF3500");
+        killFeed00006.addProperty("color_crit_emphasis", "#FF3500");
+        killFeed00006.addProperty("color_assist_emphasis", "#FFD700");
+        killFeed00006.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
+        killFeed00006.addProperty("enable_stacking", true);
+        killFeed00006.addProperty("max_lines", 5);
+        registerOverride("00006", "subtitle/kill_feed", killFeed00006);
     }
 
     private static void registerGlobal(String elementId, JsonObject config) {
@@ -410,7 +528,7 @@ public class DefaultConfigRegistry {
             config.addProperty(prefix + "enable_texture_animation", false);
             config.addProperty(prefix + "texture_animation_total_frames", 1);
             config.addProperty(prefix + "texture_animation_interval_ms", 100);
-            config.addProperty(prefix + "texture_animation_orientation", "horizontal");
+            config.addProperty(prefix + "texture_animation_orientation", "vertical");
             config.addProperty(prefix + "texture_animation_loop", false);
             config.addProperty(prefix + "texture_animation_play_style", "sequential");
             config.addProperty(prefix + "texture_frame_width_ratio", 1);
