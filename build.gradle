@@ -144,11 +144,11 @@ dependencies {
     compileOnly fg.deobf("maven.modrinth:geckolib:aVW7Z5da") //forge-4.8.2-1.20.1
     runtimeOnly fg.deobf("maven.modrinth:geckolib:aVW7Z5da")
 
-    // 永无止境前置依赖
+    // 索敌前置依赖
     compileOnly fg.deobf("curse.maven:spotting-869187:5168255")
     runtimeOnly fg.deobf("curse.maven:spotting-869187:5168255")
 
-    // 永无止境所需的前置依赖
+    // 索敌所需的前置依赖
     compileOnly fg.deobf("curse.maven:vocalized-980660:5154514")
     runtimeOnly fg.deobf("curse.maven:vocalized-980660:5154514")
 
