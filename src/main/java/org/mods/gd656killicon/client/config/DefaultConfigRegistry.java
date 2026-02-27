@@ -34,6 +34,8 @@ public class DefaultConfigRegistry {
         OFFICIAL_PRESET_NAMES.put("00004", "Battlefield 1模式");
         OFFICIAL_PRESET_NAMES.put("00005", "Battlefield 4模式");
         OFFICIAL_PRESET_NAMES.put("00006", "PUBG淘汰字幕模式");
+        OFFICIAL_PRESET_NAMES.put("00007", "Battlefield 5模式");
+        OFFICIAL_PRESET_NAMES.put("00008", "三角洲行动：全面战场模式");
     }
 
     public static java.util.Set<String> getOfficialPresetElements(String presetId) {
@@ -53,7 +55,7 @@ public class DefaultConfigRegistry {
     }
 
     private static void registerOfficialStructures() {
-        // 00001
+        
         java.util.Set<String> p00001 = new java.util.HashSet<>();
         p00001.add("subtitle/kill_feed");
         p00001.add("subtitle/score");
@@ -61,7 +63,7 @@ public class DefaultConfigRegistry {
         p00001.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00001", p00001);
 
-        // 00002
+        
         java.util.Set<String> p00002 = new java.util.HashSet<>();
         p00002.add("subtitle/kill_feed");
         p00002.add("subtitle/score");
@@ -69,42 +71,57 @@ public class DefaultConfigRegistry {
         p00002.add("kill_icon/combo");
         OFFICIAL_PRESET_STRUCTURE.put("00002", p00002);
 
-        // 00003
+        
         java.util.Set<String> p00003 = new java.util.HashSet<>();
         p00003.add("kill_icon/card_bar");
         p00003.add("kill_icon/card");
         OFFICIAL_PRESET_STRUCTURE.put("00003", p00003);
 
-        // 00004
+        
         java.util.Set<String> p00004 = new java.util.HashSet<>();
         p00004.add("subtitle/score");
         p00004.add("subtitle/bonus_list");
         p00004.add("kill_icon/battlefield1");
         OFFICIAL_PRESET_STRUCTURE.put("00004", p00004);
 
-        // 00005
+        
         java.util.Set<String> p00005 = new java.util.HashSet<>();
         p00005.add("subtitle/score");
         p00005.add("subtitle/bonus_list");
         OFFICIAL_PRESET_STRUCTURE.put("00005", p00005);
 
-        // 00006
+        
         java.util.Set<String> p00006 = new java.util.HashSet<>();
         p00006.add("subtitle/combo");
         p00006.add("subtitle/kill_feed");
         OFFICIAL_PRESET_STRUCTURE.put("00006", p00006);
+
+        
+        java.util.Set<String> p00007 = new java.util.HashSet<>();
+        p00007.add("subtitle/kill_feed");
+        p00007.add("subtitle/score");
+        p00007.add("subtitle/bonus_list");
+        p00007.add("kill_icon/scrolling");
+        OFFICIAL_PRESET_STRUCTURE.put("00007", p00007);
+
+        
+        java.util.Set<String> p00008 = new java.util.HashSet<>();
+        p00008.add("subtitle/score");
+        p00008.add("subtitle/bonus_list");
+        p00008.add("kill_icon/scrolling");
+        OFFICIAL_PRESET_STRUCTURE.put("00008", p00008);
     }
 
     public static JsonObject getDefaultConfig(String presetId, String elementId) {
         JsonObject config;
-        // 1. Check for preset-specific override
+        
         if (PRESET_OVERRIDES.containsKey(presetId) && PRESET_OVERRIDES.get(presetId).containsKey(elementId)) {
             config = PRESET_OVERRIDES.get(presetId).get(elementId).deepCopy();
         } else if (GLOBAL_DEFAULTS.containsKey(elementId)) {
-            // 2. Return global default
+            
             config = GLOBAL_DEFAULTS.get(elementId).deepCopy();
         } else {
-            // 3. Fallback (Empty)
+            
             config = new JsonObject();
         }
         
@@ -143,10 +160,10 @@ public class DefaultConfigRegistry {
     }
 
     private static void registerDefaults() {
-        // --- 1. Global Defaults (Base/First Default) ---
-        // Derived from 00001 (or the primary preset for that element)
+        
+        
 
-        // subtitle/kill_feed (Base: 00001)
+        
         JsonObject killFeed = new JsonObject();
         killFeed.addProperty("visible", true);
         killFeed.addProperty("scale", 1.0);
@@ -165,9 +182,10 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("color_assist_placeholder", "#008B8B");
         killFeed.addProperty("format_destroy_vehicle", "gd656killicon.client.format.destroy_vehicle");
         killFeed.addProperty("color_destroy_vehicle_placeholder", "#D4B800");
+        killFeed.addProperty("color_normal_text", "#FFFFFF");
         killFeed.addProperty("enable_placeholder_bold", false);
         
-        // Toggles for specific kill types
+        
         killFeed.addProperty("enable_normal_kill", true);
         killFeed.addProperty("enable_headshot_kill", true);
         killFeed.addProperty("enable_explosion_kill", true);
@@ -176,7 +194,7 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("enable_destroy_vehicle_kill", true);
         killFeed.addProperty("enable_scale_animation", true);
 
-        // Emphasis colors (for /text\)
+        
         killFeed.addProperty("color_normal_emphasis", "#FFFFFF");
         killFeed.addProperty("color_headshot_emphasis", "#FFFFFF");
         killFeed.addProperty("color_explosion_emphasis", "#FFFFFF");
@@ -184,14 +202,14 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("color_assist_emphasis", "#FFFFFF");
         killFeed.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
 
-        // Stacking configuration
+        
         killFeed.addProperty("enable_stacking", false);
         killFeed.addProperty("max_lines", 3);
         killFeed.addProperty("line_spacing", 12);
 
         registerGlobal("subtitle/kill_feed", killFeed);
 
-        // subtitle/score (Base: 00001)
+        
         JsonObject score = new JsonObject();
         score.addProperty("visible", true);
         score.addProperty("scale", 2.0);
@@ -202,6 +220,7 @@ public class DefaultConfigRegistry {
         score.addProperty("score_threshold", 1000);
         score.addProperty("color_high_score", "#D4B800");
         score.addProperty("color_flash", "#D0D0D0");
+        score.addProperty("color_normal_text", "#FFFFFF");
         score.addProperty("animation_duration", 1.25);
         score.addProperty("animation_refresh_rate", 0.01);
         score.addProperty("enable_number_segmentation", false);
@@ -214,7 +233,7 @@ public class DefaultConfigRegistry {
         score.addProperty("glow_intensity", 0.5);
         registerGlobal("subtitle/score", score);
 
-        // subtitle/bonus_list (Base: 00001)
+        
         JsonObject bonusList = new JsonObject();
         bonusList.addProperty("visible", true);
         bonusList.addProperty("scale", 1.0);
@@ -274,18 +293,19 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("text_scrolling_duration_multiplier", 1.2f);
         bonusList.addProperty("text_scrolling_refresh_rate", 0.02f);
         bonusList.addProperty("color_special_placeholder", "#D4B800");
+        bonusList.addProperty("color_normal_text", "#FFFFFF");
         bonusList.addProperty("animation_duration", 0.5f);
         bonusList.addProperty("animation_refresh_rate", 0.01f);
         bonusList.addProperty("align_left", false);
         bonusList.addProperty("align_right", false);
         bonusList.addProperty("merge_window_duration", 0.5f);
-        bonusList.addProperty("animation_speed", 7.0f); // Note: JSON said 10.0 in 00002/00001? Wait.
-        // 00001 JSON snippet: "animation_speed": 10.0 ??
-        // Let me recheck the JSON content I read.
-        // 00002 bonus_list: "animation_speed": 10.0
-        // 00001 bonus_list: "animation_speed": 10.0
-        // But ElementConfigManager.java had 7.0f in createBonusListDefaults().
-        // I should use the JSON value (10.0) as the new source of truth for the global default if it matches 00001.
+        bonusList.addProperty("animation_speed", 7.0f); 
+        
+        
+        
+        
+        
+        
         bonusList.addProperty("animation_speed", 10.0f);
         
         bonusList.addProperty("enable_text_sweep_animation", false);
@@ -299,7 +319,7 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("glow_intensity", 0.5f);
         registerGlobal("subtitle/bonus_list", bonusList);
 
-        // subtitle/combo (Base: 00002)
+        
         JsonObject comboSubtitle = new JsonObject();
         comboSubtitle.addProperty("visible", true);
         comboSubtitle.addProperty("scale", 1.5);
@@ -323,14 +343,16 @@ public class DefaultConfigRegistry {
         comboSubtitle.addProperty("combo_reset_timeout", 10.0);
         registerGlobal("subtitle/combo", comboSubtitle);
 
-        // kill_icon/scrolling (Base: 00001)
+        
         JsonObject scrolling = new JsonObject();
         scrolling.addProperty("visible", true);
         scrolling.addProperty("scale", 0.4f);
         scrolling.addProperty("x_offset", 0);
         scrolling.addProperty("y_offset", 120);
         scrolling.addProperty("display_duration", 3.25f);
-        scrolling.addProperty("enable_icon_effect", true);
+        scrolling.addProperty("enable_ring_effect_crit", true);
+        scrolling.addProperty("enable_ring_effect_headshot", true);
+        scrolling.addProperty("enable_ring_effect_explosion", true);
         scrolling.addProperty("animation_duration", 0.3f);
         scrolling.addProperty("fade_out_duration", 0.1f);
         scrolling.addProperty("position_animation_duration", 0.3f);
@@ -339,9 +361,9 @@ public class DefaultConfigRegistry {
         scrolling.addProperty("max_visible_icons", 7);
         scrolling.addProperty("display_interval_ms", 100);
         scrolling.addProperty("max_pending_icons", 30);
-        scrolling.addProperty("ring_effect_normal_color", "#9CCC65");
-        scrolling.addProperty("ring_effect_normal_radius", 42.0f);
-        scrolling.addProperty("ring_effect_normal_thickness", 1.8f);
+        scrolling.addProperty("ring_effect_crit_color", "#9CCC65");
+        scrolling.addProperty("ring_effect_crit_radius", 42.0f);
+        scrolling.addProperty("ring_effect_crit_thickness", 1.8f);
         scrolling.addProperty("ring_effect_headshot_color", "#D4B800");
         scrolling.addProperty("ring_effect_headshot_radius", 42.0f);
         scrolling.addProperty("ring_effect_headshot_thickness", 3.0f);
@@ -349,18 +371,21 @@ public class DefaultConfigRegistry {
         scrolling.addProperty("ring_effect_explosion_radius", 42.0f);
         scrolling.addProperty("ring_effect_explosion_thickness", 5.4f);
         injectTextureAnimationConfigs("kill_icon/scrolling", scrolling);
+        injectTextureStyleConfigs("00001", "kill_icon/scrolling", scrolling);
         registerGlobal("kill_icon/scrolling", scrolling);
 
-        // kill_icon/combo (Base: 00002)
+        
         JsonObject combo = new JsonObject();
         combo.addProperty("visible", true);
         combo.addProperty("scale", 0.6f);
         combo.addProperty("x_offset", 0);
         combo.addProperty("y_offset", 120);
-        combo.addProperty("enable_icon_effect", true);
-        combo.addProperty("ring_effect_normal_color", "#9CCC65");
-        combo.addProperty("ring_effect_normal_radius", 42.0f);
-        combo.addProperty("ring_effect_normal_thickness", 1.8f);
+        combo.addProperty("enable_ring_effect_crit", true);
+        combo.addProperty("enable_ring_effect_headshot", true);
+        combo.addProperty("enable_ring_effect_explosion", true);
+        combo.addProperty("ring_effect_crit_color", "#9CCC65");
+        combo.addProperty("ring_effect_crit_radius", 42.0f);
+        combo.addProperty("ring_effect_crit_thickness", 1.8f);
         combo.addProperty("ring_effect_headshot_color", "#D4B800");
         combo.addProperty("ring_effect_headshot_radius", 42.0f);
         combo.addProperty("ring_effect_headshot_thickness", 3.0f);
@@ -368,9 +393,10 @@ public class DefaultConfigRegistry {
         combo.addProperty("ring_effect_explosion_radius", 42.0f);
         combo.addProperty("ring_effect_explosion_thickness", 5.4f);
         injectTextureAnimationConfigs("kill_icon/combo", combo);
+        injectTextureStyleConfigs("00001", "kill_icon/combo", combo);
         registerGlobal("kill_icon/combo", combo);
 
-        // kill_icon/card_bar (Base: 00003)
+        
         JsonObject cardBar = new JsonObject();
         cardBar.addProperty("visible", true);
         cardBar.addProperty("scale", 1.0f);
@@ -382,32 +408,34 @@ public class DefaultConfigRegistry {
         cardBar.addProperty("light_height", 1.0f);
         cardBar.addProperty("color_light_ct", "#9cc1eb");
         cardBar.addProperty("color_light_t", "#d9ac5b");
-        cardBar.addProperty("dynamic_card_style", false);
+        cardBar.addProperty("dynamic_card_style", true);
         cardBar.addProperty("animation_duration", 0.2f);
         injectTextureAnimationConfigs("kill_icon/card_bar", cardBar);
+        injectTextureStyleConfigs("00001", "kill_icon/card_bar", cardBar);
         registerGlobal("kill_icon/card_bar", cardBar);
 
-        // kill_icon/card (Base: 00003)
+        
         JsonObject card = new JsonObject();
         card.addProperty("visible", true);
         card.addProperty("scale", 0.15f);
         card.addProperty("x_offset", 0);
         card.addProperty("y_offset", 35);
         card.addProperty("team", "ct");
-        card.addProperty("dynamic_card_style", false);
+        card.addProperty("dynamic_card_style", true);
         card.addProperty("animation_duration", 0.2f);
         card.addProperty("color_text_ct", "#9cc1eb");
         card.addProperty("color_text_t", "#d9ac5b");
         card.addProperty("text_scale", 10.0f);
         card.addProperty("max_stack_count", 6);
         injectTextureAnimationConfigs("kill_icon/card", card);
+        injectTextureStyleConfigs("00001", "kill_icon/card", card);
         card.addProperty("anim_light_ct_texture_frame_width_ratio", 1);
         card.addProperty("anim_light_ct_texture_frame_height_ratio", 5);
         card.addProperty("anim_light_t_texture_frame_width_ratio", 1);
         card.addProperty("anim_light_t_texture_frame_height_ratio", 5);
         registerGlobal("kill_icon/card", card);
 
-        // kill_icon/battlefield1 (Base: 00004)
+        
         JsonObject bf1 = new JsonObject();
         bf1.addProperty("visible", true);
         bf1.addProperty("icon_size", 25);
@@ -424,15 +452,16 @@ public class DefaultConfigRegistry {
         bf1.addProperty("animation_duration", 0.2f);
         bf1.addProperty("display_duration", 4.5f);
         injectTextureAnimationConfigs("kill_icon/battlefield1", bf1);
+        injectTextureStyleConfigs("00001", "kill_icon/battlefield1", bf1);
         registerGlobal("kill_icon/battlefield1", bf1);
 
-        // --- 2. Preset Overrides (Second/Third Defaults) ---
+        
 
-        // 00004 Overrides
+        
         JsonObject score00004 = score.deepCopy();
         score00004.addProperty("x_offset", 35);
         score00004.addProperty("y_offset", 86);
-        score00004.addProperty("format_score", "+\u003cscore\u003e"); // +<score>
+        score00004.addProperty("format_score", "+\u003cscore\u003e"); 
         score00004.addProperty("color_high_score", "#FFFFFF");
         score00004.addProperty("align_left", true);
         registerOverride("00004", "subtitle/score", score00004);
@@ -444,7 +473,7 @@ public class DefaultConfigRegistry {
         bonusList00004.addProperty("animation_speed", 15.0f);
         registerOverride("00004", "subtitle/bonus_list", bonusList00004);
 
-        // 00005 Overrides
+        
         JsonObject score00005 = score.deepCopy();
         score00005.addProperty("x_offset", 30);
         score00005.addProperty("y_offset", 80);
@@ -472,7 +501,7 @@ public class DefaultConfigRegistry {
         bonusList00005.addProperty("kill_bonus_scale", 1.2f);
         registerOverride("00005", "subtitle/bonus_list", bonusList00005);
 
-        // 00006 Overrides
+        
         JsonObject comboSubtitle00006 = comboSubtitle.deepCopy();
         comboSubtitle00006.addProperty("format_kill_single", "gd656killicon.client.format.preset_00006.combo.kill_single");
         comboSubtitle00006.addProperty("format_kill_multi", "gd656killicon.client.format.preset_00006.combo.kill_multi");
@@ -509,6 +538,224 @@ public class DefaultConfigRegistry {
         killFeed00006.addProperty("enable_stacking", true);
         killFeed00006.addProperty("max_lines", 5);
         registerOverride("00006", "subtitle/kill_feed", killFeed00006);
+
+        JsonObject killFeed00007 = killFeed.deepCopy();
+        killFeed00007.addProperty("x_offset", -1.0);
+        killFeed00007.addProperty("y_offset", 103.0);
+        killFeed00007.addProperty("format_normal", "<target> [<weapon>]+<score>");
+        killFeed00007.addProperty("color_normal_placeholder", "#FFFFFF");
+        killFeed00007.addProperty("format_headshot", "<target> [<weapon>]+<score>");
+        killFeed00007.addProperty("color_headshot_placeholder", "#FFFFFF");
+        killFeed00007.addProperty("format_explosion", "<target> [<weapon>]+<score>");
+        killFeed00007.addProperty("color_explosion_placeholder", "#FFFFFF");
+        killFeed00007.addProperty("format_crit", "<target> [<weapon>]+<score>");
+        killFeed00007.addProperty("color_crit_placeholder", "#FFFFFF");
+        killFeed00007.addProperty("format_assist", "助攻击杀 +<score>");
+        killFeed00007.addProperty("color_assist_placeholder", "#FFFFFF");
+        killFeed00007.addProperty("format_destroy_vehicle", "载具已摧毁 +<score>");
+        killFeed00007.addProperty("color_destroy_vehicle_placeholder", "#FFFFFF");
+        killFeed00007.addProperty("color_normal_emphasis", "#FFFFFF");
+        killFeed00007.addProperty("color_headshot_emphasis", "#FFFFFF");
+        killFeed00007.addProperty("color_explosion_emphasis", "#FFFFFF");
+        killFeed00007.addProperty("color_crit_emphasis", "#FFFFFF");
+        killFeed00007.addProperty("color_assist_emphasis", "#FFFFFF");
+        killFeed00007.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
+        registerOverride("00007", "subtitle/kill_feed", killFeed00007);
+
+        JsonObject score00007 = score.deepCopy();
+        score00007.addProperty("y_offset", 90.0);
+        score00007.addProperty("color_high_score", "#FFFFFF");
+        score00007.addProperty("color_flash", "#FFFFFF");
+        score00007.addProperty("enable_number_segmentation", true);
+        score00007.addProperty("enable_flash", false);
+        registerOverride("00007", "subtitle/score", score00007);
+
+        JsonObject bonusList00007 = bonusList.deepCopy();
+        bonusList00007.addProperty("y_offset", 76.0);
+        bonusList00007.addProperty("line_spacing", 10);
+        bonusList00007.addProperty("format_damage", "造成伤害 +<score>");
+        bonusList00007.addProperty("format_kill", "击杀 +<score>");
+        bonusList00007.addProperty("format_explosion_damage", "爆炸伤害 +<score>");
+        bonusList00007.addProperty("format_headshot_damage", "爆头伤害 +<score>");
+        bonusList00007.addProperty("format_crit_damage", "暴击伤害 +<score>");
+        bonusList00007.addProperty("format_kill_explosion", "爆炸击杀 +<score>");
+        bonusList00007.addProperty("format_kill_headshot", "精确击败 +<score>");
+        bonusList00007.addProperty("format_kill_crit", "暴击击败 +<score>");
+        bonusList00007.addProperty("format_combo", "<combo> 连续击败 +<score>");
+        bonusList00007.addProperty("format_kill_long_distance", "远距离击败 <distance> +<score>");
+        bonusList00007.addProperty("format_kill_invisible", "不见其人 +<score>");
+        bonusList00007.addProperty("format_assist", "助攻 +<score>");
+        bonusList00007.addProperty("format_desperate_counterattack", "绝境反击 +<score>");
+        bonusList00007.addProperty("format_avenge", "一雪前耻 +<score>");
+        bonusList00007.addProperty("format_shockwave", "冲击波 +<score>");
+        bonusList00007.addProperty("format_blind_kill", "无睹而中 +<score>");
+        bonusList00007.addProperty("format_buff_kill", "凭效诛敌 +<score>");
+        bonusList00007.addProperty("format_debuff_kill", "逆效制敌 +<score>");
+        bonusList00007.addProperty("format_both_buff_debuff_kill", "损益同斩 +<score>");
+        bonusList00007.addProperty("format_last_bullet_kill", "末弹酬勇 +<score>");
+        bonusList00007.addProperty("format_one_bullet_multi_kill", "一箭<multi_kill>雕 +<score>");
+        bonusList00007.addProperty("format_seven_in_seven_out", "七进七出 +<score>");
+        bonusList00007.addProperty("format_berserker", "狂战士 +<score>");
+        bonusList00007.addProperty("format_interrupted_streak", "已中止敌方 <streak> 连杀 +<score>");
+        bonusList00007.addProperty("format_leave_it_to_me", "交给我 +<score>");
+        bonusList00007.addProperty("format_savior", "救星 +<score>");
+        bonusList00007.addProperty("format_slay_the_leader", "枪打出头鸟 +<score>");
+        bonusList00007.addProperty("format_purge", "肃清 +<score>");
+        bonusList00007.addProperty("format_quick_switch", "切枪制人 +<score>");
+        bonusList00007.addProperty("format_seize_opportunity", "机不可失 +<score>");
+        bonusList00007.addProperty("format_bloodthirsty", "嗜血 +<score>");
+        bonusList00007.addProperty("format_merciless", "无情 +<score>");
+        bonusList00007.addProperty("format_valiant", "勇猛 +<score>");
+        bonusList00007.addProperty("format_fierce", "凶狠 +<score>");
+        bonusList00007.addProperty("format_savage", "野蛮 +<score>");
+        bonusList00007.addProperty("format_potato_aim", "马枪怪 +<score>");
+        bonusList00007.addProperty("format_locked_target", "锁定目标 +<score>");
+        bonusList00007.addProperty("format_hold_position", "坚守阵地 +<score>");
+        bonusList00007.addProperty("format_charge_assault", "冲锋陷阵 +<score>");
+        bonusList00007.addProperty("format_fire_suppression", "火力压制 +<score>");
+        bonusList00007.addProperty("format_destroy_block", "摧毁道具 +<score>");
+        bonusList00007.addProperty("format_kill_combo", "<combo> 连续击败 +<score>");
+        registerOverride("00007", "subtitle/bonus_list", bonusList00007);
+
+        JsonObject scrolling00007 = scrolling.deepCopy();
+        scrolling00007.addProperty("scale", 0.35f);
+        scrolling00007.addProperty("y_offset", 118.0f);
+        scrolling00007.addProperty("start_scale", 5.0f);
+        scrolling00007.addProperty("icon_spacing", 1.0f);
+        scrolling00007.addProperty("enable_ring_effect_crit", false);
+        scrolling00007.addProperty("enable_ring_effect_explosion", false);
+        scrolling00007.addProperty("ring_effect_headshot_color", "#F77F00");
+        scrolling00007.addProperty("ring_effect_headshot_thickness", 5.0f);
+        scrolling00007.addProperty("ring_effect_explosion_color", "#F77F00");
+        scrolling00007.addProperty("ring_effect_explosion_thickness", 5.4f);
+        scrolling00007.addProperty("ring_effect_crit_color", "#9CCC65");
+        scrolling00007.addProperty("ring_effect_crit_thickness", 1.8f);
+        scrolling00007.addProperty("anim_default_texture_frame_width_ratio", 1);
+        scrolling00007.addProperty("anim_default_texture_frame_height_ratio", 1);
+        scrolling00007.addProperty("anim_headshot_texture_frame_width_ratio", 1);
+        scrolling00007.addProperty("anim_headshot_texture_frame_height_ratio", 1);
+        scrolling00007.addProperty("anim_explosion_texture_frame_width_ratio", 1);
+        scrolling00007.addProperty("anim_explosion_texture_frame_height_ratio", 1);
+        scrolling00007.addProperty("anim_crit_texture_frame_width_ratio", 1);
+        scrolling00007.addProperty("anim_crit_texture_frame_height_ratio", 1);
+        scrolling00007.addProperty("anim_destroy_vehicle_texture_frame_width_ratio", 1);
+        scrolling00007.addProperty("anim_destroy_vehicle_texture_frame_height_ratio", 1);
+        scrolling00007.addProperty("anim_assist_texture_frame_width_ratio", 1);
+        scrolling00007.addProperty("anim_assist_texture_frame_height_ratio", 1);
+        injectTextureStyleConfigs("00007", "kill_icon/scrolling", scrolling00007);
+        registerOverride("00007", "kill_icon/scrolling", scrolling00007);
+
+        JsonObject score00008 = score00007.deepCopy();
+        score00008.addProperty("y_offset", 92.0);
+        score00008.addProperty("color_high_score", "#FFAE4B");
+        score00008.addProperty("color_flash", "#D0D0D0");
+        score00008.addProperty("enable_flash", false);
+        score00008.addProperty("enable_number_segmentation", false);
+        score00008.addProperty("enable_score_scaling_effect", false);
+        score00008.addProperty("enable_digital_scroll", true);
+        score00008.addProperty("enable_glow_effect", false);
+        score00008.addProperty("glow_intensity", 0.5f);
+        registerOverride("00008", "subtitle/score", score00008);
+
+        JsonObject bonusList00008 = bonusList00007.deepCopy();
+        bonusList00008.addProperty("y_offset", 75.0);
+        bonusList00008.addProperty("line_spacing", 10);
+        bonusList00008.addProperty("max_lines", 4);
+        bonusList00008.addProperty("display_duration", 3.0f);
+        bonusList00008.addProperty("fade_out_interval", 0.2f);
+        bonusList00008.addProperty("format_damage", "造成伤害 +<score>");
+        bonusList00008.addProperty("format_kill", "击杀 +<score>");
+        bonusList00008.addProperty("format_explosion_damage", "爆炸伤害 +<score>");
+        bonusList00008.addProperty("format_headshot_damage", "爆头伤害 +<score>");
+        bonusList00008.addProperty("format_crit_damage", "暴击伤害 +<score>");
+        bonusList00008.addProperty("format_kill_explosion", "爆炸击杀 +<score>");
+        bonusList00008.addProperty("format_kill_headshot", "精确击败 +<score>");
+        bonusList00008.addProperty("format_kill_crit", "暴击击败 +<score>");
+        bonusList00008.addProperty("format_combo", "<combo> 连续击败 +<score>");
+        bonusList00008.addProperty("format_kill_long_distance", "远距离击败 <distance> +<score>");
+        bonusList00008.addProperty("format_kill_invisible", "不见其人 +<score>");
+        bonusList00008.addProperty("format_assist", "助攻 +<score>");
+        bonusList00008.addProperty("format_desperate_counterattack", "绝境反击 +<score>");
+        bonusList00008.addProperty("format_avenge", "一雪前耻 +<score>");
+        bonusList00008.addProperty("format_shockwave", "冲击波 +<score>");
+        bonusList00008.addProperty("format_blind_kill", "无睹而中 +<score>");
+        bonusList00008.addProperty("format_buff_kill", "凭效诛敌 +<score>");
+        bonusList00008.addProperty("format_debuff_kill", "逆效制敌 +<score>");
+        bonusList00008.addProperty("format_both_buff_debuff_kill", "损益同斩 +<score>");
+        bonusList00008.addProperty("format_last_bullet_kill", "末弹酬勇 +<score>");
+        bonusList00008.addProperty("format_one_bullet_multi_kill", "一箭<multi_kill>雕 +<score>");
+        bonusList00008.addProperty("format_seven_in_seven_out", "七进七出 +<score>");
+        bonusList00008.addProperty("format_berserker", "狂战士 +<score>");
+        bonusList00008.addProperty("format_interrupted_streak", "已中止敌方 <streak> 连杀 +<score>");
+        bonusList00008.addProperty("format_leave_it_to_me", "交给我 +<score>");
+        bonusList00008.addProperty("format_savior", "救星 +<score>");
+        bonusList00008.addProperty("format_slay_the_leader", "枪打出头鸟 +<score>");
+        bonusList00008.addProperty("format_purge", "肃清 +<score>");
+        bonusList00008.addProperty("format_quick_switch", "切枪制人 +<score>");
+        bonusList00008.addProperty("format_seize_opportunity", "机不可失 +<score>");
+        bonusList00008.addProperty("format_bloodthirsty", "嗜血 +<score>");
+        bonusList00008.addProperty("format_merciless", "无情 +<score>");
+        bonusList00008.addProperty("format_valiant", "勇猛 +<score>");
+        bonusList00008.addProperty("format_fierce", "凶狠 +<score>");
+        bonusList00008.addProperty("format_savage", "野蛮 +<score>");
+        bonusList00008.addProperty("format_potato_aim", "马枪怪 +<score>");
+        bonusList00008.addProperty("format_locked_target", "锁定目标 +<score>");
+        bonusList00008.addProperty("format_hold_position", "坚守阵地 +<score>");
+        bonusList00008.addProperty("format_charge_assault", "冲锋陷阵 +<score>");
+        bonusList00008.addProperty("format_fire_suppression", "火力压制 +<score>");
+        bonusList00008.addProperty("format_destroy_block", "摧毁道具 +<score>");
+        bonusList00008.addProperty("format_spotting", "索敌 +<score>");
+        bonusList00008.addProperty("format_spotting_kill", "标记击杀 +<score>");
+        bonusList00008.addProperty("format_spotting_team_assist", "标记小队助攻 +<score>");
+        bonusList00008.addProperty("format_kill_combo", "<combo> 连续击败 +<score>");
+        bonusList00008.addProperty("enable_special_streak_subtitles", false);
+        bonusList00008.addProperty("enable_text_scrolling", false);
+        bonusList00008.addProperty("text_scrolling_duration_multiplier", 1.2f);
+        bonusList00008.addProperty("text_scrolling_refresh_rate", 0.02f);
+        bonusList00008.addProperty("color_special_placeholder", "#D4B800");
+        bonusList00008.addProperty("animation_duration", 0.5f);
+        bonusList00008.addProperty("animation_refresh_rate", 0.01f);
+        bonusList00008.addProperty("align_left", false);
+        bonusList00008.addProperty("align_right", false);
+        bonusList00008.addProperty("merge_window_duration", 1.0f);
+        bonusList00008.addProperty("animation_speed", 8.0f);
+        bonusList00008.addProperty("enable_text_sweep_animation", false);
+        bonusList00008.addProperty("enter_animation_duration", 0.2f);
+        bonusList00008.addProperty("kill_bonus_scale", 1.0f);
+        bonusList00008.addProperty("enable_kill_feed", false);
+        bonusList00008.addProperty("kill_feed_format", "[<weapon>] <target> +<score>");
+        bonusList00008.addProperty("kill_feed_victim_color", "#FF0000");
+        bonusList00008.addProperty("enable_digital_scroll", true);
+        bonusList00008.addProperty("enable_glow_effect", false);
+        bonusList00008.addProperty("glow_intensity", 0.5f);
+        registerOverride("00008", "subtitle/bonus_list", bonusList00008);
+
+        JsonObject scrolling00008 = scrolling00007.deepCopy();
+        scrolling00008.addProperty("scale", 0.32f);
+        scrolling00008.addProperty("y_offset", 107.0f);
+        scrolling00008.addProperty("display_duration", 3.25f);
+        scrolling00008.addProperty("enable_ring_effect_crit", false);
+        scrolling00008.addProperty("enable_ring_effect_headshot", true);
+        scrolling00008.addProperty("enable_ring_effect_explosion", false);
+        scrolling00008.addProperty("animation_duration", 0.3f);
+        scrolling00008.addProperty("fade_out_duration", 0.1f);
+        scrolling00008.addProperty("position_animation_duration", 0.3f);
+        scrolling00008.addProperty("start_scale", 4.0f);
+        scrolling00008.addProperty("icon_spacing", 1.0f);
+        scrolling00008.addProperty("max_visible_icons", 7);
+        scrolling00008.addProperty("display_interval_ms", 100);
+        scrolling00008.addProperty("max_pending_icons", 30);
+        scrolling00008.addProperty("ring_effect_crit_color", "#9CCC65");
+        scrolling00008.addProperty("ring_effect_crit_radius", 42.0f);
+        scrolling00008.addProperty("ring_effect_crit_thickness", 1.8f);
+        scrolling00008.addProperty("ring_effect_headshot_color", "#FFAE4B");
+        scrolling00008.addProperty("ring_effect_headshot_radius", 42.0f);
+        scrolling00008.addProperty("ring_effect_headshot_thickness", 3.0f);
+        scrolling00008.addProperty("ring_effect_explosion_color", "#FFFFFF");
+        scrolling00008.addProperty("ring_effect_explosion_radius", 42.0f);
+        scrolling00008.addProperty("ring_effect_explosion_thickness", 5.4f);
+        injectTextureStyleConfigs("00008", "kill_icon/scrolling", scrolling00008);
+        registerOverride("00008", "kill_icon/scrolling", scrolling00008);
     }
 
     private static void registerGlobal(String elementId, JsonObject config) {
@@ -534,5 +781,41 @@ public class DefaultConfigRegistry {
             config.addProperty(prefix + "texture_frame_width_ratio", 1);
             config.addProperty(prefix + "texture_frame_height_ratio", 1);
         }
+    }
+
+    private static void injectTextureStyleConfigs(String presetId, String elementId, JsonObject config) {
+        if (!ElementTextureDefinition.hasTextures(elementId)) return;
+
+        for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+            String key = ElementTextureDefinition.getTextureStyleKey(texture);
+            String fileName = "kill_icon/scrolling".equals(elementId)
+                ? resolveScrollingStyleFileName(presetId, texture)
+                : ElementTextureDefinition.getTextureFileName(presetId, elementId, texture);
+            if (fileName != null) {
+                config.addProperty(key, fileName);
+            }
+        }
+    }
+
+    private static String resolveScrollingStyleFileName(String presetId, String textureKey) {
+        if ("00007".equals(presetId)) {
+            return switch (textureKey) {
+                case "headshot" -> "killicon_battlefield5_headshot.png";
+                case "assist" -> "killicon_battlefield5_assist.png";
+                case "destroy_vehicle" -> "killicon_battlefield5_destroyvehicle.png";
+                case "explosion", "crit", "default" -> "killicon_battlefield5_default.png";
+                default -> "killicon_battlefield5_default.png";
+            };
+        }
+        if ("00008".equals(presetId)) {
+            return switch (textureKey) {
+                case "headshot" -> "killicon_df_headshot.png";
+                case "destroy_vehicle" -> "killicon_df_destroyvehicle.png";
+                case "assist" -> "killicon_scrolling_assist.png";
+                case "explosion", "crit", "default" -> "killicon_df_default.png";
+                default -> "killicon_df_default.png";
+            };
+        }
+        return ElementTextureDefinition.getTextureFileName("00001", "kill_icon/scrolling", textureKey);
     }
 }

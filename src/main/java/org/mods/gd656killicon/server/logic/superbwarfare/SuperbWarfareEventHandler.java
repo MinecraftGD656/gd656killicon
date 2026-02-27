@@ -45,7 +45,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     private final Map<UUID, Long> headshotDamageVictims = new ConcurrentHashMap<>();
     private final Set<UUID> gunKillVictims = Collections.newSetFromMap(new ConcurrentHashMap<>());
     
-    // Cache for reflection
+    
     private static Field customExplosionDamageField;
     private static Field explosionRadiusField;
     private static boolean reflectionFailed = false;
@@ -53,26 +53,26 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     @Override
     public void init() {
         MinecraftForge.EVENT_BUS.register(this);
-        // We also need to register to SuperbWarfare's event bus if it's separate.
-        // In NeoForge it's usually the same or accessible via NeoForge.EVENT_BUS.
-        // For compatibility in a Forge mod, we might need to use reflection if SuperbWarfare uses a different bus.
-        // But assuming it's standard Forge/NeoForge.
+        
+        
+        
+        
         try {
             Class<?> neoForgeClass = Class.forName("net.neoforged.neoforge.common.NeoForge");
             Object eventBus = neoForgeClass.getField("EVENT_BUS").get(null);
             eventBus.getClass().getMethod("register", Object.class).invoke(eventBus, this);
         } catch (Exception e) {
-            // Fallback to standard Forge bus if NeoForge bus is not found
+            
             MinecraftForge.EVENT_BUS.register(this);
         }
         
-        // Initialize reflection for CustomExplosion and Explosion
+        
         try {
             Class<?> customExplosionClass = Class.forName("com.atsuishio.superbwarfare.tools.CustomExplosion");
             customExplosionDamageField = customExplosionClass.getDeclaredField("damage");
             customExplosionDamageField.setAccessible(true);
             
-            // Explosion radius is private in vanilla Explosion class
+            
             explosionRadiusField = net.minecraft.world.level.Explosion.class.getDeclaredField("radius");
             explosionRadiusField.setAccessible(true);
         } catch (Exception e) {
@@ -85,7 +85,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
     @Override
     public void tick() {
-        // Clear old headshot markers (e.g., markers older than 5 seconds)
+        
         long now = System.currentTimeMillis();
         headshotVictims.entrySet().removeIf(entry -> now - entry.getValue() > 5000);
         headshotDamageVictims.entrySet().removeIf(entry -> now - entry.getValue() > 5000);
@@ -134,12 +134,12 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
         net.minecraft.world.damagesource.DamageSource source = event.getSource();
         
-        // Check if it's gun damage
+        
         if (DamageTypeTool.isGunDamage(source)) {
             UUID victimId = victim.getUUID();
             gunKillVictims.add(victimId);
 
-            // Check for headshot from source
+            
             if (DamageTypeTool.isHeadshotDamage(source)) {
                 headshotVictims.put(victimId, System.currentTimeMillis());
             }
@@ -154,23 +154,23 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         boolean isPlayer = attacker instanceof ServerPlayer;
         UUID playerUuid = isPlayer ? attacker.getUUID() : null;
         
-        // Attempt to get the actual damage and radius
-        float baseDamage = 100.0f; // Fallback default
-        float finalRadius = 4.0f; // Fallback default
+        
+        float baseDamage = 100.0f; 
+        float finalRadius = 4.0f; 
         
         if (!reflectionFailed) {
             try {
-                // Get radius from base Explosion class (works for both vanilla and CustomExplosion)
+                
                 if (explosionRadiusField != null) {
                     finalRadius = explosionRadiusField.getFloat(event.getExplosion());
                 }
                 
-                // Get damage from CustomExplosion if applicable
+                
                 if (customExplosionDamageField != null && event.getExplosion().getClass().getName().equals("com.atsuishio.superbwarfare.tools.CustomExplosion")) {
                     baseDamage = customExplosionDamageField.getFloat(event.getExplosion());
                 }
             } catch (Exception e) {
-                // Stick to fallbacks
+                
             }
         }
 
@@ -178,7 +178,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
         for (Entity entity : event.getAffectedEntities()) {
             if (entity instanceof VehicleEntity vehicle) {
-                // Calculate explosion damage using linear falloff formula
+                
                 double dist = Math.sqrt(entity.distanceToSqr(explosionPos));
                 if (dist > finalRadius) dist = finalRadius;
                 
@@ -195,7 +195,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
                     if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
                         ServerCore.BONUS.add((ServerPlayer)attacker, BonusType.HIT_VEHICLE_ARMOR, estimatedDamage, null);
                     }
-                    // Update vehicle's internal last attacker
+                    
                     vehicle.getEntityData().set(VehicleEntity.LAST_ATTACKER_UUID, attacker.getStringUUID());
                 }
             }
@@ -204,7 +204,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
     @SubscribeEvent
     public void onShoot(ShootEvent event) {
-        // Method kept for other potential shoot logic, but last bullet logic removed
+        
     }
 
 
@@ -213,7 +213,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     public void onRepair(LivingDamageEvent event) {
         if (event.getEntity().level().isClientSide) return;
         
-        // Use Entity to check for VehicleEntity to avoid LivingEntity cast issues
+        
         net.minecraft.world.entity.Entity entity = event.getEntity();
         if (!(entity instanceof VehicleEntity vehicle)) return;
         
@@ -239,7 +239,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
         if (!(event.getData().item() instanceof RepairToolItem)) return;
 
-        // Check if player is looking at a vehicle
+        
         double reachDistance = 5.0;
         net.minecraft.world.phys.Vec3 viewVector = player.getViewVector(1.0F);
         net.minecraft.world.phys.Vec3 startPos = player.getEyePosition();
@@ -252,27 +252,27 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         );
 
         if (hitResult != null && hitResult.getEntity() instanceof VehicleEntity vehicle) {
-            // Determine if it's repair or damage using SuperbWarfare's internal logic
+            
             Entity lastDriver = EntityFindUtil.findEntity(player.level(), vehicle.getEntityData().get(LAST_DRIVER_UUID));
             boolean isDamage = (lastDriver != null && !SeekTool.IN_SAME_TEAM.test(shooter, lastDriver) && lastDriver.getTeam() != null) || shooter.isShiftKeyDown();
 
             if (isDamage) {
-                // Award HIT_VEHICLE_ARMOR bonus for repair tool damage
-                float damage = 0.5f; // From RepairToolItem.java
+                
+                float damage = 0.5f; 
                 if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
                     ServerCore.BONUS.add(player, BonusType.HIT_VEHICLE_ARMOR, damage, null);
                 }
                 VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
                 tracker.recordDamage(player.getUUID(), damage, true);
                 
-                // Update vehicle's internal last attacker
+                
                 vehicle.getEntityData().set(VehicleEntity.LAST_ATTACKER_UUID, player.getStringUUID());
             } else {
-                // Award VEHICLE_REPAIR bonus
+                
                 if (vehicle.getHealth() < vehicle.getMaxHealth()) {
                     long now = System.currentTimeMillis();
                     long lastBonusTime = lastRepairBonusTimeMap.getOrDefault(player, 0L);
-                    if (now - lastBonusTime > 2000) { // Requirement: every 2 seconds
+                    if (now - lastBonusTime > 2000) { 
                         if (ServerData.get().isBonusEnabled(BonusType.VEHICLE_REPAIR)) {
                             ServerCore.BONUS.add(player, BonusType.VEHICLE_REPAIR, 1.0f, null);
                             lastRepairBonusTimeMap.put(player, now);
@@ -291,10 +291,10 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         Entity target = event.getTarget();
         if (!(target instanceof VehicleEntity vehicle)) return;
 
-        // ProjectileHitEvent doesn't provide damage amount directly, 
-        // but we can estimate or use a default value if needed.
-        // However, we can track that this player hit the vehicle.
-        float damage = 1.0f; // Default damage for tracking if not specified
+        
+        
+        
+        float damage = 1.0f; 
         
         if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
             ServerCore.BONUS.add(player, BonusType.HIT_VEHICLE_ARMOR, damage, null);
@@ -303,7 +303,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
         tracker.recordDamage(player.getUUID(), damage, true);
         
-        // Update vehicle's internal last attacker to ensure synchronization
+        
         vehicle.getEntityData().set(VehicleEntity.LAST_ATTACKER_UUID, player.getStringUUID());
     }
 
@@ -312,18 +312,27 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         if (event.getLevel().isClientSide()) return;
         if (!(event.getEntity() instanceof VehicleEntity vehicle)) return;
 
-        // Check if vehicle was destroyed (health <= 0)
+        
         if (vehicle.getHealth() <= 0) {
             VehicleCombatTracker tracker = combatTrackerMap.get(vehicle);
             if (tracker != null) {
-                // Determine the true last attacker from the vehicle's data
+                
                 String lastAttackerUuidStr = vehicle.getEntityData().get(VehicleEntity.LAST_ATTACKER_UUID);
+                String lastDriverUuidStr = vehicle.getEntityData().get(LAST_DRIVER_UUID);
+                UUID lastDriverUuid = null;
+                if (lastDriverUuidStr != null && !lastDriverUuidStr.isEmpty()) {
+                    try {
+                        lastDriverUuid = UUID.fromString(lastDriverUuidStr);
+                    } catch (IllegalArgumentException ignored) {}
+                }
                 if (lastAttackerUuidStr != null && !lastAttackerUuidStr.isEmpty()) {
                     try {
                         UUID actualLastAttackerUuid = UUID.fromString(lastAttackerUuidStr);
-                        tracker.lastAttackerUuid = actualLastAttackerUuid;
-                        tracker.lastAttackTime = System.currentTimeMillis();
-                        tracker.lastAttackerWasPlayer = true;
+                        if (lastDriverUuid == null || !lastDriverUuid.equals(actualLastAttackerUuid)) {
+                            tracker.lastAttackerUuid = actualLastAttackerUuid;
+                            tracker.lastAttackTime = System.currentTimeMillis();
+                            tracker.lastAttackerWasPlayer = true;
+                        }
                     } catch (IllegalArgumentException ignored) {}
                 }
                 
@@ -340,13 +349,13 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         net.minecraft.world.damagesource.DamageSource source = event.getSource();
         net.minecraft.world.entity.Entity attacker = source.getEntity();
 
-        // Check if the attacker is a vehicle
+        
         if (attacker instanceof VehicleEntity vehicle) {
             recordVehicleDamage(vehicle, event.getAmount());
         } else if (source.getDirectEntity() instanceof VehicleEntity vehicle) {
             recordVehicleDamage(vehicle, event.getAmount());
         } else if (attacker instanceof ServerPlayer player && player.getVehicle() instanceof VehicleEntity vehicle) {
-            // Player in a vehicle dealt damage
+            
             recordVehicleDamage(vehicle, event.getAmount());
         }
     }
@@ -359,38 +368,50 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     private void processVehicleDestruction(VehicleEntity vehicle, VehicleCombatTracker tracker) {
         long now = System.currentTimeMillis();
         
-        // 1. Determine Killer
+        
         ServerPlayer killer = null;
         if (tracker.lastAttackerWasPlayer && tracker.lastAttackerUuid != null) {
-            // Only count as kill if the last hit was recent (prevent "stealing" from environment 10 mins later)
+            
             if (now - tracker.lastAttackTime < ServerData.get().getAssistTimeoutMs()) {
                 killer = ServerCore.getServer().getPlayerList().getPlayer(tracker.lastAttackerUuid);
             }
         }
 
         float maxHealth = vehicle.getMaxHealth();
-        // Use descriptionId for client-side localization
-        String extraInfo = vehicle.getType().getDescriptionId() + "|" + (int)maxHealth;
+        String vehicleNameKey = vehicle.getType().getDescriptionId();
+        String extraInfo = vehicleNameKey + "|" + (int)maxHealth;
 
         if (killer != null) {
-            // Award Destroy Bonus to Killer
+            String lastDriverUuidStr = vehicle.getEntityData().get(LAST_DRIVER_UUID);
+            if (lastDriverUuidStr != null && !lastDriverUuidStr.isEmpty()) {
+                try {
+                    UUID lastDriverUuid = UUID.fromString(lastDriverUuidStr);
+                    if (lastDriverUuid.equals(killer.getUUID())) {
+                        killer = null;
+                    }
+                } catch (IllegalArgumentException ignored) {}
+            }
+        }
+
+        if (killer != null) {
+            
             double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
             int score = (int) Math.ceil(maxHealth * multiplier);
             if (score > 0) {
-                ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null);
+                ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null, vehicle.getId(), vehicleNameKey);
             }
             
-            // Award Value Target Destroyed bonus
+            
             if (tracker.accumulatedDamageDealt > 0) {
                 if (ServerData.get().isBonusEnabled(BonusType.VALUE_TARGET_DESTROYED)) {
                     ServerCore.BONUS.add(killer, BonusType.VALUE_TARGET_DESTROYED, tracker.accumulatedDamageDealt, null);
                 }
             }
             
-            // Increment persistent kill count
+            
             org.mods.gd656killicon.server.data.PlayerDataManager.get().addKill(killer.getUUID(), 1);
 
-            // Trigger Kill Feed for Killer
+            
             sendKillEffects(killer, KillType.DESTROY_VEHICLE, 0, vehicle.getId(), extraInfo);
         }
     }
@@ -399,7 +420,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         double window = ServerData.get().getComboWindowSeconds();
         boolean hasHelmet = false;
         
-        // Icons
+        
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName), player);
         if (combo > 0) {
             NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
@@ -412,7 +433,7 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, window, hasHelmet, victimName), player);
         
-        // Subtitle
+        
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
     }

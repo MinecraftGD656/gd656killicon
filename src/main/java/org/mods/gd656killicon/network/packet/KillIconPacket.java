@@ -5,11 +5,18 @@ import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.impl.ComboIconRenderer;
 import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
+import org.mods.gd656killicon.common.KillType;
 import org.mods.gd656killicon.network.IPacket;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.function.Supplier;
 
 public class KillIconPacket implements IPacket {
+    private static final long VEHICLE_PRIORITY_DELAY_MS = 700L;
+    private static final Deque<PendingTrigger> PENDING_TRIGGERS = new ArrayDeque<>();
+    private static long lastVehicleDestroyTime = -1L;
+
     private final String category;
     private final String name;
     private final int killType;
@@ -97,33 +104,72 @@ public class KillIconPacket implements IPacket {
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
             ComboIconRenderer.updateServerComboWindowSeconds(this.comboWindowSeconds);
-            // 收到数据包直接尝试播放音效，不依赖渲染器
-            SoundTriggerManager.tryPlaySound(this.category, this.name, this.killType, this.comboCount, this.hasHelmet);
-            
-            // 尝试翻译生物名称（如果不是玩家且有自定义名称）
-            String displayName = this.customVictimName;
-            if (this.customVictimName != null && !this.customVictimName.isEmpty() && !this.isVictimPlayer) {
-                try {
-                    displayName = net.minecraft.client.resources.language.I18n.get(this.customVictimName);
-                } catch (Exception e) {
-                    // 忽略翻译错误，使用原始 Key
-                }
-            }
-            
-            HudElementManager.trigger(this.category, this.name, 
-                new org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext(
-                    this.killType, this.victimId, this.comboCount, displayName, this.distance
-                )
-            );
-
-            // 统计击杀数据 (仅当 shouldRecordStats 为 true 时)
-            if (this.shouldRecordStats && displayName != null && !displayName.isEmpty()) {
-                org.mods.gd656killicon.client.stats.ClientStatsManager.recordGeneralKillStats(displayName, this.isVictimPlayer);
+            long now = System.currentTimeMillis();
+            if (this.killType == KillType.DESTROY_VEHICLE) {
+                lastVehicleDestroyTime = now;
+                processTrigger(this, now);
+                return;
             }
 
-            // Trigger ACE Lag Simulator
-            org.mods.gd656killicon.client.util.AceLagSimulator.onKillEvent();
+            long delayUntil = lastVehicleDestroyTime > 0 && now - lastVehicleDestroyTime < VEHICLE_PRIORITY_DELAY_MS
+                ? lastVehicleDestroyTime + VEHICLE_PRIORITY_DELAY_MS
+                : -1L;
+
+            if (delayUntil > now) {
+                PENDING_TRIGGERS.add(new PendingTrigger(this, delayUntil));
+            } else {
+                processTrigger(this, now);
+            }
         });
         context.get().setPacketHandled(true);
+    }
+
+    public static void processPendingTriggers() {
+        if (PENDING_TRIGGERS.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        while (!PENDING_TRIGGERS.isEmpty()) {
+            PendingTrigger pending = PENDING_TRIGGERS.peekFirst();
+            if (pending == null || pending.executeAt > now) {
+                return;
+            }
+            PENDING_TRIGGERS.pollFirst();
+            processTrigger(pending.packet, now);
+        }
+    }
+
+    private static void processTrigger(KillIconPacket packet, long now) {
+        SoundTriggerManager.tryPlaySound(packet.category, packet.name, packet.killType, packet.comboCount, packet.hasHelmet);
+
+        String displayName = packet.customVictimName;
+        if (packet.customVictimName != null && !packet.customVictimName.isEmpty() && !packet.isVictimPlayer) {
+            try {
+                displayName = net.minecraft.client.resources.language.I18n.get(packet.customVictimName);
+            } catch (Exception ignored) {
+            }
+        }
+
+        HudElementManager.trigger(packet.category, packet.name, 
+            new org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext(
+                packet.killType, packet.victimId, packet.comboCount, displayName, packet.distance
+            )
+        );
+
+        if (packet.shouldRecordStats && displayName != null && !displayName.isEmpty()) {
+            org.mods.gd656killicon.client.stats.ClientStatsManager.recordGeneralKillStats(displayName, packet.isVictimPlayer);
+        }
+
+        org.mods.gd656killicon.client.util.AceLagSimulator.onKillEvent();
+    }
+
+    private static final class PendingTrigger {
+        private final KillIconPacket packet;
+        private final long executeAt;
+
+        private PendingTrigger(KillIconPacket packet, long executeAt) {
+            this.packet = packet;
+            this.executeAt = executeAt;
+        }
     }
 }

@@ -46,18 +46,18 @@ public class ServerEventHandler {
     private static final Map<UUID, Float> lastDamage = new ConcurrentHashMap<>();
     private static final Map<UUID, Integer> lastDamageType = new ConcurrentHashMap<>();
     private static final Map<UUID, List<DamageRecord>> damageHistory = new ConcurrentHashMap<>();
-    private static final Map<UUID, Map<UUID, Long>> killHistory = new ConcurrentHashMap<>(); // victimId -> (attackerId -> timestamp)
-    private static final Map<UUID, Map<UUID, CombatState>> activeCombats = new ConcurrentHashMap<>(); // playerUUID -> (targetUUID -> CombatState)
-    private static final Map<UUID, Integer> explosionKillCounter = new ConcurrentHashMap<>(); // playerUUID -> count
-    private static final Map<UUID, Integer> consecutiveDeaths = new ConcurrentHashMap<>(); // playerUUID -> deathCount
-    private static final Map<UUID, List<Long>> playerKillTimestamps = new ConcurrentHashMap<>(); // player/entity UUID -> list of kill timestamps
-    private static final Map<UUID, List<Long>> entityKillTimestamps = new ConcurrentHashMap<>(); // monster/mob UUID -> list of kill timestamps
-    private static final Map<UUID, Map<String, Long>> teamKillHistory = new ConcurrentHashMap<>(); // attackerId -> (teamName -> timestamp)
-    private static final Map<UUID, Integer> lifeKillCount = new ConcurrentHashMap<>(); // playerUUID -> killCount (resets on death)
-    private static final Map<UUID, Long> lastItemSwitchTime = new ConcurrentHashMap<>(); // playerUUID -> timestamp
-    private static final Map<UUID, Integer> lastSelectedSlot = new ConcurrentHashMap<>(); // playerUUID -> slotIndex
-    private static final Map<UUID, Integer> consecutiveAssists = new ConcurrentHashMap<>(); // playerUUID -> assistCount
-    // Use HashMap for better single-thread performance on server thread
+    private static final Map<UUID, Map<UUID, Long>> killHistory = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, Map<UUID, CombatState>> activeCombats = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, Integer> explosionKillCounter = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, Integer> consecutiveDeaths = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, List<Long>> playerKillTimestamps = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, List<Long>> entityKillTimestamps = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, Map<String, Long>> teamKillHistory = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, Integer> lifeKillCount = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, Long> lastItemSwitchTime = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, Integer> lastSelectedSlot = new ConcurrentHashMap<>(); 
+    private static final Map<UUID, Integer> consecutiveAssists = new ConcurrentHashMap<>(); 
+    
     private static final Map<UUID, Vec3> lastSprintPositions = new HashMap<>();
     private static final Map<UUID, Double> sprintDistances = new HashMap<>();
 
@@ -71,9 +71,9 @@ public class ServerEventHandler {
     private static final long LOCKED_TARGET_WINDOW_MS = 10000;
     private static final double HOLD_POSITION_MAX_DISTANCE = 1.0;
 
-    // ================================================================================================================
-    // Event Handlers
-    // ================================================================================================================
+    
+    
+    
 
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
@@ -99,6 +99,7 @@ public class ServerEventHandler {
     public static void onStopping(ServerStoppingEvent event) {
         ServerLog.info("Saving server data...");
         ServerData.get().saveAll();
+        ServerData.get().shutdown();
         PlayerDataManager.get().shutdown();
         stopScoreboardRefreshTask();
     }
@@ -121,8 +122,8 @@ public class ServerEventHandler {
                         ServerData.get().refreshScoreboard(server);
                     }
                 },
-                1, // Initial delay: 1 minute
-                1, // Period: 1 minute
+                1, 
+                1, 
                 TimeUnit.MINUTES
         );
     }
@@ -145,43 +146,43 @@ public class ServerEventHandler {
     public static void onTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         
-        // Bonus Batching
+        
         ServerCore.BONUS.tick(net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer());
         
-        // Integration Tick
+        
         ServerCore.TACZ.tick();
         ServerCore.SUPERB_WARFARE.tick();
         ServerCore.YWZJ_VEHICLE.tick();
         ServerCore.IMMERSIVE_AIRCRAFT.tick();
         ServerCore.SPOTTING.tick();
         
-        // Reset explosion counter every tick
+        
         explosionKillCounter.clear();
 
-        // Combat State Cleanup
+        
         long now = System.currentTimeMillis();
         activeCombats.values().forEach(map -> map.values().removeIf(cs -> now - cs.lastInteractionTime > 30000));
         activeCombats.values().removeIf(Map::isEmpty);
 
-        // Team Kill History Cleanup
+        
         teamKillHistory.values().forEach(map -> map.values().removeIf(timestamp -> now - timestamp > 60000));
         teamKillHistory.values().removeIf(Map::isEmpty);
 
-        // Item Switch History Cleanup
+        
         lastItemSwitchTime.values().removeIf(timestamp -> now - timestamp > 10000);
 
-        // Damage History Cleanup (Prevent memory leak for long-lived entities/players)
+        
         damageHistory.values().forEach(records -> {
             synchronized (records) {
-                records.removeIf(r -> now - r.timestamp > 120000); // 2 minutes
+                records.removeIf(r -> now - r.timestamp > 120000); 
             }
         });
         damageHistory.values().removeIf(List::isEmpty);
 
-        // Process delayed kills
+        
         processPendingKills();
         
-        // Tacz & SuperbWarfare Integration Cleanup (Must be after processing kills)
+        
         ServerCore.TACZ.tick();
         ServerCore.SUPERB_WARFARE.tick();
     }
@@ -191,7 +192,7 @@ public class ServerEventHandler {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerDataManager.get().updateLastLoginName(player.getUUID(), player.getScoreboardName());
             ServerData.get().syncScoreToPlayer(player);
-            // Initialize selected slot
+            
             lastSelectedSlot.put(player.getUUID(), player.getInventory().selected);
             lastSprintPositions.put(player.getUUID(), player.position());
         }
@@ -212,7 +213,7 @@ public class ServerEventHandler {
         if (event.player.level().isClientSide) return;
         if (!(event.player instanceof ServerPlayer player)) return;
 
-        // Optimization: Fast fail for spectators/creative flight
+        
         if (player.getAbilities().flying || player.isSpectator()) {
             lastSprintPositions.put(player.getUUID(), player.position());
             return;
@@ -221,11 +222,11 @@ public class ServerEventHandler {
         UUID playerId = player.getUUID();
         Vec3 currentPos = player.position();
         
-        // Get last position
+        
         Vec3 lastPos = lastSprintPositions.get(playerId);
         
-        // Update position for next tick
-        // Optimization: Only update map if position changed significantly to avoid unnecessary writes
+        
+        
         if (lastPos == null || !currentPos.equals(lastPos)) {
             lastSprintPositions.put(playerId, currentPos);
         }
@@ -237,14 +238,14 @@ public class ServerEventHandler {
         double dz = currentPos.z - lastPos.z;
         double distSqr = dx * dx + dz * dz;
 
-        // Optimization: Skip sqrt for very small movements or unrealistic jumps
+        
         if (distSqr < 0.0001 || distSqr > 100.0) return;
 
         double distance = Math.sqrt(distSqr);
         double total = sprintDistances.getOrDefault(playerId, 0.0) + distance;
         
         while (total >= 200.0) {
-            // Changed scale from 15.0f to 1.0f as requested (bonus controlled by expression)
+            
             ServerCore.BONUS.add(player, BonusType.CHARGE_ASSAULT, 1.0f, "");
             total -= 200.0;
         }
@@ -259,19 +260,19 @@ public class ServerEventHandler {
             Integer lastSlot = lastSelectedSlot.get(player.getUUID());
             lastSelectedSlot.put(player.getUUID(), currentSlot);
 
-            // If it's the first time we see this player (or slot is null), just initialize and return
+            
             if (lastSlot == null) {
                 return;
             }
 
-            // Check if slot has changed
+            
             if (lastSlot != currentSlot) {
-                // Slot changed -> valid switch
+                
                 lastItemSwitchTime.put(player.getUUID(), System.currentTimeMillis());
             } else {
-                // Slot did NOT change (could be durability change, or swapping same type item)
-                // In this case, we ONLY consider it a switch if the item type is different.
-                // This filters out durability changes (same item type).
+                
+                
+                
                 if (!net.minecraft.world.item.ItemStack.isSameItem(event.getFrom(), event.getTo())) {
                     lastItemSwitchTime.put(player.getUUID(), System.currentTimeMillis());
                 }
@@ -288,14 +289,14 @@ public class ServerEventHandler {
         UUID victimId = victim.getUUID();
         float amt = event.getAmount();
 
-        // Final condition check: Do not award bonuses for self-damaging
+        
         if (src.getEntity() instanceof ServerPlayer player && player.getUUID().equals(victimId)) {
             return;
         }
         
         updateCombatTracking(src, victim, victimId, amt);
 
-        // Record damage for ANY living entity attacker (required for Savior bonus)
+        
         if (src.getEntity() instanceof LivingEntity attacker) {
             float effectiveAmt = Math.min(amt, victim.getHealth());
             int roundedAmt = Math.round(effectiveAmt);
@@ -333,12 +334,12 @@ public class ServerEventHandler {
         
         DamageSource src = event.getSource();
         
-        // Track consecutive deaths for players (Brave's Return)
+        
             if (victim instanceof ServerPlayer player) {
                 UUID playerId = player.getUUID();
                 consecutiveDeaths.merge(playerId, 1, Integer::sum);
                 
-                // Update death count
+                
                 ServerData.get().addDeath(player, 1);
                 
                 String killerName = "";
@@ -346,7 +347,7 @@ public class ServerEventHandler {
                     killerName = killer.getScoreboardName();
                 }
 
-                // 发送死亡数据包到客户端
+                
                 org.mods.gd656killicon.network.NetworkHandler.sendToPlayer(
                     new org.mods.gd656killicon.network.packet.DeathPacket(
                         player.getScoreboardName(), 
@@ -357,19 +358,19 @@ public class ServerEventHandler {
                 );
             }
         
-        // Record kill for vengeance tracking
+        
         LivingEntity attacker = resolveLivingAttacker(src);
         if (attacker != null) {
             killHistory.computeIfAbsent(victimId, k -> new ConcurrentHashMap<>())
                        .put(attacker.getUUID(), System.currentTimeMillis());
 
-            // Track team kill history for "Leave it to me"
+            
             if (victim instanceof ServerPlayer victimPlayer && victimPlayer.getTeam() != null) {
                 teamKillHistory.computeIfAbsent(attacker.getUUID(), k -> new ConcurrentHashMap<>())
                               .put(victimPlayer.getTeam().getName(), System.currentTimeMillis());
             }
 
-            // Update attacker's streak if the attacker is a monster/mob (for Interrupted Streak to work on entities)
+            
             if (attacker instanceof Mob mob && !(attacker instanceof ServerPlayer)) {
                 long now = System.currentTimeMillis();
                 entityKillTimestamps.computeIfAbsent(mob.getUUID(), k -> Collections.synchronizedList(new ArrayList<>())).add(now);
@@ -387,7 +388,7 @@ public class ServerEventHandler {
             processAssist(victimId, victim.getId(), hasHelmet, victimName, isVictimPlayer, null);
         }
 
-        // Clear streak on death (Done after handlePlayerKill to allow capturing streak count)
+        
         playerKillTimestamps.remove(victimId);
         entityKillTimestamps.remove(victimId);
         lifeKillCount.remove(victimId);
@@ -396,9 +397,9 @@ public class ServerEventHandler {
         cleanupVictimData(victimId);
     }
 
-    // ================================================================================================================
-    // Internal Logic
-    // ================================================================================================================
+    
+    
+    
 
     private static void processPendingKills() {
         if (pendingKills.isEmpty()) return;
@@ -417,29 +418,29 @@ public class ServerEventHandler {
 
         if (readyKills.isEmpty()) return;
 
-        // Group by (player, sourceEntityId, tick) to detect simultaneous kills
+        
         Map<String, List<PendingKill>> groups = new HashMap<>();
         for (PendingKill pk : readyKills) {
             if (pk.player == null || pk.player.isRemoved()) continue;
             
-            // Generate a grouping key
+            
             String key = pk.player.getUUID().toString() + "_" + pk.sourceEntityId + "_" + pk.tick;
             groups.computeIfAbsent(key, k -> new ArrayList<>()).add(pk);
         }
 
         for (List<PendingKill> group : groups.values()) {
-            // Process each kill individually for standard bonuses
+            
             for (PendingKill pk : group) {
                 processKill(pk);
             }
 
-            // Award "One Bullet Multi Kill" bonus if applicable
+            
             if (group.size() >= 2) {
                 PendingKill first = group.get(0);
                 
-                // Conditions: 
-                // 1. Not an explosion (already handled as shockwave/explosion bonus)
-                // 2. Either a projectile OR a TACZ gun kill (to exclude sweep attacks)
+                
+                
+                
                 boolean hasExplosion = group.stream().anyMatch(pk -> pk.damageType == TYPE_EXPLOSION);
                 boolean isProjectile = first.sourceEntityId != -1 && first.sourceEntityId != first.player.getId();
                 
@@ -479,7 +480,7 @@ public class ServerEventHandler {
         
         ServerData.get().addKill(player, 1);
         
-        // Fallback check for non-damage source explosion
+        
         if (type == TYPE_NORMAL && (src.is(DamageTypeTags.IS_EXPLOSION) || src.getMsgId().contains("explosion"))) {
             type = TYPE_EXPLOSION;
         }
@@ -488,7 +489,7 @@ public class ServerEventHandler {
         long tick = player.level().getGameTime();
         boolean isGun = ServerCore.TACZ.isGunKill(victimId) || ServerCore.SUPERB_WARFARE.isGunKill(victimId);
 
-        // Reset POTATO_AIM counter on kill
+        
         consecutiveAssists.put(player.getUUID(), 0);
 
         boolean isFlawless = false;
@@ -521,7 +522,7 @@ public class ServerEventHandler {
             isHoldPosition
         ));
         
-        // Send kill distance packet to client
+        
         org.mods.gd656killicon.network.NetworkHandler.sendToPlayer(
             new org.mods.gd656killicon.network.packet.KillDistancePacket(distanceDouble), 
             player
@@ -533,8 +534,8 @@ public class ServerEventHandler {
         lastDamageType.remove(victimId);
         damageHistory.remove(victimId);
         activeCombats.values().forEach(map -> map.remove(victimId));
-        // teamKillHistory should NOT be removed here because the victim might be the target of a "Leave it to me" vengeance kill
-        // It will be cleaned up by time-based expiration in onTick or when the bonus is triggered
+        
+        
     }
 
     private static void awardAssists(UUID victimId, int victimIdInt) {
@@ -575,10 +576,10 @@ public class ServerEventHandler {
         synchronized (records) {
             long lastTime = records.stream().mapToLong(r -> r.timestamp).max().orElse(0);
             long timeout = ServerData.get().getAssistTimeoutMs();
-            if (now - lastTime > timeout) return; // Victim hasn't taken damage within timeout
+            if (now - lastTime > timeout) return; 
 
             for (DamageRecord r : records) {
-                if (now - r.timestamp <= timeout) { // Damage within timeout
+                if (now - r.timestamp <= timeout) { 
                     playerDamages.merge(r.attackerId, r.amount, Integer::sum);
                 }
             }
@@ -592,16 +593,16 @@ public class ServerEventHandler {
                 ServerPlayer player = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(playerId);
                 if (player != null) {
                     ServerCore.BONUS.add(player, BonusType.ASSIST, (float) totalDamage, "", victimIdInt, finalVictimName);
-                    // Assist kill type, distance is irrelevant (0.0f)
+                    
                     sendKillEffects(player, KillType.ASSIST, 0, victimIdInt, hasHelmet, finalVictimName, isVictimPlayer, 0.0f);
                     
-                    // Add assist count
+                    
                     ServerData.get().addAssist(player, 1);
 
-                    // POTATO_AIM logic: 3 consecutive assists without any kill
+                    
                     int count = consecutiveAssists.merge(playerId, 1, Integer::sum);
                     if (count >= 3) {
-                        ServerCore.BONUS.add(player, BonusType.POTATO_AIM, 1.0f, ""); // Multiplier is 1.0, score is defined in ServerData
+                        ServerCore.BONUS.add(player, BonusType.POTATO_AIM, 1.0f, ""); 
                         consecutiveAssists.put(playerId, 0);
                     }
                 }
@@ -614,12 +615,12 @@ public class ServerEventHandler {
 
         String finalVictimName = pk.victimName;
 
-        // 1. Determine and Award Base Kill Bonus
+        
         int killType = determineKillType(pk);
         int bonusType = mapKillTypeToBonus(killType, pk.damageType);
-        // Base Kill Bonus moved to end to ensure it appears on top in client list
 
-        // 2. Award Conditional Bonuses
+        
+        ServerCore.BONUS.add(pk.player, bonusType, pk.maxHealth, "", pk.victimIdInt, finalVictimName);
         awardSpecialKills(pk);
         awardPositionalKills(pk);
         awardHoldPosition(pk);
@@ -627,13 +628,10 @@ public class ServerEventHandler {
         awardLockedTarget(pk);
         awardStreakKills(pk);
 
-        // Award Base Kill Bonus (Last so it appears on top)
-        ServerCore.BONUS.add(pk.player, bonusType, pk.maxHealth, "", pk.victimIdInt, finalVictimName);
-
-        // 3. Reset and Update States
+        
         updatePostKillStates(pk);
 
-        // 4. Visual/Audio Effects
+        
         sendKillEffects(pk.player, killType, pk.combo, pk.victimIdInt, pk.hasHelmet, finalVictimName, pk.isVictimPlayer, pk.distance);
     }
 
@@ -665,7 +663,7 @@ public class ServerEventHandler {
             ServerCore.BONUS.add(pk.player, BonusType.EFFORTLESS_KILL, 1.0f, "");
         }
         
-        // Quick Switch
+        
         Long switchTime = lastItemSwitchTime.get(pk.player.getUUID());
         if (switchTime != null && System.currentTimeMillis() - switchTime <= 3000) {
             ServerCore.BONUS.add(pk.player, BonusType.QUICK_SWITCH, 1.0f, "");
@@ -701,17 +699,17 @@ public class ServerEventHandler {
             ServerCore.BONUS.add(pk.player, BonusType.DESPERATE_COUNTERATTACK, 1.0f, "");
         }
         
-        // Blind Kill
+        
         if (checkBlinded(pk.player)) {
             ServerCore.BONUS.add(pk.player, BonusType.BLIND_KILL, 1.0f, "");
         }
 
-        // Seize Opportunity (Victim Blinded)
+        
         if (pk.isVictimBlinded) {
             ServerCore.BONUS.add(pk.player, BonusType.SEIZE_OPPORTUNITY, 1.0f, "");
         }
 
-        // Buff/Debuff
+        
         awardBuffDebuffKills(pk.player);
     }
 
@@ -726,12 +724,12 @@ public class ServerEventHandler {
             ServerCore.BONUS.add(pk.player, BonusType.KILL_COMBO, (float) Math.min(pk.combo, 4), String.valueOf(pk.combo));
         }
 
-        // Brave's Return
+        
         int deathCount = consecutiveDeaths.getOrDefault(pk.player.getUUID(), 0);
         if (deathCount >= 3) ServerCore.BONUS.add(pk.player, BonusType.BRAVE_RETURN, 1.0f, "");
         consecutiveDeaths.put(pk.player.getUUID(), 0);
 
-        // Unified Streak Bonuses (Berserker, Bloodthirsty, etc.)
+        
         int lifeKills = lifeKillCount.merge(pk.player.getUUID(), 1, Integer::sum);
         if (lifeKills == 3) ServerCore.BONUS.add(pk.player, BonusType.BERSERKER, 1.0f, "");
         else if (lifeKills == 5) ServerCore.BONUS.add(pk.player, BonusType.BLOODTHIRSTY, 1.0f, "");
@@ -741,19 +739,19 @@ public class ServerEventHandler {
         else if (lifeKills == 25) ServerCore.BONUS.add(pk.player, BonusType.SAVAGE, 1.0f, "");
         else if (lifeKills == 30) ServerCore.BONUS.add(pk.player, BonusType.PURGE, 1.0f, "");
 
-        // Vengeance
+        
         Map<UUID, Long> history = killHistory.get(pk.player.getUUID());
         if (history != null && history.containsKey(pk.victimId)) {
             ServerCore.BONUS.add(pk.player, BonusType.AVENGE, 1.0f, "");
             history.remove(pk.victimId);
         }
 
-        // Interrupted Streak
+        
         if (pk.streakCount >= 5) {
             ServerCore.BONUS.add(pk.player, BonusType.INTERRUPTED_STREAK, (float) pk.streakCount, String.valueOf(pk.streakCount));
         }
 
-        // Leave it to me (Team Vengeance)
+        
         if (pk.player.getTeam() != null) {
             Map<String, Long> teamHistory = teamKillHistory.get(pk.victimId);
             if (teamHistory != null) {
@@ -765,7 +763,7 @@ public class ServerEventHandler {
             }
         }
 
-        // Savior (Team Rescue)
+        
         if (pk.player.getTeam() != null) {
             long now = System.currentTimeMillis();
             Collection<String> teamMembers = pk.player.getTeam().getPlayers();
@@ -777,11 +775,11 @@ public class ServerEventHandler {
                         synchronized (records) {
                             boolean saved = records.stream().anyMatch(r -> 
                                 r.attackerId.equals(pk.victimId) && 
-                                now - r.timestamp <= 5000 // 5 seconds window
+                                now - r.timestamp <= 5000 
                             );
                             if (saved) {
                                 ServerCore.BONUS.add(pk.player, BonusType.SAVIOR, 1.0f, "");
-                                break; // Trigger once per kill
+                                break; 
                             }
                         }
                     }
@@ -789,7 +787,7 @@ public class ServerEventHandler {
             }
         }
 
-        // Slay the Leader
+        
         if (ServerData.get().isTopScorer(pk.victimId)) {
             ServerCore.BONUS.add(pk.player, BonusType.SLAY_THE_LEADER, 1.0f, "");
         }
@@ -838,7 +836,7 @@ public class ServerEventHandler {
     private static void updateCombatTracking(DamageSource src, LivingEntity victim, UUID victimId, float amount) {
         long now = System.currentTimeMillis();
 
-        // Victim handling
+        
         if (victim instanceof ServerPlayer playerVictim) {
             Map<UUID, CombatState> playerCombats = activeCombats.get(playerVictim.getUUID());
             if (playerCombats != null) {
@@ -861,7 +859,7 @@ public class ServerEventHandler {
             }
         }
 
-        // Attacker handling
+        
         ServerPlayer player = resolvePlayerAttacker(src);
         if (player != null) {
             activeCombats.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
@@ -905,26 +903,26 @@ public class ServerEventHandler {
     private static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance) {
         double window = ServerData.get().getComboWindowSeconds();
         
-        // 确保使用翻译后的名称（如果传入的是翻译键）
-        // 这里不需要做额外处理，因为上层调用已经处理好了 finalVictimName
+        
+        
 
-        // Icons
-        // Only the first packet (scrolling) is responsible for recording stats to avoid duplicate counting
-        // Only record stats for actual kills, not assists or vehicle destruction
+        
+        
+        
         boolean recordStats = killType != KillType.ASSIST && killType != KillType.DESTROY_VEHICLE;
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, recordStats), player);
         
-        // 其他视觉效果包不记录统计数据 (recordStats = false)
+        
         if (combo > 0) {
             NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "combo", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
         }
-        // Card Icon (New)
+        
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "card", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "card_bar", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
         
-        // Subtitle
-        // Pass distance here
+        
+        
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false, distance), player);
         if ((combo > 0 || killType == KillType.ASSIST) && killType != KillType.DESTROY_VEHICLE) {
             NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "combo", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);

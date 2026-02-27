@@ -12,8 +12,8 @@ import org.mods.gd656killicon.client.config.ElementConfigManager;
 public class ElementPreview {
     private final String elementId;
     private int x, y, width, height;
-    private float hoverProgress = 0.0f; // 0.0 to 1.0
-    private float clickProgress = 0.0f; // 0.0 to 1.0
+    private float hoverProgress = 0.0f; 
+    private float clickProgress = 0.0f; 
     private boolean isPressed = false;
     private long lastTime;
     private boolean visible = true;
@@ -22,36 +22,36 @@ public class ElementPreview {
     private int dragOffsetY = 0;
     private boolean externalHover = false;
     
-    // Config values
+    
     private float scale = 1.0f;
     private int xOffset = 0;
     private int yOffset = 0;
     
-    // BF1 specific config
+    
     private float scaleWeapon = 1.0f;
     private float scaleVictim = 1.2f;
     private float scaleHealth = 1.5f;
     private int borderSize = 3;
     
-    // BF1 layout offset
+    
     private int bf1MinX = 0;
     private int bf1MinY = 0;
     
-    // Bonus List specific config
+    
     private boolean alignLeft = false;
     private boolean alignRight = false;
     
-    // Z-Index for rendering order
+    
     private int zIndex = 0;
     
-    // Resize Handles
+    
     private enum ResizeHandle { NONE, TL, TR, BL, BR }
     private ResizeHandle currentHandle = ResizeHandle.NONE;
     private float dragStartScale;
     private double dragStartDist;
     private int dragCenterX, dragCenterY;
     
-    // Interaction State
+    
     private long lastClickTime = 0;
 
     public enum PreviewInteractionResult {
@@ -61,10 +61,10 @@ public class ElementPreview {
         RIGHT_CLICK
     }
     
-    // Handle Constants
+    
     private static final int HANDLE_SIZE = 3;
     private static final int HANDLE_HIT_RADIUS = 5;
-    private static final int HANDLE_VISIBILITY_RADIUS = 60; // Distance where handle becomes fully transparent
+    private static final int HANDLE_VISIBILITY_RADIUS = 60; 
 
     public int getZIndex() {
         return zIndex;
@@ -76,12 +76,12 @@ public class ElementPreview {
         } else if (elementId.startsWith("subtitle/")) {
             this.zIndex = 20;
         } else {
-            // Icons (classic, bf1, scrolling, combo, card, etc.)
+            
             this.zIndex = 30;
         }
     }
     
-    // ID Renderer
+    
     private GDTextRenderer elementIdRenderer;
     private GDTextRenderer elementNameRenderer;
     private GDTextRenderer xCoordRenderer;
@@ -122,16 +122,16 @@ public class ElementPreview {
     
     private void recalculateSize() {
         if ("kill_icon/battlefield1".equals(elementId)) {
-            // Calculate size based on dummy data
+            
             calculateBattlefield1Size();
         } else if ("subtitle/kill_feed".equals(elementId)) {
-            // Width: S * 120
-            // Height: S * 10
+            
+            
             this.width = (int)(this.scale * 120);
             this.height = (int)(this.scale * 10); 
         } else if ("subtitle/score".equals(elementId)) {
-            // Width: S * 15
-            // Height: S * 6
+            
+            
             this.width = (int)(this.scale * 15);
             this.height = (int)(this.scale * 6) + 4;
         } else if ("subtitle/bonus_list".equals(elementId)) {
@@ -142,33 +142,33 @@ public class ElementPreview {
             this.width = size;
             this.height = size;
         } else if ("subtitle/combo".equals(elementId)) {
-            // S*10, S*30
+            
             this.width = (int)(this.scale * 30);
             this.height = (int)(this.scale * 10);
         } else if ("kill_icon/combo".equals(elementId)) {
-            // Size calculation: S * 55
+            
             int size = (int)(this.scale * 55);
             this.width = size;
             this.height = size;
         } else if ("kill_icon/card_bar".equals(elementId)) {
-            // Width: S * 300
-            // Height: S * 40
+            
+            
             this.width = (int)(this.scale * 300);
             this.height = (int)(this.scale * 40);
         } else if ("kill_icon/card".equals(elementId)) {
-            // Width: S * 240
-            // Height: S * 333
+            
+            
             this.width = (int)(this.scale * 240);
             this.height = (int)(this.scale * 333);
         } else {
-            // Default Size calculation for unknown elements (fallback to S * 60)
+            
             int size = (int)(this.scale * 60);
             this.width = size;
             this.height = size;
         }
     }
 
-    // Placeholder method for BF1 size calculation
+    
     private void calculateBattlefield1Size() {
         Minecraft mc = Minecraft.getInstance();
         Font font = mc.font;
@@ -178,13 +178,13 @@ public class ElementPreview {
         String victimName = "-六五六-";
         String healthText = "20";
         
-        // Calculate Text Sizes
+        
         int weaponW = font.width(weaponName);
         int victimW = font.width(victimName);
         int healthW = font.width(healthText);
         int fontH = font.lineHeight;
         
-        // Effective Size (Apply global scale)
+        
         float effWeaponW = weaponW * scaleWeapon * scale;
         float effWeaponH = fontH * scaleWeapon * scale;
         
@@ -194,15 +194,15 @@ public class ElementPreview {
         float effHealthW = healthW * scaleHealth * scale;
         float effHealthH = fontH * scaleHealth * scale;
         
-        // Layout
-        // Weapon: Centered at (0, 0)
+        
+        
         float weaponX = -effWeaponW / 2.0f;
         float weaponY = -effWeaponH / 2.0f;
         float weaponRight = weaponX + effWeaponW;
         float weaponTop = weaponY;
         float weaponBottom = weaponY + effWeaponH;
         
-        // Victim: Right aligned with Weapon Right, Bottom aligned with Weapon Top - Border
+        
         float victimRight = weaponRight;
         float victimX = victimRight - effVictimW;
         float victimBottom = weaponTop - borderSize;
@@ -210,7 +210,7 @@ public class ElementPreview {
         float victimTop = victimY;
         float victimLeft = victimX;
         
-        // Health: Left aligned with Weapon Right + Border
+        
         float healthX = weaponRight + borderSize;
         float spanTop = victimTop;
         float spanBottom = weaponBottom;
@@ -221,7 +221,7 @@ public class ElementPreview {
         float healthBottom = healthY + effHealthH;
         float healthLeft = healthX;
         
-        // Subtitle Box
+        
         float subBoxRight = Math.max(weaponRight, Math.max(healthRight, victimRight)) + borderSize;
         float subBoxTop = Math.min(weaponTop, Math.min(healthTop, victimTop)) - borderSize;
         float subBoxLeft = Math.min(weaponX, Math.min(healthLeft, victimLeft)) - borderSize;
@@ -229,18 +229,18 @@ public class ElementPreview {
         
         float subBoxH = subBoxBottom - subBoxTop;
         
-        // Icon Box
+        
         float iconBoxSize = subBoxH;
         float iconBoxRight = subBoxLeft;
         float iconBoxTop = subBoxTop;
         float iconBoxLeft = iconBoxRight - iconBoxSize;
         float iconBoxBottom = iconBoxTop + iconBoxSize;
         
-        // Total Bounding Box
-        // Min X is iconBoxLeft
-        // Max X is subBoxRight
-        // Min Y is subBoxTop
-        // Max Y is subBoxBottom
+        
+        
+        
+        
+        
         
         float minX = iconBoxLeft;
         float maxX = subBoxRight;
@@ -255,43 +255,43 @@ public class ElementPreview {
     }
 
     public void updatePosition(int screenWidth, int screenHeight) {
-        // Calculate Position
-        // Origin (0,0) is bottom-center of screen.
-        // Y axis: Positive is UP (implied by typical HUD config where 0 is bottom)
+        
+        
+        
         int centerX = (screenWidth / 2) + xOffset;
         int centerY = screenHeight - yOffset;
         
         if ("subtitle/bonus_list".equals(elementId) || "subtitle/score".equals(elementId)) {
-            // For bonus_list and score, position depends on alignment
+            
             int baseY = "subtitle/score".equals(elementId) ? centerY - 4 : centerY;
             
             if (alignLeft && !alignRight) {
-                // Top-Left alignment: (centerX, centerY) is Top-Left of element
+                
                 this.x = centerX;
                 this.y = baseY;
             } else if (alignRight && !alignLeft) {
-                // Top-Right alignment: (centerX, centerY) is Top-Right of element
+                
                 this.x = centerX - width;
                 this.y = baseY;
             } else {
-                // Center alignment: (centerX, centerY) is Top-Center of element
+                
                 this.x = centerX - width / 2;
                 this.y = baseY;
             }
         } else if ("kill_icon/card".equals(elementId)) {
-            // For card, position is Bottom-Center
+            
             this.x = centerX - width / 2;
             this.y = centerY - height;
         } else if ("subtitle/kill_feed".equals(elementId)) {
-            // For kill_feed, position is Top-Center
+            
             this.x = centerX - width / 2;
             this.y = centerY;
         } else if ("kill_icon/battlefield1".equals(elementId)) {
-            // For BF1, position is relative to anchor + calculated min offsets
+            
             this.x = centerX + bf1MinX;
             this.y = centerY + bf1MinY;
         } else {
-            // Assume position defines the CENTER of the element
+            
             this.x = centerX - width / 2;
             this.y = centerY - height / 2;
         }
@@ -306,34 +306,34 @@ public class ElementPreview {
     }
 
     public void render(GuiGraphics guiGraphics, float partialTick, int screenWidth, boolean isHovered, double mouseX, double mouseY) {
-        // Position (x, y) must be updated via updatePosition() before calling render
+        
         boolean hovered = isHovered || externalHover;
         
-        // Update Animation
+        
         long now = System.currentTimeMillis();
         float dt = (now - lastTime) / 1000.0f;
         lastTime = now;
 
-        // Hover Animation
+        
         if (hovered) {
             hoverProgress = Math.min(1.0f, hoverProgress + dt * 2.0f);
         } else {
             hoverProgress = Math.max(0.0f, hoverProgress - dt * 2.0f);
         }
         
-        // Click Animation
+        
         if (isPressed) {
-            clickProgress = Math.min(1.0f, clickProgress + dt * 5.0f); // Fast fade in
+            clickProgress = Math.min(1.0f, clickProgress + dt * 5.0f); 
         } else {
-            clickProgress = Math.max(0.0f, clickProgress - dt * 5.0f); // Fast fade out
+            clickProgress = Math.max(0.0f, clickProgress - dt * 5.0f); 
         }
 
-        // Determine Colors based on Visibility
+        
         int baseAlpha = (GuiConstants.COLOR_BG >> 24) & 0xFF;
         int borderAlpha = 0x40;
         
         if (visible) {
-            // Non-hidden: increase opacity
+            
             baseAlpha = Math.min(255, (int)(baseAlpha * 2.0)); 
             borderAlpha = Math.min(255, (int)(borderAlpha * 2.0));
         }
@@ -342,31 +342,31 @@ public class ElementPreview {
         int borderColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (borderAlpha << 24);
         int trailColor = visible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
 
-        // Render Background
+        
         int targetClickColor = visible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
-        int targetColor = (targetClickColor & 0x00FFFFFF) | (0x80 << 24); // ~50% opacity
+        int targetColor = (targetClickColor & 0x00FFFFFF) | (0x80 << 24); 
         
         int fillColor = interpolateColor(baseColor, targetColor, clickProgress);
         guiGraphics.fill(x, y, x + width, y + height, fillColor);
 
-        // Render Border
+        
         if (hoverProgress < 1.0f) {
-            // Draw static border
-            guiGraphics.fill(x, y, x + width, y + 1, borderColor); // Top
-            guiGraphics.fill(x, y + height - 1, x + width, y + height, borderColor); // Bottom
-            guiGraphics.fill(x, y + 1, x + 1, y + height - 1, borderColor); // Left
-            guiGraphics.fill(x + width - 1, y + 1, x + width, y + height - 1, borderColor); // Right
+            
+            guiGraphics.fill(x, y, x + width, y + 1, borderColor); 
+            guiGraphics.fill(x, y + height - 1, x + width, y + height, borderColor); 
+            guiGraphics.fill(x, y + 1, x + 1, y + height - 1, borderColor); 
+            guiGraphics.fill(x + width - 1, y + 1, x + width, y + height - 1, borderColor); 
         }
 
-        // Render Hover Trail (if hovering)
+        
         if (hoverProgress > 0.001f) {
             renderHoverTrail(guiGraphics, x, y, width, height, trailColor);
         }
         
-        // Render Resize Handles
+        
         renderHandles(guiGraphics, mouseX, mouseY);
 
-        // Render Preset ID Subtitle
+        
         if (isHovered) {
             renderSubtitle(guiGraphics, partialTick, screenWidth);
         }
@@ -379,9 +379,9 @@ public class ElementPreview {
             int textY = this.y;
             int textX2 = screenWidth;
             
-            // Only render if there's enough space
+            
             if (textX < textX2) {
-                // Text Colors
+                
                 int idColor = visible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
                 int nameColor = visible ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY;
                 String idText = visible ? elementId : elementId + " [隐藏状态]";
@@ -398,8 +398,8 @@ public class ElementPreview {
                 }
                 elementIdRenderer.render(guiGraphics, partialTick);
 
-                // Render Element Name
-                int nameY = textY + 10; // 1px spacing
+                
+                int nameY = textY + 10; 
                 String nameKey = "gd656killicon.element.name." + elementId.replace("/", ".");
                 String nameText = I18n.get(nameKey);
                 
@@ -415,9 +415,9 @@ public class ElementPreview {
                 }
                 elementNameRenderer.render(guiGraphics, partialTick);
 
-                // Render X Coord
+                
                 String xText = "X: " + this.xOffset;
-                int xLineY = nameY + 10; // 1px spacing after name
+                int xLineY = nameY + 10; 
                 if (xCoordRenderer == null) {
                     xCoordRenderer = new GDTextRenderer(xText, textX, xLineY, textX2, xLineY + 5, 0.5f, GuiConstants.COLOR_GRAY, false);
                 } else {
@@ -430,7 +430,7 @@ public class ElementPreview {
                 }
                 xCoordRenderer.render(guiGraphics, partialTick);
 
-                // Render Y Coord
+                
                 String yText = "Y: " + this.yOffset;
                 int yLineY = xLineY + 5;
                 if (yCoordRenderer == null) {
@@ -445,7 +445,7 @@ public class ElementPreview {
                 }
                 yCoordRenderer.render(guiGraphics, partialTick);
 
-                // Render Scale
+                
                 if (!"kill_icon/battlefield1".equals(elementId)) {
                     String sText = "S: " + String.format("%.2f", this.scale);
                     int sLineY = yLineY + 5;
@@ -483,7 +483,7 @@ public class ElementPreview {
         
         if (currentHandle == handleType) {
             alpha = 255;
-            // Smooth transition to white using clickProgress
+            
             finalColor = interpolateColor(color, 0xFFFFFFFF, clickProgress);
         } else if (dist < HANDLE_VISIBILITY_RADIUS) {
             float factor = 1.0f - (float)(dist / HANDLE_VISIBILITY_RADIUS);
@@ -530,7 +530,7 @@ public class ElementPreview {
     }
 
     public PreviewInteractionResult mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 1) { // Right Click
+        if (button == 1) { 
              if (isMouseOver(mouseX, mouseY)) {
                  return PreviewInteractionResult.RIGHT_CLICK;
              }
@@ -539,31 +539,31 @@ public class ElementPreview {
 
         if (button != 0) return PreviewInteractionResult.PASS;
         
-        // Check Handles First
+        
         ResizeHandle handle = getHandleAt(mouseX, mouseY);
         if (handle != ResizeHandle.NONE) {
             currentHandle = handle;
             
-            // Initialize Drag State for Resizing
+            
             dragStartScale = this.scale;
             
-            // Calculate center of the element (visual center)
+            
             dragCenterX = x + width / 2;
             dragCenterY = y + height / 2;
             
-            // Calculate initial distance from center to mouse (handle)
+            
             dragStartDist = Math.sqrt(Math.pow(mouseX - dragCenterX, 2) + Math.pow(mouseY - dragCenterY, 2));
             
-            // Prevent division by zero
+            
             if (dragStartDist < 1.0) dragStartDist = 1.0;
             
-            isPressed = true; // Visual feedback
+            isPressed = true; 
             return PreviewInteractionResult.HANDLED;
         }
         
-        // Check Body for Moving
+        
         if (mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height) {
-            // Check Double Click
+            
             long now = System.currentTimeMillis();
             if (now - lastClickTime < 250) {
                 lastClickTime = now;
@@ -596,32 +596,32 @@ public class ElementPreview {
         if (button != 0) return false;
         
         if (currentHandle != ResizeHandle.NONE) {
-            // Resizing Logic
             
-            // Backup State
+            
+            
             float oldScale = this.scale;
             int oldWidth = this.width;
             int oldHeight = this.height;
             int oldX = this.x;
             int oldY = this.y;
             
-            // Calculate new distance from center
+            
             double currentDist = Math.sqrt(Math.pow(mouseX - dragCenterX, 2) + Math.pow(mouseY - dragCenterY, 2));
             
-            // Calculate new scale
+            
             float scaleFactor = (float)(currentDist / dragStartDist);
             float newScale = dragStartScale * scaleFactor;
             
-            // Clamp Scale (0.1 to 5.0 seems reasonable)
+            
             if (newScale < 0.1f) newScale = 0.1f;
             if (newScale > 5.0f) newScale = 5.0f;
             
-            // Update Scale (Tentative)
+            
             this.scale = newScale;
             recalculateSize();
             updatePosition(screenWidth, screenHeight);
             
-            // Check Bounds
+            
             int padding = GuiConstants.DEFAULT_PADDING;
             int minX = padding;
             int maxX = screenWidth - padding;
@@ -631,19 +631,19 @@ public class ElementPreview {
             boolean outOfBounds = x < minX || x + width > maxX || y < minY || y + height > maxY;
             
             if (outOfBounds && newScale > oldScale) {
-                // Revert if expanding out of bounds
+                
                 this.scale = oldScale;
                 this.width = oldWidth;
                 this.height = oldHeight;
                 this.x = oldX;
                 this.y = oldY;
             } else {
-                // Commit Config
+                
                 String presetId = ClientConfigManager.getCurrentPresetId();
                 ElementConfigManager.updateConfigValue(presetId, elementId, "scale", String.valueOf(this.scale));
             }
             
-            // Update Drag State for next frame to avoid jitter if center moves
+            
             dragCenterX = x + width / 2;
             dragCenterY = y + height / 2;
             
@@ -655,7 +655,7 @@ public class ElementPreview {
         int newTopLeftX = (int)mouseX - dragOffsetX;
         int newTopLeftY = (int)mouseY - dragOffsetY;
         
-        // Limit drag to main display area (below header) with padding
+        
         int padding = GuiConstants.DEFAULT_PADDING;
         int minX = padding;
         int maxX = screenWidth - width - padding;
@@ -713,21 +713,21 @@ public class ElementPreview {
     
     private void renderHoverTrail(GuiGraphics guiGraphics, int x, int y, int w, int h, int color) {
         if (hoverProgress <= 0.001f) return;
-        // Total perimeter
+        
         float totalLength = w + h + w + h;
         float currentLength = totalLength * easeOut(hoverProgress);
         
-        // 1. Bottom Edge (Left to Right)
+        
         float drawn = 0;
         
-        // Bottom: (x, y+h) -> (x+w, y+h)
+        
         if (currentLength > 0) {
             float segLen = Math.min(w, currentLength);
             guiGraphics.fill(x, y + h - 1, x + (int)segLen, y + h, color);
             drawn += w;
         }
         
-        // Right: (x+w, y+h) -> (x+w, y)
+        
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
             float segLen = Math.min(h, rem);
@@ -735,7 +735,7 @@ public class ElementPreview {
             drawn += h;
         }
         
-        // Top: (x+w, y) -> (x, y)
+        
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
             float segLen = Math.min(w, rem);
@@ -743,7 +743,7 @@ public class ElementPreview {
             drawn += w;
         }
         
-        // Left: (x, y) -> (x, y+h)
+        
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
             float segLen = Math.min(h, rem);

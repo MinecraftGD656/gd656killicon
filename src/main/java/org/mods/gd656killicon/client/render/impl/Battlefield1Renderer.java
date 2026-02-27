@@ -12,6 +12,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.sounds.ExternalSoundManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
@@ -23,29 +24,23 @@ import java.util.Queue;
 
 public class Battlefield1Renderer implements IHudRenderer {
 
-    // ================================================================================================================
-    // Constants
-    // ================================================================================================================
-    private static final String DEFAULT_ICON_PATH = "killicon_battlefield1_default.png";
-    private static final String HEADSHOT_ICON_PATH = "killicon_battlefield1_headshot.png";
-    private static final String EXPLOSION_ICON_PATH = "killicon_battlefield1_explosion.png";
-    private static final String CRIT_ICON_PATH = "killicon_battlefield1_crit.png";
-    private static final String DESTROY_VEHICLE_ICON_PATH = "killicon_battlefield1_destroyvehicle.png";
+    
+    
     
     private static final String SOUND_NAME = "killsound_bf1";
     private static final String HEADSHOT_SOUND_NAME = "headshotkillsound_bf1";
 
-    // ================================================================================================================
-    // Config Fields
-    // ================================================================================================================
+    
+    
+    
     private boolean visible = true;
-    private int iconSize = 40; // Default size
+    private int iconSize = 40; 
     private int borderSize = 3;
     private int xOffset = 0;
     private int yOffset = 0;
     private int backgroundColor = 0x000000;
-    private float iconBoxAlpha = 0.2f; // Default 80% transparency -> 0.2 alpha
-    private float textBoxAlpha = 0.1f; // Default 90% transparency -> 0.1 alpha
+    private float iconBoxAlpha = 0.2f; 
+    private float textBoxAlpha = 0.1f; 
     private float scaleWeapon = 1.0f;
     private float scaleVictim = 1.2f;
     private float scaleHealth = 1.5f;
@@ -54,48 +49,48 @@ public class Battlefield1Renderer implements IHudRenderer {
     private long displayDuration = 300L;
     private JsonObject currentConfig;
 
-    // ================================================================================================================
-    // State Fields
-    // ================================================================================================================
+    
+    
+    
     private long startTime = -1;
     private boolean isVisible = false;
     
-    // Display Queue
+    
     private static final int MAX_QUEUE_SIZE = 5;
     private final Queue<TriggerContext> displayQueue = new ArrayDeque<>();
     private long lastSwitchTime = 0;
     
-    // Current Display Data
+    
     private String weaponName = "";
     private String victimName = "";
     private String healthText = "";
     private int killType = KillType.NORMAL;
-    private String currentIconPath = DEFAULT_ICON_PATH;
+    private String currentIconPath = "killicon_battlefield1_default.png";
 
-    // ================================================================================================================
-    // IHudRenderer Implementation
-    // ================================================================================================================
+    
+    
+    
     @Override
     public void trigger(TriggerContext context) {
-        // Exclude Assist
+        
         if (context.type() == KillType.ASSIST) {
             return;
         }
 
-        // Check if config loaded
+        
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "battlefield1");
         if (config == null) return;
         
-        // Pre-load config to get animation duration if needed? 
-        // No, we load config when processing the queue item.
-        // But we need to know if it's visible.
-        // Let's assume visible for queuing logic, strict check on process.
         
-        // Add to Queue if space available
+        
+        
+        
+        
+        
         if (displayQueue.size() < MAX_QUEUE_SIZE) {
             displayQueue.offer(context);
         }
-        // If queue full, drop request (as per requirement)
+        
     }
 
     private void processContext(TriggerContext context) {
@@ -112,27 +107,25 @@ public class Battlefield1Renderer implements IHudRenderer {
         this.killType = context.type();
         Minecraft mc = Minecraft.getInstance();
 
-        // Determine Sound and Icon based on KillType
+        
         String soundToPlay = SOUND_NAME;
-        this.currentIconPath = DEFAULT_ICON_PATH;
-
         if (this.killType == KillType.HEADSHOT) {
             soundToPlay = HEADSHOT_SOUND_NAME;
-            this.currentIconPath = HEADSHOT_ICON_PATH;
-        } else if (this.killType == KillType.EXPLOSION) {
-            this.currentIconPath = EXPLOSION_ICON_PATH;
-        } else if (this.killType == KillType.CRIT) {
-            this.currentIconPath = CRIT_ICON_PATH;
-        } else if (this.killType == KillType.DESTROY_VEHICLE) {
-            this.currentIconPath = DESTROY_VEHICLE_ICON_PATH;
         }
+        String textureKey = getTextureKey(this.killType);
+        this.currentIconPath = ElementTextureDefinition.getSelectedTextureFileName(
+            ConfigManager.getCurrentPresetId(),
+            "kill_icon/battlefield1",
+            textureKey,
+            currentConfig
+        );
 
-        // Play Sound
+        
         ExternalSoundManager.playSound(soundToPlay);
 
-        // Gather Data
+        
         if (this.killType == KillType.DESTROY_VEHICLE) {
-            // Get Vehicle Name for Victim Name (for layout)
+            
             if (context.extraData() != null && context.extraData().contains("|")) {
                 String[] parts = context.extraData().split("\\|", 2);
                 if (parts.length > 0) {
@@ -150,7 +143,7 @@ public class Battlefield1Renderer implements IHudRenderer {
                  this.healthText = "?";
             }
             
-            // Get Weapon Name (for layout)
+            
             if (mc.player != null) {
                 if (mc.player.getVehicle() != null) {
                     this.weaponName = mc.player.getVehicle().getDisplayName().getString();
@@ -164,7 +157,7 @@ public class Battlefield1Renderer implements IHudRenderer {
                 this.weaponName = "Unknown";
             }
         } else {
-            // Weapon Name
+            
             if (mc.player != null) {
                 if (mc.player.getVehicle() != null) {
                     this.weaponName = mc.player.getVehicle().getDisplayName().getString();
@@ -178,7 +171,7 @@ public class Battlefield1Renderer implements IHudRenderer {
                 this.weaponName = "Unknown";
             }
 
-            // Victim Name and Health
+            
             String nameOverride = null;
             if (context.extraData() != null && !context.extraData().isEmpty()) {
                  String extra = context.extraData();
@@ -191,7 +184,7 @@ public class Battlefield1Renderer implements IHudRenderer {
 
             if (nameOverride != null) {
                 this.victimName = net.minecraft.client.resources.language.I18n.get(nameOverride);
-                // Fallback to entity lookup for health if possible
+                
                 if (mc.level != null && context.entityId() != -1) {
                      Entity entity = mc.level.getEntity(context.entityId());
                      if (entity instanceof LivingEntity living) {
@@ -210,7 +203,7 @@ public class Battlefield1Renderer implements IHudRenderer {
                         float maxHealth = living.getMaxHealth();
                         this.healthText = String.valueOf((int) maxHealth);
                     } else {
-                        this.healthText = "20"; // Fallback
+                        this.healthText = "20"; 
                     }
                 } else {
                     this.victimName = "Unknown";
@@ -225,6 +218,24 @@ public class Battlefield1Renderer implements IHudRenderer {
         this.startTime = System.currentTimeMillis();
         this.lastSwitchTime = this.startTime;
         this.isVisible = true;
+    }
+
+    private String getTextureKey(int killType) {
+        return switch (killType) {
+            case KillType.HEADSHOT -> "headshot";
+            case KillType.EXPLOSION -> "explosion";
+            case KillType.CRIT -> "crit";
+            case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
+            default -> "default";
+        };
+    }
+
+    private long resolveQueueSwitchDelay(int nextKillType) {
+        long baseDelay = animationDuration;
+        if (this.killType == KillType.DESTROY_VEHICLE || nextKillType == KillType.DESTROY_VEHICLE) {
+            baseDelay = Math.max(baseDelay, displayDuration);
+        }
+        return baseDelay;
     }
 
     public void triggerPreview(int killType, String weaponName, String victimName, String healthText) {
@@ -242,16 +253,13 @@ public class Battlefield1Renderer implements IHudRenderer {
         this.victimName = victimName;
         this.healthText = healthText;
 
-        this.currentIconPath = DEFAULT_ICON_PATH;
-        if (this.killType == KillType.HEADSHOT) {
-            this.currentIconPath = HEADSHOT_ICON_PATH;
-        } else if (this.killType == KillType.EXPLOSION) {
-            this.currentIconPath = EXPLOSION_ICON_PATH;
-        } else if (this.killType == KillType.CRIT) {
-            this.currentIconPath = CRIT_ICON_PATH;
-        } else if (this.killType == KillType.DESTROY_VEHICLE) {
-            this.currentIconPath = DESTROY_VEHICLE_ICON_PATH;
-        }
+        String textureKey = getTextureKey(this.killType);
+        this.currentIconPath = ElementTextureDefinition.getSelectedTextureFileName(
+            ConfigManager.getCurrentPresetId(),
+            "kill_icon/battlefield1",
+            textureKey,
+            currentConfig
+        );
 
         this.startTime = System.currentTimeMillis();
         this.lastSwitchTime = this.startTime;
@@ -263,22 +271,18 @@ public class Battlefield1Renderer implements IHudRenderer {
     public void render(GuiGraphics guiGraphics, float partialTick) {
         long currentTime = System.currentTimeMillis();
 
-        // Queue Processing Logic
+        
         if (!displayQueue.isEmpty()) {
-            // Check if we should switch to next item
-            // Switch if:
-            // 1. Currently not visible
-            // 2. OR Current item has been displayed for at least 'animationDuration' (Fast Forward)
             boolean shouldSwitch = !isVisible;
-            
             if (isVisible) {
                 long elapsedSinceSwitch = currentTime - lastSwitchTime;
-                // If queue has pending items, switch faster (after animationDuration)
-                if (elapsedSinceSwitch >= animationDuration) {
+                TriggerContext nextContext = displayQueue.peek();
+                int nextKillType = nextContext != null ? nextContext.type() : KillType.NORMAL;
+                long switchDelay = resolveQueueSwitchDelay(nextKillType);
+                if (elapsedSinceSwitch >= switchDelay) {
                     shouldSwitch = true;
                 }
             }
-            
             if (shouldSwitch) {
                 processContext(displayQueue.poll());
             }

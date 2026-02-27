@@ -6,6 +6,7 @@ import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.BonusListRenderer;
+import org.mods.gd656killicon.client.render.impl.SubtitleRenderer;
 import org.mods.gd656killicon.network.IPacket;
 
 import java.util.function.Supplier;
@@ -82,16 +83,17 @@ public class BonusScorePacket implements IPacket {
     @Override
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
-            // Process chat message
+            
             if (org.mods.gd656killicon.client.config.ClientConfigManager.isShowBonusMessage()) {
                 sendBonusChatMessage();
             }
 
-            // Update score subtitle display
-            ScoreSubtitleRenderer.getInstance().addScore(this.score);
             
-            // Trigger bonus list element with combined data string
-            // Format: score|extraData|victimName
+            ScoreSubtitleRenderer.getInstance().addScore(this.score);
+            SubtitleRenderer.recordBonusScore(this.bonusType, this.score, this.victimId);
+            
+            
+            
             StringBuilder dataBuilder = new StringBuilder();
             dataBuilder.append(this.score);
             if ((this.extraData != null && !this.extraData.isEmpty()) || (this.victimName != null && !this.victimName.isEmpty())) {
@@ -106,25 +108,25 @@ public class BonusScorePacket implements IPacket {
                 org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(this.bonusType, this.victimId, 0, data)
             );
             
-            // Record statistics for specific bonus types
+            
             recordStatistics();
         });
         context.get().setPacketHandled(true);
     }
     
     private void recordStatistics() {
-        // Record kill for KILL, KILL_EXPLOSION, KILL_HEADSHOT, KILL_CRIT bonus types
-        // 注意：基础击杀统计（总击杀数、武器使用等）现在由 KillIconPacket 负责，避免因 Bonus 合并导致漏记。
-        // BonusScorePacket 仅负责 ASSIST 和 DAMAGE 等非击杀类统计，或特殊的奖励统计。
+        
+        
+        
         
         if (this.bonusType == org.mods.gd656killicon.common.BonusType.ASSIST) {
-            // Record assist for ASSIST bonus type
+            
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordAssist();
         } else if (this.bonusType == org.mods.gd656killicon.common.BonusType.DAMAGE ||
                    this.bonusType == org.mods.gd656killicon.common.BonusType.EXPLOSION ||
                    this.bonusType == org.mods.gd656killicon.common.BonusType.HEADSHOT ||
                    this.bonusType == org.mods.gd656killicon.common.BonusType.CRIT) {
-            // Record damage
+            
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordDamage(this.score);
         }
     }

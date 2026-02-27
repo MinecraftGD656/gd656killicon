@@ -8,6 +8,7 @@ import org.mods.gd656killicon.server.util.ServerLog;
 public class YwzjVehicleIntegration {
     private static final YwzjVehicleIntegration INSTANCE = new YwzjVehicleIntegration();
     private IYwzjVehicleHandler handler;
+    private boolean initialized = false;
 
     private YwzjVehicleIntegration() {
         this.handler = new DummyYwzjVehicleHandler();
@@ -22,6 +23,10 @@ public class YwzjVehicleIntegration {
      * Attempts to load the real handler if the mod is present, otherwise falls back to a dummy.
      */
     public void init() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
         try {
             if (ModList.get().isLoaded("ywzj_vehicle")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.ywzj.YwzjVehicleEventHandler");

@@ -19,28 +19,28 @@ import com.google.gson.JsonObject;
  */
 public class ScoreSubtitleRenderer implements IHudRenderer {
 
-    // ================================================================================================================
-    // Constants
-    // ================================================================================================================
-    private static final long FADE_IN_DURATION = 250L; // 0.25s
-    private static final long FADE_OUT_DURATION = 300L; // 0.3s
-    private static final long SCALE_ANIMATION_PHASE_DURATION = 100L; // 0.1s
+    
+    
+    
+    private static final long FADE_IN_DURATION = 250L; 
+    private static final long FADE_OUT_DURATION = 300L; 
+    private static final long SCALE_ANIMATION_PHASE_DURATION = 100L; 
     private static final float SCALE_ANIMATION_MAX_MULTIPLIER = 1.2f;
     private static final float GLOW_OFFSET = 0.3f;
 
-    // ================================================================================================================
-    // Static Fields
-    // ================================================================================================================
+    
+    
+    
     private static ScoreSubtitleRenderer instance;
 
-    // ================================================================================================================
-    // Instance Fields
-    // ================================================================================================================
     
-    // Config Fields
+    
+    
+    
+    
     private int configXOffset = 0;
     private int configYOffset = 80;
-    private long displayDuration = 3500L; // 3.5 seconds default
+    private long displayDuration = 3500L; 
     private String scoreFormat = "<score>";
     private int scoreThreshold = 1000;
     private String highScoreColor = "#D4B800";
@@ -48,16 +48,17 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     private float scale = 2.0f;
     private float animationDuration = 1.25f;
     private float animationRefreshRate = 0.01f;
-    private boolean enableNumberSegmentation = false; // 是否启用数字分段（每三位加逗号）
-    private boolean enableFlash = true; // 是否启用闪烁
-    private boolean alignLeft = false; // 字幕向左对齐
-    private boolean alignRight = false; // 字幕向右对齐
-    private boolean enableScoreScalingEffect = false; // 是否开启加分缩放特效
-    private boolean enableDigitalScroll = true; // 是否启用数字滚动
-    private boolean enableGlowEffect = false; // 是否启用发光特效
-    private float glowIntensity = 0.5f; // 发光特效强度
+    private boolean enableNumberSegmentation = false; 
+    private boolean enableFlash = true; 
+    private boolean alignLeft = false; 
+    private boolean alignRight = false; 
+    private boolean enableScoreScalingEffect = false; 
+    private boolean enableDigitalScroll = true; 
+    private boolean enableGlowEffect = false; 
+    private float glowIntensity = 0.5f; 
+    private int normalTextColor = 0xFFFFFFFF;
 
-    // State Fields
+    
     private boolean visible = false;
     private float currentScore = 0.0f;
     private long lastScoreTime = -1;
@@ -67,15 +68,15 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     private DigitalScrollEffect scrollEffect;
     private long scaleAnimationStartTime = -1;
 
-    // ================================================================================================================
-    // Constructor
-    // ================================================================================================================
+    
+    
+    
     private ScoreSubtitleRenderer() {
     }
 
-    // ================================================================================================================
-    // Static Methods
-    // ================================================================================================================
+    
+    
+    
     public static synchronized ScoreSubtitleRenderer getInstance() {
         if (instance == null) {
             instance = new ScoreSubtitleRenderer();
@@ -83,13 +84,13 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         return instance;
     }
 
-    // ================================================================================================================
-    // IHudRenderer Implementation
-    // ================================================================================================================
+    
+    
+    
     @Override
     public void trigger(TriggerContext context) {
-        // This method is not used for score updates directly
-        // Score updates are handled via addScore() method
+        
+        
     }
 
     @Override
@@ -200,7 +201,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         int suffixWidth = font.width(suffix);
         int totalWidth = prefixWidth + scoreWidth + suffixWidth;
 
-        int defaultColorWithAlpha = (0x00FFFFFF & 0x00FFFFFF) | ((int) (state.alpha * 255.0f) << 24);
+        int defaultColorWithAlpha = (normalTextColor & 0x00FFFFFF) | ((int) (state.alpha * 255.0f) << 24);
         int scoreColorWithAlpha = calculateScoreColor(displayScore, hasPlaceholder, state.alpha, state.currentTime, defaultColorWithAlpha);
 
         if (enableFlash && scoreColorWithAlpha != defaultColorWithAlpha && isFlickering(state.currentTime)) {
@@ -272,10 +273,10 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             
             int glowColor = (color & 0x00FFFFFF) | (glowAlpha << 24);
             
-            // Draw glow in 8 directions with sub-pixel precision
+            
             PoseStack poseStack = guiGraphics.pose();
             
-            // Offsets array (x, y)
+            
             float[][] offsets = {
                 {-GLOW_OFFSET, 0}, {GLOW_OFFSET, 0}, {0, -GLOW_OFFSET}, {0, GLOW_OFFSET},
                 {-GLOW_OFFSET, -GLOW_OFFSET}, {GLOW_OFFSET, -GLOW_OFFSET},
@@ -292,9 +293,9 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         guiGraphics.drawString(font, text, x, y, color, dropShadow);
     }
 
-    // ================================================================================================================
-    // Public Business Logic
-    // ================================================================================================================
+    
+    
+    
 
     /**
      * Add score to the display
@@ -303,7 +304,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     public void addScore(float score) {
         JsonObject config = ConfigManager.getElementConfig("subtitle", "score");
         if (config == null) {
-            // Element not configured, do nothing
+            
             return;
         }
 
@@ -321,25 +322,25 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
 
         long currentTime = System.currentTimeMillis();
         
-        // Check if we should reset (fading out or timeout)
+        
         boolean shouldReset = false;
         if (this.isFadingOut) {
             shouldReset = true;
         } else if (this.textHideTime > 0 && currentTime > this.textHideTime) {
-            // Timeout reached but fade not started yet
+            
             shouldReset = true;
         }
         
         if (shouldReset) {
             resetState();
-            // Set current score to the new score (start from 0 + new score)
+            
             this.currentScore = score;
         } else {
-            // Within timeout window, accumulate score
+            
             this.currentScore += score;
         }
         
-        // Start or restart animation
+        
         if (scrollEffect != null) {
             scrollEffect.startAnimation(scrollEffect.getCurrentValue(), this.currentScore);
         }
@@ -347,23 +348,23 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         this.lastScoreTime = currentTime;
         this.scaleAnimationStartTime = currentTime;
         
-        // If this is the first score, start display
+        
         if (this.startTime == -1) {
             this.startTime = currentTime;
             this.visible = true;
             this.isFadingOut = false;
         }
         
-        // Update hide time (extend display duration)
+        
         this.textHideTime = currentTime + this.displayDuration;
         
-        // Play score sound
+        
         SoundTriggerManager.playScoreSound();
     }
 
-    // ================================================================================================================
-    // Private Helper Methods
-    // ================================================================================================================
+    
+    
+    
 
     /**
      * Loads configuration from the JSON object.
@@ -391,8 +392,9 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             this.enableDigitalScroll = config.has("enable_digital_scroll") ? config.get("enable_digital_scroll").getAsBoolean() : true;
             this.enableGlowEffect = config.has("enable_glow_effect") && config.get("enable_glow_effect").getAsBoolean();
             this.glowIntensity = config.has("glow_intensity") ? config.get("glow_intensity").getAsFloat() : 0.5f;
+            this.normalTextColor = hexColorToInt(config.has("color_normal_text") ? config.get("color_normal_text").getAsString() : "#FFFFFF");
             
-            // Initialize or update scroll effect
+            
             if (scrollEffect == null) {
                 scrollEffect = new DigitalScrollEffect(animationDuration, animationRefreshRate, DigitalScrollEffect.Easing.QUINTIC_OUT);
             } else {
@@ -416,8 +418,9 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             this.alignLeft = false;
             this.alignRight = false;
             this.enableScoreScalingEffect = false;
+            this.normalTextColor = 0xFFFFFFFF;
             
-            // Initialize scroll effect with defaults
+            
             if (scrollEffect == null) {
                 scrollEffect = new DigitalScrollEffect(animationDuration, animationRefreshRate, DigitalScrollEffect.Easing.QUINTIC_OUT);
             } else {
@@ -480,8 +483,8 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         if (this.textHideTime > 0) {
             long timeRemaining = this.textHideTime - currentTime;
             if (timeRemaining > 0 && timeRemaining <= 2000) {
-                // Flash twice (2 cycles of 1000ms each: 0.5s ON, 0.5s OFF)
-                // Using formula: ((timeRemaining - 1) / 500) % 2 == 1 -> ON
+                
+                
                 return ((timeRemaining - 1) / 500) % 2 == 1;
             }
         }
@@ -495,15 +498,15 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         int scoreColorWithAlpha;
 
         if (roundedScore >= scoreThreshold && hasPlaceholder) {
-            // High score: use high score color
+            
             int highScoreColorInt = hexColorToInt(highScoreColor);
             scoreColorWithAlpha = (highScoreColorInt & 0x00FFFFFF) | ((int) (alpha * 255.0f) << 24);
         } else {
-            // Normal score: white (same as default)
+            
             scoreColorWithAlpha = defaultColorWithAlpha;
         }
 
-        // Apply flashing effect only if enabled
+        
         if (enableFlash && isFlickering(currentTime)) {
             int flashColorInt = hexColorToInt(flashColor);
             int flashColorWithAlpha = (flashColorInt & 0x00FFFFFF) | ((int) (alpha * 255.0f) << 24);
@@ -518,16 +521,16 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
      */
     private int hexColorToInt(String hexColor) {
         if (hexColor == null || hexColor.isEmpty()) {
-            return 0xFFFFFFFF; // Default white
+            return 0xFFFFFFFF; 
         }
         String hex = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
         try {
             if (hex.length() == 6) {
-                return Integer.parseInt(hex, 16) | 0xFF000000; // Add alpha channel
+                return Integer.parseInt(hex, 16) | 0xFF000000; 
             } else if (hex.length() == 8) {
                 return (int) Long.parseLong(hex, 16);
             } else if (hex.length() == 3) {
-                // Expand #RGB to #RRGGBB
+                
                 int r = Integer.parseInt(hex.substring(0, 1), 16) * 17;
                 int g = Integer.parseInt(hex.substring(1, 2), 16) * 17;
                 int b = Integer.parseInt(hex.substring(2, 3), 16) * 17;
@@ -536,7 +539,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         } catch (NumberFormatException e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.score_subtitle.invalid_color", hexColor);
         }
-        return 0xFFFFFFFF; // Default white
+        return 0xFFFFFFFF; 
     }
 
     /**
@@ -547,29 +550,29 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
      * Example: 0.123 → "0.1" (if enabled), 1.56 → "2" (if enabled)
      */
     private String formatNumberWithSegmentation(float number, boolean enabled) {
-        // Handle negative numbers
+        
         boolean isNegative = number < 0;
         float absNumber = Math.abs(number);
         
         String formattedNumber;
         
         if (absNumber < 1.0f) {
-            // Number < 1, display as float with 0.1 precision
+            
             formattedNumber = String.format("%.1f", absNumber);
         } else {
-            // Number >= 1, display as rounded integer
+            
             int roundedNumber = Math.round(absNumber);
             formattedNumber = String.valueOf(roundedNumber);
         }
         
-        // Add minus sign if needed
+        
         if (isNegative) {
             formattedNumber = "-" + formattedNumber;
         }
         
-        // Add thousands separator if enabled
+        
         if (enabled) {
-            // Handle decimal part if exists
+            
             String[] parts = formattedNumber.split("\\.");
             String integerPart = parts[0];
             String decimalPart = parts.length > 1 ? parts[1] : "";
@@ -577,7 +580,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             StringBuilder result = new StringBuilder();
             int length = integerPart.length();
             
-            // Add commas every three digits from right to left for integer part
+            
             for (int i = 0; i < length; i++) {
                 if (i > 0 && (length - i) % 3 == 0 && integerPart.charAt(i) != '-') {
                     result.append(",");

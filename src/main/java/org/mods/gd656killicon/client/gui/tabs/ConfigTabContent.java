@@ -26,18 +26,18 @@ public abstract class ConfigTabContent {
     protected int area1Bottom;
     protected final List<GDRowRenderer> configRows = new ArrayList<>();
 
-    // Scroll state
+    
     protected double scrollY = 0;
     protected double targetScrollY = 0;
     protected static final double SCROLL_SMOOTHING = 15.0;
     protected boolean useDefaultScroll = true;
     protected int totalContentHeight = 0;
 
-    // 动态文本渲染器缓存
+    
     private GDTextRenderer dynamicTitleRenderer;
     private GDTextRenderer dynamicSubtitleRenderer;
 
-    // 底部按钮
+    
     protected GDButton resetButton;
     protected GDButton cancelButton;
     protected boolean isResetConfirming = false;
@@ -48,7 +48,7 @@ public abstract class ConfigTabContent {
     protected ColorPickerDialog colorPickerDialog;
     protected PromptDialog promptDialog;
 
-    // 拖拽相关
+    
     protected boolean isDragging = false;
     protected double lastMouseY = 0;
     protected long lastFrameTime = 0;
@@ -96,18 +96,18 @@ public abstract class ConfigTabContent {
     }
 
     public void onFilesDrop(java.util.List<java.nio.file.Path> paths) {
-        // Default implementation does nothing
+        
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateResetButtonState();
 
-        // If dialog is visible, block hover effects on underlying elements by passing invalid mouse coordinates
+        
         boolean isDialogVisible = textInputDialog.isVisible() || colorPickerDialog.isVisible() || promptDialog.isVisible();
         int effectiveMouseX = isDialogVisible ? -1 : mouseX;
         int effectiveMouseY = isDialogVisible ? -1 : mouseY;
 
-        // 检查是否有配置行被悬停
+        
         GDRowRenderer hoveredRow = null;
         for (GDRowRenderer row : configRows) {
             if (row.isHovered(effectiveMouseX, effectiveMouseY)) {
@@ -116,23 +116,23 @@ public abstract class ConfigTabContent {
             }
         }
 
-        // 渲染一号区域的标题和副标题（布局已在 updateLayout 中更新）
+        
         if (titleRenderer != null) titleRenderer.render(guiGraphics, partialTick);
         if (subtitleRenderer != null) subtitleRenderer.render(guiGraphics, partialTick);
         
-        // 渲染二号区域内容
+        
         renderContent(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick, screenWidth, screenHeight, headerHeight);
         
-        // 渲染侧边按钮（位于 Area 3 下方）
+        
         renderSideButtons(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick, screenWidth, screenHeight);
 
-        // 如果有配置行被悬停，则在 Area 3 (Area 1 下方) 渲染动态描述
-        // 仅对 GlobalConfigTab 启用此功能
+        
+        
         if (this instanceof GlobalConfigTab && hoveredRow != null && hoveredRow.getHoverTitle() != null) {
             renderDynamicDescription(guiGraphics, hoveredRow, partialTick);
         }
         
-        // Render Dialogs (Top Layer)
+        
         if (textInputDialog.isVisible()) {
             textInputDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         }
@@ -174,19 +174,19 @@ public abstract class ConfigTabContent {
     }
 
     protected void renderSideButtons(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
-        // 计算按钮区域位置
+        
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int buttonY = screenHeight - GuiConstants.DEFAULT_PADDING - GuiConstants.ROW_HEADER_HEIGHT - 1 - GuiConstants.ROW_HEADER_HEIGHT;
         
-        // 2 buttons, 1 space (1px)
-        // Total width = area1Right - GuiConstants.DEFAULT_PADDING
+        
+        
         int totalWidth = area1Right - GuiConstants.DEFAULT_PADDING;
         int buttonWidth = (totalWidth - 1) / 2;
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
         int x1 = GuiConstants.DEFAULT_PADDING + (int)getSidebarOffset();
 
-        // 检查重置按钮超时
-        // The check is done in render() now
+        
+        
         /*
         if (isResetConfirming && System.currentTimeMillis() - resetConfirmTime > RESET_CONFIRM_TIMEOUT) {
             isResetConfirming = false;
@@ -201,12 +201,12 @@ public abstract class ConfigTabContent {
                 if (isResetConfirming) {
                     long elapsed = System.currentTimeMillis() - resetConfirmTime;
                     if (elapsed >= 3000) {
-                        // 3秒后点击才有效
+                        
                         ConfigManager.resetFull();
-                        // 重置后无需保存，直接丢弃当前的临时更改状态
+                        
                         ConfigManager.discardChanges();
                         
-                        // 退出界面
+                        
                         if (minecraft.screen != null) {
                             minecraft.screen.onClose();
                         }
@@ -216,7 +216,7 @@ public abstract class ConfigTabContent {
                         btn.setTextColor(GuiConstants.COLOR_WHITE);
                     }
                 } else {
-                    // 第一次点击
+                    
                     isResetConfirming = true;
                     resetConfirmTime = System.currentTimeMillis();
                     btn.setMessage(Component.translatable("gd656killicon.client.gui.config.button.confirm_reset_time", 3));
@@ -233,7 +233,7 @@ public abstract class ConfigTabContent {
 
         if (cancelButton == null) {
             cancelButton = new GDButton(x1 + buttonWidth + 1, buttonY, buttonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.button.cancel"), (btn) -> {
-                // 取消操作，同 ESC
+                
                 if (minecraft.screen != null) {
                     minecraft.screen.onClose();
                 }
@@ -248,18 +248,18 @@ public abstract class ConfigTabContent {
     }
 
     protected void renderDynamicDescription(GuiGraphics guiGraphics, GDRowRenderer row, float partialTick) {
-        // Area 3 位于 Area 1 下方
+        
         int area1Right = (minecraft.getWindow().getGuiScaledWidth() - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int x1 = GuiConstants.DEFAULT_PADDING;
         
-        // Area 3 Top = Area 1 Bottom + Padding
+        
         int y1 = this.area1Bottom + GuiConstants.DEFAULT_PADDING;
         
         int x2 = area1Right;
         
-        // 1. 标题 (Config Name)
-        // 大小 2.0，白色，不换行，紧贴上边框
-        // 标题高度大约是 9 * 2.0 = 18
+        
+        
+        
         int titleHeight = 18;
         if (dynamicTitleRenderer == null) {
             dynamicTitleRenderer = new GDTextRenderer(row.getHoverTitle(), x1, y1, x2, y1 + titleHeight, 2.0f, GuiConstants.COLOR_WHITE, false);
@@ -269,10 +269,10 @@ public abstract class ConfigTabContent {
         }
         dynamicTitleRenderer.render(guiGraphics, partialTick);
 
-        // 副标题 (Description)
-        // 大小 1.0，白色，自动换行
+        
+        
         int subY1 = y1 + titleHeight + GuiConstants.DEFAULT_PADDING / 2;
-        // 高度自适应或者占满剩余空间 (减去底部控制区高度和新增的按钮高度)
+        
         int buttonY = minecraft.getWindow().getGuiScaledHeight() - GuiConstants.DEFAULT_PADDING - GuiConstants.REGION_4_HEIGHT - 1 - GuiConstants.REGION_4_HEIGHT;
         int subY2 = buttonY - GuiConstants.DEFAULT_PADDING;
         
@@ -305,14 +305,14 @@ public abstract class ConfigTabContent {
     protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         if (!configRows.isEmpty()) {
             if (useDefaultScroll) {
-                // 更新时间步进
+                
                 long now = System.nanoTime();
                 if (lastFrameTime == 0) lastFrameTime = now;
                 float dt = (now - lastFrameTime) / 1_000_000_000.0f;
                 lastFrameTime = now;
                 if (dt > 0.1f) dt = 0.1f;
 
-                // 处理拖拽逻辑 (在调用 updateScroll 之前)
+                
                 if (isDragging) {
                     double diff = mouseY - lastMouseY;
                     targetScrollY -= diff;
@@ -327,7 +327,7 @@ public abstract class ConfigTabContent {
                 int contentWidth = screenWidth - contentX - GuiConstants.DEFAULT_PADDING;
                 int contentHeight = screenHeight - contentY - GuiConstants.DEFAULT_PADDING;
 
-                // Enable Scissor
+                
                 guiGraphics.enableScissor(contentX, contentY, contentX + contentWidth, contentY + contentHeight);
                 guiGraphics.pose().pushPose();
                 guiGraphics.pose().translate(0, -scrollY, 0);
@@ -346,7 +346,7 @@ public abstract class ConfigTabContent {
             return;
         }
 
-        // Default implementation: Show "No Content"
+        
         Component noContent = Component.translatable("gd656killicon.client.gui.config.no_content");
         int textWidth = minecraft.font.width(noContent);
         
@@ -389,7 +389,7 @@ public abstract class ConfigTabContent {
         int goldBarBottom = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT;
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         
-        // 1. 标题布局
+        
         int x1 = GuiConstants.DEFAULT_PADDING;
         int y1 = goldBarBottom + GuiConstants.DEFAULT_PADDING;
         int x2 = area1Right;
@@ -397,13 +397,13 @@ public abstract class ConfigTabContent {
         int y2 = y1 + titleHeight;
 
         if (titleRenderer == null) {
-            onTabOpen(); // 首次初始化布局时也触发一次打开事件
+            onTabOpen(); 
             titleRenderer = new GDTextRenderer(title.getString(), x1, y1, x2, y2, 3.0f, GuiConstants.COLOR_WHITE, false);
         } else {
             titleRenderer.setX1(x1); titleRenderer.setY1(y1); titleRenderer.setX2(x2); titleRenderer.setY2(y2);
         }
 
-        // 2. 副标题布局
+        
         int subY1 = y2 + GuiConstants.DEFAULT_PADDING / 2;
         int subX1 = GuiConstants.DEFAULT_PADDING;
         int subX2 = area1Right;
@@ -428,35 +428,35 @@ public abstract class ConfigTabContent {
         int currentY = contentY;
         for (int i = 0; i < configRows.size(); i++) {
             GDRowRenderer row = configRows.get(i);
-            int rowHeight = GuiConstants.ROW_HEADER_HEIGHT; // 默认为表头高度17，也可以自定义
-            // 这里假设所有配置行高度都是17，如果需要不同高度可以在 Row 中获取
+            int rowHeight = GuiConstants.ROW_HEADER_HEIGHT; 
+            
             
             row.setBounds(contentX, currentY, contentX + contentWidth, currentY + rowHeight);
             
-            // 双数行透明度降低效果 (索引从0开始，0是单数行视觉上? 不，0是第一行)
-            // 榜单透明度通常是 0x4D (77/255 -> 0.3)
-            // ScoreboardTab 中使用的是 0.15f 和 0.3f
+            
+            
+            
             if (i % 2 != 0) {
-                row.setBackgroundAlpha(0.15f); // 双数行降低透明度
+                row.setBackgroundAlpha(0.15f); 
             } else {
-                row.setBackgroundAlpha(0.3f); // 单数行标准透明度
+                row.setBackgroundAlpha(0.3f); 
             }
             
-            currentY += rowHeight + 1; // 1像素间隔
+            currentY += rowHeight + 1; 
         }
         
         this.totalContentHeight = currentY - contentY;
     }
 
     protected void renderTabHeader(GuiGraphics guiGraphics, int screenWidth, int screenHeight, float partialTick) {
-        // 兼容旧调用，实际渲染逻辑已移至 render
+        
         updateLayout(screenWidth, screenHeight);
     }
 
     protected void updateSubtitle(int x1, int y1, int x2) {
-        // 默认显示翻译键对应的简介，开启自动换行
+        
         String key = title.getContents().toString();
-        // 提取翻译键
+        
         String translationKey = "";
         if (title.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc) {
             translationKey = tc.getKey();
@@ -505,7 +505,7 @@ public abstract class ConfigTabContent {
                      }
                  }
                  
-                 // 如果没有点击到任何行内元素，则开始拖拽
+                 
                  isDragging = true;
                  lastMouseY = mouseY;
                  return true;

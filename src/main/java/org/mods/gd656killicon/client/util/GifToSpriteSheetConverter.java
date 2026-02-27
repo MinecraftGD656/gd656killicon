@@ -64,7 +64,7 @@ public class GifToSpriteSheetConverter {
             int width = reader.getWidth(0);
             int height = reader.getHeight(0);
             
-            // Calculate total height for vertical strip
+            
             int totalHeight = height * numFrames;
 
             BufferedImage spriteSheet = new BufferedImage(width, totalHeight, BufferedImage.TYPE_INT_ARGB);
@@ -84,8 +84,8 @@ public class GifToSpriteSheetConverter {
             ImageIO.write(spriteSheet, "png", outputFile);
 
             int avgInterval = numFrames > 0 ? (int) (totalDelay / numFrames) : 100;
-            // GIF delays are in 10ms units usually, but we convert to ms.
-            // getFrameDelay returns ms.
+            
+            
             
             return new ConversionResult(outputFile, numFrames, avgInterval, width, height);
 
@@ -108,10 +108,10 @@ public class GifToSpriteSheetConverter {
                     NamedNodeMap attrs = node.getAttributes();
                     Node delayNode = attrs.getNamedItem("delayTime");
                     if (delayNode != null) {
-                        // delayTime is in 1/100ths of a second (10ms)
+                        
                         int delay = Integer.parseInt(delayNode.getNodeValue());
-                        // Some GIFs have delay 0, which usually means "as fast as possible" or "default"
-                        // Browsers often use 100ms (10cs) for delay 0.
+                        
+                        
                         if (delay <= 0) delay = 10;
                         return delay * 10;
                     }
@@ -119,6 +119,6 @@ public class GifToSpriteSheetConverter {
             }
         }
         
-        return 100; // Default 100ms
+        return 100; 
     }
 }

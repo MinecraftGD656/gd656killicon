@@ -87,7 +87,7 @@ public class ConfirmDialog {
             this.messageRenderer.setCentered(false);
         }
 
-        // Initialize buttons (Yes/No style like TextInputDialog)
+        
         int w1 = (INPUT_WIDTH - 1) / 2;
         int w2 = INPUT_WIDTH - 1 - w1;
 

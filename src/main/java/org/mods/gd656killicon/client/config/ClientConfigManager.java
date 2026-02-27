@@ -16,23 +16,25 @@ public class ClientConfigManager {
     private static final File CONFIG_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon").toFile();
     private static final File GLOBAL_CONFIG_FILE = new File(CONFIG_DIR, "client_config.json");
 
-    // Default Values
+    
     private static final String DEFAULT_CURRENT_PRESET = "00001";
     private static final boolean DEFAULT_ENABLE_SOUND = true;
     private static final boolean DEFAULT_SHOW_BONUS_MESSAGE = false;
     private static final int DEFAULT_SOUND_VOLUME = 100;
     private static final boolean DEFAULT_ENABLE_ACE_LAG = false;
     private static final int DEFAULT_ACE_LAG_INTENSITY = 5;
+    private static final String DEFAULT_LAST_LANGUAGE = "";
 
-    // Current Config Values
+    
     private static String currentPresetId = DEFAULT_CURRENT_PRESET;
     private static boolean enableSound = DEFAULT_ENABLE_SOUND;
     private static boolean showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
     private static int soundVolume = DEFAULT_SOUND_VOLUME;
     private static boolean enableAceLag = DEFAULT_ENABLE_ACE_LAG;
     private static int aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+    private static String lastLanguageCode = DEFAULT_LAST_LANGUAGE;
 
-    // Temporary Config Values (Editing Mode)
+    
     private static String tempCurrentPresetId = null;
     private static Boolean tempEnableSound = null;
     private static Boolean tempShowBonusMessage = null;
@@ -94,6 +96,13 @@ public class ClientConfigManager {
         return false;
     }
 
+    public static boolean isAceLagConfigChangedInEdit() {
+        if (!isEditing) return false;
+        if (tempEnableAceLag != null && !tempEnableAceLag.equals(enableAceLag)) return true;
+        if (tempAceLagIntensity != null && tempAceLagIntensity != aceLagIntensity) return true;
+        return false;
+    }
+
     public static void init() {
         if (!CONFIG_DIR.exists()) {
             CONFIG_DIR.mkdirs();
@@ -109,23 +118,25 @@ public class ClientConfigManager {
 
         try (FileReader reader = new FileReader(GLOBAL_CONFIG_FILE)) {
             JsonObject json = GSON.fromJson(reader, JsonObject.class);
-            // Use defaults as fallback
+            
             currentPresetId = json.has("current_preset") ? json.get("current_preset").getAsString() : DEFAULT_CURRENT_PRESET;
             enableSound = json.has("enable_sound") ? json.get("enable_sound").getAsBoolean() : DEFAULT_ENABLE_SOUND;
             showBonusMessage = json.has("show_bonus_message") ? json.get("show_bonus_message").getAsBoolean() : DEFAULT_SHOW_BONUS_MESSAGE;
             soundVolume = json.has("sound_volume") ? clampSoundVolume(json.get("sound_volume").getAsInt()) : DEFAULT_SOUND_VOLUME;
             enableAceLag = json.has("enable_ace_lag") ? json.get("enable_ace_lag").getAsBoolean() : DEFAULT_ENABLE_ACE_LAG;
             aceLagIntensity = json.has("ace_lag_intensity") ? clampAceLagIntensity(json.get("ace_lag_intensity").getAsInt()) : DEFAULT_ACE_LAG_INTENSITY;
+            lastLanguageCode = json.has("last_language") ? json.get("last_language").getAsString() : DEFAULT_LAST_LANGUAGE;
         } catch (Exception e) {
             ClientMessageLogger.error("gd656killicon.client.config.load_fail", e.getMessage());
             e.printStackTrace();
-            // Fallback to defaults on error
+            
             currentPresetId = DEFAULT_CURRENT_PRESET;
             enableSound = DEFAULT_ENABLE_SOUND;
             showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
             soundVolume = DEFAULT_SOUND_VOLUME;
             enableAceLag = DEFAULT_ENABLE_ACE_LAG;
             aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+            lastLanguageCode = DEFAULT_LAST_LANGUAGE;
         }
     }
 
@@ -137,14 +148,16 @@ public class ClientConfigManager {
         json.addProperty("sound_volume", DEFAULT_SOUND_VOLUME);
         json.addProperty("enable_ace_lag", DEFAULT_ENABLE_ACE_LAG);
         json.addProperty("ace_lag_intensity", DEFAULT_ACE_LAG_INTENSITY);
+        json.addProperty("last_language", DEFAULT_LAST_LANGUAGE);
         
-        // Update memory state as well
+        
         currentPresetId = DEFAULT_CURRENT_PRESET;
         enableSound = DEFAULT_ENABLE_SOUND;
         showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
         soundVolume = DEFAULT_SOUND_VOLUME;
         enableAceLag = DEFAULT_ENABLE_ACE_LAG;
         aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+        lastLanguageCode = DEFAULT_LAST_LANGUAGE;
 
         try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
             GSON.toJson(json, writer);
@@ -162,6 +175,7 @@ public class ClientConfigManager {
         root.addProperty("sound_volume", soundVolume);
         root.addProperty("enable_ace_lag", enableAceLag);
         root.addProperty("ace_lag_intensity", aceLagIntensity);
+        root.addProperty("last_language", lastLanguageCode);
 
         try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
             GSON.toJson(root, writer);
@@ -172,6 +186,21 @@ public class ClientConfigManager {
 
     public static void resetToDefaults() {
         createDefaultConfig();
+    }
+
+    public static boolean checkLanguageChangedAndUpdate(String currentLanguage) {
+        if (currentLanguage == null || currentLanguage.isEmpty()) return false;
+        if (lastLanguageCode == null || lastLanguageCode.isEmpty()) {
+            lastLanguageCode = currentLanguage;
+            saveGlobalConfig();
+            return false;
+        }
+        if (!currentLanguage.equals(lastLanguageCode)) {
+            lastLanguageCode = currentLanguage;
+            saveGlobalConfig();
+            return true;
+        }
+        return false;
     }
 
     public static String getCurrentPresetId() {

@@ -31,7 +31,7 @@ public class ScoreboardSyncPacket implements IPacket {
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
-                buffer.readInt() // ping
+                buffer.readInt() 
             ));
         }
     }
@@ -54,7 +54,7 @@ public class ScoreboardSyncPacket implements IPacket {
     @Override
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
-            // 客户端处理逻辑
+            
             org.mods.gd656killicon.client.gui.tabs.ScoreboardTab.updateData(this.entries);
         });
         context.get().setPacketHandled(true);

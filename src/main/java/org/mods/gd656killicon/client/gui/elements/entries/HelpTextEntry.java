@@ -25,15 +25,15 @@ public class HelpTextEntry extends GDRowRenderer {
         this.title = title;
         this.description = description;
 
-        // 1. 标题列 (自适应宽度或固定宽度)
-        // 使用 addColumn 添加标题，白色，不加深
+        
+        
         this.addColumn(title, 120, GuiConstants.COLOR_GOLD, false, false, null);
 
-        // 2. 描述列 (剩余空间)
-        // 使用自定义渲染器来实现多行文本
+        
+        
         this.addCustomColumn(-1, null, (guiGraphics, x, y, width, height) -> {
             if (descriptionRenderer == null) {
-                // 初始化多行文本渲染器，字体大小 1.0，白色，自动换行
+                
                 descriptionRenderer = new GDTextRenderer(description, x + 4, y + 4, x + width - 4, y + height - 4, 1.0f, GuiConstants.COLOR_WHITE, true);
             } else {
                 descriptionRenderer.setX1(x + 4);
@@ -41,7 +41,7 @@ public class HelpTextEntry extends GDRowRenderer {
                 descriptionRenderer.setX2(x + width - 4);
                 descriptionRenderer.setY2(y + height - 4);
             }
-            descriptionRenderer.render(guiGraphics, 0, false); // partialTick 传 0 即可，禁用内部 Scissor 以兼容外部滚动
+            descriptionRenderer.render(guiGraphics, 0, false); 
         });
     }
 
@@ -70,20 +70,20 @@ public class HelpTextEntry extends GDRowRenderer {
      * 基于描述文本的长度和宽度进行计算。
      */
     public int getRequiredHeight(int width) {
-        // 假设第一列宽度 120，第二列宽度 width - 120
-        int descWidth = width - 120 - 8; // 减去 padding
+        
+        int descWidth = width - 120 - 8; 
         if (descWidth <= 0) return GuiConstants.ROW_HEADER_HEIGHT;
 
         if (descriptionRenderer == null) {
-            // 临时创建一个来计算高度
+            
             descriptionRenderer = new GDTextRenderer(description, 0, 0, descWidth, 100, 1.0f, GuiConstants.COLOR_WHITE, true);
         } else {
-            // 更新宽度以便重新计算
+            
             descriptionRenderer.setX1(0);
             descriptionRenderer.setX2(descWidth);
         }
         
         int textHeight = descriptionRenderer.getFinalHeight();
-        return Math.max(GuiConstants.ROW_HEADER_HEIGHT, textHeight + 8); // 最小高度为标准行高，加上 padding
+        return Math.max(GuiConstants.ROW_HEADER_HEIGHT, textHeight + 8); 
     }
 }

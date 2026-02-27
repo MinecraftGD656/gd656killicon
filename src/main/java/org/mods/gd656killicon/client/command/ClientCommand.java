@@ -19,7 +19,7 @@ import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 public class ClientCommand {
 
-    // Suggestions
+    
     public static final SuggestionProvider<CommandSourceStack> PRESET_SUGGESTIONS = (context, builder) -> {
         ConfigManager.loadConfig();
         return SharedSuggestionProvider.suggest(ConfigManager.getPresetIds(), builder);
@@ -30,7 +30,7 @@ public class ClientCommand {
         try {
             presetIdStr = normalizePresetIdForLookup(StringArgumentType.getString(context, "presetId"));
         } catch (IllegalArgumentException e) {
-            // Fallback to current preset if presetId argument is not available
+            
             presetIdStr = ConfigManager.getCurrentPresetId();
         }
         return SharedSuggestionProvider.suggest(
@@ -63,12 +63,12 @@ public class ClientCommand {
         return SharedSuggestionProvider.suggest(ConfigManager.getConfigKeys(presetId, elementId), builder);
     };
 
-    // Command Logic
+    
     public static int reload(CommandContext<CommandSourceStack> context) {
         ConfigManager.loadConfig();
         ExternalTextureManager.reloadAsync();
         ExternalSoundManager.reloadAsync();
-        // Feedback is handled by async managers
+        
         return 1;
     }
 
@@ -93,7 +93,7 @@ public class ClientCommand {
             return 0;
         }
         
-        // 重置预设配置：获取当前元素列表并从官方预设还原
+        
         ConfigManager.resetPresetConfig(presetId);
         ClientMessageLogger.chatSuccess("gd656killicon.client.command.preset_reset_success", presetId);
         return 1;
@@ -292,12 +292,12 @@ public class ClientCommand {
     }
 
     public static void register(RegisterClientCommandsEvent event) {
-        // GD656Killicon指令系统注册入口点
+        
         event.getDispatcher().register(Commands.literal("gd656killicon")
-            .then(Commands.literal("client")                                                                                                                  // 客户端
-                .then(Commands.literal("info").executes(ClientCommand::info))                                                                                 //  客户端信息
-                .then(Commands.literal("config")                                                                                                              //  配置文件设置
-                    .then(Commands.literal("reload").executes(ClientCommand::reload))                                                                         //   重新加载配置文件
+            .then(Commands.literal("client")                                                                                                                  
+                .then(Commands.literal("info").executes(ClientCommand::info))                                                                                 
+                .then(Commands.literal("config")                                                                                                              
+                    .then(Commands.literal("reload").executes(ClientCommand::reload))                                                                         
                     .then(Commands.literal("global")
                         .then(Commands.argument("key", StringArgumentType.word())
                             .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"current_preset", "enable_sound", "sound_volume", "show_bonus_message"}, builder))
@@ -306,7 +306,7 @@ public class ClientCommand {
                             )
                         )
                     )
-                    .then(Commands.literal("reset").executes(ClientCommand::reset)                                                                           //   重置配置文件
+                    .then(Commands.literal("reset").executes(ClientCommand::reset)                                                                           
                         .then(Commands.literal("element")
                             .then(Commands.argument("presetId", StringArgumentType.word())
                                 .suggests(PRESET_SUGGESTIONS)
@@ -316,19 +316,19 @@ public class ClientCommand {
                             )
                         )
                     )
-                    .then(Commands.literal("preset")                                                                                                          //   预设
-                        .then(Commands.literal("choose")                                                                                                         //     设置预设
-                            .then(Commands.argument("id", StringArgumentType.word())                                                                          //       设置的预设ID
+                    .then(Commands.literal("preset")                                                                                                          
+                        .then(Commands.literal("choose")                                                                                                         
+                            .then(Commands.argument("id", StringArgumentType.word())                                                                          
                                 .suggests(PRESET_SUGGESTIONS)
                                 .executes(ClientCommand::setPreset)
                             )
                         )
-                        .then(Commands.literal("create")                                                                                                      //     创建预设
-                            .then(Commands.argument("id", StringArgumentType.word())                                                                          //       创建的预设ID
+                        .then(Commands.literal("create")                                                                                                      
+                            .then(Commands.argument("id", StringArgumentType.word())                                                                          
                                 .executes(ClientCommand::createPreset)
                             )
                         )
-                        .then(Commands.literal("displayname")                                                                                                 //     设置预设名称
+                        .then(Commands.literal("displayname")                                                                                                 
                             .then(Commands.argument("id", StringArgumentType.word())
                                 .suggests(PRESET_SUGGESTIONS)
                                 .then(Commands.argument("displayName", StringArgumentType.string())
@@ -336,33 +336,33 @@ public class ClientCommand {
                                 )
                             )
                         )
-                        .then(Commands.literal("element")                                                                                                     //     元素
-                                .then(Commands.literal("add")                                                                                                     //       添加元素
-                                    .then(Commands.argument("presetId", StringArgumentType.word())                                                            //         添加到的预设ID
+                        .then(Commands.literal("element")                                                                                                     
+                                .then(Commands.literal("add")                                                                                                     
+                                    .then(Commands.argument("presetId", StringArgumentType.word())                                                            
                                         .suggests(PRESET_SUGGESTIONS)
-                                        .then(Commands.argument("elementId", StringArgumentType.string())                                                             //         添加的元素ID
+                                        .then(Commands.argument("elementId", StringArgumentType.string())                                                             
                                             .suggests(ADD_ELEMENT_SUGGESTIONS)
                                             .executes(ClientCommand::addElement)
                                         )
                                     )
                                 )
-                            .then(Commands.literal("del")                                                                                                      //       删除元素
-                                .then(Commands.argument("presetId", StringArgumentType.word())                                                              //         删除从的预设ID
+                            .then(Commands.literal("del")                                                                                                      
+                                .then(Commands.argument("presetId", StringArgumentType.word())                                                              
                                     .suggests(PRESET_SUGGESTIONS)
-                                    .then(Commands.argument("elementId", StringArgumentType.string())                                                              //         删除的元素ID
+                                    .then(Commands.argument("elementId", StringArgumentType.string())                                                              
                                         .suggests(ELEMENT_SUGGESTIONS)
                                         .executes(ClientCommand::delElement)
                                     )
                                 )
                             )
-                            .then(Commands.literal("edit")                                                                                                      //     编辑配置
-                                .then(Commands.argument("presetId", StringArgumentType.word())                                                                  //       编辑的预设ID
+                            .then(Commands.literal("edit")                                                                                                      
+                                .then(Commands.argument("presetId", StringArgumentType.word())                                                                  
                                     .suggests(PRESET_SUGGESTIONS)
-                                    .then(Commands.argument("elementId", StringArgumentType.string())                                                           //       编辑的元素ID
+                                    .then(Commands.argument("elementId", StringArgumentType.string())                                                           
                                         .suggests(ELEMENT_SUGGESTIONS)
-                                        .then(Commands.argument("key", StringArgumentType.word())                                                               //         编辑的键
+                                        .then(Commands.argument("key", StringArgumentType.word())                                                               
                                             .suggests(KEY_SUGGESTIONS)
-                                            .then(Commands.argument("value", StringArgumentType.string())                                                       //         编辑的值
+                                            .then(Commands.argument("value", StringArgumentType.string())                                                       
                                                 .executes(ClientCommand::editConfig)
                                             )
                                         )

@@ -32,7 +32,7 @@ public class IconTextureAnimationManager {
 
     public static TextureFrame getTextureFrame(String presetId, String elementId, String textureKey, String textureFileName, long startTime, JsonObject config) {
         TextureDimensions dims = ExternalTextureManager.getTextureDimensions(presetId, textureFileName);
-        int totalW = dims.width > 0 ? dims.width : 64; // Default if unknown
+        int totalW = dims.width > 0 ? dims.width : 64; 
         int totalH = dims.height > 0 ? dims.height : 64;
 
         String prefix = "anim_" + textureKey + "_";
@@ -49,17 +49,17 @@ public class IconTextureAnimationManager {
         boolean loop = getBoolean(config, prefix + "texture_animation_loop", false);
         String style = getString(config, prefix + "texture_animation_play_style", "sequential");
         
-        // Calculate frame size
+        
         int frameW, frameH;
         if ("horizontal".equalsIgnoreCase(orientation)) {
             frameW = totalW / totalFrames;
             frameH = totalH;
-        } else { // vertical
+        } else { 
             frameW = totalW;
             frameH = totalH / totalFrames;
         }
         
-        // Calculate frame index
+        
         long elapsed = System.currentTimeMillis() - startTime;
         if (elapsed < 0) elapsed = 0;
         int frameIndex = 0;
@@ -89,7 +89,7 @@ public class IconTextureAnimationManager {
                          frameIndex = cycleLen - cyclePos;
                      }
                  } else {
-                     // No loop: 0 -> max -> 0 -> stop
+                     
                      long effectiveTick = Math.min(currentTick, cycleLen);
                      int cyclePos = (int) effectiveTick;
                      if (cyclePos < totalFrames) {
@@ -101,7 +101,7 @@ public class IconTextureAnimationManager {
              } else {
                  frameIndex = 0;
              }
-        } else { // sequential
+        } else { 
              if (loop) {
                  frameIndex = (int)(currentTick % totalFrames);
              } else {
@@ -109,10 +109,10 @@ public class IconTextureAnimationManager {
              }
         }
         
-        // Safety clamp
+        
         frameIndex = Mth.clamp(frameIndex, 0, totalFrames - 1);
         
-        // Calculate UV
+        
         int u = 0, v = 0;
         if ("horizontal".equalsIgnoreCase(orientation)) {
             u = frameIndex * frameW;

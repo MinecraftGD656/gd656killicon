@@ -30,7 +30,7 @@ public class GDRowRenderer {
     private String hoverDescription;
     private Consumer<Boolean> onHover;
 
-    // Clipping bounds (screen coordinates)
+    
     private Integer clipX1, clipY1, clipX2, clipY2;
     private Supplier<Boolean> activeCondition = () -> true;
 
@@ -56,7 +56,7 @@ public class GDRowRenderer {
         public boolean isCentered;
         public GDTextRenderer textRenderer;
         public Consumer<Integer> onClick;
-        public float hoverProgress = 0.0f; // 0.0 -> 1.0
+        public float hoverProgress = 0.0f; 
         public List<Column> hoverReplacementColumns;
         public CellRenderer customRenderer;
 
@@ -97,7 +97,7 @@ public class GDRowRenderer {
         col.isCentered = isCentered;
         col.onClick = onClick;
         
-        // 如果 textRenderer 已经存在，强制更新其颜色以防缓存
+        
         if (col.textRenderer != null) {
             col.textRenderer.setColor(color);
         }
@@ -245,7 +245,7 @@ public class GDRowRenderer {
         int rowHeight = y2 - y1;
         int totalWidth = x2 - x1;
 
-        // 1. 计算列宽 (移动到背景填充之前)
+        
         int fixedW = 0; int flexC = 0;
         for (int i = 0; i < currentColumnIndex; i++) {
             if (columns.get(i).width == -1) flexC++;
@@ -253,14 +253,14 @@ public class GDRowRenderer {
         }
         int flexW = flexC > 0 ? Math.max(0, (totalWidth - fixedW) / flexC) : 0;
 
-        // 2. 基础颜色计算 (锁定 Alpha)
+        
         int alphaBits = (int)(bgAlpha * 255) << 24;
         int baseR = (bgColor >> 16) & 0xFF;
         int baseG = (bgColor >> 8) & 0xFF;
         int baseB = bgColor & 0xFF;
 
-        // 3. 基础背景填充 (考虑 1 像素间隙)
-        // 兼容旧逻辑：如果第一列宽度等于行高，默认开启间隔 (Rank方块)
+        
+        
         boolean doGap = (!isHeader && currentColumnIndex > 1 && columns.get(0).width == rowHeight) || separateFirstColumn;
         
         if (doGap && currentColumnIndex > 0) {
@@ -271,17 +271,17 @@ public class GDRowRenderer {
             guiGraphics.fill(x1, y1, x2, y2, alphaBits | (baseR << 16) | (baseG << 8) | baseB);
         }
 
-        // 4. 渲染每一列
+        
         int currentX = x1;
         for (int i = 0; i < currentColumnIndex; i++) {
             Column col = columns.get(i);
             int colW = (col.width == -1) ? flexW : col.width;
             if (colW <= 0) continue;
 
-            // 动画更新
+            
             boolean isHovered = mouseX >= currentX && mouseX < currentX + colW && mouseY >= y1 && mouseY < y2;
             
-            // 如果悬停且有替换列，渲染替换列
+            
             if (isHovered && col.hoverReplacementColumns != null && !col.hoverReplacementColumns.isEmpty()) {
                 renderReplacementColumns(guiGraphics, col.hoverReplacementColumns, currentX, y1, colW, rowHeight, mouseX, mouseY, partialTick, dt);
                 currentX += colW;
@@ -292,7 +292,7 @@ public class GDRowRenderer {
             if (isHovered) col.hoverProgress = Math.min(1.0f, col.hoverProgress + dt * animSpeed);
             else col.hoverProgress = Math.max(0.0f, col.hoverProgress - dt * animSpeed);
 
-            // Scissor 补偿 (使用 m31() 方法获取 y 轴偏移量，并使用 Math.round 解决滚动抖动)
+            
             float translateX = guiGraphics.pose().last().pose().m30();
             float translateY = guiGraphics.pose().last().pose().m31();
             
@@ -301,7 +301,7 @@ public class GDRowRenderer {
             int sY1 = (int)Math.round(y1 + translateY);
             int sY2 = (int)Math.round(y2 + translateY);
 
-            // Apply custom clipping if set
+            
             if (clipX1 != null) sX1 = Math.max(sX1, clipX1);
             if (clipY1 != null) sY1 = Math.max(sY1, clipY1);
             if (clipX2 != null) sX2 = Math.min(sX2, clipX2);
@@ -310,7 +310,7 @@ public class GDRowRenderer {
             if (sX2 > sX1 && sY2 > sY1) {
                 guiGraphics.enableScissor(sX1, sY1, sX2, sY2);
 
-                // 计算实际绘制区域 (考虑排名方块间隙)
+                
                 int drawX = currentX;
                 int drawW = colW;
                 if (doGap && i == 1) {
@@ -318,26 +318,26 @@ public class GDRowRenderer {
                     drawW -= 1;
                 }
 
-                // 填充变深背景 (仅当是深色列或有悬停进度时)
+                
                 if (col.isDarker || col.hoverProgress > 0) {
                     float darken = 0.0f;
-                    if (col.isDarker) darken += 0.25f; // 深色列基础加深 25%
+                    if (col.isDarker) darken += 0.25f; 
                     
-                    // 悬停加深效果：对于可点击列或表头，悬停时加深
+                    
                     if (col.hoverProgress > 0 && (isHeader || col.onClick != null)) {
-                         darken += col.hoverProgress * 0.2f; // 悬停额外加深 20%
+                         darken += col.hoverProgress * 0.2f; 
                     }
 
                     int overlayAlpha = (int)(255 * darken);
-                    int overlayColor = (overlayAlpha << 24) | 0x000000; // 纯黑叠加层
-                    // 关键修复：使用 guiGraphics.fill 的变体，或者确保坐标计算与基础背景一致
+                    int overlayColor = (overlayAlpha << 24) | 0x000000; 
+                    
                     guiGraphics.fill(drawX, y1, drawX + drawW, y2, overlayColor);
                 }
 
-                // --- 金色条动画 (表头或可点击列) ---
+                
                 if ((isHeader || col.onClick != null) && col.hoverProgress > 0.001f) {
                     float t = col.hoverProgress;
-                    float ease = 1.0f - (float) Math.pow(1.0f - t, 3); // Ease-out cubic
+                    float ease = 1.0f - (float) Math.pow(1.0f - t, 3); 
                     float barWidth = drawW * ease;
 
                     guiGraphics.pose().pushPose();
@@ -347,7 +347,7 @@ public class GDRowRenderer {
                     guiGraphics.pose().popPose();
                 }
 
-                // --- 内容渲染 ---
+                
                 renderContent(guiGraphics, col, drawX, drawW, rowHeight, partialTick, dt, i);
 
                 guiGraphics.disableScissor();
@@ -363,10 +363,10 @@ public class GDRowRenderer {
 
         for (int i = 0; i < count; i++) {
             Column subCol = subColumns.get(i);
-            // 最后一列填补剩余宽度
+            
             int thisW = (i == count - 1) ? (x + w - currentX) : subW;
             
-            // 渲染子列背景 (加深)
+            
             boolean subHovered = mouseX >= currentX && mouseX < currentX + thisW && mouseY >= y && mouseY < y + h;
             if (subHovered) {
                 subCol.hoverProgress = Math.min(1.0f, subCol.hoverProgress + dt * 8.0f);
@@ -374,7 +374,7 @@ public class GDRowRenderer {
                 subCol.hoverProgress = Math.max(0.0f, subCol.hoverProgress - dt * 8.0f);
             }
 
-            // Scissor 补偿 (与主渲染逻辑一致)
+            
             float translateX = guiGraphics.pose().last().pose().m30();
             float translateY = guiGraphics.pose().last().pose().m31();
             
@@ -391,12 +391,12 @@ public class GDRowRenderer {
             if (sX2 > sX1 && sY2 > sY1) {
                 guiGraphics.enableScissor(sX1, sY1, sX2, sY2);
                 
-                // 绘制背景 (稍微加深以区分)
+                
                 int alphaBits = (int)(bgAlpha * 255) << 24;
                 int bgCol = (bgColor & 0xFFFFFF) | alphaBits;
                 guiGraphics.fill(currentX, y, currentX + thisW, y + h, bgCol);
 
-                // 悬停加深
+                
                 if (subHovered || subCol.isDarker) {
                     float darken = subCol.isDarker ? 0.25f : 0.0f;
                     if (subHovered) darken += 0.2f;
@@ -404,13 +404,13 @@ public class GDRowRenderer {
                     guiGraphics.fill(currentX, y, currentX + thisW, y + h, (overlayAlpha << 24));
                 }
                 
-                // 渲染内容
+                
                 renderContent(guiGraphics, subCol, currentX, thisW, h, pt, dt, -1);
                 
-                // --- 金色条动画 (表头或可点击列) ---
+                
                 if (subCol.onClick != null && subCol.hoverProgress > 0.001f) {
                     float t = subCol.hoverProgress;
-                    float ease = 1.0f - (float) Math.pow(1.0f - t, 3); // Ease-out cubic
+                    float ease = 1.0f - (float) Math.pow(1.0f - t, 3); 
                     float barWidth = thisW * ease;
 
                     guiGraphics.pose().pushPose();
@@ -423,7 +423,7 @@ public class GDRowRenderer {
                 guiGraphics.disableScissor();
             }
             
-            // 绘制分割线 (如果不是最后一列)
+            
             if (i < count - 1) {
                 guiGraphics.fill(currentX + thisW - 1, y, currentX + thisW, y + h, 0x40000000);
             }
@@ -462,7 +462,7 @@ public class GDRowRenderer {
             }
             col.textRenderer.setCentered(col.isCentered);
             
-            // Check active condition
+            
             boolean isActive = activeCondition.get();
             if (!isActive) {
                 col.textRenderer.setOverrideColor(GuiConstants.COLOR_GRAY);
@@ -495,7 +495,7 @@ public class GDRowRenderer {
             if (mouseX >= currentX && mouseX < currentX + colW) {
                 Column col = columns.get(i);
                 
-                // 检查是否有替换列
+                
                 if (col.hoverReplacementColumns != null && !col.hoverReplacementColumns.isEmpty()) {
                     int subCount = col.hoverReplacementColumns.size();
                     int subW = colW / subCount;
@@ -515,9 +515,9 @@ public class GDRowRenderer {
                 
                 if (col.onClick != null) {
                     col.onClick.accept(button);
-                    return true; // 触发了回调，返回 true 表示捕获了事件
+                    return true; 
                 }
-                // 如果没有回调，返回 false 允许外部处理（如拖拽）
+                
                 return false;
             }
             currentX += colW;

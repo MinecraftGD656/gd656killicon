@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
 import org.mods.gd656killicon.client.textures.ModTextures;
@@ -21,9 +22,9 @@ import org.mods.gd656killicon.common.KillType;
  */
 public class ComboIconRenderer implements IHudRenderer {
 
-    // ================================================================================================================
-    // Constants
-    // ================================================================================================================
+    
+    
+    
 
     private static final long DEFAULT_DISPLAY_DURATION = 1500L;
     private static final long ANIMATION_DURATION = 300L;
@@ -32,31 +33,33 @@ public class ComboIconRenderer implements IHudRenderer {
     private static final int DEFAULT_EXPLOSION_COLOR = 0xF77F00;
     private static final int DEFAULT_CRIT_COLOR = 0x9CCC65;
 
-    // ================================================================================================================
-    // Static Fields
-    // ================================================================================================================
+    
+    
+    
 
     private static volatile long serverComboWindowMs = -1L;
 
-    // ================================================================================================================
-    // Instance Fields
-    // ================================================================================================================
+    
+    
+    
 
-    // Config Fields
+    
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
     private long displayDuration = DEFAULT_DISPLAY_DURATION;
-    private boolean enableIconEffect = IconRingEffect.DEFAULT_ENABLE_ICON_EFFECT;
-    private float ringNormalRadius = 42.0f;
-    private float ringNormalThickness = 1.8f;
+    private boolean enableCritRing = true;
+    private boolean enableHeadshotRing = true;
+    private boolean enableExplosionRing = true;
+    private float ringCritRadius = 42.0f;
+    private float ringCritThickness = 1.8f;
     private float ringHeadshotRadius = 42.0f;
     private float ringHeadshotThickness = 3.0f;
     private float ringExplosionRadius = 42.0f;
     private float ringExplosionThickness = 5.4f;
     private JsonObject currentConfig;
 
-    // State Fields
+    
     private long startTime = -1;
     private boolean isVisible = false;
     private long effectiveDisplayDuration = DEFAULT_DISPLAY_DURATION;
@@ -64,9 +67,9 @@ public class ComboIconRenderer implements IHudRenderer {
     private int currentKillType = KillType.NORMAL;
     private final IconRingEffect ringEffect = new IconRingEffect();
 
-    // ================================================================================================================
-    // Constructor & Static Access
-    // ================================================================================================================
+    
+    
+    
 
     /**
      * Default constructor.
@@ -90,9 +93,9 @@ public class ComboIconRenderer implements IHudRenderer {
         return serverComboWindowMs;
     }
 
-    // ================================================================================================================
-    // IHudRenderer Implementation
-    // ================================================================================================================
+    
+    
+    
 
     @Override
     public void trigger(TriggerContext context) {
@@ -167,8 +170,13 @@ public class ComboIconRenderer implements IHudRenderer {
         }
 
         int displayCombo = Mth.clamp(this.comboCount, 1, 6);
-        String texturePath = "killicon_combo_" + displayCombo + ".png";
         String textureKey = "combo_" + displayCombo;
+        String texturePath = ElementTextureDefinition.getSelectedTextureFileName(
+            ConfigManager.getCurrentPresetId(),
+            "kill_icon/combo",
+            textureKey,
+            currentConfig
+        );
         float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
         float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
         float drawWidth = 64.0f * frameWidthRatio;
@@ -188,9 +196,9 @@ public class ComboIconRenderer implements IHudRenderer {
         }
     }
 
-    // ================================================================================================================
-    // Private Helper Methods
-    // ================================================================================================================
+    
+    
+    
 
     /**
      * Loads configuration values from the JsonObject.
@@ -204,13 +212,12 @@ public class ComboIconRenderer implements IHudRenderer {
             this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
             this.displayDuration = resolveDisplayDuration(config);
-            this.enableIconEffect = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
-            this.ringNormalRadius = config.has("ring_effect_normal_radius")
-                    ? config.get("ring_effect_normal_radius").getAsFloat()
-                    : 42.0f;
-            this.ringNormalThickness = config.has("ring_effect_normal_thickness")
-                    ? config.get("ring_effect_normal_thickness").getAsFloat()
-                    : 1.8f;
+            boolean defaultRingEnable = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
+            this.enableCritRing = config.has("enable_ring_effect_crit") ? config.get("enable_ring_effect_crit").getAsBoolean() : defaultRingEnable;
+            this.enableHeadshotRing = config.has("enable_ring_effect_headshot") ? config.get("enable_ring_effect_headshot").getAsBoolean() : defaultRingEnable;
+            this.enableExplosionRing = config.has("enable_ring_effect_explosion") ? config.get("enable_ring_effect_explosion").getAsBoolean() : defaultRingEnable;
+            this.ringCritRadius = resolveRingFloat(config, "ring_effect_crit_radius", "ring_effect_normal_radius", 42.0f);
+            this.ringCritThickness = resolveRingFloat(config, "ring_effect_crit_thickness", "ring_effect_normal_thickness", 1.8f);
             this.ringHeadshotRadius = config.has("ring_effect_headshot_radius")
                     ? config.get("ring_effect_headshot_radius").getAsFloat()
                     : 42.0f;
@@ -230,9 +237,11 @@ public class ComboIconRenderer implements IHudRenderer {
             this.configXOffset = 0;
             this.configYOffset = 0;
             this.displayDuration = resolveDisplayDuration(null);
-            this.enableIconEffect = IconRingEffect.DEFAULT_ENABLE_ICON_EFFECT;
-            this.ringNormalRadius = 42.0f;
-            this.ringNormalThickness = 1.8f;
+            this.enableCritRing = true;
+            this.enableHeadshotRing = true;
+            this.enableExplosionRing = true;
+            this.ringCritRadius = 42.0f;
+            this.ringCritThickness = 1.8f;
             this.ringHeadshotRadius = 42.0f;
             this.ringHeadshotThickness = 3.0f;
             this.ringExplosionRadius = 42.0f;
@@ -273,10 +282,10 @@ public class ComboIconRenderer implements IHudRenderer {
      * Triggers the ring effect animation.
      */
     private void triggerRingEffect() {
-        if (this.enableIconEffect && isSpecialKillType(this.currentKillType)) {
+        if (isRingEnabledForKillType(this.currentKillType)) {
             ringEffect.setRingParams(
-                    ringNormalRadius,
-                    ringNormalThickness,
+                    ringCritRadius,
+                    ringCritThickness,
                     ringHeadshotRadius,
                     ringHeadshotThickness,
                     ringExplosionRadius,
@@ -295,10 +304,6 @@ public class ComboIconRenderer implements IHudRenderer {
         }
     }
 
-    private boolean isSpecialKillType(int type) {
-        return type == KillType.HEADSHOT || type == KillType.EXPLOSION || type == KillType.CRIT;
-    }
-
     private int resolveHeadshotEffectRgb() {
         return resolveEffectRgb("ring_effect_headshot_color", DEFAULT_HEADSHOT_COLOR);
     }
@@ -308,7 +313,15 @@ public class ComboIconRenderer implements IHudRenderer {
     }
 
     private int resolveCritEffectRgb() {
-        return resolveEffectRgb("ring_effect_normal_color", DEFAULT_CRIT_COLOR);
+        if (currentConfig != null) {
+            if (currentConfig.has("ring_effect_crit_color")) {
+                return resolveEffectRgb("ring_effect_crit_color", DEFAULT_CRIT_COLOR);
+            }
+            if (currentConfig.has("ring_effect_normal_color")) {
+                return resolveEffectRgb("ring_effect_normal_color", DEFAULT_CRIT_COLOR);
+            }
+        }
+        return DEFAULT_CRIT_COLOR;
     }
 
     private int resolveEffectRgb(String key, int defaultValue) {
@@ -317,6 +330,28 @@ public class ComboIconRenderer implements IHudRenderer {
         }
         String hex = currentConfig.has(key) ? currentConfig.get(key).getAsString() : null;
         return parseRgbHexOrDefault(hex, defaultValue);
+    }
+
+    private float resolveRingFloat(JsonObject config, String key, String legacyKey, float defaultValue) {
+        if (config == null) {
+            return defaultValue;
+        }
+        if (config.has(key)) {
+            return config.get(key).getAsFloat();
+        }
+        if (legacyKey != null && config.has(legacyKey)) {
+            return config.get(legacyKey).getAsFloat();
+        }
+        return defaultValue;
+    }
+
+    private boolean isRingEnabledForKillType(int type) {
+        return switch (type) {
+            case KillType.HEADSHOT -> enableHeadshotRing;
+            case KillType.EXPLOSION -> enableExplosionRing;
+            case KillType.CRIT -> enableCritRing;
+            default -> false;
+        };
     }
 
     private static int parseRgbHexOrDefault(String hex, int fallbackRgb) {

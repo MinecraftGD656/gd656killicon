@@ -35,11 +35,12 @@ import static org.lwjgl.stb.STBVorbis.*;
 
 public class ExternalSoundManager {
     private static final Path CONFIG_ASSETS_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
+    private static final Path COMMON_SOUNDS_DIR = CONFIG_ASSETS_DIR.resolve("common").resolve("sounds");
     private static final Map<String, SoundData> SOUND_CACHE = new HashMap<>();
     private static final Map<String, Long> SOUND_LAST_PLAY_TIMES = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> BLOCKING_STATUS = new ConcurrentHashMap<>();
     private static final ExecutorService SOUND_THREAD_POOL = Executors.newCachedThreadPool();
-    private static final long SOUND_COOLDOWN = 10L; // 0.01 seconds minimum interval per sound
+    private static final long SOUND_COOLDOWN = 10L; 
 
     private static final String[] DEFAULT_SOUNDS = {
         "combokillsound_1_cf.ogg",
@@ -61,6 +62,9 @@ public class ExternalSoundManager {
         "cardkillsound_armorheadshot_cs.ogg",
         "killsound_bf1.ogg",
         "headshotkillsound_bf1.ogg",
+        "killsound_bf5.ogg",
+        "headshotkillsound_bf5.ogg",
+        "vehiclekillsound_bf5.ogg",
         "addscore_df.ogg"
     };
     private static final Set<String> DEFAULT_SOUND_SET = new HashSet<>(Arrays.asList(DEFAULT_SOUNDS));
@@ -86,61 +90,19 @@ public class ExternalSoundManager {
     public static void reloadAsync() {
         SOUND_THREAD_POOL.submit(() -> {
             try {
-                // Send start message on main thread
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatInfo("gd656killicon.client.sound.reload_start");
-                });
-
-                // Ensure sound files exist for all presets
+                
                 ensureAllPresetsSoundFiles(false);
                 
-                // Clear cache on worker thread (thread-safe operation)
+                
                 clearCache();
 
-                // Send reloading message on main thread
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatInfo("gd656killicon.client.sound.reloading");
-                });
-
-                // Load sounds with progress tracking
                 String currentPresetId = ConfigManager.getCurrentPresetId();
-                final int[] totalSounds = {0};
-                final int[] loadedCount = {0};
-                
-                // First count total sounds to load
-                Path presetDir = CONFIG_ASSETS_DIR.resolve(currentPresetId).resolve("sounds");
-                if (Files.exists(presetDir)) {
-                    try (var stream = Files.list(presetDir)) {
-                        totalSounds[0] = (int) stream
-                            .filter(path -> Files.isRegularFile(path))
-                            .filter(path -> {
-                                String fileName = path.getFileName().toString();
-                                return fileName.endsWith(".ogg") || fileName.endsWith(".wav");
-                            })
-                            .count();
-                    } catch (IOException e) {
-                        ClientMessageLogger.error("gd656killicon.client.sound.scan_fail", e.getMessage());
-                    }
-                }
+                int finalLoadedCount = loadSoundsForPreset(currentPresetId);
 
-                // Load sounds with progress callback
-                int finalLoadedCount = loadSoundsForPreset(currentPresetId, (progress) -> {
-                    loadedCount[0] = progress;
-                    // Send progress message every 5 sounds or when complete
-                    if (progress % 5 == 0 || progress == totalSounds[0]) {
-                        Minecraft.getInstance().execute(() -> {
-                            ClientMessageLogger.chatInfo("gd656killicon.client.sound.reload_progress", progress, totalSounds[0]);
-                        });
-                    }
-                });
-
-                // Send success message on main thread
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatSuccess("gd656killicon.client.sound.reload_success", currentPresetId, finalLoadedCount);
-                });
+                ClientMessageLogger.info("Async sound reload complete for preset %s: %d loaded.", currentPresetId, finalLoadedCount);
             } catch (Exception e) {
-                // Log any unexpected errors
-                ClientMessageLogger.error("gd656killicon.client.sound.reload_error", e.getMessage());
+                
+                ClientMessageLogger.error("Async sound reload failed: %s", e.getMessage());
             }
         });
     }
@@ -150,8 +112,8 @@ public class ExternalSoundManager {
     }
 
     private static void ensureAllPresetsSoundFiles(boolean forceReset) {
+        ensureCommonSoundFiles(forceReset);
         Set<String> presets = ConfigManager.getPresetIds();
-        // Always ensure default presets exist
         ensureSoundFilesForPreset("00001", forceReset);
         ensureSoundFilesForPreset("00002", forceReset);
         
@@ -176,25 +138,8 @@ public class ExternalSoundManager {
                 String baseName = resolveBaseName(soundName);
                 Path wavPath = presetDir.resolve(baseName + ".wav");
                 if (forceReset) {
+                    Files.deleteIfExists(targetPath);
                     Files.deleteIfExists(wavPath);
-                }
-                if (forceReset || (!Files.exists(targetPath) && !Files.exists(wavPath))) {
-                    // Try to copy from JAR using ResourceLocation
-                    ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
-                    try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
-                        Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                    } catch (Exception e) {
-                        // Fallback to class resource stream if ResourceManager fails (e.g. dev environment sometimes)
-                        try (InputStream stream = ExternalSoundManager.class.getResourceAsStream("/assets/gd656killicon/sounds/" + soundName)) {
-                             if (stream != null) {
-                                 Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                             } else {
-                                 ClientMessageLogger.error("gd656killicon.client.sound.extract_fail", soundName, e.getMessage());
-                             }
-                        } catch (Exception ex) {
-                             ClientMessageLogger.error("gd656killicon.client.sound.extract_fail", soundName, ex.getMessage());
-                        }
-                    }
                 }
             }
         } catch (IOException e) {
@@ -218,6 +163,14 @@ public class ExternalSoundManager {
         }
         Path wavPath = presetDir.resolve(baseName + ".wav");
         if (Files.exists(wavPath)) {
+            return "WAV";
+        }
+        Path commonOgg = COMMON_SOUNDS_DIR.resolve(baseName + ".ogg");
+        if (Files.exists(commonOgg)) {
+            return "OGG";
+        }
+        Path commonWav = COMMON_SOUNDS_DIR.resolve(baseName + ".wav");
+        if (Files.exists(commonWav)) {
             return "WAV";
         }
         return "OGG";
@@ -279,20 +232,8 @@ public class ExternalSoundManager {
             Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
             backupFileIfNeeded(presetBackups, oggPath);
             backupFileIfNeeded(presetBackups, wavPath);
+            Files.deleteIfExists(oggPath);
             Files.deleteIfExists(wavPath);
-            ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
-            try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
-                Files.copy(stream, oggPath, StandardCopyOption.REPLACE_EXISTING);
-            } catch (Exception e) {
-                try (InputStream stream = ExternalSoundManager.class.getResourceAsStream("/assets/gd656killicon/sounds/" + soundName)) {
-                    if (stream != null) {
-                        Files.copy(stream, oggPath, StandardCopyOption.REPLACE_EXISTING);
-                    } else {
-                        ClientMessageLogger.error("gd656killicon.client.sound.extract_fail", soundName, e.getMessage());
-                        return false;
-                    }
-                }
-            }
             refreshSoundCache(presetId, baseName);
             return true;
         } catch (IOException e) {
@@ -379,8 +320,12 @@ public class ExternalSoundManager {
         if (!DEFAULT_SOUND_SET.contains(soundName)) {
             return false;
         }
-        Path currentPath = getSoundPathForPreset(presetId, resolveBaseName(soundName));
-        if (currentPath == null || !Files.exists(currentPath)) {
+        String baseName = resolveBaseName(soundName);
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        Path oggPath = presetDir.resolve(baseName + ".ogg");
+        Path wavPath = presetDir.resolve(baseName + ".wav");
+        Path currentPath = Files.exists(oggPath) ? oggPath : (Files.exists(wavPath) ? wavPath : null);
+        if (currentPath == null) {
             return false;
         }
         byte[] defaultBytes = getDefaultSoundBytes(soundName);
@@ -398,7 +343,7 @@ public class ExternalSoundManager {
     public static boolean resetSound(String presetId, String soundName) {
         if (presetId == null || soundName == null) return false;
         
-        // Check pending first
+        
         Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.get(presetId);
         if (presetBackups != null && presetBackups.containsKey(soundName)) {
             SoundBackup backup = presetBackups.remove(soundName);
@@ -420,19 +365,19 @@ public class ExternalSoundManager {
             }
         }
 
-        // If not pending, check if modified on disk and reset to default
+        
         if (isSoundModified(presetId, soundName)) {
-            // Force extract this specific sound
+            
             try {
                 Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
                 Path targetPath = presetDir.resolve(soundName);
                 String baseName = resolveBaseName(soundName);
                 
-                // Remove both .ogg and .wav variants to be clean
+                
                 Files.deleteIfExists(presetDir.resolve(baseName + ".ogg"));
                 Files.deleteIfExists(presetDir.resolve(baseName + ".wav"));
                 
-                // Copy default
+                
                 ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
                 try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                     Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
@@ -455,10 +400,11 @@ public class ExternalSoundManager {
     }
 
     public static void resetSounds(String presetId) {
+        ensureCommonSoundFiles(false);
         ensureSoundFilesForPreset(presetId, true);
         ClientMessageLogger.chatSuccess("gd656killicon.client.sound.reset_success", presetId);
 
-        // If resetting current preset, reload cache
+        
         if (presetId.equals(ConfigManager.getCurrentPresetId())) {
             reload();
         }
@@ -467,31 +413,24 @@ public class ExternalSoundManager {
     public static void resetSoundsAsync(String presetId) {
         SOUND_THREAD_POOL.submit(() -> {
             try {
-                // Send start message on main thread
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatInfo("gd656killicon.client.sound.reset_start");
-                });
-
-                // Use the shared method with forceReset=true
+                ensureCommonSoundFiles(false);
                 ensureSoundFilesForPreset(presetId, true);
                 
-                // Send success message on main thread
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatSuccess("gd656killicon.client.sound.reset_success", presetId);
-                });
+                ClientMessageLogger.info("Async sound reset complete for preset %s.", presetId);
 
-                // If resetting current preset, reload cache asynchronously
+                
                 if (presetId.equals(ConfigManager.getCurrentPresetId())) {
                     reloadAsync();
                 }
             } catch (Exception e) {
-                // Log any unexpected errors
-                ClientMessageLogger.error("gd656killicon.client.sound.reset_error", e.getMessage());
+                
+                ClientMessageLogger.error("Async sound reset failed for preset %s: %s", presetId, e.getMessage());
             }
         });
     }
 
     public static void resetAllSounds() {
+        ensureCommonSoundFiles(true);
         Set<String> presets = ConfigManager.getPresetIds();
         for (String presetId : presets) {
             resetSounds(presetId);
@@ -501,40 +440,23 @@ public class ExternalSoundManager {
     public static void resetAllSoundsAsync() {
         SOUND_THREAD_POOL.submit(() -> {
             try {
-                // Send start message on main thread
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatInfo("gd656killicon.client.sound.reset_start");
-                });
-
+                ensureCommonSoundFiles(true);
                 Set<String> presets = ConfigManager.getPresetIds();
-                int totalPresets = presets.size();
-                int completedPresets = 0;
                 
                 for (String presetId : presets) {
-                    // Call the synchronous resetSounds (which now uses ensureSoundFilesForPreset with force=true)
-                    // We avoid calling resetSounds(presetId) because it logs success per preset.
-                    // We just want to do the work.
+                    
+                    
+                    
                     ensureSoundFilesForPreset(presetId, true);
-                    
-                    completedPresets++;
-                    
-                    // Send progress message every preset or when complete
-                    final int currentProgress = completedPresets;
-                    Minecraft.getInstance().execute(() -> {
-                        ClientMessageLogger.chatInfo("gd656killicon.client.sound.reset_progress", currentProgress, totalPresets);
-                    });
                 }
                 
-                // Send success message on main thread
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatSuccess("gd656killicon.client.sound.reset_success", "all presets");
-                });
+                ClientMessageLogger.info("Async sound reset complete for all presets.");
                 
-                // Reload async after all resets
+                
                 reloadAsync();
             } catch (Exception e) {
-                // Log any unexpected errors
-                ClientMessageLogger.error("gd656killicon.client.sound.reset_error", e.getMessage());
+                
+                ClientMessageLogger.error("Async sound reset failed: %s", e.getMessage());
             }
         });
     }
@@ -544,35 +466,10 @@ public class ExternalSoundManager {
     }
 
     private static int loadSoundsForPreset(String presetId, Consumer<Integer> progressCallback) {
-        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
-        if (!Files.exists(presetDir)) return 0;
-
         int count = 0;
-        try (var stream = Files.list(presetDir)) {
-            for (Path path : (Iterable<Path>) stream::iterator) {
-                if (Files.isRegularFile(path)) {
-                    String fileName = path.getFileName().toString();
-                    if (fileName.endsWith(".ogg") || fileName.endsWith(".wav")) {
-                        try {
-                            SoundData data = loadSoundFile(path);
-                            if (data != null) {
-                                // Remove extension for key
-                                String key = fileName.replaceFirst("[.][^.]+$", "");
-                                SOUND_CACHE.put(key, data);
-                                count++;
-                                if (progressCallback != null) {
-                                    progressCallback.accept(count);
-                                }
-                            }
-                        } catch (Exception e) {
-                            ClientMessageLogger.error("Failed to load sound: " + fileName + " - " + e.getMessage());
-                        }
-                    }
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        count += loadSoundsFromDirectory(COMMON_SOUNDS_DIR, false, progressCallback, count);
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        count += loadSoundsFromDirectory(presetDir, true, progressCallback, count);
         return count;
     }
 
@@ -591,8 +488,8 @@ public class ExternalSoundManager {
             AudioInputStream ais = AudioSystem.getAudioInputStream(path.toFile());
             AudioFormat format = ais.getFormat();
             
-            // Convert to PCM_SIGNED if needed (Java Sound compatibility)
-            // But usually WAV is already PCM. We just read all bytes.
+            
+            
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] data = new byte[4096];
             int nRead;
@@ -609,7 +506,7 @@ public class ExternalSoundManager {
     private static SoundData loadOgg(Path path) {
         ByteBuffer vorbisBuffer = null;
         try {
-            // Read file to ByteBuffer
+            
             byte[] bytes = Files.readAllBytes(path);
             vorbisBuffer = BufferUtils.createByteBuffer(bytes.length);
             vorbisBuffer.put(bytes);
@@ -627,7 +524,7 @@ public class ExternalSoundManager {
                 int channels = channelsBuffer.get(0);
                 int sampleRate = sampleRateBuffer.get(0);
 
-                // Convert ShortBuffer to byte[]
+                
                 byte[] pcmBytes = new byte[pcm.capacity() * 2];
                 for (int i = 0; i < pcm.capacity(); i++) {
                     short sample = pcm.get(i);
@@ -635,7 +532,7 @@ public class ExternalSoundManager {
                     pcmBytes[i * 2 + 1] = (byte) ((sample >> 8) & 0xFF);
                 }
 
-                // STB Vorbis always returns 16-bit PCM
+                
                 AudioFormat format = new AudioFormat(sampleRate, 16, channels, true, false);
                 return new SoundData(pcmBytes, format);
             }
@@ -644,10 +541,10 @@ public class ExternalSoundManager {
             return null;
         } finally {
             if (vorbisBuffer != null) {
-                // BufferUtils.createByteBuffer allocates direct memory, but it's managed by GC if created via BufferUtils? 
-                // Wait, BufferUtils.createByteBuffer uses Unsafe or direct allocation. 
-                // LWJGL's BufferUtils.createByteBuffer returns a ByteBuffer.
-                // It should be fine.
+                
+                
+                
+                
             }
         }
     }
@@ -677,9 +574,9 @@ public class ExternalSoundManager {
         SoundData data = SOUND_CACHE.get(name);
         String resolvedName = name;
         if (data == null) {
-            // Try looking for default suffix if exact match failed (compatibility)
+            
             if (!name.endsWith("_cf") && !name.endsWith("_df")) {
-                // Try finding keys that start with name
+                
                 for (String key : SOUND_CACHE.keySet()) {
                     if (key.startsWith(name)) {
                         data = SOUND_CACHE.get(key);
@@ -694,11 +591,11 @@ public class ExternalSoundManager {
         final SoundData finalData = data;
         final String finalName = resolvedName;
         
-        // Calculate duration
+        
         long frameLength = finalData.pcmData.length / finalData.format.getFrameSize();
         double durationInSeconds = frameLength / finalData.format.getFrameRate();
         long durationMs = (long) (durationInSeconds * 1000);
-        SOUND_DURATIONS_MS.put(name, durationMs); // Use original name for lookup key consistency
+        SOUND_DURATIONS_MS.put(name, durationMs); 
 
         if (blocking) {
             BLOCKING_STATUS.put(name, true);
@@ -723,13 +620,13 @@ public class ExternalSoundManager {
                 SourceDataLine line = (SourceDataLine) AudioSystem.getLine(info);
                 line.open(finalData.format);
                 
-                // Volume control
+                
                 if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                     FloatControl gainControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
                     float masterVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MASTER);
                     masterVolume *= Math.max(0.0f, soundVolume / 100.0f);
                     
-                    // Convert linear volume (0.0 - 1.0) to decibels
+                    
                     if (masterVolume <= 0.0001f) {
                         masterVolume = 0.0001f;
                     }
@@ -798,6 +695,14 @@ public class ExternalSoundManager {
         if (Files.exists(wavPath)) {
             return wavPath;
         }
+        Path commonOgg = COMMON_SOUNDS_DIR.resolve(baseName + ".ogg");
+        if (Files.exists(commonOgg)) {
+            return commonOgg;
+        }
+        Path commonWav = COMMON_SOUNDS_DIR.resolve(baseName + ".wav");
+        if (Files.exists(commonWav)) {
+            return commonWav;
+        }
         return oggPath;
     }
 
@@ -846,6 +751,71 @@ public class ExternalSoundManager {
                 SOUND_CACHE.remove(baseName);
             }
         }
+    }
+
+    private static void ensureCommonSoundFiles(boolean forceReset) {
+        try {
+            if (!Files.exists(COMMON_SOUNDS_DIR)) {
+                Files.createDirectories(COMMON_SOUNDS_DIR);
+            }
+            for (String soundName : DEFAULT_SOUNDS) {
+                String baseName = resolveBaseName(soundName);
+                Path targetPath = COMMON_SOUNDS_DIR.resolve(baseName + ".ogg");
+                if (forceReset || !Files.exists(targetPath)) {
+                    ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+                    try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
+                        Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (Exception e) {
+                        try (InputStream stream = ExternalSoundManager.class.getResourceAsStream("/assets/gd656killicon/sounds/" + soundName)) {
+                            if (stream != null) {
+                                Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                            } else {
+                                ClientMessageLogger.error("gd656killicon.client.sound.extract_fail", soundName, e.getMessage());
+                            }
+                        } catch (Exception ex) {
+                            ClientMessageLogger.error("gd656killicon.client.sound.extract_fail", soundName, ex.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.sound.init_fail", "common", e.getMessage());
+        }
+    }
+
+    private static int loadSoundsFromDirectory(Path directory, boolean override, Consumer<Integer> progressCallback, int currentCount) {
+        if (!Files.exists(directory)) {
+            return 0;
+        }
+        int count = 0;
+        try (var stream = Files.list(directory)) {
+            for (Path path : (Iterable<Path>) stream::iterator) {
+                if (Files.isRegularFile(path)) {
+                    String fileName = path.getFileName().toString();
+                    if (fileName.endsWith(".ogg") || fileName.endsWith(".wav")) {
+                        try {
+                            String key = fileName.replaceFirst("[.][^.]+$", "");
+                            if (!override && SOUND_CACHE.containsKey(key)) {
+                                continue;
+                            }
+                            SoundData data = loadSoundFile(path);
+                            if (data != null) {
+                                SOUND_CACHE.put(key, data);
+                                count++;
+                                if (progressCallback != null) {
+                                    progressCallback.accept(currentCount + count);
+                                }
+                            }
+                        } catch (Exception e) {
+                            ClientMessageLogger.error("Failed to load sound: " + fileName + " - " + e.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return count;
     }
 
     public static SoundData getSoundData(String name) {

@@ -21,7 +21,7 @@ public class GDButton {
     private float hoverProgress = 0.0f;
     private long lastTime;
     
-    // 使用 GDTextRenderer 处理字幕显示（支持滚动）
+    
     private GDTextRenderer textRenderer;
 
     public GDButton(int x, int y, int width, int height, Component message, Consumer<GDButton> onPress) {
@@ -34,10 +34,10 @@ public class GDButton {
         this.minecraft = Minecraft.getInstance();
         this.lastTime = System.currentTimeMillis();
         
-        // 初始化文本渲染器
-        // 计算垂直居中的 Y 坐标
+        
+        
         int textY = y + (height - 9) / 2;
-        // x1, y1, x2, y2, fontSize, color, autoWrap
+        
         this.textRenderer = new GDTextRenderer(message.getString(), x, textY, x + width, textY + 9, 1.0f, textColor, false);
         this.textRenderer.setCentered(true);
     }
@@ -49,31 +49,31 @@ public class GDButton {
 
         boolean hovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
 
-        // 更新动画进度
+        
         if (hovered) {
             hoverProgress = Math.min(1.0f, hoverProgress + dt);
         } else {
             hoverProgress = Math.max(0.0f, hoverProgress - dt);
         }
 
-        // 1. 绘制背景（无边框实心矩形）
+        
         guiGraphics.fill(x, y, x + width, y + height, GuiConstants.COLOR_BG);
 
-        // 2. 绘制文本（使用 GDTextRenderer）
-        // 如果文本超出宽度，GDTextRenderer 会自动处理滚动
+        
+        
         textRenderer.render(guiGraphics, partialTick);
 
-        // 3. 绘制悬停金条（亚像素级别浮点数动画）
+        
         if (hoverProgress > 0.001f) {
-            float ease = 1.0f - (float) Math.pow(1.0f - hoverProgress, 3); // Ease-out cubic
+            float ease = 1.0f - (float) Math.pow(1.0f - hoverProgress, 3); 
             float floatBarWidth = width * ease;
             
             guiGraphics.pose().pushPose();
-            // 移动到左下角起点
+            
             guiGraphics.pose().translate(x, y + height - 1.0f, 0);
-            // 使用缩放实现亚像素宽度的金条
+            
             guiGraphics.pose().scale(floatBarWidth, 1.0f, 1.0f);
-            // 绘制一个单位宽度的像素，缩放后即为亚像素精度的长度
+            
             guiGraphics.fill(0, 0, 1, 1, GuiConstants.COLOR_GOLD);
             guiGraphics.pose().popPose();
         }

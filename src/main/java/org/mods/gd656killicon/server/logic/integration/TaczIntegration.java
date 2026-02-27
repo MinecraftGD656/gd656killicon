@@ -10,6 +10,7 @@ import java.util.UUID;
 public class TaczIntegration {
     private static final TaczIntegration INSTANCE = new TaczIntegration();
     private ITaczHandler handler;
+    private boolean initialized = false;
 
     private TaczIntegration() {
         this.handler = new DummyTaczHandler();
@@ -24,6 +25,10 @@ public class TaczIntegration {
      * Attempts to load the real handler if the mod is present, otherwise falls back to a dummy.
      */
     public void init() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
         try {
             if (ModList.get().isLoaded("tacz")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.tacz.TaczEventHandler");

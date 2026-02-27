@@ -14,16 +14,16 @@ public class Gd656killicon {
     public Gd656killicon() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // Register deferred registers
-        // ModSounds.register(modEventBus); // Removed sound registration
+        
+        
 
-        // Initialize networking
+        
         NetworkHandler.register();
 
-        // Register Config Screen
+        
         net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT, () -> () -> org.mods.gd656killicon.client.ClientSetup.registerConfigScreen());
 
-        // Register ourselves for server and other game events we are interested in
+        
         MinecraftForge.EVENT_BUS.register(this);
     }
 }

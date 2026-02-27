@@ -4,11 +4,16 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.gui.elements.GDButton;
+import org.mods.gd656killicon.client.gui.elements.PromptDialog;
 import org.mods.gd656killicon.client.gui.tabs.ConfigTabContent;
+import org.mods.gd656killicon.client.render.HudElementManager;
+import org.mods.gd656killicon.client.render.IHudRenderer;
 
 public class MainConfigScreen extends Screen {
     private final Screen parent;
@@ -20,6 +25,7 @@ public class MainConfigScreen extends Screen {
     private GDButton btnCancel;
     private GDButton btnSaveExit;
     private boolean showExitConfirmation = false;
+    private Runnable pendingExitAction;
 
     public MainConfigScreen(Screen parent) {
         super(Component.translatable("gd656killicon.client.gui.config.title"));
@@ -53,7 +59,7 @@ public class MainConfigScreen extends Screen {
         int totalWidth = btnWidth * 3 + spacing * 2;
         int startX = (width - totalWidth) / 2;
         
-        // Center group vertically
+        
         int textHeight = font.lineHeight;
         int gap = 5;
         int groupHeight = textHeight + gap + btnHeight;
@@ -61,8 +67,10 @@ public class MainConfigScreen extends Screen {
         int btnY = groupY + textHeight + gap;
         
         btnExitNoSave = new GDButton(startX, btnY, btnWidth, btnHeight, Component.translatable("gd656killicon.client.gui.config.exit_dialog.exit_no_save"), (btn) -> {
-            ConfigManager.discardChanges();
-            minecraft.setScreen(parent);
+            pendingExitAction = () -> {
+                ConfigManager.discardChanges();
+                minecraft.setScreen(parent);
+            };
         });
         
         btnCancel = new GDButton(startX + btnWidth + spacing, btnY, btnWidth, btnHeight, Component.translatable("gd656killicon.client.gui.config.exit_dialog.return"), (btn) -> {
@@ -70,9 +78,24 @@ public class MainConfigScreen extends Screen {
         });
         
         btnSaveExit = new GDButton(startX + (btnWidth + spacing) * 2, btnY, btnWidth, btnHeight, Component.translatable("gd656killicon.client.gui.config.exit_dialog.save_exit"), (btn) -> {
-            ConfigManager.saveChanges();
-            minecraft.setScreen(parent);
+            pendingExitAction = () -> {
+                boolean showAceLogo = ClientConfigManager.isEnableAceLag()
+                    && ClientConfigManager.isAceLagConfigChangedInEdit();
+                ConfigManager.saveChanges();
+                minecraft.setScreen(parent);
+                if (showAceLogo) {
+                    HudElementManager.trigger("global", "ace_logo", IHudRenderer.TriggerContext.of(0, -1));
+                }
+            };
         });
+
+        String languageCode = minecraft.options.languageCode;
+        if (ClientConfigManager.checkLanguageChangedAndUpdate(languageCode)) {
+            ConfigTabContent activeTab = header.getSelectedTabContent();
+            if (activeTab != null) {
+                activeTab.getPromptDialog().show(I18n.get("gd656killicon.client.gui.prompt.language_changed"), PromptDialog.PromptType.INFO, null);
+            }
+        }
     }
 
     @Override
@@ -109,14 +132,14 @@ public class MainConfigScreen extends Screen {
                 renderBackground(guiGraphics);
             }
             
-            // Render text
+            
             int textHeight = font.lineHeight;
             int gap = 5;
             int groupHeight = textHeight + gap + GuiConstants.ROW_HEADER_HEIGHT;
             int groupY = (height - groupHeight) / 2;
             guiGraphics.drawCenteredString(font, Component.translatable("gd656killicon.client.gui.config.exit_dialog.title"), width / 2, groupY, GuiConstants.COLOR_WHITE);
             
-            // Render widgets (buttons)
+            
             if (btnExitNoSave != null) btnExitNoSave.render(guiGraphics, mouseX, mouseY, partialTick);
             if (btnCancel != null) btnCancel.render(guiGraphics, mouseX, mouseY, partialTick);
             if (btnSaveExit != null) btnSaveExit.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -130,10 +153,10 @@ public class MainConfigScreen extends Screen {
             renderBackground(guiGraphics);
         }
         
-        // Render custom header instead of default centered title
+        
         header.render(guiGraphics, width, mouseX, mouseY, partialTick);
         
-        // Render Active Tab Content
+        
         ConfigTabContent activeTab = header.getSelectedTabContent();
         if (activeTab != null) {
             activeTab.render(guiGraphics, mouseX, mouseY, partialTick, width, height, GuiConstants.HEADER_HEIGHT);
@@ -148,10 +171,10 @@ public class MainConfigScreen extends Screen {
             if (btnExitNoSave != null && btnExitNoSave.mouseClicked(mouseX, mouseY, button)) return true;
             if (btnCancel != null && btnCancel.mouseClicked(mouseX, mouseY, button)) return true;
             if (btnSaveExit != null && btnSaveExit.mouseClicked(mouseX, mouseY, button)) return true;
-            return super.mouseClicked(mouseX, mouseY, button);
+            return true;
         }
         if (header.mouseClicked(mouseX, mouseY, button)) {
-            // 如果点击了页签，关闭快捷计分板模式，转为常规配置界面模式
+            
             this.quickScoreboardMode = false;
             return true;
         }
@@ -165,7 +188,13 @@ public class MainConfigScreen extends Screen {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (showExitConfirmation) {
-            return super.mouseReleased(mouseX, mouseY, button);
+            if (pendingExitAction != null && button == 0) {
+                Runnable action = pendingExitAction;
+                pendingExitAction = null;
+                action.run();
+                return true;
+            }
+            return true;
         }
         if (header.mouseReleased(mouseX, mouseY, button)) {
             return true;
@@ -237,7 +266,7 @@ public class MainConfigScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (showExitConfirmation) {
-            if (keyCode == 256) { // ESC
+            if (keyCode == 256) { 
                 showExitConfirmation = false;
                 return true;
             }
@@ -252,10 +281,10 @@ public class MainConfigScreen extends Screen {
 
     private void renderGildedBlackstoneBackground(GuiGraphics guiGraphics) {
         RenderSystem.setShaderTexture(0, BACKGROUND_TEXTURE);
-        RenderSystem.setShaderColor(0.25F, 0.25F, 0.25F, 1.0F); // Darken it a bit like standard background
+        RenderSystem.setShaderColor(0.25F, 0.25F, 0.25F, 1.0F); 
         
-        // Tile the background
-        int size = 32; // Display size of one tile (scaled up)
+        
+        int size = 32; 
         int cols = width / size + 1;
         int rows = height / size + 1;
 

@@ -3,6 +3,8 @@ package org.mods.gd656killicon.client.gui.elements;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import org.mods.gd656killicon.client.config.ElementConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.textures.ModTextures;
 import org.mods.gd656killicon.common.KillType;
@@ -18,11 +20,11 @@ public class InfiniteGridWidget {
     private boolean isDragging = false;
     private double lastMouseX, lastMouseY;
     
-    // Grid line color: Same as gray border (assumed COLOR_GRAY) but lower opacity
-    private static final int GRID_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x40 << 24); // ~25% opacity
+    
+    private static final int GRID_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x40 << 24); 
     private static final int CROSS_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x90 << 24);
     private static final int TEXT_COLOR = GuiConstants.COLOR_GRAY;
-    private static final int BORDER_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x80 << 24); // 50% opacity
+    private static final int BORDER_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x80 << 24); 
     private static final int ICON_SIZE = 64;
 
     public static final class ScrollingIcon {
@@ -47,7 +49,7 @@ public class InfiniteGridWidget {
         this.width = width;
         this.height = height;
         
-        // Center the view initially (0,0 at center of widget)
+        
         this.viewX = x + width / 2.0;
         this.viewY = y + height / 2.0;
     }
@@ -92,19 +94,19 @@ public class InfiniteGridWidget {
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, List<ScrollingIcon> icons) {
-        // Draw border
+        
         guiGraphics.fill(x, y, x + width, y + 1, BORDER_COLOR);
         guiGraphics.fill(x, y + height - 1, x + width, y + height, BORDER_COLOR);
         guiGraphics.fill(x, y, x + 1, y + height, BORDER_COLOR);
         guiGraphics.fill(x + width - 1, y, x + width, y + height, BORDER_COLOR);
         
-        // Enable Scissor Test
+        
         guiGraphics.enableScissor(x + 1, y + 1, x + width - 1, y + height - 1);
         
-        // Calculate visible grid range
-        // Grid lines are drawn at: viewX + n * gridSize
-        // We want: x <= viewX + n * gridSize <= x + width
-        // (x - viewX) / gridSize <= n <= (x + width - viewX) / gridSize
+        
+        
+        
+        
         
         int startCol = (int) Math.floor((x - viewX) / gridSize);
         int endCol = (int) Math.ceil((x + width - viewX) / gridSize);
@@ -149,7 +151,7 @@ public class InfiniteGridWidget {
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         }
 
-        // Draw Coordinates
+        
         guiGraphics.pose().pushPose();
         float scale = 0.5f;
         guiGraphics.pose().translate(subPixelX, subPixelY, 0);
@@ -162,15 +164,15 @@ public class InfiniteGridWidget {
                 int px = (int)(baseViewX + i * gridSize);
                 int py = (int)(baseViewY + j * gridSize);
                 
-                // Only draw if intersection is visible
+                
                 if (px >= x && px <= x + width && py >= y && py <= y + height) {
                     String coordText = (i * gridSize) + "," + (j * gridSize);
                     int textWidth = mc.font.width(coordText);
                     
-                    // Draw text slightly offset from intersection
-                    // Scale coordinates back because we scaled the pose
-                    // Target pos: px + 2, py + 2
-                    // Scaled pos: (px + 2) / scale, (py + 2) / scale
+                    
+                    
+                    
+                    
                     
                     float drawX = (px + 2) / scale;
                     float drawY = (py + 2) / scale;
@@ -185,14 +187,25 @@ public class InfiniteGridWidget {
     }
 
     private static String getTexturePath(int killType) {
+        String presetId = org.mods.gd656killicon.client.config.ConfigManager.getCurrentPresetId();
+        String textureKey = getTextureKey(killType);
+        return ElementTextureDefinition.getSelectedTextureFileName(
+            presetId,
+            "kill_icon/scrolling",
+            textureKey,
+            ElementConfigManager.getElementConfig(presetId, "kill_icon/scrolling")
+        );
+    }
+
+    private static String getTextureKey(int killType) {
         return switch (killType) {
-            case KillType.HEADSHOT -> "killicon_scrolling_headshot.png";
-            case KillType.EXPLOSION -> "killicon_scrolling_explosion.png";
-            case KillType.CRIT -> "killicon_scrolling_crit.png";
-            case KillType.ASSIST -> "killicon_scrolling_assist.png";
-            case KillType.DESTROY_VEHICLE -> "killicon_scrolling_destroyvehicle.png";
-            case KillType.NORMAL -> "killicon_scrolling_default.png";
-            default -> "killicon_scrolling_default.png";
+            case KillType.HEADSHOT -> "headshot";
+            case KillType.EXPLOSION -> "explosion";
+            case KillType.CRIT -> "crit";
+            case KillType.ASSIST -> "assist";
+            case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
+            case KillType.NORMAL -> "default";
+            default -> "default";
         };
     }
 

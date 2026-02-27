@@ -9,6 +9,7 @@ import org.mods.gd656killicon.client.config.ElementConfigManager.ElementPreset;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Enumeration;
@@ -40,14 +41,14 @@ public class PresetPackManager {
 
             Path exportPath = EXPORT_DIR.resolve(fileName);
             
-            // Get preset config
+            
             ElementPreset preset = ElementConfigManager.getActivePresets().get(presetId);
             if (preset == null) {
                 ClientMessageLogger.chatError("gd656killicon.client.config.export.preset_not_found", presetId);
                 return false;
             }
 
-            // Prepare preset JSON
+            
             JsonObject presetJson = new JsonObject();
             presetJson.addProperty("original_id", presetId);
             presetJson.addProperty("display_name", preset.getDisplayName());
@@ -57,15 +58,15 @@ public class PresetPackManager {
             }
             presetJson.add("elements", elements);
 
-            // Create Zip
+            
             try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(exportPath))) {
-                // 1. Write preset.json
+                
                 ZipEntry configEntry = new ZipEntry("preset.json");
                 zos.putNextEntry(configEntry);
                 zos.write(GSON.toJson(presetJson).getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 zos.closeEntry();
 
-                // 2. Write Assets
+                
                 Path presetAssetsDir = ASSETS_DIR.resolve(presetId);
                 if (Files.exists(presetAssetsDir)) {
                     Files.walkFileTree(presetAssetsDir, new SimpleFileVisitor<Path>() {
@@ -92,7 +93,7 @@ public class PresetPackManager {
     }
 
     public static String checkImport(File file) {
-        try (ZipFile zipFile = new ZipFile(file)) {
+        try (ZipFile zipFile = new ZipFile(file, StandardCharsets.UTF_8)) {
             ZipEntry configEntry = zipFile.getEntry("preset.json");
             if (configEntry == null) {
                 return "invalid_format";
@@ -122,10 +123,10 @@ public class PresetPackManager {
     
     // Helper to read ID from zip without full import
     public static String getPresetIdFromPack(File file) {
-        try (ZipFile zipFile = new ZipFile(file)) {
+        try (ZipFile zipFile = new ZipFile(file, StandardCharsets.UTF_8)) {
             ZipEntry configEntry = zipFile.getEntry("preset.json");
             if (configEntry != null) {
-                try (InputStreamReader reader = new InputStreamReader(zipFile.getInputStream(configEntry))) {
+                try (InputStreamReader reader = new InputStreamReader(zipFile.getInputStream(configEntry), StandardCharsets.UTF_8)) {
                     JsonObject json = GSON.fromJson(reader, JsonObject.class);
                     if (json.has("original_id")) {
                         return json.get("original_id").getAsString();
@@ -139,13 +140,13 @@ public class PresetPackManager {
     }
 
     public static boolean importPreset(File file, String targetId) {
-        try (ZipFile zipFile = new ZipFile(file)) {
+        try (ZipFile zipFile = new ZipFile(file, StandardCharsets.UTF_8)) {
             // 1. Read config
             ZipEntry configEntry = zipFile.getEntry("preset.json");
             if (configEntry == null) throw new IOException("Missing preset.json");
 
             JsonObject presetJson;
-            try (InputStreamReader reader = new InputStreamReader(zipFile.getInputStream(configEntry))) {
+            try (InputStreamReader reader = new InputStreamReader(zipFile.getInputStream(configEntry), StandardCharsets.UTF_8)) {
                 presetJson = GSON.fromJson(reader, JsonObject.class);
             }
             

@@ -33,16 +33,16 @@ public class GDTextRenderer {
         }
     }
 
-    // 滚动相关
+    
     private float scrollOffset = 0;
     private boolean scrollingForward = true;
     private long lastTime;
-    private static final float SCROLL_SPEED = 30.0f; // 像素/秒
-    private static final long PAUSE_TIME_MS = 1000;  // 边缘停顿时间
-    private boolean centered = false; // 是否水平居中
+    private static final float SCROLL_SPEED = 30.0f; 
+    private static final long PAUSE_TIME_MS = 1000;  
+    private boolean centered = false; 
     private Integer overrideColor = null;
 
-    // 垂直滚动相关 (AutoWrap模式)
+    
     private float scrollY = 0;
 
     public void setOverrideColor(Integer color) {
@@ -91,7 +91,7 @@ public class GDTextRenderer {
     }
 
     public void render(GuiGraphics guiGraphics, float partialTick, boolean useScissor) {
-        // 在顶层 render 中更新时间步进
+        
         long now = System.currentTimeMillis();
         float dt = (now - lastTime) / 1000.0f;
         lastTime = now;
@@ -130,7 +130,7 @@ public class GDTextRenderer {
     }
 
     private void renderWrappedText(GuiGraphics guiGraphics, float maxWidth) {
-        // 垂直滚动逻辑由外部控制 (setScrollY)
+        
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0, -scrollY, 0);
         drawWrappedInternal(guiGraphics, maxWidth);
@@ -148,7 +148,7 @@ public class GDTextRenderer {
     public float getMaxScrollY() {
         if (!autoWrap) return 0;
         int contentHeight = getFinalHeight();
-        // 容器高度 (缩放后的有效高度)
+        
         float containerHeight = this.height / fontSize;
         return Math.max(0, contentHeight - containerHeight);
     }
@@ -180,7 +180,7 @@ public class GDTextRenderer {
                             minecraft.font.plainSubstrByWidth(remaining, (int)(maxWidth - currentX)).length() : 
                             remaining.length();
                 
-                if (count == 0 && currentX > 0) { // 换行
+                if (count == 0 && currentX > 0) { 
                     currentX = 0;
                     yOffset += 9;
                     continue;
@@ -202,9 +202,9 @@ public class GDTextRenderer {
 
     private List<String> wrapText(String text, float maxWidth) {
         List<String> lines = new ArrayList<>();
-        // 预处理文本，处理可能存在的转义换行符和不同平台的换行符
-        // 1. 将 "\\n" (字面量) 替换为 "\n" (换行符)，以防 I18n 或 JSON 解析导致的转义问题
-        // 2. 统一行尾为 "\n"
+        
+        
+        
         String processedText = text.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n");
         String[] paragraphs = processedText.split("\n", -1);
 
@@ -240,8 +240,8 @@ public class GDTextRenderer {
             for (ColoredText ct : coloredTexts) textWidth += minecraft.font.width(ct.text);
         }
         
-        // 只有当文本宽度超过可用宽度时才滚动
-        if (textWidth <= maxWidth + 1) { // 给予1像素的误差容限
+        
+        if (textWidth <= maxWidth + 1) { 
             drawInternal(guiGraphics, 0, 0, maxWidth);
             scrollOffset = 0;
             pauseStartTime = -1;
@@ -249,7 +249,7 @@ public class GDTextRenderer {
             return;
         }
 
-        // 滚动限制逻辑
+        
         float maxScroll = textWidth - maxWidth;
         
         if (pauseStartTime != -1) {
@@ -275,12 +275,12 @@ public class GDTextRenderer {
             }
         }
 
-        // 使用 PoseStack 偏移渲染，确保平滑
+        
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(-scrollOffset, 0, 0);
         
-        // 在滚动模式下，drawInternal 始终从 (0,0) 开始，因为平移已经处理了滚动
-        // 并且滚动模式下通常不使用居中，或者说居中在滚动时没有意义
+        
+        
         drawInternal(guiGraphics, 0, 0, textWidth); 
         
         guiGraphics.pose().popPose();
@@ -322,7 +322,7 @@ public class GDTextRenderer {
     public int getFinalHeight() {
         if (!autoWrap) return (int)(9 * fontSize);
         
-        // 缩放后的有效宽度
+        
         float scale = fontSize;
         float scaledWidth = width / scale;
         

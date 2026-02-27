@@ -86,11 +86,11 @@ public class SoundConfigContent extends ConfigTabContent {
 
     @Override
     protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
-        // Render Grid Background
+        
         if (gridWidget != null) {
             gridWidget.render(guiGraphics, mouseX, mouseY, partialTick, null);
             
-            // Render Waveform
+            
             if (selectedSoundName != null) {
                 renderWaveform(guiGraphics, gridWidget.getX(), gridWidget.getY(), gridWidget.getWidth(), gridWidget.getHeight());
             }
@@ -100,12 +100,12 @@ public class SoundConfigContent extends ConfigTabContent {
     }
 
     private void renderWaveform(GuiGraphics guiGraphics, int x, int y, int width, int height) {
-        // Update cache if needed
+        
         if (!selectedSoundName.equals(cachedSoundDataName)) {
             cachedSoundData = ExternalSoundManager.getSoundData(selectedSoundName);
             cachedSoundDataName = selectedSoundName;
             if (cachedSoundData == null) {
-                // Try to resolve base name if key uses extension or not
+                
                 String baseName = selectedSoundName.replaceFirst("[.][^.]+$", "");
                 cachedSoundData = ExternalSoundManager.getSoundData(baseName);
             }
@@ -115,16 +115,16 @@ public class SoundConfigContent extends ConfigTabContent {
             return;
         }
 
-        // Rebuild rows if playback state changed to update icons
+        
         String baseName = selectedSoundName.replaceFirst("[.][^.]+$", "");
         boolean isPlaying = ExternalSoundManager.isSoundPlaying(baseName) || ExternalSoundManager.isSoundPlaying(selectedSoundName);
-        // User requested to remove dynamic play button state logic.
-        // So we just rely on render loop for waveform updates.
+        
+        
 
-        int samples = cachedSoundData.pcmData.length / 2; // 16-bit
+        int samples = cachedSoundData.pcmData.length / 2; 
         if (samples == 0) return;
 
-        // Get playback progress for this sound
+        
         float progress = 0.0f;
         if (ExternalSoundManager.isSoundPlaying(baseName) || ExternalSoundManager.isSoundPlaying(selectedSoundName)) {
             progress = ExternalSoundManager.getSoundProgress(baseName);
@@ -139,11 +139,11 @@ public class SoundConfigContent extends ConfigTabContent {
         int colorGold = GuiConstants.COLOR_GOLD;
         int colorPlayed = GuiConstants.COLOR_GOLD_ORANGE;
         
-        // Draw center line
+        
         guiGraphics.fill(x, centerY, x + width, centerY + 1, (colorGold & 0x00FFFFFF) | 0x40000000);
 
-        // Simple visualization: map samples to width
-        // We want to fit the whole waveform in width
+        
+        
         
         double samplesPerPixel = (double) samples / width;
         
@@ -171,16 +171,16 @@ public class SoundConfigContent extends ConfigTabContent {
                 int hMax = (int) (normMax * (height / 2 - 4));
                 int hMin = (int) (normMin * (height / 2 - 4));
                 
-                if (hMax == hMin) hMax++; // Ensure at least 1px
+                if (hMax == hMin) hMax++; 
                 
                 int y1_line = centerY - hMax;
                 int y2_line = centerY - hMin;
                 
-                // Determine color based on progress
+                
                 float currentProgressX = (float) px / width;
                 int color = currentProgressX <= progress ? colorPlayed : colorGold;
                 
-                // Draw vertical line at px
+                
                 guiGraphics.fill(x + px, y1_line, x + px + 1, y2_line, color);
             }
         }
@@ -315,9 +315,9 @@ public class SoundConfigContent extends ConfigTabContent {
         }
         boolean replaced = ExternalSoundManager.replaceSoundWithBackup(presetId, selectedSoundName, targetPath);
         if (replaced) {
-            // Refresh rows to show modified status
+            
             updateSoundRows();
-            // Force refresh cache for waveform
+            
             cachedSoundDataName = null;
             
             promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.sound_replace_success"), PromptDialog.PromptType.SUCCESS, null);
@@ -342,7 +342,7 @@ public class SoundConfigContent extends ConfigTabContent {
             boolean isModified = ExternalSoundManager.isSoundModified(presetId, soundName);
             String baseName = soundName.replaceFirst("[.][^.]+$", "");
             
-            // Background color logic: Dark gold if selected
+            
             int bgColor = GuiConstants.COLOR_BLACK;
             if (soundName.equals(selectedSoundName)) {
                 bgColor = GuiConstants.COLOR_DARK_GOLD_ORANGE;
@@ -350,7 +350,7 @@ public class SoundConfigContent extends ConfigTabContent {
             
             GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, bgColor, 0, false);
             
-            // Column 1: Index + Name
+            
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             String indexLabel = String.format("%02d", i + 1);
             texts.add(new GDTextRenderer.ColoredText("[" + indexLabel + "] ", GuiConstants.COLOR_GRAY));
@@ -358,24 +358,24 @@ public class SoundConfigContent extends ConfigTabContent {
             
             row.addColoredColumn(texts, -1, false, false, (idx) -> {
                 selectedSoundName = soundName;
-                updateSoundRows(); // Rebuild to update selection bg
+                updateSoundRows(); 
             });
             
-            // Column 2: Extension (e.g. OGG/WAV)
+            
             String ext = ExternalSoundManager.getSoundExtensionForPreset(presetId, soundName);
             row.addColumn(ext, 36, isModified ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY, false, true, (idx) -> {
                 selectedSoundName = soundName;
                 updateSoundRows();
             });
             
-            // Column 3: Play Button
-            // Always show "▶" as requested by user ("不需要播放按钮变换状态了...只需要▶即可")
-            // Highlight color if playing? "不需要播放按钮变换状态了" implies static appearance?
-            // "只需要▶即可" -> static symbol.
-            // But maybe keep color highlight? The previous request was "试听按钮需要换成正在播放的样式" which is now reverted.
-            // I'll revert to static "▶" with static color (WHITE) or keep highlight?
-            // "不需要播放按钮变换状态了" -> No state change.
-            // So just static "▶" and WHITE color.
+            
+            
+            
+            
+            
+            
+            
+            
             
             row.addColumn("▶", 20, GuiConstants.COLOR_WHITE, true, true, (idx) -> {
                 selectedSoundName = soundName;
@@ -383,7 +383,7 @@ public class SoundConfigContent extends ConfigTabContent {
                 updateSoundRows();
             });
             
-            // Column 4: Reset Button (only if modified)
+            
             if (isModified) {
                 row.addColumn("↺", 20, GuiConstants.COLOR_GOLD, true, true, (idx) -> {
                     boolean reset = ExternalSoundManager.resetSoundWithBackup(presetId, soundName);
@@ -393,7 +393,7 @@ public class SoundConfigContent extends ConfigTabContent {
                     }
                 });
             } else {
-                 // "已经还原的元素还原图标需要为灰色" -> Show gray icon even if not modified
+                 
                  row.addColumn("↺", 20, GuiConstants.COLOR_GRAY, true, true, null);
             }
             

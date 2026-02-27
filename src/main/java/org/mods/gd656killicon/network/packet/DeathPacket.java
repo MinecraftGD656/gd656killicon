@@ -33,11 +33,12 @@ public class DeathPacket implements IPacket {
     @Override
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
-            // 记录死亡统计
+            
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordDeath();
             if (this.killerName != null && !this.killerName.isEmpty()) {
                 org.mods.gd656killicon.client.stats.ClientStatsManager.recordDeathByPlayer(this.killerName);
             }
+            org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer.getInstance().onPlayerDeath();
         });
         context.get().setPacketHandled(true);
     }

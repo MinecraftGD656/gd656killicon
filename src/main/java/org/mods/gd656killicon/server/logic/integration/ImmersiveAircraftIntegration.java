@@ -8,6 +8,7 @@ import org.mods.gd656killicon.server.util.ServerLog;
 public class ImmersiveAircraftIntegration {
     private static final ImmersiveAircraftIntegration INSTANCE = new ImmersiveAircraftIntegration();
     private IImmersiveAircraftHandler handler;
+    private boolean initialized = false;
 
     private ImmersiveAircraftIntegration() {
         this.handler = new DummyImmersiveAircraftHandler();
@@ -22,6 +23,10 @@ public class ImmersiveAircraftIntegration {
      * Attempts to load the real handler if the mod is present, otherwise falls back to a dummy.
      */
     public void init() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
         try {
             if (ModList.get().isLoaded("immersive_aircraft")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.immersiveaircraft.ImmersiveAircraftEventHandler");

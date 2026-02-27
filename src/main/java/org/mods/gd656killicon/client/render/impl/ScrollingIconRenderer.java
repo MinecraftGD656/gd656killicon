@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
 import org.mods.gd656killicon.client.textures.ModTextures;
@@ -27,16 +28,16 @@ import java.util.List;
  */
 public class ScrollingIconRenderer implements IHudRenderer {
 
-    // ================================================================================================================
-    // Constants
-    // ================================================================================================================
+    
+    
+    
 
     private static final long DEFAULT_DISPLAY_DURATION = 3000L;
     private static final long DEFAULT_ANIMATION_DURATION = 300L;
     private static final long DEFAULT_POSITION_ANIMATION_DURATION = 300L;
     private static final float DEFAULT_START_SCALE = 2.0f;
     private static final int BASE_ICON_SIZE = 64;
-    private static final int DEFAULT_ICON_SPACING = 8;
+    private static final float DEFAULT_ICON_SPACING = 8.0f;
     private static final int DEFAULT_MAX_VISIBLE_ICONS = 7;
     private static final int DEFAULT_MAX_PENDING_ICONS = 30;
     private static final long DEFAULT_DISPLAY_INTERVAL_MS = 100L;
@@ -45,31 +46,33 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private static final int DEFAULT_EXPLOSION_COLOR = 0xF77F00;
     private static final int DEFAULT_CRIT_COLOR = 0x9CCC65;
 
-    // ================================================================================================================
-    // Instance Fields
-    // ================================================================================================================
+    
+    
+    
 
-    // Config Fields
+    
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
     private long displayDuration = DEFAULT_DISPLAY_DURATION;
-    private boolean enableIconEffect = IconRingEffect.DEFAULT_ENABLE_ICON_EFFECT;
+    private boolean enableCritRing = true;
+    private boolean enableHeadshotRing = true;
+    private boolean enableExplosionRing = true;
     private long animationDuration = DEFAULT_ANIMATION_DURATION;
     private long positionAnimationDuration = DEFAULT_POSITION_ANIMATION_DURATION;
     private float startScale = DEFAULT_START_SCALE;
-    private int iconSpacing = DEFAULT_ICON_SPACING;
+    private float iconSpacing = DEFAULT_ICON_SPACING;
     private int maxVisibleIcons = DEFAULT_MAX_VISIBLE_ICONS;
     private long displayIntervalMs = DEFAULT_DISPLAY_INTERVAL_MS;
     private int maxPendingIcons = DEFAULT_MAX_PENDING_ICONS;
-    private float ringNormalRadius = 42.0f;
-    private float ringNormalThickness = 1.8f;
+    private float ringCritRadius = 42.0f;
+    private float ringCritThickness = 1.8f;
     private float ringHeadshotRadius = 42.0f;
     private float ringHeadshotThickness = 3.0f;
     private float ringExplosionRadius = 42.0f;
     private float ringExplosionThickness = 5.4f;
 
-    // State Fields
+    
     private boolean isVisible = false;
     private final List<ScrollingIcon> activeIcons = new ArrayList<>();
     private final List<ScrollingIcon> pendingIcons = new ArrayList<>();
@@ -78,20 +81,20 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private float lastCustomCenterX = 0f;
     private JsonObject currentConfig;
 
-    // ================================================================================================================
-    // Constructor
-    // ================================================================================================================
+    
+    
+    
 
     public ScrollingIconRenderer() {
     }
 
-    // ================================================================================================================
-    // IHudRenderer Implementation
-    // ================================================================================================================
+    
+    
+    
 
     @Override
     public void trigger(TriggerContext context) {
-        // context.entityId() is ignored for this renderer as it only displays icons
+        
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "scrolling");
         if (config == null) {
             return;
@@ -111,7 +114,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
 
         this.isVisible = true;
-        // startTime will be updated when the icon is actually displayed
+        
         ScrollingIcon icon = new ScrollingIcon(context.type(), 0, displayDuration);
         
         pendingIcons.add(icon);
@@ -136,14 +139,14 @@ public class ScrollingIconRenderer implements IHudRenderer {
             return;
         }
 
-        // Screen bottom-center logic
+        
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        // Base position is bottom center of the screen
-        // x: center of screen (width/2) + configXOffset
-        // y: bottom of screen (height) - configYOffset
+        
+        
+        
         int centerY = screenHeight - configYOffset;
 
         boolean removedAny = false;
@@ -291,9 +294,9 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
     }
 
-    // ================================================================================================================
-    // Private Helper Methods
-    // ================================================================================================================
+    
+    
+    
 
     private void loadConfig(JsonObject config) {
         try {
@@ -304,7 +307,10 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.displayDuration = config.has("display_duration")
                     ? (long)(config.get("display_duration").getAsFloat() * 1000)
                     : DEFAULT_DISPLAY_DURATION;
-            this.enableIconEffect = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
+            boolean defaultRingEnable = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
+            this.enableCritRing = config.has("enable_ring_effect_crit") ? config.get("enable_ring_effect_crit").getAsBoolean() : defaultRingEnable;
+            this.enableHeadshotRing = config.has("enable_ring_effect_headshot") ? config.get("enable_ring_effect_headshot").getAsBoolean() : defaultRingEnable;
+            this.enableExplosionRing = config.has("enable_ring_effect_explosion") ? config.get("enable_ring_effect_explosion").getAsBoolean() : defaultRingEnable;
             this.animationDuration = config.has("animation_duration")
                     ? (long)(config.get("animation_duration").getAsFloat() * 1000)
                     : DEFAULT_ANIMATION_DURATION;
@@ -315,7 +321,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
                     ? config.get("start_scale").getAsFloat()
                     : DEFAULT_START_SCALE;
             this.iconSpacing = config.has("icon_spacing")
-                    ? config.get("icon_spacing").getAsInt()
+                    ? config.get("icon_spacing").getAsFloat()
                     : DEFAULT_ICON_SPACING;
             this.maxVisibleIcons = config.has("max_visible_icons")
                     ? config.get("max_visible_icons").getAsInt()
@@ -326,12 +332,8 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.maxPendingIcons = config.has("max_pending_icons")
                     ? config.get("max_pending_icons").getAsInt()
                     : DEFAULT_MAX_PENDING_ICONS;
-            this.ringNormalRadius = config.has("ring_effect_normal_radius")
-                    ? config.get("ring_effect_normal_radius").getAsFloat()
-                    : 42.0f;
-            this.ringNormalThickness = config.has("ring_effect_normal_thickness")
-                    ? config.get("ring_effect_normal_thickness").getAsFloat()
-                    : 1.8f;
+            this.ringCritRadius = resolveRingFloat(config, "ring_effect_crit_radius", "ring_effect_normal_radius", 42.0f);
+            this.ringCritThickness = resolveRingFloat(config, "ring_effect_crit_thickness", "ring_effect_normal_thickness", 1.8f);
             this.ringHeadshotRadius = config.has("ring_effect_headshot_radius")
                     ? config.get("ring_effect_headshot_radius").getAsFloat()
                     : 42.0f;
@@ -352,7 +354,9 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.configXOffset = 0;
             this.configYOffset = 0;
             this.displayDuration = DEFAULT_DISPLAY_DURATION;
-            this.enableIconEffect = IconRingEffect.DEFAULT_ENABLE_ICON_EFFECT;
+            this.enableCritRing = true;
+            this.enableHeadshotRing = true;
+            this.enableExplosionRing = true;
             this.animationDuration = DEFAULT_ANIMATION_DURATION;
             this.positionAnimationDuration = DEFAULT_POSITION_ANIMATION_DURATION;
             this.startScale = DEFAULT_START_SCALE;
@@ -360,8 +364,8 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.maxVisibleIcons = DEFAULT_MAX_VISIBLE_ICONS;
             this.displayIntervalMs = DEFAULT_DISPLAY_INTERVAL_MS;
             this.maxPendingIcons = DEFAULT_MAX_PENDING_ICONS;
-            this.ringNormalRadius = 42.0f;
-            this.ringNormalThickness = 1.8f;
+            this.ringCritRadius = 42.0f;
+            this.ringCritThickness = 1.8f;
             this.ringHeadshotRadius = 42.0f;
             this.ringHeadshotThickness = 3.0f;
             this.ringExplosionRadius = 42.0f;
@@ -387,10 +391,11 @@ public class ScrollingIconRenderer implements IHudRenderer {
             nextIcon.startTime = currentTime;
             lastIconDisplayTime = currentTime;
 
-            if (this.enableIconEffect) {
+            boolean ringEnabled = isRingEnabledForKillType(nextIcon.killType);
+            if (ringEnabled) {
                 nextIcon.ringEffect.setRingParams(
-                        ringNormalRadius,
-                        ringNormalThickness,
+                        ringCritRadius,
+                        ringCritThickness,
                         ringHeadshotRadius,
                         ringHeadshotThickness,
                         ringExplosionRadius,
@@ -521,15 +526,13 @@ public class ScrollingIconRenderer implements IHudRenderer {
     }
 
     private String getTexturePath(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> "killicon_scrolling_headshot.png";
-            case KillType.EXPLOSION -> "killicon_scrolling_explosion.png";
-            case KillType.CRIT -> "killicon_scrolling_crit.png";
-            case KillType.ASSIST -> "killicon_scrolling_assist.png";
-            case KillType.DESTROY_VEHICLE -> "killicon_scrolling_destroyvehicle.png";
-            case KillType.NORMAL -> "killicon_scrolling_default.png";
-            default -> "killicon_scrolling_default.png";
-        };
+        String textureKey = getTextureKey(killType);
+        return ElementTextureDefinition.getSelectedTextureFileName(
+            ConfigManager.getCurrentPresetId(),
+            "kill_icon/scrolling",
+            textureKey,
+            currentConfig
+        );
     }
 
     private String getTextureKey(int killType) {
@@ -553,7 +556,15 @@ public class ScrollingIconRenderer implements IHudRenderer {
     }
 
     private int resolveCritEffectRgb() {
-        return resolveEffectRgb("ring_effect_normal_color", DEFAULT_CRIT_COLOR);
+        if (currentConfig != null) {
+            if (currentConfig.has("ring_effect_crit_color")) {
+                return resolveEffectRgb("ring_effect_crit_color", DEFAULT_CRIT_COLOR);
+            }
+            if (currentConfig.has("ring_effect_normal_color")) {
+                return resolveEffectRgb("ring_effect_normal_color", DEFAULT_CRIT_COLOR);
+            }
+        }
+        return DEFAULT_CRIT_COLOR;
     }
 
     private int resolveEffectRgb(String key, int defaultValue) {
@@ -562,6 +573,28 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
         String hex = currentConfig.has(key) ? currentConfig.get(key).getAsString() : null;
         return parseRgbHexOrDefault(hex, defaultValue);
+    }
+
+    private float resolveRingFloat(JsonObject config, String key, String legacyKey, float defaultValue) {
+        if (config == null) {
+            return defaultValue;
+        }
+        if (config.has(key)) {
+            return config.get(key).getAsFloat();
+        }
+        if (legacyKey != null && config.has(legacyKey)) {
+            return config.get(legacyKey).getAsFloat();
+        }
+        return defaultValue;
+    }
+
+    private boolean isRingEnabledForKillType(int killType) {
+        return switch (killType) {
+            case KillType.HEADSHOT -> enableHeadshotRing;
+            case KillType.EXPLOSION -> enableExplosionRing;
+            case KillType.CRIT -> enableCritRing;
+            default -> false;
+        };
     }
 
     private static int parseRgbHexOrDefault(String hex, int fallbackRgb) {
@@ -597,9 +630,9 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
     }
 
-    // ================================================================================================================
-    // Inner Classes
-    // ================================================================================================================
+    
+    
+    
 
     /**
      * Represents a single icon in the scrolling queue.

@@ -8,7 +8,7 @@ import org.mods.gd656killicon.common.KillType;
 public class SoundTriggerManager {
 
     public static void tryPlaySound(String category, String name, int killType, int comboCount, boolean hasHelmet) {
-        // 检查配置是否存在且可见
+        
         JsonObject config = ConfigManager.getElementConfig(category, name);
         if (config == null) {
             return;
@@ -19,9 +19,9 @@ public class SoundTriggerManager {
             return;
         }
 
-        // 根据元素类型播放对应音效
+        
         if ("kill_icon".equals(category) && "card".equals(name)) {
-            // Card Sounds
+            
             if (killType == KillType.HEADSHOT) {
                 if (hasHelmet) {
                     ExternalSoundManager.playSound("cardkillsound_armorheadshot_cs");
@@ -40,17 +40,32 @@ public class SoundTriggerManager {
                 int count = Mth.clamp(comboCount, 1, 6);
                 ExternalSoundManager.playSound("combokillsound_" + count + "_cf");
             } else {
-                // scrolling
-                if (killType == KillType.HEADSHOT) {
-                    ExternalSoundManager.playSound("headshotkillsound_df");
-                } else if (killType == KillType.EXPLOSION || killType == KillType.DESTROY_VEHICLE) {
-                    ExternalSoundManager.playSound("explosionkillsound_df");
-                } else if (killType == KillType.CRIT) {
-                    ExternalSoundManager.playSound("critkillsound_df");
-                } else if (killType == KillType.ASSIST) {
-                    ExternalSoundManager.playSound("defaulticonsound_df");
+                if ("00007".equals(ConfigManager.getCurrentPresetId())) {
+                    if (killType == KillType.HEADSHOT) {
+                        ExternalSoundManager.playSound("headshotkillsound_bf5");
+                    } else if (killType == KillType.DESTROY_VEHICLE) {
+                        ExternalSoundManager.playSound("vehiclekillsound_bf5");
+                    } else if (killType == KillType.EXPLOSION) {
+                        ExternalSoundManager.playSound("headshotkillsound_bf5");
+                    } else if (killType == KillType.CRIT) {
+                        ExternalSoundManager.playSound("killsound_bf5");
+                    } else if (killType == KillType.ASSIST) {
+                        ExternalSoundManager.playSound("defaulticonsound_df");
+                    } else {
+                        ExternalSoundManager.playSound("killsound_bf5");
+                    }
                 } else {
-                    ExternalSoundManager.playSound("killsound_df");
+                    if (killType == KillType.HEADSHOT) {
+                        ExternalSoundManager.playSound("headshotkillsound_df");
+                    } else if (killType == KillType.EXPLOSION || killType == KillType.DESTROY_VEHICLE) {
+                        ExternalSoundManager.playSound("explosionkillsound_df");
+                    } else if (killType == KillType.CRIT) {
+                        ExternalSoundManager.playSound("critkillsound_df");
+                    } else if (killType == KillType.ASSIST) {
+                        ExternalSoundManager.playSound("defaulticonsound_df");
+                    } else {
+                        ExternalSoundManager.playSound("killsound_df");
+                    }
                 }
             }
         }

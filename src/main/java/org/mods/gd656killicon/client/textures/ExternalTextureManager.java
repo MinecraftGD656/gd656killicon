@@ -17,8 +17,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -26,12 +28,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ExternalTextureManager {
-    // New structure: config/gd656killicon/assets/<preset_id>/textures/
     private static final Path CONFIG_ASSETS_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
+    private static final Path COMMON_TEXTURES_DIR = CONFIG_ASSETS_DIR.resolve("common").resolve("textures");
     private static final Map<String, ResourceLocation> TEXTURE_CACHE = new HashMap<>();
     private static final ExecutorService TEXTURE_THREAD_POOL = Executors.newCachedThreadPool();
     
-    // 需要复制的默认纹理列表
+    
     private static final String[] DEFAULT_TEXTURES = {
         "killicon_scrolling_default.png",
         "killicon_scrolling_headshot.png",
@@ -61,9 +63,17 @@ public class ExternalTextureManager {
         "killicon_battlefield1_headshot.png",
         "killicon_battlefield1_explosion.png",
         "killicon_battlefield1_crit.png",
-        "killicon_battlefield1_destroyvehicle.png"
+        "killicon_battlefield1_destroyvehicle.png",
+        "killicon_battlefield5_default.png",
+        "killicon_battlefield5_headshot.png",
+        "killicon_battlefield5_assist.png",
+        "killicon_battlefield5_destroyvehicle.png",
+        "killicon_df_default.png",
+        "killicon_df_headshot.png",
+        "killicon_df_destroyvehicle.png"
     };
     private static final Set<String> DEFAULT_TEXTURE_SET = new HashSet<>(Arrays.asList(DEFAULT_TEXTURES));
+    private static final List<String> DEFAULT_TEXTURE_LIST = Collections.unmodifiableList(Arrays.asList(DEFAULT_TEXTURES));
     private static final Map<String, Map<String, TextureBackup>> PENDING_TEXTURE_BACKUPS = new HashMap<>();
     private static final Map<String, byte[]> DEFAULT_TEXTURE_BYTES = new HashMap<>();
     private static final Map<String, TextureState> TEXTURE_STATE_CACHE = new HashMap<>();
@@ -78,7 +88,7 @@ public class ExternalTextureManager {
         clearCache();
         ClientMessageLogger.chatInfo("gd656killicon.client.texture.reloading");
         
-        // Reload textures for the current preset
+        
         String currentPresetId = ConfigManager.getCurrentPresetId();
         int loadedCount = loadTexturesForPreset(currentPresetId);
         
@@ -88,19 +98,16 @@ public class ExternalTextureManager {
     public static void reloadAsync() {
         TEXTURE_THREAD_POOL.submit(() -> {
             try {
-                // Send start message on main thread
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatInfo("gd656killicon.client.texture.reload_start");
-                });
+                ClientMessageLogger.info("Async texture reload started.");
 
-                // Ensure texture files exist for all presets
+                
                 ensureAllPresetsTextureFiles(false);
 
                 String currentPresetId = ConfigManager.getCurrentPresetId();
                 Path presetDir = CONFIG_ASSETS_DIR.resolve(currentPresetId).resolve("textures");
                 final int[] totalTextures = { DEFAULT_TEXTURES.length };
                 
-                // Load images into memory asynchronously
+                
                 Map<String, NativeImage> loadedImages = new HashMap<>();
                 AtomicInteger processedCount = new AtomicInteger(0);
 
@@ -117,13 +124,11 @@ public class ExternalTextureManager {
                     
                     int current = processedCount.incrementAndGet();
                     if (current % 2 == 0 || current == totalTextures[0]) {
-                        Minecraft.getInstance().execute(() -> {
-                            ClientMessageLogger.chatInfo("gd656killicon.client.texture.reload_progress", current, totalTextures[0]);
-                        });
+                        ClientMessageLogger.info("Async texture reload progress: %d/%d.", current, totalTextures[0]);
                     }
                 }
 
-                // Register textures on main thread
+                
                 Minecraft.getInstance().execute(() -> {
                     clearCache();
                     int successCount = 0;
@@ -137,25 +142,26 @@ public class ExternalTextureManager {
                             TEXTURE_CACHE.put(currentPresetId + ":" + path, dynamicLoc);
                             successCount++;
                         } catch (Exception e) {
-                             // If registration fails, we should close the image manually to avoid leak?
-                             // DynamicTexture takes ownership, but if new DynamicTexture fails...
+                             
+                             
                              image.close();
                         }
                     }
-                    ClientMessageLogger.chatSuccess("gd656killicon.client.texture.reload_success", currentPresetId, successCount);
+                    ClientMessageLogger.info("Async texture reload complete for preset %s: %d loaded.", currentPresetId, successCount);
                 });
 
             } catch (Exception e) {
-                ClientMessageLogger.error("gd656killicon.client.texture.reload_error", e.getMessage());
+                ClientMessageLogger.error("Async texture reload failed: %s", e.getMessage());
             }
         });
     }
 
     public static void resetTextures(String presetId) {
+        ensureCommonTextureFiles(false);
         ensureTextureFilesForPreset(presetId, true);
         ClientMessageLogger.chatSuccess("gd656killicon.client.texture.reset_success", presetId);
         
-        // If resetting current preset, reload cache
+        
         if (presetId.equals(ConfigManager.getCurrentPresetId())) {
             reload();
         }
@@ -164,26 +170,22 @@ public class ExternalTextureManager {
     public static void resetTexturesAsync(String presetId) {
         TEXTURE_THREAD_POOL.submit(() -> {
             try {
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatInfo("gd656killicon.client.texture.reset_start");
-                });
-
+                ensureCommonTextureFiles(false);
                 ensureTextureFilesForPreset(presetId, true);
                 
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatSuccess("gd656killicon.client.texture.reset_success", presetId);
-                });
+                ClientMessageLogger.info("Async texture reset complete for preset %s.", presetId);
 
                 if (presetId.equals(ConfigManager.getCurrentPresetId())) {
                     reloadAsync();
                 }
             } catch (Exception e) {
-                ClientMessageLogger.error("gd656killicon.client.texture.reset_error", e.getMessage());
+                ClientMessageLogger.error("Async texture reset failed for preset %s: %s", presetId, e.getMessage());
             }
         });
     }
     
     public static void resetAllTextures() {
+        ensureCommonTextureFiles(true);
         Set<String> presets = ConfigManager.getPresetIds();
         for (String presetId : presets) {
             resetTextures(presetId);
@@ -193,32 +195,28 @@ public class ExternalTextureManager {
     public static void resetAllTexturesAsync() {
         TEXTURE_THREAD_POOL.submit(() -> {
             try {
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatInfo("gd656killicon.client.texture.reset_start");
-                });
-
+                ensureCommonTextureFiles(true);
                 Set<String> presets = ConfigManager.getPresetIds();
-                int total = presets.size();
-                int current = 0;
 
                 for (String presetId : presets) {
                     ensureTextureFilesForPreset(presetId, true);
-                    current++;
-                    final int progress = current;
-                    Minecraft.getInstance().execute(() -> {
-                        ClientMessageLogger.chatInfo("gd656killicon.client.texture.reset_progress", progress, total);
-                    });
                 }
                 
-                Minecraft.getInstance().execute(() -> {
-                    ClientMessageLogger.chatSuccess("gd656killicon.client.texture.reset_success", "all presets");
-                });
+                ClientMessageLogger.info("Async texture reset complete for all presets.");
                 
                 reloadAsync();
             } catch (Exception e) {
-                ClientMessageLogger.error("gd656killicon.client.texture.reset_error", e.getMessage());
+                ClientMessageLogger.error("Async texture reset failed: %s", e.getMessage());
             }
         });
+    }
+
+    public static List<String> getAllTextureFileNames() {
+        return DEFAULT_TEXTURE_LIST;
+    }
+
+    public static boolean isValidTextureName(String textureName) {
+        return textureName != null && DEFAULT_TEXTURE_SET.contains(textureName);
     }
 
     public static ResourceLocation getTexture(String path) {
@@ -226,17 +224,17 @@ public class ExternalTextureManager {
         String resolvedPath = IconTextureAnimationManager.resolveTexturePath(path);
         String cacheKey = presetId + ":" + resolvedPath;
         
-        // 如果缓存中有，直接返回
+        
         if (TEXTURE_CACHE.containsKey(cacheKey)) {
             return TEXTURE_CACHE.get(cacheKey);
         }
 
-        // 如果缓存中没有，尝试加载一次
+        
         if (loadExternalTexture(presetId, resolvedPath)) {
             return TEXTURE_CACHE.get(cacheKey);
         }
 
-        // 如果外部加载失败，回退到默认的 ResourceLocation (从 JAR 读取)
+        
         return ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + resolvedPath);
     }
 
@@ -301,19 +299,7 @@ public class ExternalTextureManager {
                     presetBackups.put(textureName, new TextureBackup(false, null));
                 }
             }
-            ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + textureName);
-            try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
-                Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
-            } catch (Exception e) {
-                try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + textureName)) {
-                    if (stream != null) {
-                        Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                    } else {
-                        ClientMessageLogger.error("gd656killicon.client.texture.extract_fail", textureName, e.getMessage());
-                        return false;
-                    }
-                }
-            }
+            Files.deleteIfExists(targetPath);
             refreshTextureCache(presetId, textureName);
             invalidateTextureState(presetId, textureName);
             return true;
@@ -332,7 +318,7 @@ public class ExternalTextureManager {
         }
         boolean any = false;
         for (String texture : ElementTextureDefinition.getTextures(elementId)) {
-            String fileName = ElementTextureDefinition.getTextureFileName(elementId, texture);
+            String fileName = ElementTextureDefinition.getTextureFileName(presetId, elementId, texture);
             if (fileName != null) {
                 any = resetTextureWithBackup(presetId, fileName) || any;
             }
@@ -382,7 +368,7 @@ public class ExternalTextureManager {
             return;
         }
         for (String texture : ElementTextureDefinition.getTextures(elementId)) {
-            String fileName = ElementTextureDefinition.getTextureFileName(elementId, texture);
+            String fileName = ElementTextureDefinition.getTextureFileName(presetId, elementId, texture);
             if (fileName == null) {
                 continue;
             }
@@ -429,7 +415,7 @@ public class ExternalTextureManager {
             return false;
         }
         for (String texture : ElementTextureDefinition.getTextures(elementId)) {
-            String fileName = ElementTextureDefinition.getTextureFileName(elementId, texture);
+            String fileName = ElementTextureDefinition.getTextureFileName(presetId, elementId, texture);
             if (fileName != null && presetBackups.containsKey(fileName)) {
                 return true;
             }
@@ -470,8 +456,8 @@ public class ExternalTextureManager {
     }
 
     private static void ensureAllPresetsTextureFiles(boolean forceReset) {
+        ensureCommonTextureFiles(forceReset);
         Set<String> presets = ConfigManager.getPresetIds();
-        // Always ensure default presets exist
         ensureTextureFilesForPreset("00001", forceReset);
         ensureTextureFilesForPreset("00002", forceReset);
         
@@ -493,28 +479,12 @@ public class ExternalTextureManager {
 
             for (String texturePath : DEFAULT_TEXTURES) {
                 Path targetPath = presetDir.resolve(texturePath);
-                // 确保父目录存在
                 if (!Files.exists(targetPath.getParent())) {
                     Files.createDirectories(targetPath.getParent());
                 }
 
-                // 如果强制重置 或 文件不存在，则从 JAR 复制
-                if (forceReset || !Files.exists(targetPath)) {
-                    ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + texturePath);
-                    try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
-                        Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                    } catch (Exception e) {
-                         // Fallback mechanism
-                        try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + texturePath)) {
-                             if (stream != null) {
-                                 Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                             } else {
-                                 ClientMessageLogger.error("gd656killicon.client.texture.extract_fail", texturePath, e.getMessage());
-                             }
-                        } catch (Exception ex) {
-                             ClientMessageLogger.error("gd656killicon.client.texture.extract_fail", texturePath, ex.getMessage());
-                        }
-                    }
+                if (forceReset) {
+                    Files.deleteIfExists(targetPath);
                 }
             }
         } catch (IOException e) {
@@ -533,7 +503,7 @@ public class ExternalTextureManager {
     }
 
     private static boolean loadExternalTexture(String presetId, String path) {
-        Path file = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(path);
+        Path file = resolveExternalTexturePath(presetId, path);
         if (!Files.exists(file)) {
             return false;
         }
@@ -541,7 +511,7 @@ public class ExternalTextureManager {
         try (InputStream stream = new FileInputStream(file.toFile())) {
             NativeImage image = NativeImage.read(stream);
             DynamicTexture texture = new DynamicTexture(image);
-            // 生成唯一的 ResourceLocation 名称，包含预设ID
+            
             String dynamicName = "gd656killicon_external_" + presetId + "_" + path.replace("/", "_").replace(".", "_");
             ResourceLocation dynamicLoc = Minecraft.getInstance().getTextureManager().register(dynamicName, texture);
             
@@ -554,7 +524,7 @@ public class ExternalTextureManager {
     }
 
     private static void clearCache() {
-        // 释放旧纹理
+        
         for (ResourceLocation loc : TEXTURE_CACHE.values()) {
             Minecraft.getInstance().getTextureManager().release(loc);
         }
@@ -610,8 +580,8 @@ public class ExternalTextureManager {
             return TEXTURE_DIMENSIONS.get(key);
         }
         
-        // Try external
-        Path file = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(path);
+        
+        Path file = resolveExternalTexturePath(presetId, path);
         if (Files.exists(file)) {
              try (InputStream stream = new FileInputStream(file.toFile());
                   NativeImage image = NativeImage.read(stream)) {
@@ -621,7 +591,7 @@ public class ExternalTextureManager {
              } catch (IOException ignored) {}
         }
         
-        // Try internal
+        
         ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
         try {
              try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open();
@@ -631,7 +601,7 @@ public class ExternalTextureManager {
                  return dims;
              }
         } catch (Exception e) {
-             // Fallback classpath
+             
              try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + path)) {
                 if (stream != null) {
                      try (NativeImage image = NativeImage.read(stream)) {
@@ -643,12 +613,52 @@ public class ExternalTextureManager {
             } catch (Exception ignored) {}
         }
         
-        return new TextureDimensions(0, 0); // Unknown
+        return new TextureDimensions(0, 0);
     }
 
     private static void invalidateTextureState(String presetId, String textureName) {
         TEXTURE_STATE_CACHE.remove(presetId + ":" + textureName);
         TEXTURE_DIMENSIONS.remove(presetId + ":" + textureName);
+    }
+
+    private static void ensureCommonTextureFiles(boolean forceReset) {
+        try {
+            if (!Files.exists(COMMON_TEXTURES_DIR)) {
+                Files.createDirectories(COMMON_TEXTURES_DIR);
+            }
+            for (String texturePath : DEFAULT_TEXTURES) {
+                Path targetPath = COMMON_TEXTURES_DIR.resolve(texturePath);
+                if (!Files.exists(targetPath.getParent())) {
+                    Files.createDirectories(targetPath.getParent());
+                }
+                if (forceReset || !Files.exists(targetPath)) {
+                    ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + texturePath);
+                    try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
+                        Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (Exception e) {
+                        try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + texturePath)) {
+                            if (stream != null) {
+                                Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                            } else {
+                                ClientMessageLogger.error("gd656killicon.client.texture.extract_fail", texturePath, e.getMessage());
+                            }
+                        } catch (Exception ex) {
+                            ClientMessageLogger.error("gd656killicon.client.texture.extract_fail", texturePath, ex.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.texture.init_fail", "common", e.getMessage());
+        }
+    }
+
+    private static Path resolveExternalTexturePath(String presetId, String path) {
+        Path presetPath = CONFIG_ASSETS_DIR.resolve(presetId).resolve("textures").resolve(path);
+        if (Files.exists(presetPath)) {
+            return presetPath;
+        }
+        return COMMON_TEXTURES_DIR.resolve(path);
     }
 
     private static final class TextureBackup {

@@ -10,6 +10,7 @@ import java.util.UUID;
 public class SuperbWarfareIntegration {
     private static final SuperbWarfareIntegration INSTANCE = new SuperbWarfareIntegration();
     private ISuperbWarfareHandler handler;
+    private boolean initialized = false;
 
     private SuperbWarfareIntegration() {
         this.handler = new DummySuperbWarfareHandler();
@@ -24,6 +25,10 @@ public class SuperbWarfareIntegration {
      * Attempts to load the real handler if the mod is present, otherwise falls back to a dummy.
      */
     public void init() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
         try {
             if (ModList.get().isLoaded("superbwarfare")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.superbwarfare.SuperbWarfareEventHandler");

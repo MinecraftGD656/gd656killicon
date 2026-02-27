@@ -180,7 +180,7 @@ public class PlayerData {
         if (data == null) {
             return new PlayerData(uuid);
         }
-        // 确保uuid不为null
+        
         data.uuid = uuid;
         return data;
     }

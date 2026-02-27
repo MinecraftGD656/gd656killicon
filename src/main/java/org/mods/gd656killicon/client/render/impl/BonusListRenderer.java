@@ -31,25 +31,25 @@ import java.util.regex.Pattern;
  */
 public class BonusListRenderer implements IHudRenderer {
 
-    // ================================================================================================================
-    // Constants
-    // ================================================================================================================
+    
+    
+    
     private static final float COMBO_ANIMATION_DURATION_MULTIPLIER = 1.25f;
-    private static final float STREAK_ANIMATION_DURATION_MULTIPLIER = 5.0f; // 1.25 * 4 = 5.0
+    private static final float STREAK_ANIMATION_DURATION_MULTIPLIER = 5.0f; 
     private static final float ALPHA_THRESHOLD = 0.05f;
     private static final float GLOW_OFFSET = 0.3f;
     private static final long KILL_FEED_ENTRY_ANIMATION_DURATION = 350L;
     private static final float KILL_FEED_ENTRY_SCALE_START = 1.8f;
 
-    // Pattern for parsing placeholders like <score>, <combo>, etc.
+    
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("<(\\w+)>");
 
-    // ================================================================================================================
-    // Static Fields
-    // ================================================================================================================
+    
+    
+    
     private static final BonusListRenderer INSTANCE = new BonusListRenderer();
     
-    // Config mapping
+    
     private static final Map<Integer, FormatConfig> TYPE_CONFIGS = new HashMap<>();
     
     private record FormatConfig(String configKey, String defaultLangKey) {}
@@ -114,13 +114,13 @@ public class BonusListRenderer implements IHudRenderer {
         TYPE_CONFIGS.put(type, new FormatConfig(configKey, defaultFormatKey));
     }
 
-    // ================================================================================================================
-    // Instance Fields
-    // ================================================================================================================
+    
+    
+    
     private final List<BonusItem> items = new ArrayList<>();
     private final Deque<BonusItem> pendingQueue = new ArrayDeque<>();
     
-    // Configuration Fields
+    
     private float animationDuration = 0.5f;
     private float animationRefreshRate = 0.01f;
     private boolean enableTextScrolling = false;
@@ -137,20 +137,21 @@ public class BonusListRenderer implements IHudRenderer {
     private boolean enableDigitalScroll = true;
     private boolean enableGlowEffect = false;
     private float glowIntensity = 0.5f;
+    private int normalTextColor = 0xFFFFFF;
     
-    // Timing State
+    
     private long lastProcessTime = 0;
     private long lastRenderTime = 0;
     private long nextFadeTriggerTime = 0;
 
-    // ================================================================================================================
-    // Constructor
-    // ================================================================================================================
+    
+    
+    
     private BonusListRenderer() {}
 
-    // ================================================================================================================
-    // Static Methods
-    // ================================================================================================================
+    
+    
+    
     public static BonusListRenderer getInstance() {
         return INSTANCE;
     }
@@ -188,9 +189,9 @@ public class BonusListRenderer implements IHudRenderer {
         return format;
     }
 
-    // ================================================================================================================
-    // IHudRenderer Implementation
-    // ================================================================================================================
+    
+    
+    
     @Override
     public void render(GuiGraphics guiGraphics, float partialTick) {
         JsonObject config = ElementConfigManager.getElementConfig(ConfigManager.getCurrentPresetId(), "subtitle/bonus_list");
@@ -218,19 +219,19 @@ public class BonusListRenderer implements IHudRenderer {
 
         loadConfig(config);
 
-        // Parse data string
+        
         ParsedData parsed = ParsedData.parse(context.extraData());
         String extraData = parsed.extraData;
         
-        // Determine format string
+        
         String format = getEffectiveFormat(context.type(), extraData);
 
-        // Special color for <combo>, etc.
+        
         int specialColor = parseSpecialColor(config);
 
         long now = System.currentTimeMillis();
         
-        // Extract weapon and victim info for kill feed
+        
         String weaponName = "";
         String victimName = "";
         
@@ -273,17 +274,17 @@ public class BonusListRenderer implements IHudRenderer {
         synchronized (items) {
             boolean isComboFormat = format.contains("<combo>");
 
-            // Attempt to merge with an existing item
+            
             for (BonusItem item : items) {
                 if (canMerge(item, format, isComboFormat, extraData, now)) {
                     item.merge(parsed.score, extraData, isComboFormat, format);
-                    // Refresh display duration
+                    
                     nextFadeTriggerTime = now + (long)(config.get("display_duration").getAsFloat() * 1000);
                     return;
                 }
             }
             
-            // No merge target found, create new item
+            
             BonusItem newItem = new BonusItem(format, parsed.score, extraData, context.type(), specialColor, weaponName, victimName);
             pendingQueue.add(newItem);
         }
@@ -325,9 +326,9 @@ public class BonusListRenderer implements IHudRenderer {
         nextFadeTriggerTime = 0;
     }
 
-    // ================================================================================================================
-    // Helper Methods
-    // ================================================================================================================
+    
+    
+    
     
     private void loadConfig(JsonObject config) {
         try {
@@ -347,6 +348,7 @@ public class BonusListRenderer implements IHudRenderer {
             this.enableDigitalScroll = !config.has("enable_digital_scroll") || config.get("enable_digital_scroll").getAsBoolean();
             this.enableGlowEffect = config.has("enable_glow_effect") && config.get("enable_glow_effect").getAsBoolean();
             this.glowIntensity = config.has("glow_intensity") ? config.get("glow_intensity").getAsFloat() : 0.5f;
+            this.normalTextColor = parseHexColor(config, "color_normal_text", 0xFFFFFF);
         } catch (Exception e) {
             this.animationDuration = 0.5f;
             this.animationRefreshRate = 0.01f;
@@ -360,6 +362,7 @@ public class BonusListRenderer implements IHudRenderer {
             this.enableDigitalScroll = true;
             this.enableGlowEffect = false;
             this.glowIntensity = 0.5f;
+            this.normalTextColor = 0xFFFFFF;
         }
     }
 
@@ -397,41 +400,52 @@ public class BonusListRenderer implements IHudRenderer {
                 }
             } catch (NumberFormatException ignored) {}
         }
-        return 0xD4B800; // Default gold
+        return 0xD4B800; 
+    }
+
+    private int parseHexColor(JsonObject config, String key, int fallback) {
+        if (config.has(key)) {
+            String colorStr = config.get(key).getAsString();
+            try {
+                String hex = colorStr.startsWith("#") ? colorStr.substring(1) : colorStr;
+                return Integer.parseInt(hex, 16);
+            } catch (NumberFormatException ignored) {}
+        }
+        return fallback;
     }
 
     private boolean canMerge(BonusItem item, String format, boolean isComboFormat, String extraData, long now) {
-        // 1. Item is not currently fading out
-        // 2. Format matches (same bonus type)
-        // 3. Item supports score placeholder
+        
+        
+        
         if (item.isFading || !item.formatString.equals(format) || !item.hasPlaceholder) {
             return false;
         }
 
-        // Special handling for Combo bonuses: merge regardless of extraData or time
+        
         if (isComboFormat) {
             return true;
         }
 
-        // Standard bonuses requirements:
-        // 4. Extra data matches
+        
+        
         boolean extraDataMatches = (item.extraData == null || item.extraData.isEmpty()) && 
                                   (extraData == null || extraData.isEmpty()) ||
                                   (item.extraData != null && item.extraData.equals(extraData));
         if (!extraDataMatches) return false;
 
-        // 5. Within valid merge time window
+        
         return now - item.spawnTime <= this.mergeWindowDuration;
     }
 
     private void processPendingQueue(long now, float displayDuration) {
         if (!pendingQueue.isEmpty()) {
-            // 0.1s delay between items
+            
             if (now - lastProcessTime >= 100) { 
                 synchronized (items) {
                     BonusItem newItem = pendingQueue.poll();
                     if (newItem != null) {
-                        newItem.spawnTime = now; // Set actual display time
+                        newItem.spawnTime = now; 
                         items.add(0, newItem);
                     }
                 }
@@ -444,7 +458,7 @@ public class BonusListRenderer implements IHudRenderer {
     private void processIdleFade(long now, float fadeOutInterval) {
         if (pendingQueue.isEmpty() && now > nextFadeTriggerTime && !items.isEmpty()) {
             synchronized (items) {
-                // Find the bottom-most item that isn't fading yet
+                
                 for (int i = items.size() - 1; i >= 0; i--) {
                     BonusItem item = items.get(i);
                     if (!item.isFading) {
@@ -454,7 +468,7 @@ public class BonusListRenderer implements IHudRenderer {
                         return;
                     }
                 }
-                // All items are fading, advance timer
+                
                 nextFadeTriggerTime = now + (long)fadeOutInterval;
             }
         }
@@ -466,7 +480,7 @@ public class BonusListRenderer implements IHudRenderer {
         boolean alignLeft = config != null && config.has("align_left") && config.get("align_left").getAsBoolean();
         boolean alignRight = config != null && config.has("align_right") && config.get("align_right").getAsBoolean();
         
-        // If both alignments are enabled, treat as neither enabled
+        
         boolean effectiveAlignLeft = alignLeft && !alignRight;
         boolean effectiveAlignRight = !alignLeft && alignRight;
 
@@ -507,22 +521,22 @@ public class BonusListRenderer implements IHudRenderer {
     private float calculateAlpha(BonusItem item, long now, int maxLines, int lineSpacing) {
         float alpha = 1.0f;
         
-        // 1. Entry Fade In
+        
         if (!this.enableTextSweepAnimation) {
             long timeSinceSpawn = now - item.spawnTime;
             float fadeInProgress = timeSinceSpawn / (float)this.enterAnimationDuration;
             alpha *= Math.min(1.0f, fadeInProgress);
         }
         
-        // 2. Position-based Transparency
+        
         float lineIndex = item.currentY / lineSpacing;
-        // User request: linear fade from line 0 (alpha 1.0) to line maxLines-1 (alpha 0.0)
-        // Example: maxLines=5. Line 0->1.0, Line 1->0.75, Line 2->0.5, Line 3->0.25, Line 4->0.0
+        
+        
         float fadeRange = Math.max(1.0f, (float)maxLines - 1.0f);
         float posFadeProgress = lineIndex / fadeRange;
         alpha *= Math.max(0.0f, 1.0f - posFadeProgress);
 
-        // 3. Idle Fade Out
+        
         if (item.isFading) {
             long fadeElapsed = now - item.fadeStartTime;
             float fadeDuration = 300.0f;
@@ -544,11 +558,11 @@ public class BonusListRenderer implements IHudRenderer {
         if (this.enableGlowEffect) {
             int glowAlpha = (int)(alphaInt * this.glowIntensity);
             glowAlpha = Math.max(0, Math.min(255, glowAlpha));
-            int glowColor = (glowAlpha << 24) | 0xFFFFFF;
+            int glowColor = (glowAlpha << 24) | (this.normalTextColor & 0xFFFFFF);
             
             PoseStack poseStack = guiGraphics.pose();
             
-            // Offsets array (x, y)
+            
             float[][] offsets = {
                 {-GLOW_OFFSET, 0}, {GLOW_OFFSET, 0}, {0, -GLOW_OFFSET}, {0, GLOW_OFFSET},
                 {-GLOW_OFFSET, -GLOW_OFFSET}, {GLOW_OFFSET, -GLOW_OFFSET},
@@ -562,13 +576,13 @@ public class BonusListRenderer implements IHudRenderer {
                 poseStack.popPose();
             }
         }
-        int color = (alphaInt << 24) | 0xFFFFFF;
+        int color = (alphaInt << 24) | (this.normalTextColor & 0xFFFFFF);
         guiGraphics.drawString(font, component, x, y, color, true);
     }
 
-    // ================================================================================================================
-    // Helper Record & Classes
-    // ================================================================================================================
+    
+    
+    
     
     private record ParsedData(float score, String extraData, String victimName) {
         static ParsedData parse(String data) {
@@ -642,11 +656,11 @@ public class BonusListRenderer implements IHudRenderer {
         void update(long now, float dt) {
             effect.update(now);
             float current = effect.getCurrentValue();
-            // Check for significant change (e.g. integer change or 0.1 change?)
-            // For float, "change" is continuous. Flash usually on discrete steps or significant updates.
-            // Let's flash if the rounded integer changes, OR if it's small value and 0.1 changes.
-            // Simplification: Flash on add/updateMax call? No, it's checked here.
-            // Let's use simple threshold check against last displayed.
+            
+            
+            
+            
+            
             if (Math.abs(current - lastDisplayed) >= 0.1f) {
                 flashAlpha = 1.0f;
                 lastDisplayed = current;
@@ -664,13 +678,13 @@ public class BonusListRenderer implements IHudRenderer {
         final boolean hasPlaceholder;
         String extraData;
         
-        // State
+        
         float currentY;
         boolean isFading;
         long fadeStartTime;
         long spawnTime;
         
-        // Stats
+        
         final AnimatedStat scoreStat;
         AnimatedStat comboStat;
         AnimatedStat mkStat;
@@ -679,7 +693,7 @@ public class BonusListRenderer implements IHudRenderer {
         
         int specialColor;
         
-        // Kill Feed & Scale
+        
         final boolean isKillBonus;
         final float itemScale;
         final boolean showKillFeed;
@@ -688,7 +702,7 @@ public class BonusListRenderer implements IHudRenderer {
         final String killFeedFormatStr;
         final int killFeedVictimColorVal;
         
-        // Scramble Effects for static text parts
+        
         private final List<TextScrambleEffect> scrambleEffects = new ArrayList<>();
 
         public BonusItem(String format, float initialScore, String extraData, int type, int specialColor, 
@@ -700,7 +714,7 @@ public class BonusListRenderer implements IHudRenderer {
             this.spawnTime = System.currentTimeMillis();
             this.specialColor = specialColor;
             
-            // Check if it is a kill bonus (excluding ASSIST)
+            
             this.isKillBonus = type == BonusType.KILL || type == BonusType.KILL_HEADSHOT || 
                                type == BonusType.KILL_CRIT || type == BonusType.KILL_EXPLOSION;
             
@@ -719,7 +733,7 @@ public class BonusListRenderer implements IHudRenderer {
             } catch (Exception ignored) {}
             this.killFeedVictimColorVal = vColor;
             
-            // Score
+            
             this.hasPlaceholder = format.contains("<score>");
             this.scoreStat = hasPlaceholder ? new AnimatedStat(initialScore, animationDuration, animationRefreshRate) : null;
             
@@ -789,8 +803,8 @@ public class BonusListRenderer implements IHudRenderer {
             }
             
             if (format.contains("<distance>") && distanceStat != null) {
-                 // Distance usually updates to new value rather than max, but for bonus merging logic,
-                 // usually it's the latest one. Let's just update.
+                 
+                 
                  try {
                      int dist = Integer.parseInt(newExtraData);
                      if (dist != distanceStat.targetValue) {
@@ -810,14 +824,14 @@ public class BonusListRenderer implements IHudRenderer {
         }
 
         public void update(long now, float dt, float targetY) {
-            // Update stats
+            
             if (scoreStat != null) scoreStat.update(now, dt);
             if (comboStat != null) comboStat.update(now, dt);
             if (mkStat != null) mkStat.update(now, dt);
             if (distanceStat != null) distanceStat.update(now, dt);
             if (streakStat != null) streakStat.update(now, dt);
             
-            // Update position
+            
             float smoothFactor = 1.0f - (float)Math.exp(-BonusListRenderer.this.animationSpeed * dt);
             this.currentY = this.currentY + (targetY - this.currentY) * smoothFactor;
         }
@@ -825,7 +839,7 @@ public class BonusListRenderer implements IHudRenderer {
         public void render(GuiGraphics guiGraphics, Minecraft mc, float x, float y, float alpha, boolean alignLeft, boolean alignRight, float screenWidth, float globalScale) {
             Component component = getDisplayComponent();
             
-            // Kill Feed Component
+            
             Component killFeedComponent = null;
             if (this.showKillFeed) {
                 killFeedComponent = buildKillFeedComponent();
@@ -845,14 +859,14 @@ public class BonusListRenderer implements IHudRenderer {
             
             guiGraphics.pose().pushPose();
             
-            // Apply Item Scale around anchor
+            
             float scaleOriginX = x;
             float scaleOriginY = y + this.currentY + (mc.font.lineHeight / 2.0f);
             
             float currentScale = this.itemScale;
             if (this.showKillFeed && elapsed < KILL_FEED_ENTRY_ANIMATION_DURATION) {
                 float progress = (float) elapsed / KILL_FEED_ENTRY_ANIMATION_DURATION;
-                float easedProgress = 1.0f - (float) Math.pow(1.0f - progress, 3); // Cubic Out
+                float easedProgress = 1.0f - (float) Math.pow(1.0f - progress, 3); 
                 float animationScaleMultiplier = net.minecraft.util.Mth.lerp(easedProgress, KILL_FEED_ENTRY_SCALE_START, 1.0f);
                 currentScale *= animationScaleMultiplier;
             }
@@ -879,7 +893,7 @@ public class BonusListRenderer implements IHudRenderer {
             float screenAnchorX = x * globalScale;
             float pivotYScreen = scaleOriginY * globalScale;
             
-            // Render Original Bonus
+            
             if (renderOriginal) {
                 float drawX = calculateDrawX(x, baseTextWidth, alignLeft, alignRight);
                 float drawY = y + this.currentY;
@@ -892,10 +906,10 @@ public class BonusListRenderer implements IHudRenderer {
                     float screenLeft = calculateScreenLeft(screenAnchorX, screenWidthPx, alignLeft, alignRight);
                     float screenRight = screenLeft + screenWidthPx;
                     
-                    // Entry Sweep (Right-to-Left Reveal)
+                    
                     float entryLeft = screenRight - (screenWidthPx * entryProgress);
                     
-                    // Feed Exit Sweep (Left-to-Right Hide)
+                    
                     float exitLeft = screenLeft + (screenWidthPx * feedProgress);
                     
                     int scLeft = (int)Math.max(entryLeft, exitLeft);
@@ -919,7 +933,7 @@ public class BonusListRenderer implements IHudRenderer {
                 }
             }
             
-            // Render Kill Feed
+            
             if (renderFeed && killFeedComponent != null) {
                 float drawX = calculateDrawX(x, feedTextWidth, alignLeft, alignRight);
                 float drawY = y + this.currentY;
@@ -970,22 +984,22 @@ public class BonusListRenderer implements IHudRenderer {
             String fmt = this.killFeedFormatStr;
             float score = scoreStat != null ? scoreStat.getValue(BonusListRenderer.this.enableDigitalScroll) : 0;
             
-            // Simple manual parsing for <weapon>, <target>, <score>
-            // We assume they don't overlap.
             
-            // Tokenize by splitting? Or regex. Regex is cleaner.
+            
+            
+            
             Matcher m = Pattern.compile("(<weapon>|<target>|<score>)").matcher(fmt);
             int lastEnd = 0;
             
             while (m.find()) {
                 String staticPart = fmt.substring(lastEnd, m.start());
                 if (!staticPart.isEmpty()) {
-                    root.append(Component.literal(staticPart).withStyle(Style.EMPTY.withColor(0xFFFFFF)));
+                    root.append(Component.literal(staticPart).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
                 }
                 
                 String tag = m.group(1);
                 if ("<weapon>".equals(tag)) {
-                    root.append(Component.literal(this.weaponName).withStyle(Style.EMPTY.withColor(0xFFFFFF)));
+                    root.append(Component.literal(this.weaponName).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
                 } else if ("<target>".equals(tag)) {
                     String translatedVName = net.minecraft.client.resources.language.I18n.get(this.victimName);
                     root.append(Component.literal(translatedVName).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(this.killFeedVictimColorVal))));
@@ -996,7 +1010,7 @@ public class BonusListRenderer implements IHudRenderer {
                     } else {
                         scoreStr = String.valueOf(Math.round(score));
                     }
-                    root.append(Component.literal(scoreStr).withStyle(Style.EMPTY.withColor(0xFFFFFF)));
+                    root.append(Component.literal(scoreStr).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
                 }
                 
                 lastEnd = m.end();
@@ -1004,7 +1018,7 @@ public class BonusListRenderer implements IHudRenderer {
             
             String tail = fmt.substring(lastEnd);
             if (!tail.isEmpty()) {
-                root.append(Component.literal(tail).withStyle(Style.EMPTY.withColor(0xFFFFFF)));
+                root.append(Component.literal(tail).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
             }
             
             return root;
@@ -1051,7 +1065,7 @@ public class BonusListRenderer implements IHudRenderer {
                         int val = distanceStat != null ? (int)distanceStat.getValue(BonusListRenderer.this.enableDigitalScroll) : tryParse(extraData);
                         MutableComponent c = createStyledComponent(String.valueOf(val), distanceStat);
                         root.append(c);
-                        // Append unit
+                        
                         MutableComponent unit = Component.literal("m");
                         if (c.getStyle().getColor() != null) unit.setStyle(c.getStyle());
                         root.append(unit);
@@ -1078,7 +1092,7 @@ public class BonusListRenderer implements IHudRenderer {
         
         private MutableComponent createStyledComponent(String text, AnimatedStat stat) {
             MutableComponent comp = Component.literal(text);
-            int baseColor = (specialColor != 0) ? specialColor : 0xFFFFFF;
+            int baseColor = (specialColor != 0) ? specialColor : BonusListRenderer.this.normalTextColor;
             
             float flash = stat != null ? stat.flashAlpha : 0;
             if (flash > 0) {
@@ -1089,6 +1103,7 @@ public class BonusListRenderer implements IHudRenderer {
             }
             return comp;
         }
+
         
         private int tryParse(String s) {
             try { return Integer.parseInt(s); } catch (Exception e) { return 0; }

@@ -22,12 +22,12 @@ public class DigitalScrollEffect {
         LINEAR
     }
     
-    // Configuration
-    private float animationDuration = 1.25f; // seconds
-    private float animationRefreshRate = 0.01f; // seconds
+    
+    private float animationDuration = 1.25f; 
+    private float animationRefreshRate = 0.01f; 
     private Easing easing = Easing.QUINTIC_OUT;
     
-    // Animation state
+    
     private float startValue = 0.0f;
     private float targetValue = 0.0f;
     private float currentValue = 0.0f;
@@ -52,9 +52,9 @@ public class DigitalScrollEffect {
         this.easing = easing;
     }
     
-    // ====================================================================
-    // Configuration Methods
-    // ====================================================================
+    
+    
+    
     
     /**
      * Sets the animation duration in seconds.
@@ -108,9 +108,9 @@ public class DigitalScrollEffect {
         return easing;
     }
     
-    // ====================================================================
-    // Animation Control Methods
-    // ====================================================================
+    
+    
+    
     
     /**
      * Starts a new animation from the current value to the target value.
@@ -179,9 +179,9 @@ public class DigitalScrollEffect {
         return startValue;
     }
     
-    // ====================================================================
-    // Update Methods
-    // ====================================================================
+    
+    
+    
     
     /**
      * Updates the animation state based on the current time.
@@ -194,22 +194,22 @@ public class DigitalScrollEffect {
             return currentValue;
         }
         
-        // Check if we need to update based on refresh rate
+        
         if (lastUpdateTime > 0 && currentTime - lastUpdateTime < animationRefreshRate * 1000) {
             return currentValue;
         }
         
-        // Calculate animation progress (0 to 1)
+        
         float elapsedSeconds = (currentTime - startTime) / 1000.0f;
         float progress = Math.min(elapsedSeconds / animationDuration, 1.0f);
         
-        // Apply easing function
+        
         float easedProgress = applyEasing(progress);
         
-        // Update current value using linear interpolation
+        
         currentValue = Mth.lerp(easedProgress, startValue, targetValue);
         
-        // If animation is complete, ensure exact target value
+        
         if (progress >= 1.0f) {
             currentValue = targetValue;
             isAnimating = false;
@@ -235,9 +235,9 @@ public class DigitalScrollEffect {
         return Math.round(currentValue);
     }
     
-    // ====================================================================
-    // Private Helper Methods
-    // ====================================================================
+    
+    
+    
     
     /**
      * Applies the configured easing function to a progress value.
@@ -250,7 +250,7 @@ public class DigitalScrollEffect {
         
         switch (easing) {
             case CUBIC_OUT:
-                // Cubic ease-out: 1 - (1-t)^3
+                
                 float t = 1.0f - progress;
                 return 1.0f - t * t * t;
                 
@@ -259,7 +259,7 @@ public class DigitalScrollEffect {
                 
             case QUINTIC_OUT:
             default:
-                // Quintic ease-out: 1 - (1-t)^5
+                
                 float t2 = 1.0f - progress;
                 return 1.0f - t2 * t2 * t2 * t2 * t2;
         }

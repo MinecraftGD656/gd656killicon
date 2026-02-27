@@ -270,7 +270,7 @@ public class ServerCommands {
         }
 
         try {
-            Double.parseDouble(expr); // Validate it's a number for now
+            Double.parseDouble(expr); 
         } catch (NumberFormatException e) {
             ServerLog.sendError(c.getSource(), "gd656killicon.server.command.invalid_expression", expr);
             return 0;
@@ -346,13 +346,13 @@ public class ServerCommands {
 
     private static int modScore(CommandContext<CommandSourceStack> c, boolean add) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         Collection<ServerPlayer> players = EntityArgument.getPlayers(c, "targets");
-        // Use DoubleArgumentType for float scores or just Integer?
-        // Since we are changing score system to float, commands should support float.
-        // But for now keeping IntegerArgumentType.integer() is safe if we don't change command registration.
-        // Wait, command registration uses IntegerArgumentType.integer() in register().
-        // Changing it to DoubleArgumentType would be better but user said "don't leave legacy issues".
-        // Let's change command registration to DoubleArgumentType for score modification commands.
-        // But first let's just fix the compilation error by casting int to float implicitly.
+        
+        
+        
+        
+        
+        
+        
         int amt = IntegerArgumentType.getInteger(c, "amt");
         players.forEach(p -> { if (add) ServerData.get().addScore(p, (float)amt); else ServerData.get().setScore(p, (float)amt); });
         ServerData.get().refreshScoreboard(c.getSource().getServer());

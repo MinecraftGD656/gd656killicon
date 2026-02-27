@@ -62,7 +62,11 @@ public class ConfigManager {
     }
 
     public static void setCurrentPresetId(String id) {
+        String previousId = ClientConfigManager.getCurrentPresetId();
         ClientConfigManager.setCurrentPresetId(id);
+        if (id != null && !id.equals(previousId)) {
+            ExternalSoundManager.reloadAsync();
+        }
     }
 
     public static void setEnableSound(boolean enable) {
@@ -130,14 +134,14 @@ public class ConfigManager {
     }
 
     public static void resetFull() {
-        // 1. Reset config
+        
         resetConfig();
 
-        // 2. Reset assets (textures/sounds)
+        
         java.nio.file.Path assetsDir = net.minecraftforge.fml.loading.FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
         if (java.nio.file.Files.exists(assetsDir)) {
             try {
-                // Iterate over all preset folders
+                
                 java.nio.file.Files.list(assetsDir).forEach(presetPath -> {
                     String presetName = presetPath.getFileName().toString();
                     boolean isOfficial = isOfficialPreset(presetName);
@@ -145,7 +149,7 @@ public class ConfigManager {
                     if (java.nio.file.Files.isDirectory(presetPath)) {
                         try {
                             if (isOfficial) {
-                                // For official presets, delete everything EXCEPT "sounds" folder
+                                
                                 java.nio.file.Files.list(presetPath).forEach(subPath -> {
                                     String subName = subPath.getFileName().toString();
                                     if (!"sounds".equals(subName)) {
@@ -153,7 +157,7 @@ public class ConfigManager {
                                     }
                                 });
                             } else {
-                                // For non-official presets, delete entire folder
+                                
                                 deleteRecursively(presetPath);
                             }
                         } catch (java.io.IOException e) {
@@ -166,7 +170,7 @@ public class ConfigManager {
             }
         }
 
-        // 3. Reload textures and sounds
+        
         org.mods.gd656killicon.client.textures.ExternalTextureManager.resetAllTexturesAsync();
         org.mods.gd656killicon.client.sounds.ExternalSoundManager.resetAllSoundsAsync();
 
@@ -182,7 +186,7 @@ public class ConfigManager {
             }
             java.nio.file.Files.deleteIfExists(path);
         } catch (java.io.IOException e) {
-            // Ignored
+            
         }
     }
 }

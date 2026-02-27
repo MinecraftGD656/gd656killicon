@@ -38,10 +38,10 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         MinecraftForge.EVENT_BUS.register(this);
         ServerLog.info("ImmersiveAircraft event handler registered.");
         
-        // Register TACZ listener if mod is present
+        
         if (ModList.get().isLoaded("tacz")) {
             try {
-                // Use reflection to register listener to avoid ClassNotFoundException
+                
                 Class<?> listenerClass = Class.forName("org.mods.gd656killicon.server.logic.immersiveaircraft.ImmersiveAircraftEventHandler$TaczListener");
                 Object listener = listenerClass.getDeclaredConstructor(ImmersiveAircraftEventHandler.class).newInstance(this);
                 MinecraftForge.EVENT_BUS.register(listener);
@@ -52,7 +52,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         }
     }
     
-    // Internal listener for TACZ events to avoid class loading issues if TACZ is missing
+    
     public class TaczListener {
         @SubscribeEvent
         public void onEntityHurtByGun(com.tacz.guns.api.event.common.EntityHurtByGunEvent event) {
@@ -65,11 +65,11 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
             
             float amount = event.getAmount();
             
-            // Record damage
+            
             VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
             tracker.recordDamage(player.getUUID(), amount, true);
             
-            // Award HIT_VEHICLE_ARMOR bonus if applicable
+            
             if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
                 if (amount > 0) {
                     ServerCore.BONUS.add(player, BonusType.HIT_VEHICLE_ARMOR, amount, null);
@@ -80,7 +80,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
 
     @Override
     public void tick() {
-        // Use iterator for safe removal
+        
         var iterator = combatTrackerMap.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<VehicleEntity, VehicleCombatTracker> entry = iterator.next();
@@ -99,7 +99,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         if (event.getLevel().isClientSide) return;
         if (!(event.getEntity() instanceof VehicleEntity vehicle)) return;
 
-        // Check if vehicle was destroyed (health <= 0)
+        
         if (vehicle.getHealth() <= 0) {
             VehicleCombatTracker tracker = combatTrackerMap.get(vehicle);
             if (tracker != null) {
@@ -115,10 +115,10 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         if (!(event.getTarget() instanceof VehicleEntity vehicle)) return;
         
         if (event.getEntity() instanceof ServerPlayer player) {
-            // Check for Creative Instabuild Kill
+            
             if (player.getAbilities().instabuild) {
-                // Creative kill immediately destroys the vehicle
-                // We trigger destruction logic manually here
+                
+                
                 VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
                 tracker.recordDamage(player.getUUID(), vehicle.getHealth(), true);
                 
@@ -127,7 +127,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
                 return;
             }
 
-            // Estimate damage for tracking
+            
             VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
             tracker.recordDamage(player.getUUID(), DEFAULT_TRACKING_DAMAGE, true);
             
@@ -198,14 +198,14 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
             double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
             int score = (int) (DEFAULT_SCORE_BASE * multiplier);
             
+            String vehicleNameKey = vehicle.getType().getDescriptionId();
             if (score > 0) {
-                ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null);
+                ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null, vehicle.getId(), vehicleNameKey);
             }
             
             PlayerDataManager.get().addKill(killer.getUUID(), 1);
             
-            String entityId = vehicle.getType().getDescriptionId();
-            String extraInfo = entityId + "|" + DEFAULT_SCORE_BASE;
+            String extraInfo = vehicleNameKey + "|" + DEFAULT_SCORE_BASE;
 
             sendKillEffects(killer, KillType.DESTROY_VEHICLE, 0, vehicle.getId(), extraInfo);
         }

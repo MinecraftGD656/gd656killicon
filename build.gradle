@@ -151,7 +151,6 @@ dependencies {
     // 索敌所需的前置依赖
     compileOnly fg.deobf("curse.maven:vocalized-980660:5154514")
     runtimeOnly fg.deobf("curse.maven:vocalized-980660:5154514")
-
 }
 
 // 资源处理任务配置

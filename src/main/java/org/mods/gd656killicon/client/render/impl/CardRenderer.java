@@ -11,6 +11,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.scores.Team;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.common.KillType;
@@ -21,7 +22,7 @@ import java.util.List;
 
 public class CardRenderer implements IHudRenderer {
 
-    // Config Fields
+    
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
@@ -34,17 +35,17 @@ public class CardRenderer implements IHudRenderer {
     private int maxStackCount = 5;
     private JsonObject currentConfig;
 
-    // Constants
+    
     private static final int CARD_SIZE = 256;
     private static final float MOVE_DISTANCE_MULTIPLIER = 0.9f;
 
-    // State
+    
     private final List<CardInstance> activeCards = new ArrayList<>();
     private PendingTrigger pendingTrigger;
 
     @Override
     public void render(GuiGraphics guiGraphics, float partialTick) {
-        // Load config
+        
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "card");
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
             activeCards.clear();
@@ -57,7 +58,7 @@ public class CardRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        // Standard Point (Configured Position)
+        
         float standardX = screenWidth / 2.0f + configXOffset;
         float standardY = screenHeight - configYOffset;
 
@@ -92,16 +93,16 @@ public class CardRenderer implements IHudRenderer {
         long animDurMs = (long) (animationDuration * 1000);
         Minecraft mc = Minecraft.getInstance();
 
-        // Cleanup and State Updates
+        
         Iterator<CardInstance> it = activeCards.iterator();
         while (it.hasNext()) {
             CardInstance card = it.next();
 
-            // 1. Check Display Duration (for the whole stack, driven by newest)
-            // User: "Only when the latest card reaches the card display time... entire fan stack execute exit logic"
-            // We handle this by checking the newest card below.
             
-            // 2. State Transitions
+            
+            
+            
+            
             long age = currentTime - card.spawnTime;
             
             if (card.state == CardState.ENTERING) {
@@ -116,13 +117,13 @@ public class CardRenderer implements IHudRenderer {
                 }
             }
             
-            // 3. Special Removal for merged cards (1-4 when 5 appears, or covered cards)
+            
             if (card.isPendingRemoval) {
                 long transitionElapsed = currentTime - card.lastLayoutUpdateTime;
-                // Wait for transition animation to finish before removing?
-                // User: "Animation completes... directly hide"
-                // User: "Wait for previous card to complete entrance animation before deleting" (for 5+ stack)
-                // Let's use animDurMs as the safe threshold.
+                
+                
+                
+                
                 if (transitionElapsed >= animDurMs) {
                     it.remove();
                     continue;
@@ -141,14 +142,14 @@ public class CardRenderer implements IHudRenderer {
             updateLayout(currentTime);
         }
 
-        // Global Exit Logic based on Newest Card
+        
         if (!activeCards.isEmpty()) {
             CardInstance newest = activeCards.get(activeCards.size() - 1);
-            // If newest card expires, everything exits
+            
             if (newest.state == CardState.DISPLAYING) {
                 long newestAge = currentTime - newest.spawnTime;
                 if (newestAge > displayDuration) {
-                    // Trigger exit for ALL cards
+                    
                     long exitTime = currentTime;
                     for (CardInstance card : activeCards) {
                         if (card.state != CardState.EXITING) {
@@ -159,8 +160,8 @@ public class CardRenderer implements IHudRenderer {
             }
         }
 
-        // Render Loop
-        // Render from oldest to newest (Painter's algorithm for correct Z-order)
+        
+        
         for (CardInstance card : activeCards) {
             renderCard(guiGraphics, card, currentTime, standardX, standardY, animDurMs, mc);
         }
@@ -170,9 +171,9 @@ public class CardRenderer implements IHudRenderer {
         long elapsed = currentTime - card.spawnTime;
         float maxDist = CARD_SIZE * configScale * MOVE_DISTANCE_MULTIPLIER;
         
-        // --- Calculate Animation Progress ---
         
-        // 1. Radial Distance (Entrance)
+        
+        
         float currentDist = 0;
         if (card.state == CardState.ENTERING) {
             float progress = (float) elapsed / animDurMs;
@@ -180,37 +181,37 @@ public class CardRenderer implements IHudRenderer {
             float moveProgress = calculateSegmentedEaseOut(progress);
             currentDist = moveProgress * maxDist;
         } else if (card.state == CardState.EXITING) {
-            // Exit: Move back down? Or just fade out?
-            // "Execute exit logic together". Usually fade out + move down.
-            // Let's keep the "Move Down" logic but apply it to the radial distance.
+            
+            
+            
             long exitElapsed = currentTime - card.exitStartTime;
             float progress = (float) exitElapsed / animDurMs;
             progress = Mth.clamp(progress, 0.0f, 1.0f);
             float moveProgress = calculateSegmentedEaseIn(progress);
-            // Invert: maxDist -> 0
+            
             currentDist = Mth.lerp(moveProgress, maxDist, 0);
         } else {
             currentDist = maxDist;
         }
         
-        // 2. Angular Position (Lateral Move)
+        
         float currentAngle = card.targetAngle;
         if (currentTime - card.lastLayoutUpdateTime < animDurMs) {
              float layoutProgress = (float) (currentTime - card.lastLayoutUpdateTime) / animDurMs;
              layoutProgress = Mth.clamp(layoutProgress, 0.0f, 1.0f);
-             // User requested "Non-linear smooth animation"
+             
              float angleEase = calculateSegmentedEaseOut(layoutProgress); 
              currentAngle = Mth.lerp(angleEase, card.startAngle, card.targetAngle);
         }
-        card.currentAngle = currentAngle; // Update state for next layout calculation
+        card.currentAngle = currentAngle; 
 
-        // --- Calculate Render Position ---
-        // Angle 0 is UP. +Angle is Right (Clockwise?).
-        // User: "Standard point direction right offset 5 deg".
-        // In screen coords: Up is -Y. Right is +X.
-        // Vector for 0 deg: (0, -1).
-        // Vector for +90 deg: (1, 0).
-        // Formula: x = sin(a), y = -cos(a).
+        
+        
+        
+        
+        
+        
+        
         
         double rad = Math.toRadians(currentAngle);
         float offsetX = (float) Math.sin(rad) * currentDist;
@@ -219,7 +220,7 @@ public class CardRenderer implements IHudRenderer {
         float renderX = standardX + offsetX;
         float renderY = standardY + offsetY;
         
-        // --- Calculate Alpha ---
+        
         float alpha = 1.0f;
         if (card.state == CardState.ENTERING) {
             float fadeDur = animDurMs / 3.0f;
@@ -235,14 +236,14 @@ public class CardRenderer implements IHudRenderer {
             }
         }
         
-        // Merging/Removal Fade Out (Optional, but user said "Directly hide". Let's stick to alpha logic if needed)
-        // If pending removal, maybe we should fade it out? 
-        // User said: "Animation completes... directly hide". So we just stop rendering when removed.
-        // But during the transition (moving to 0 deg), it is visible.
-
-        // --- Render ---
         
-        // Light Effect
+        
+        
+        
+
+        
+        
+        
         float lightAlpha = 0.0f;
         float lightScale = 1.0f;
         
@@ -261,7 +262,7 @@ public class CardRenderer implements IHudRenderer {
             }
         }
         
-        // Determine Texture
+        
         String currentTeam = this.team;
         if (this.dynamicCardStyle && mc.player != null) {
             Team pt = mc.player.getTeam();
@@ -277,11 +278,20 @@ public class CardRenderer implements IHudRenderer {
         }
         
         boolean isT = "t".equalsIgnoreCase(currentTeam);
-        String suffix = isT ? "_t.png" : "_ct.png";
-        String cardTextureName = getCardTextureName(card.killType) + suffix;
-        String lightTextureName = "killicon_card_light" + suffix;
         String cardTextureKey = getCardTextureKey(card.killType, isT);
         String lightTextureKey = isT ? "light_t" : "light_ct";
+        String cardTextureName = ElementTextureDefinition.getSelectedTextureFileName(
+            ConfigManager.getCurrentPresetId(),
+            "kill_icon/card",
+            cardTextureKey,
+            currentConfig
+        );
+        String lightTextureName = ElementTextureDefinition.getSelectedTextureFileName(
+            ConfigManager.getCurrentPresetId(),
+            "kill_icon/card",
+            lightTextureKey,
+            currentConfig
+        );
         
         ResourceLocation cardTexture = ExternalTextureManager.getTexture(cardTextureName);
         ResourceLocation lightTexture = ExternalTextureManager.getTexture(lightTextureName);
@@ -292,7 +302,7 @@ public class CardRenderer implements IHudRenderer {
         poseStack.pushPose();
         poseStack.translate(0, 0, activeCards.indexOf(card));
 
-        // Light
+        
         if (lightTexture != null && lightAlpha > 0.01f) {
             float lightWidthRatio = resolveFrameRatio(lightTextureKey, "texture_frame_width_ratio");
             float lightHeightRatio = resolveFrameRatio(lightTextureKey, "texture_frame_height_ratio");
@@ -300,31 +310,31 @@ public class CardRenderer implements IHudRenderer {
             float lightH = CARD_SIZE * configScale * lightHeightRatio; 
             
             poseStack.pushPose();
-            // Align light with card:
-            // 1. Move to Card Center
+            
+            
             poseStack.translate(renderX, renderY, 0); 
-            // 2. Rotate around Card Center (same as card)
+            
             poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(currentAngle));
-            // 3. Move to Card Bottom (in local card space)
-            // Card bottom is at y = +size/2 (since card is drawn from -size/2 to +size/2)
+            
+            
             poseStack.translate(0, CARD_SIZE * configScale / 2.0f, 0);
             
-            // 4. Scale Light (from its bottom anchor)
+            
             poseStack.scale(lightScale, lightScale, 1.0f);
             
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, lightAlpha * alpha); 
             
-            // 5. Draw Light upwards from anchor (0,0)
-            // Light texture should be drawn such that (0,0) is bottom center
-            // X: -lightW/2 to +lightW/2
-            // Y: -lightH to 0
+            
+            
+            
+            
             guiGraphics.blit(lightTexture, (int)(-lightW / 2), (int)(-lightH), (int)lightW, (int)lightH, 0, 0, (int)lightW, (int)lightH, (int)lightW, (int)lightH);
             poseStack.popPose();
         }
 
-        // Card
+        
         poseStack.pushPose();
         poseStack.translate(renderX, renderY, 0);
         poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(currentAngle));
@@ -340,7 +350,7 @@ public class CardRenderer implements IHudRenderer {
         int drawHeight = Math.round(CARD_SIZE * cardHeightRatio);
         guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
         
-        // Flash
+        
         float flashAlpha = 0.0f;
         long flashHold = animDurMs / 2;
         long flashFade = animDurMs * 4;
@@ -364,7 +374,7 @@ public class CardRenderer implements IHudRenderer {
             RenderSystem.defaultBlendFunc();
         }
         
-        // Combo Text
+        
         if (card.comboCount > 0) {
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             String text = String.valueOf(card.comboCount);
@@ -381,19 +391,19 @@ public class CardRenderer implements IHudRenderer {
             poseStack.popPose();
         }
 
-        poseStack.popPose(); // Pop Card
-        poseStack.popPose(); // Pop Z
+        poseStack.popPose(); 
+        poseStack.popPose(); 
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     private float calculateSegmentedEaseOut(float t) {
         if (t < 0.5f) {
-            // First 50% of time covers 90% of distance (faster entrance)
+            
             return t * 1.8f;
         } else {
-            // Last 50% of time covers remaining 10% (very slow settle)
+            
             float t2 = (t - 0.5f) * 2.0f;
-            // Use Cubic ease out for even smoother deceleration at the end
+            
             return 0.9f + (1.0f - (float)Math.pow(1.0f - t2, 3)) * 0.1f;
         }
     }
@@ -429,15 +439,6 @@ public class CardRenderer implements IHudRenderer {
         return 3000L;
     }
 
-    private String getCardTextureName(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> "killicon_card_headshot";
-            case KillType.EXPLOSION -> "killicon_card_explosion";
-            case KillType.CRIT -> "killicon_card_crit";
-            default -> "killicon_card_default";
-        };
-    }
-
     private String getCardTextureKey(int killType, boolean isT) {
         String base = switch (killType) {
             case KillType.HEADSHOT -> "headshot";
@@ -468,11 +469,11 @@ public class CardRenderer implements IHudRenderer {
         }
     }
     
-    // Removed interpolateColor as it is no longer used
+    
 
     @Override
     public void trigger(TriggerContext context) {
-        // Ignore Assist and Vehicle Destruction
+        
         if (context.type() == KillType.ASSIST || 
             context.type() == KillType.DESTROY_VEHICLE) {
             return;
@@ -489,8 +490,8 @@ public class CardRenderer implements IHudRenderer {
             return;
         }
 
-        // If the current stack is exiting (hiding logic started), treat it as cleared
-        // so the new card starts a fresh fan queue (0 degrees, standard position)
+        
+        
         if (!activeCards.isEmpty()) {
             CardInstance newest = activeCards.get(activeCards.size() - 1);
             if (newest.state == CardState.EXITING) {
@@ -515,49 +516,49 @@ public class CardRenderer implements IHudRenderer {
         if (count == 0) return;
         
         CardInstance newest = activeCards.get(count - 1);
-        // User: "When 5th kill... hide cards except 5... 5 kill onwards... stack directly"
+        
         boolean isStackingMode = newest.comboCount >= this.maxStackCount;
 
         if (isStackingMode) {
-            // Collapse everything to 0
+            
             for (int i = 0; i < count; i++) {
                 CardInstance card = activeCards.get(i);
                 
-                // Ensure target is 0
+                
                 if (card.targetAngle != 0f) {
-                    card.startAngle = card.currentAngle; // Start from where it is
+                    card.startAngle = card.currentAngle; 
                     card.targetAngle = 0f;
                     card.lastLayoutUpdateTime = now;
                 }
                 
-                // Mark older cards for removal
-                // "Wait for previous card to complete entrance animation before deleting"
-                // This is handled by setting isPendingRemoval and relying on the timer in render()
+                
+                
+                
                 if (i < count - 1) {
                     if (!card.isPendingRemoval) {
                         card.isPendingRemoval = true;
-                        // Reset timer to ensure they stay for the duration of the new card's entrance
+                        
                         card.lastLayoutUpdateTime = now; 
                     }
                 }
             }
         } else {
-            // Fan Layout (1-4 cards)
+            
             float centerIndex = (count - 1) / 2.0f;
             for (int i = 0; i < count; i++) {
                 CardInstance card = activeCards.get(i);
                 float newTarget = (i - centerIndex) * 10.0f;
                 
-                // Only update if changed
+                
                 if (Math.abs(card.targetAngle - newTarget) > 0.01f || (i == count - 1 && card.state == CardState.ENTERING)) {
                     if (i == count - 1) {
-                        // New card enters at its target angle
+                        
                         card.targetAngle = newTarget;
                         card.currentAngle = newTarget; 
                         card.startAngle = newTarget;
-                        // No transition animation for entrance angle
+                        
                     } else {
-                        // Existing card transitions
+                        
                         card.startAngle = card.currentAngle;
                         card.targetAngle = newTarget;
                         card.lastLayoutUpdateTime = now;
@@ -567,7 +568,7 @@ public class CardRenderer implements IHudRenderer {
         }
     }
     
-    // Deprecated local method, delegating to ComboIconRenderer for consistency if called externally
+    
     public static void updateServerComboWindowSeconds(double seconds) {
         ComboIconRenderer.updateServerComboWindowSeconds(seconds);
     }
@@ -591,7 +592,7 @@ public class CardRenderer implements IHudRenderer {
         CardState state = CardState.ENTERING;
         long exitStartTime = -1;
         
-        // Layout
+        
         float currentAngle = 0f;
         float startAngle = 0f;
         float targetAngle = 0f;

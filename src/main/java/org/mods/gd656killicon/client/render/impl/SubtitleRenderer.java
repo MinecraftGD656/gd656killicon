@@ -16,6 +16,8 @@ import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Renderer for the kill feed subtitle element.
@@ -23,19 +25,23 @@ import java.util.List;
  */
 public class SubtitleRenderer implements IHudRenderer {
 
-    // ================================================================================================================
-    // Constants
-    // ================================================================================================================
-    private static final long FADE_IN_DURATION = 200L; // 0.2s (Matched with ComboSubtitleRenderer)
-    private static final long FADE_OUT_DURATION = 300L; // 0.3s
+    
+    
+    
+    private static final long FADE_IN_DURATION = 200L; 
+    private static final long FADE_OUT_DURATION = 300L; 
     private static final int DEFAULT_PLACEHOLDER_COLOR = 0xFF008B8B;
     private static final int DEFAULT_EMPHASIS_COLOR = 0xFFFFFFFF;
+    private static final long SCORE_WAIT_WINDOW_MS = 2000L;
+    private static final long SCORE_CACHE_WINDOW_MS = 10000L;
+    private static final int PREVIEW_SCORE_VICTIM_ID = -9999;
+    private static final Map<Integer, ScoreEntry> RECENT_SCORES = new ConcurrentHashMap<>();
 
-    // ================================================================================================================
-    // Instance Fields
-    // ================================================================================================================
     
-    // Config Fields
+    
+    
+    
+    
     private int configXOffset = 0;
     private int configYOffset = 20;
     private long displayDuration = 3000L;
@@ -45,7 +51,7 @@ public class SubtitleRenderer implements IHudRenderer {
     private float scale = 1.0f;
     private int emphasisColor = DEFAULT_EMPHASIS_COLOR;
     
-    // Toggle Configs
+    
     private boolean enableNormalKill = true;
     private boolean enableHeadshotKill = true;
     private boolean enableExplosionKill = true;
@@ -53,48 +59,47 @@ public class SubtitleRenderer implements IHudRenderer {
     private boolean enableAssistKill = true;
     private boolean enableDestroyVehicleKill = true;
 
-    // Stacking Configs
+    
     private boolean enableStacking = false;
     private int maxLines = 5;
     private int lineSpacing = 12;
+    private int normalTextColor = 0xFFFFFFFF;
 
-    // State Fields (Single Mode)
+    
     private long startTime = -1;
     private boolean isVisible = false;
     private boolean isPreview = false;
     private long textHideTime = -1;
     private int currentKillType = KillType.NORMAL;
     private int victimId = -1;
+    private int currentVictimId = -1;
     private String victimName = "";
     private ItemStack heldItem = ItemStack.EMPTY;
     private String currentWeaponName = "";
-    private String rawFormat = ""; // To store format string before replacement
+    private String rawFormat = ""; 
     private float currentDistance = 0.0f;
 
-    // Stacking Mode
+    
     private final List<SubtitleItem> stackedItems = new ArrayList<>();
     private final java.util.Deque<SubtitleItem> pendingQueue = new java.util.ArrayDeque<>();
     private long lastDequeueTime = 0;
 
-    // Delay Logic
-    private long delayedTriggerTime = -1;
-    private TriggerContext delayedContext = null;
-
-    // ================================================================================================================
-    // Constructor
-    // ================================================================================================================
+    
+    
+    
     public SubtitleRenderer() {
     }
 
-    // ================================================================================================================
-    // IHudRenderer Implementation
-    // ================================================================================================================
+    
+    
+    
     @Override
     public void trigger(TriggerContext context) {
         JsonObject config = ConfigManager.getElementConfig("subtitle", "kill_feed");
         if (config == null) {
             return;
         }
+        this.isPreview = false;
 
         loadConfig(config);
 
@@ -103,28 +108,9 @@ public class SubtitleRenderer implements IHudRenderer {
             return;
         }
 
-        // Check toggles
+        
         if (!isKillTypeEnabled(context.type())) {
             return;
-        }
-
-        // Handle delayed trigger for DESTROY_VEHICLE
-        if (context.type() == KillType.DESTROY_VEHICLE) {
-            // Check if a normal kill is currently displaying and started recently (within 500ms)
-            if (this.enableStacking) {
-                 // Stacking logic handles timing differently, maybe no delay needed?
-                 // Original logic was to prevent overlap. With stacking, overlap is handled.
-                 // But let's keep it if user wants strict ordering or spacing.
-                 // Actually, "give space for second one" implies simultaneous display.
-                 // So delay might not be needed in stacking mode, or handled differently.
-                 // Let's keep existing logic for non-stacking, and bypass for stacking.
-            } else {
-                 if (this.isVisible && isNormalKillType(this.currentKillType) && (System.currentTimeMillis() - this.startTime < 500)) {
-                    this.delayedContext = context;
-                    this.delayedTriggerTime = this.startTime + 500;
-                    return;
-                }
-            }
         }
 
         int type = context.type();
@@ -172,9 +158,9 @@ public class SubtitleRenderer implements IHudRenderer {
             wName = "Unknown";
         }
         
-        // Load specific config for this type to get format and colors
-        // Note: loadConfig already loaded global/generic settings. 
-        // We need to resolve type-specifics here for the item.
+        
+        
+        
         String formatKey = formatKeyForType(type);
         String colorKey = placeholderColorKeyForType(type);
         String emphasisColorKey = emphasisColorKeyForType(type);
@@ -195,11 +181,12 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(type) ? context.distance() : 0.0f;
 
         if (this.enableStacking) {
-            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist);
+            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId);
         } else {
-            // Single Mode
+            
             this.currentKillType = type;
             this.victimId = entityId;
+            this.currentVictimId = entityId;
             this.victimName = vName;
             this.heldItem = itemStack;
             this.currentWeaponName = wName;
@@ -220,13 +207,12 @@ public class SubtitleRenderer implements IHudRenderer {
 
     public void triggerPreview(int killType, String weaponName, String victimName) {
         this.currentKillType = killType;
-        this.victimId = -1;
+        this.victimId = PREVIEW_SCORE_VICTIM_ID;
+        this.currentVictimId = PREVIEW_SCORE_VICTIM_ID;
+        this.isPreview = true;
         this.victimName = victimName != null ? victimName : "";
         this.heldItem = ItemStack.EMPTY;
         this.currentWeaponName = weaponName != null ? weaponName : "Unknown";
-        this.delayedContext = null;
-        this.delayedTriggerTime = -1;
-
         JsonObject config = ConfigManager.getElementConfig("subtitle", "kill_feed");
         if (config == null) {
             return;
@@ -239,7 +225,7 @@ public class SubtitleRenderer implements IHudRenderer {
             return;
         }
 
-        // For preview, we might want to bypass toggle checks, but let's respect them to show accurate preview
+        
         if (!isKillTypeEnabled(killType)) {
             return;
         }
@@ -264,7 +250,7 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(killType) ? 50.0f : 0.0f;
 
         if (this.enableStacking) {
-             addItemToStack(resolvedFormat, pColor, eColor, this.currentWeaponName, this.victimName, this.displayDuration, dist);
+             addItemToStack(resolvedFormat, pColor, eColor, this.currentWeaponName, this.victimName, this.displayDuration, dist, PREVIEW_SCORE_VICTIM_ID);
         } else {
             this.format = resolvedFormat;
             this.placeholderColor = pColor;
@@ -281,13 +267,13 @@ public class SubtitleRenderer implements IHudRenderer {
         }
     }
 
-    private void addItemToStack(String format, int pColor, int eColor, String wName, String vName, long duration, float distance) {
-        // Create new item
-        SubtitleItem newItem = new SubtitleItem(format, pColor, eColor, wName, vName, 0, duration, distance); // spawnTime set when dequeued
+    private void addItemToStack(String format, int pColor, int eColor, String wName, String vName, long duration, float distance, int victimId) {
         
-        // Queue logic
+        SubtitleItem newItem = new SubtitleItem(format, pColor, eColor, wName, vName, 0, duration, distance, victimId); 
+        
+        
         if (this.pendingQueue.size() >= 10) {
-            // Queue full, drop new request
+            
             return;
         }
         
@@ -312,7 +298,7 @@ public class SubtitleRenderer implements IHudRenderer {
         } else {
             RenderState state = resolveRenderState();
             if (state == null) return;
-            renderInternal(guiGraphics, font, centerX, textY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance);
+            renderInternal(guiGraphics, font, centerX, textY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.startTime);
         }
     }
 
@@ -329,25 +315,25 @@ public class SubtitleRenderer implements IHudRenderer {
         } else {
             RenderState state = resolveRenderState();
             if (state == null) return;
-            renderInternal(guiGraphics, font, resolvedCenterX, resolvedTextY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance);
+            renderInternal(guiGraphics, font, resolvedCenterX, resolvedTextY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.startTime);
         }
     }
 
     private void renderStacked(GuiGraphics guiGraphics, Font font, int centerX, int startY) {
         long now = System.currentTimeMillis();
         
-        // Process Pending Queue
+        
         if (!pendingQueue.isEmpty()) {
-            // 0.2s interval (200ms)
+            
             if (now - lastDequeueTime >= 200) {
                 SubtitleItem newItem = pendingQueue.poll();
                 if (newItem != null) {
-                    newItem.spawnTime = now; // Set actual spawn time
+                    newItem.spawnTime = now; 
                     this.stackedItems.add(newItem);
                     
-                    // Trim list if exceeding max lines
+                    
                     while (this.stackedItems.size() > this.maxLines) {
-                         this.stackedItems.remove(0); // Remove oldest
+                         this.stackedItems.remove(0); 
                     }
                     
                     lastDequeueTime = now;
@@ -360,18 +346,18 @@ public class SubtitleRenderer implements IHudRenderer {
             return;
         }
 
-        // Render all active items
-        // We iterate backwards (newest to oldest) to handle positioning, but rendering order should be oldest to newest?
-        // Actually, order matters for overlapping. If they don't overlap, it's fine.
-        // But we iterate by index 0..size-1.
+        
+        
+        
+        
         
         boolean hasVisibleItems = false;
         
-        // Remove expired items that are fully transparent
+        
         Iterator<SubtitleItem> iterator = stackedItems.iterator();
         while (iterator.hasNext()) {
             SubtitleItem item = iterator.next();
-            // Check independent expiry
+            
             long hideTime = item.spawnTime + item.duration;
             if (now >= hideTime + FADE_OUT_DURATION) {
                 iterator.remove();
@@ -394,29 +380,29 @@ public class SubtitleRenderer implements IHudRenderer {
         for (int i = 0; i < stackedItems.size(); i++) {
             SubtitleItem item = stackedItems.get(i);
             
-            // Calculate Target Y relative to startY
-            // Newest (last) is at 0. Oldest (first) is at top.
+            
+            
             int posFromBottom = stackedItems.size() - 1 - i;
             float targetRelY = - (posFromBottom * this.lineSpacing);
             
-            // Animate Y position
-            float smooth = 0.2f; // adjust speed
+            
+            float smooth = 0.2f; 
             item.currentRelY = Mth.lerp(smooth, item.currentRelY, targetRelY);
             
-            // If it's very close, snap
+            
             if (Math.abs(item.currentRelY - targetRelY) < 0.5f) item.currentRelY = targetRelY;
             
-            // Alpha Calculation
+            
             float itemAlpha = 1.0f;
             
-            // 1. Independent Fade Out
+            
             long hideTime = item.spawnTime + item.duration;
             if (now >= hideTime) {
                 long fadeElapsed = now - hideTime;
                 itemAlpha = Math.max(0.0f, 1.0f - (float) fadeElapsed / FADE_OUT_DURATION);
             }
             
-            // 2. Entry Fade In (Newest item only)
+            
             if (i == stackedItems.size() - 1) {
                 long elapsed = now - item.spawnTime;
                 if (elapsed < FADE_IN_DURATION) {
@@ -425,33 +411,27 @@ public class SubtitleRenderer implements IHudRenderer {
                 }
             }
             
-            // 3. Position-based Transparency (Queue Full logic)
-            // From bottom (posFromBottom=0) to top (posFromBottom=maxLines-1)
-            // 0 -> 1.0, 1 -> 0.75, 2 -> 0.5, 3 -> 0.25, 4 -> 0.0
+            
+            
+            
             if (this.maxLines > 1) {
                 float posAlpha = Math.max(0.0f, 1.0f - (float) posFromBottom / (this.maxLines - 1));
-                // If user wants specific steps (100, 75, 50, 25, 0), this linear interpolation works perfectly for maxLines=5.
+                
                 itemAlpha *= posAlpha;
             }
             
             if (itemAlpha <= 0.05f) continue;
 
-            // Render
+            
             int drawY = startY + Math.round(item.currentRelY);
             
             RenderState state = new RenderState(now - item.spawnTime, itemAlpha, this.scale);
             
-            renderInternal(guiGraphics, font, centerX, drawY, state, item.format, item.pColor, item.eColor, item.wName, item.vName, item.distance);
+            renderInternal(guiGraphics, font, centerX, drawY, state, item.format, item.pColor, item.eColor, item.wName, item.vName, item.distance, item.victimId, item.spawnTime);
         }
     }
 
     private RenderState resolveRenderState() {
-        if (this.delayedContext != null && System.currentTimeMillis() >= this.delayedTriggerTime) {
-            trigger(this.delayedContext);
-            this.delayedContext = null;
-            this.delayedTriggerTime = -1;
-        }
-
         if (!isVisible || startTime == -1) return null;
 
         long currentTime = System.currentTimeMillis();
@@ -465,14 +445,14 @@ public class SubtitleRenderer implements IHudRenderer {
         }
 
         float currentScale = this.scale;
-        // Only apply scale animation if enabled in config (we need to load that config)
-        // loadConfig is called in trigger. We should store enableScaleAnimation in field.
-        // It wasn't in original fields, need to check if I added it. 
-        // Ah, I missed adding enableScaleAnimation field in loadConfig. 
-        // User requested "启用缩放动画" config in previous turn, check zh_cn.json... 
-        // Yes "enable_scale_animation". 
-        // But original SubtitleRenderer.java didn't seem to have it in loadConfig in the read output.
-        // Wait, the read output lines 223-228 show scale animation logic:
+        
+        
+        
+        
+        
+        
+        
+        
         /*
         if (elapsed < FADE_IN_DURATION) {
             float progress = (float) elapsed / FADE_IN_DURATION;
@@ -480,19 +460,20 @@ public class SubtitleRenderer implements IHudRenderer {
             currentScale = Mth.lerp(easedProgress, 1.5f, this.scale);
         }
         */
-        // It was hardcoded! User wanted it configurable.
-        // I need to add "enable_scale_animation" to loadConfig.
+        
+        
 
         return new RenderState(elapsed, alpha, currentScale);
     }
     
-    // Field for scale animation
+    
     private boolean enableScaleAnimation = false;
 
     private void renderInternal(GuiGraphics guiGraphics, Font font, int centerX, int textY, RenderState state, 
-                              String fmt, int pColor, int eColor, String wName, String vName, float distance) {
+                              String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, long referenceTime) {
         float colorProgress = getColorProgress(state.elapsed);
-        Component fullText = buildFullText(fmt, pColor, eColor, wName, vName, colorProgress, distance);
+        String scoreStr = resolveScoreString(victimId, referenceTime);
+        Component fullText = buildFullText(fmt, pColor, eColor, wName, vName, scoreStr, colorProgress, distance);
 
         int textWidth = font.width(fullText);
         int textX = centerX - textWidth / 2;
@@ -505,7 +486,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
         poseStack.translate(pivotX, pivotY, 0);
         
-        // Scale logic
+        
         float s = state.currentScale;
         if (this.enableScaleAnimation && state.elapsed < FADE_IN_DURATION) {
              float progress = (float) state.elapsed / FADE_IN_DURATION;
@@ -519,7 +500,7 @@ public class SubtitleRenderer implements IHudRenderer {
         poseStack.translate(-pivotX, -pivotY, 0);
 
         int alphaInt = (int) (state.alpha * 255.0f) << 24;
-        int colorWithAlpha = 0x00FFFFFF | alphaInt;
+        int colorWithAlpha = (normalTextColor & 0x00FFFFFF) | alphaInt;
         guiGraphics.drawString(font, fullText, textX, textY, colorWithAlpha, true);
 
         poseStack.popPose();
@@ -545,10 +526,11 @@ public class SubtitleRenderer implements IHudRenderer {
         String vName;
         long spawnTime;
         long duration;
-        float currentRelY; // Relative Y offset from bottom (starts at 0, goes negative)
+        float currentRelY; 
         float distance;
+        int victimId;
         
-        public SubtitleItem(String format, int pColor, int eColor, String wName, String vName, long spawnTime, long duration, float distance) {
+        public SubtitleItem(String format, int pColor, int eColor, String wName, String vName, long spawnTime, long duration, float distance, int victimId) {
             this.format = format;
             this.pColor = pColor;
             this.eColor = eColor;
@@ -556,14 +538,46 @@ public class SubtitleRenderer implements IHudRenderer {
             this.vName = vName;
             this.spawnTime = spawnTime;
             this.duration = duration;
-            this.currentRelY = 0; // Start at bottom
+            this.currentRelY = 0; 
             this.distance = distance;
+            this.victimId = victimId;
         }
     }
 
-    // ================================================================================================================
-    // Private Helper Methods
-    // ================================================================================================================
+    public static void recordBonusScore(int bonusType, float score, int victimId) {
+        if (victimId == -1) return;
+        RECENT_SCORES.put(victimId, new ScoreEntry(score, System.currentTimeMillis()));
+    }
+
+    private static String resolveScoreString(int victimId, long referenceTime) {
+        if (victimId == PREVIEW_SCORE_VICTIM_ID) return "20";
+        if (victimId == -1) return "0";
+        long now = System.currentTimeMillis();
+        ScoreEntry entry = RECENT_SCORES.get(victimId);
+        if (entry != null) {
+            if (now - entry.timestamp <= SCORE_CACHE_WINDOW_MS) {
+                return formatScore(entry.score);
+            }
+            RECENT_SCORES.remove(victimId);
+        }
+        if (referenceTime > 0 && now - referenceTime < SCORE_WAIT_WINDOW_MS) {
+            return "";
+        }
+        return "0";
+    }
+
+    private static String formatScore(float score) {
+        if (score < 1.0f && score > 0.0f) {
+            return String.format("%.1f", score);
+        }
+        return String.valueOf(Math.round(score));
+    }
+
+    private record ScoreEntry(float score, long timestamp) {}
+
+    
+    
+    
 
     /**
      * Loads configuration from the JSON object.
@@ -579,7 +593,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
             this.enableScaleAnimation = !config.has("enable_scale_animation") || config.get("enable_scale_animation").getAsBoolean();
 
-            // Toggles
+            
             this.enableNormalKill = !config.has("enable_normal_kill") || config.get("enable_normal_kill").getAsBoolean();
             this.enableHeadshotKill = !config.has("enable_headshot_kill") || config.get("enable_headshot_kill").getAsBoolean();
             this.enableExplosionKill = !config.has("enable_explosion_kill") || config.get("enable_explosion_kill").getAsBoolean();
@@ -587,7 +601,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.enableAssistKill = !config.has("enable_assist_kill") || config.get("enable_assist_kill").getAsBoolean();
             this.enableDestroyVehicleKill = !config.has("enable_destroy_vehicle_kill") || config.get("enable_destroy_vehicle_kill").getAsBoolean();
 
-            // Stacking
+            
             this.enableStacking = config.has("enable_stacking") && config.get("enable_stacking").getAsBoolean();
             this.maxLines = config.has("max_lines") ? config.get("max_lines").getAsInt() : 5;
             this.lineSpacing = config.has("line_spacing") ? config.get("line_spacing").getAsInt() : 12;
@@ -599,7 +613,7 @@ public class SubtitleRenderer implements IHudRenderer {
                     ? config.get("color_normal_placeholder").getAsString()
                     : "#008B8B";
             
-            // Note: format and placeholderColor are set per-trigger now, but we keep defaults here for fallback
+            
             this.format = normalFormat;
             if (net.minecraft.client.resources.language.I18n.exists(this.format)) {
                 this.format = net.minecraft.client.resources.language.I18n.get(this.format);
@@ -607,6 +621,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
             this.placeholderColor = parseColorHexOrDefault(normalColorHex, DEFAULT_PLACEHOLDER_COLOR);
             this.enablePlaceholderBold = config.has("enable_placeholder_bold") && config.get("enable_placeholder_bold").getAsBoolean();
+            this.normalTextColor = parseColorHexOrDefault(config.has("color_normal_text") ? config.get("color_normal_text").getAsString() : "#FFFFFF", 0xFFFFFFFF);
             
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.subtitle.config_error");
@@ -623,6 +638,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.enableScaleAnimation = true;
             this.enableNormalKill = true;
             this.enableStacking = false;
+            this.normalTextColor = 0xFFFFFFFF;
         }
     }
 
@@ -660,22 +676,23 @@ public class SubtitleRenderer implements IHudRenderer {
      * @param colorProgress Progress of the color transition (0.0 to 1.0).
      * @return The formatted text component.
      */
-    private Component buildFullText(String fmt, int pColor, int eColor, String wName, String vName, float colorProgress, float distance) {
+    private Component buildFullText(String fmt, int pColor, int eColor, String wName, String vName, String scoreStr, float colorProgress, float distance) {
         Component fullText = Component.empty();
         String tempFormat = fmt;
 
-        // Pattern matching:
-        // We look for <weapon>, <target>, <distance> and /.../
-        // We process them sequentially from left to right.
+        
+        
+        
         
         while (!tempFormat.isEmpty()) {
             int weaponIdx = tempFormat.indexOf("<weapon>");
             int targetIdx = tempFormat.indexOf("<target>");
             int distanceIdx = tempFormat.indexOf("<distance>");
+            int scoreIdx = tempFormat.indexOf("<score>");
             int emphasisStart = tempFormat.indexOf("/");
             int emphasisEnd = -1;
             
-            // Check if slash is valid start of emphasis (must have closing backslash)
+            
             if (emphasisStart != -1) {
                 emphasisEnd = tempFormat.indexOf("\\", emphasisStart + 1);
                 if (emphasisEnd == -1) emphasisStart = -1; // Invalid if no closing
@@ -697,6 +714,10 @@ public class SubtitleRenderer implements IHudRenderer {
                 firstIdx = distanceIdx;
                 type = "distance";
             }
+            if (scoreIdx != -1 && (firstIdx == -1 || scoreIdx < firstIdx)) {
+                firstIdx = scoreIdx;
+                type = "score";
+            }
             if (emphasisStart != -1 && (firstIdx == -1 || emphasisStart < firstIdx)) {
                 firstIdx = emphasisStart;
                 type = "emphasis";
@@ -704,7 +725,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
             if (firstIdx == -1) {
                 // No placeholders left
-                int targetColor = 0x00FFFFFF;
+                int targetColor = this.normalTextColor;
                 int interpolatedColor = interpolateFromWhite(targetColor, colorProgress);
                 fullText.getSiblings().add(Component.literal(tempFormat).withStyle(style -> 
                     style.withColor(interpolatedColor & 0x00FFFFFF)));
@@ -714,7 +735,7 @@ public class SubtitleRenderer implements IHudRenderer {
             // Normal text prefix
             if (firstIdx > 0) {
                 String prefix = tempFormat.substring(0, firstIdx);
-                int targetColor = 0x00FFFFFF;
+                int targetColor = this.normalTextColor;
                 int interpolatedColor = interpolateFromWhite(targetColor, colorProgress);
                 fullText.getSiblings().add(Component.literal(prefix).withStyle(style -> 
                     style.withColor(interpolatedColor & 0x00FFFFFF)));
@@ -745,6 +766,12 @@ public class SubtitleRenderer implements IHudRenderer {
                         style.withColor(interpolatedColor & 0x00FFFFFF).withBold(this.enablePlaceholderBold)));
                 }
                 tempFormat = tempFormat.substring(firstIdx + "<distance>".length());
+            } else if (type.equals("score")) {
+                int targetColor = pColor & 0x00FFFFFF;
+                int interpolatedColor = interpolateFromWhite(targetColor, colorProgress);
+                fullText.getSiblings().add(Component.literal(scoreStr).withStyle(style -> 
+                    style.withColor(interpolatedColor & 0x00FFFFFF).withBold(this.enablePlaceholderBold)));
+                tempFormat = tempFormat.substring(firstIdx + "<score>".length());
             } else if (type.equals("emphasis")) {
                 String content = tempFormat.substring(emphasisStart + 1, emphasisEnd);
                 int targetColor = eColor & 0x00FFFFFF;

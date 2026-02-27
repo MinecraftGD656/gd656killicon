@@ -24,20 +24,20 @@ public class ElementConfigManager {
     private static final Map<String, ElementPreset> PRESETS = new HashMap<>();
     private static boolean pendingLocalization = false;
     
-    // Default Display Names
-    // Moved to DefaultConfigRegistry
+    
+    
 
-    // Temporary presets for editing mode
+    
     private static Map<String, ElementPreset> TEMP_PRESETS = null;
     private static boolean isEditing = false;
 
     public static void startEditing() {
         if (isEditing) return;
         TEMP_PRESETS = new HashMap<>();
-        // Deep copy
+        
         for (Map.Entry<String, ElementPreset> entry : PRESETS.entrySet()) {
             ElementPreset preset = new ElementPreset();
-            preset.setDisplayName(entry.getValue().getDisplayName()); // Copy display name
+            preset.setDisplayName(entry.getValue().getDisplayName()); 
             for (Map.Entry<String, JsonObject> elementEntry : entry.getValue().elementConfigs.entrySet()) {
                 preset.addElementConfig(elementEntry.getKey(), elementEntry.getValue().deepCopy());
             }
@@ -79,7 +79,7 @@ public class ElementConfigManager {
         ElementPreset preset = getActivePresets().get(presetId);
         if (preset == null) return;
         
-        if (preset.getConfig(elementId) != null) return; // Already exists
+        if (preset.getConfig(elementId) != null) return; 
 
         JsonObject safeDefaults = getDefaultElementConfig(elementId);
         if (!safeDefaults.entrySet().isEmpty()) {
@@ -111,11 +111,11 @@ public class ElementConfigManager {
 
     public static boolean renamePresetId(String oldId, String newId) {
         if (isOfficialPreset(oldId)) return false;
-        if (oldId.equals(newId)) return true; // No change
+        if (oldId.equals(newId)) return true; 
         
         Map<String, ElementPreset> presets = getActivePresets();
         if (!presets.containsKey(oldId)) return false;
-        if (presets.containsKey(newId)) return false; // Target ID already exists
+        if (presets.containsKey(newId)) return false; 
         
         ElementPreset preset = presets.remove(oldId);
         presets.put(newId, preset);
@@ -131,7 +131,7 @@ public class ElementConfigManager {
     }
 
     public static String createNewPreset() {
-        // Generate a random 5-digit ID
+        
         String newId;
         do {
             int randomNum = (int)(Math.random() * 100000);
@@ -140,14 +140,14 @@ public class ElementConfigManager {
         
         ElementPreset preset = new ElementPreset();
         
-        // Use localized name for new preset
+        
         String defaultNameKey = "gd656killicon.client.config.preset.new_preset_default_name";
         String defaultName = net.minecraft.client.resources.language.I18n.exists(defaultNameKey) 
                 ? net.minecraft.client.resources.language.I18n.get(defaultNameKey) 
                 : "New Custom Preset";
         
         preset.setDisplayName(defaultName);
-        // Initialize with default or empty configuration if needed
+        
         
         getActivePresets().put(newId, preset);
         ensurePresetAssets(newId);
@@ -240,7 +240,7 @@ public class ElementConfigManager {
                 JsonObject presetJson = entry.getValue().getAsJsonObject();
                 ElementPreset preset = new ElementPreset();
                 
-                // Load display name
+                
                 if (presetJson.has("display_name")) {
                     preset.setDisplayName(presetJson.get("display_name").getAsString());
                 } else {
@@ -248,8 +248,8 @@ public class ElementConfigManager {
                 }
                 
                 presetJson.entrySet().forEach(elementEntry -> {
-                    String elementKey = elementEntry.getKey(); // format: "category/name"
-                    if (elementKey.equals("display_name")) return; // Skip display_name field
+                    String elementKey = elementEntry.getKey(); 
+                    if (elementKey.equals("display_name")) return; 
 
                     JsonObject elementConfig = elementEntry.getValue().getAsJsonObject();
                     preset.addElementConfig(elementKey, elementConfig);
@@ -258,7 +258,7 @@ public class ElementConfigManager {
                 PRESETS.put(presetId, preset);
             });
             
-            // Check and restore missing official presets
+            
             boolean restored = false;
             for (String officialId : DefaultConfigRegistry.getOfficialPresetIds()) {
                 if (!PRESETS.containsKey(officialId)) {
@@ -306,7 +306,7 @@ public class ElementConfigManager {
                 String elementId = elementEntry.getKey();
                 JsonObject config = elementEntry.getValue();
                 
-                // Use global default for validation
+                
                 JsonObject safeDefaults = getDefaultElementConfig(elementId);
                 
                 if (safeDefaults.entrySet().isEmpty()) {
@@ -316,7 +316,7 @@ public class ElementConfigManager {
                     continue;
                 }
 
-                // 确保所有必要的配置项都存在，不存在则使用安全默认值
+                
                 for (Map.Entry<String, com.google.gson.JsonElement> defaultEntry : safeDefaults.entrySet()) {
                     String key = defaultEntry.getKey();
                     if (!config.has(key)) {
@@ -326,7 +326,7 @@ public class ElementConfigManager {
                     }
                 }
 
-                // 移除不存在于安全默认值中的配置项
+                
                 java.util.Iterator<Map.Entry<String, com.google.gson.JsonElement>> configIterator = config.entrySet().iterator();
                 while (configIterator.hasNext()) {
                     String key = configIterator.next().getKey();
@@ -363,7 +363,7 @@ public class ElementConfigManager {
         }
         pendingLocalization = true;
         saveConfig();
-        loadConfig(); // Reload to ensure everything is consistent
+        loadConfig(); 
     }
 
     public static void resetPresetConfig(String presetId) {
@@ -376,20 +376,20 @@ public class ElementConfigManager {
         boolean updated = false;
 
         if (isOfficialPreset(presetId)) {
-            // 官方预设：执行完全同步重置
-            // 1. 清空当前配置
+            
+            
             currentPreset.elementConfigs.clear();
             
-            // 2. 从注册表中重新加载所有元素
+            
             Set<String> elementIds = DefaultConfigRegistry.getOfficialPresetElements(presetId);
             for (String elementId : elementIds) {
-                // 使用 DefaultConfigRegistry 获取特定预设的默认配置 (Second/Third Defaults)
+                
                 JsonObject config = DefaultConfigRegistry.getDefaultConfig(presetId, elementId);
                 currentPreset.addElementConfig(elementId, config);
             }
             updated = true;
         } else {
-            // 非官方预设：仅重置现有元素到第一默认值 (Global Default)
+            
             Set<String> currentElements = new HashSet<>(currentPreset.elementConfigs.keySet());
             if (currentElements.isEmpty()) {
                 ClientMessageLogger.chatInfo("gd656killicon.client.config.element.preset_empty", presetId);
@@ -434,12 +434,12 @@ public class ElementConfigManager {
         JsonObject config = getElementConfig(presetId, elementId);
         JsonObject safeDefaults = getDefaultElementConfig(elementId);
         
-        // 如果配置不存在，使用安全默认值
+        
         if (config == null) {
             return safeDefaults;
         }
         
-        // 确保所有必要的配置项都存在，不存在则使用安全默认值
+        
         JsonObject result = config.deepCopy();
         for (Map.Entry<String, com.google.gson.JsonElement> entry : safeDefaults.entrySet()) {
             String key = entry.getKey();
@@ -510,7 +510,7 @@ public class ElementConfigManager {
             ClientMessageLogger.error("gd656killicon.client.config.element.save_fail", e.getMessage());
             e.printStackTrace();
         }
-    }// Accessors
+    }
     public static JsonObject getElementConfig(String presetId, String elementId) {
         ElementPreset preset = getPreset(presetId);
         if (preset == null) return null;
@@ -548,7 +548,7 @@ public class ElementConfigManager {
         return keys;
     }
     
-    // ... (rest of methods)
+    
     
     public static void addElementToPreset(String presetId, String elementId) {
         ElementPreset preset = getActivePresets().get(presetId);
@@ -588,7 +588,7 @@ public class ElementConfigManager {
         return DefaultConfigRegistry.isOfficialPreset(presetId);
     }
 
-    // --- Added missing methods for compatibility ---
+    
 
     public static String getPresetDisplayName(String presetId) {
         ElementPreset preset = getActivePresets().get(presetId);
@@ -640,7 +640,7 @@ public class ElementConfigManager {
         JsonObject config = preset.getConfig(elementId);
         if (config == null) return;
 
-        // Try to infer type from default config
+        
         JsonObject defaultConfig = getDefaultElementConfig(presetId, elementId);
         if (defaultConfig != null && defaultConfig.has(key)) {
             com.google.gson.JsonElement defaultVal = defaultConfig.get(key);
@@ -650,17 +650,17 @@ public class ElementConfigManager {
                 } else if (defaultVal.getAsJsonPrimitive().isNumber()) {
                     try {
                         double d = Double.parseDouble(value);
-                        // Check if it was integer in default
+                        
                         if (defaultVal.getAsNumber().doubleValue() == Math.ceil(defaultVal.getAsNumber().doubleValue())) {
-                             // Try to keep as int if default is int-like? 
-                             // Gson treats all numbers as double usually unless specific, 
-                             // but addProperty(Number) handles it.
+                             
+                             
+                             
                              config.addProperty(key, d);
                         } else {
                              config.addProperty(key, d);
                         }
                     } catch (NumberFormatException e) {
-                        // ignore
+                        
                     }
                 } else {
                     config.addProperty(key, value);
@@ -669,11 +669,11 @@ public class ElementConfigManager {
                 config.addProperty(key, value);
             }
         } else {
-            // Fallback for non-default keys (shouldn't happen often)
-            // Try parsing as boolean/number? Or just string?
-            // Safer to just store as string if unknown to avoid data loss on specialized strings
-            // But for GUI inputs, we usually know.
-            // Let's just store as string if unknown.
+            
+            
+            
+            
+            
             config.addProperty(key, value);
         }
         

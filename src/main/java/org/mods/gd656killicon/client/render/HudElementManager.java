@@ -50,7 +50,7 @@ public class HudElementManager {
             return;
         }
         
-        // 关键点：只在 HUD 的 Chat Overlay 阶段渲染，确保层级正确
+        
         if (!event.getOverlay().id().equals(VanillaGuiOverlay.CHAT_PANEL.id())) {
             return;
         }

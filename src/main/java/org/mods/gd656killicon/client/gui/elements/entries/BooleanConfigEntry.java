@@ -26,16 +26,16 @@ public class BooleanConfigEntry extends GDRowRenderer {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
         this.key = configId;
         this.setActiveCondition(activeCondition);
-        this.setSeparateFirstColumn(true); // 第一列与后续列之间增加1像素间隔
-        this.setHoverInfo(configName, "   " + description); // 设置悬停显示信息，简介前加两个空格
+        this.setSeparateFirstColumn(true); 
+        this.setHoverInfo(configName, "   " + description); 
         this.value = initialValue;
         this.defaultValue = defaultValue;
         this.onValueChange = onValueChange;
 
-        // 1. 文本显示区域 (自适应)
+        
         this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
 
-        // 2. 主要控制区 (80px)
+        
         this.addColumn(getValueText(), 60, getValueColor(), false, true, (btn) -> {
             this.value = !this.value;
             updateState();
@@ -44,11 +44,11 @@ public class BooleanConfigEntry extends GDRowRenderer {
             }
         });
 
-        // 3. 重置按钮 (GuiConstants.ROW_HEADER_HEIGHT, 深色)
+        
         this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
-            if (this.value == this.defaultValue) return; // Already default, do nothing
+            if (this.value == this.defaultValue) return; 
 
-            // Reset immediately without confirmation
+            
             this.value = this.defaultValue;
             updateState();
             if (this.onValueChange != null) {
@@ -67,19 +67,19 @@ public class BooleanConfigEntry extends GDRowRenderer {
     }
 
     private void updateState() {
-        // 更新主要控制区
+        
         Column controlCol = getColumn(1);
         if (controlCol != null) {
             controlCol.text = getValueText();
             controlCol.color = getValueColor();
-            // 强制刷新 textRenderer
+            
             if (controlCol.textRenderer != null) {
                 controlCol.textRenderer.setText(controlCol.text);
                 controlCol.textRenderer.setColor(controlCol.color);
             }
         }
         
-        // 更新重置按钮颜色和文本
+        
         Column resetCol = getColumn(2);
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();

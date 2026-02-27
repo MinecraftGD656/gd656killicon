@@ -19,7 +19,7 @@ import org.ywzj.vehicle.entity.vehicle.AbstractVehicle;
 import java.util.*;
 
 public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
-    // Stores combat history for each vehicle to determine killer and assists
+    
     private final Map<AbstractVehicle, VehicleCombatTracker> combatTrackerMap = new WeakHashMap<>();
     private final Map<ServerPlayer, Long> lastRepairBonusTimeMap = new WeakHashMap<>();
 
@@ -37,14 +37,14 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         net.minecraft.world.entity.Entity entity = player.level().getEntity(event.entityId);
         if (!(entity instanceof AbstractVehicle vehicle)) return;
 
-        // Prevent interaction with destroyed vehicles
+        
         if (vehicle.isDestroyed()) return;
 
         if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
             ServerCore.BONUS.add(player, BonusType.HIT_VEHICLE_ARMOR, event.damage, null);
         }
 
-        // Update combat tracker - last attacker is handled in onVehicleAttack
+        
         combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
     }
 
@@ -54,19 +54,19 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         
         ServerPlayer player = (ServerPlayer) event.player;
         
-        // Check if using repair tool
+        
         if (player.isUsingItem()) {
             net.minecraft.world.item.ItemStack stack = player.getUseItem();
             if (stack.getItem() == org.ywzj.vehicle.all.AllItems.REPAIR_TOOL.get()) {
                 long now = System.currentTimeMillis();
                 Long lastTime = lastRepairBonusTimeMap.getOrDefault(player, 0L);
                 
-                // 2 seconds interval (2000ms)
+                
                 if (now - lastTime >= 2000) {
-                    // Raytrace to find vehicle
+                    
                     net.minecraft.world.phys.Vec3 viewVector = player.getViewVector(1.0F);
                     net.minecraft.world.phys.Vec3 startPos = player.getEyePosition();
-                    net.minecraft.world.phys.Vec3 endPos = startPos.add(viewVector.scale(3.0)); // 3 blocks distance
+                    net.minecraft.world.phys.Vec3 endPos = startPos.add(viewVector.scale(3.0)); 
                     
                     net.minecraft.world.phys.EntityHitResult hitResult = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(
                             player, startPos, endPos,
@@ -75,14 +75,14 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
                     );
                     
                     if (hitResult != null && hitResult.getEntity() instanceof AbstractVehicle vehicle) {
-                        // Exclude destroyed and full health vehicles
+                        
                         if (!vehicle.isDestroyed() && vehicle.getHealth() < vehicle.getMaxHealth()) {
-                            // Award bonus
+                            
                             if (ServerData.get().isBonusEnabled(BonusType.VEHICLE_REPAIR)) {
                                 ServerCore.BONUS.add(player, BonusType.VEHICLE_REPAIR, 1.0f, null);
                             }
                             
-                            // Update time
+                            
                             lastRepairBonusTimeMap.put(player, now);
                         }
                     }
@@ -93,7 +93,7 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
 
     @SubscribeEvent
     public void onVehicleAttack(VehicleAttackEvent event) {
-        // Prevent interaction with destroyed vehicles
+        
         if (event.getVehicle().isDestroyed()) return;
 
         VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(event.getVehicle(), v -> new VehicleCombatTracker());
@@ -102,16 +102,16 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         boolean isPlayer = attacker instanceof ServerPlayer;
         UUID attackerUuid = isPlayer ? attacker.getUUID() : null;
 
-        // Update last attacker info for ALL attacks (including projectiles and environmental)
+        
         tracker.lastAttackTime = System.currentTimeMillis();
         tracker.lastAttackerWasPlayer = isPlayer;
         if (attackerUuid != null) {
             tracker.lastAttackerUuid = attackerUuid;
         }
 
-        // If a player is driving the vehicle and attacking something, update the tracker
+        
         if (event.getVehicle().getControllingPassenger() instanceof ServerPlayer player) {
-            // No action needed here for damage tracking, handled by LivingDamageEvent
+            
         }
     }
 
@@ -141,13 +141,13 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         net.minecraft.world.damagesource.DamageSource source = event.getSource();
         net.minecraft.world.entity.Entity attacker = source.getEntity();
         
-        // Check if the attacker is a vehicle
+        
         if (attacker instanceof AbstractVehicle vehicle) {
             recordVehicleDamage(vehicle, event.getAmount());
         } else if (source.getDirectEntity() instanceof AbstractVehicle vehicle) {
             recordVehicleDamage(vehicle, event.getAmount());
         } else if (attacker instanceof ServerPlayer player && player.getVehicle() instanceof AbstractVehicle vehicle) {
-            // Player in a vehicle dealt damage
+            
             recordVehicleDamage(vehicle, event.getAmount());
         }
     }
@@ -155,47 +155,54 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
     private void recordVehicleDamage(AbstractVehicle vehicle, float amount) {
         VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
         tracker.accumulatedDamageDealt += amount;
-        // ServerLog.info("Vehicle %s dealt %f damage. Total: %f", vehicle.getId(), amount, tracker.accumulatedDamageDealt);
+        if (vehicle.getControllingPassenger() instanceof ServerPlayer driver) {
+            tracker.lastDriverUuid = driver.getUUID();
+        }
+        
     }
 
     private void handleVehicleDestruction(AbstractVehicle vehicle, VehicleCombatTracker tracker) {
         long now = System.currentTimeMillis();
         
-        // 1. Determine Killer
+        
         ServerPlayer killer = null;
         if (tracker.lastAttackerWasPlayer && tracker.lastAttackerUuid != null) {
-            // Only count as kill if the last hit was recent (prevent "stealing" from environment 10 mins later)
+            
             if (now - tracker.lastAttackTime < ServerData.get().getAssistTimeoutMs()) {
                 killer = ServerCore.getServer().getPlayerList().getPlayer(tracker.lastAttackerUuid);
             }
         }
 
         float maxHealth = vehicle.getMaxHealth();
-        // Use descriptionId for client-side localization
-        String extraInfo = vehicle.getType().getDescriptionId() + "|" + (int)maxHealth;
+        String vehicleNameKey = vehicle.getType().getDescriptionId();
+        String extraInfo = vehicleNameKey + "|" + (int)maxHealth;
+
+        if (killer != null && tracker.lastDriverUuid != null && tracker.lastDriverUuid.equals(killer.getUUID())) {
+            killer = null;
+        }
 
         if (killer != null) {
-            // Award Destroy Bonus to Killer
+            
             double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
             int score = (int) Math.ceil(maxHealth * multiplier);
             if (score > 0) {
-                ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null);
+                ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null, vehicle.getId(), vehicleNameKey);
             }
             
-            // Award Value Target Destroyed bonus
+            
             if (tracker.accumulatedDamageDealt > 0) {
-                // ServerLog.info("Awarding Value Target Destroyed: %f to %s", tracker.accumulatedDamageDealt, killer.getName().getString());
+                
                 if (ServerData.get().isBonusEnabled(BonusType.VALUE_TARGET_DESTROYED)) {
                     ServerCore.BONUS.add(killer, BonusType.VALUE_TARGET_DESTROYED, tracker.accumulatedDamageDealt, null);
                 }
             } else {
-                // ServerLog.info("No accumulated damage for vehicle %s, skipping Value Target Destroyed bonus.", vehicle.getId());
+                
             }
             
-            // Increment persistent kill count
+            
             org.mods.gd656killicon.server.data.PlayerDataManager.get().addKill(killer.getUUID(), 1);
 
-            // Trigger Kill Feed for Killer
+            
             sendKillEffects(killer, KillType.DESTROY_VEHICLE, 0, vehicle.getId(), extraInfo);
         }
     }
@@ -204,7 +211,7 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         double window = ServerData.get().getComboWindowSeconds();
         boolean hasHelmet = false;
         
-        // Icons
+        
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName), player);
         if (combo > 0) {
             NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
@@ -217,12 +224,13 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, window, hasHelmet, victimName), player);
         
-        // Subtitle
+        
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
     }
 
     private static class VehicleCombatTracker {
         UUID lastAttackerUuid;
+        UUID lastDriverUuid;
         long lastAttackTime;
         boolean lastAttackerWasPlayer = false;
         float accumulatedDamageDealt = 0;

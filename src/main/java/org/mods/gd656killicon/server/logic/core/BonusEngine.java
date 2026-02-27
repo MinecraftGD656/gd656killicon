@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class BonusEngine {
     private record Entry(int type, float score, String extra, int victimId, String victimName) {}
+    private static final float VALUE_TARGET_DESTROYED_MAX_SCORE = 2000.0f;
 
     /**
      * Map of player UUID to a list of pending bonus entries.
@@ -38,12 +39,11 @@ public class BonusEngine {
 
         float score = (float) (scale * multiplier);
         if (score <= 0) return;
-        
-        int max = ServerData.get().getScoreMaxLimit();
-        if (score > max) score = max;
-        
+
+        score = applyScoreLimits(type, score);
+
         pending.computeIfAbsent(player.getUUID(), k -> Collections.synchronizedList(new ArrayList<>()))
-               .add(new Entry(type, score, extra == null ? "" : extra, victimId, victimName));
+            .add(new Entry(type, score, extra == null ? "" : extra, victimId, victimName));
     }
 
     /**
@@ -74,7 +74,7 @@ public class BonusEngine {
         synchronized (list) {
             if (list.isEmpty()) return;
 
-            // Merge similar bonuses to reduce packet count
+            
             Map<String, Entry> merged = new LinkedHashMap<>();
             for (Entry e : list) {
                 String key = (e.type == BonusType.KILL_COMBO) ? "COMBO" : (e.type + "|" + e.extra);
@@ -87,12 +87,40 @@ public class BonusEngine {
                 ));
             }
 
-            // Send merged bonuses and update score
-            for (Entry e : merged.values()) {
-                NetworkHandler.sendToPlayer(new BonusScorePacket(e.type, e.score, e.extra, e.victimId, e.victimName), player);
-                ServerData.get().addScore(player, e.score);
+            
+            List<Entry> ordered = new ArrayList<>(merged.values());
+            ordered.sort((a, b) -> {
+                boolean aPriority = isPriorityKillBonus(a.type);
+                boolean bPriority = isPriorityKillBonus(b.type);
+                return aPriority == bPriority ? 0 : (aPriority ? 1 : -1);
+            });
+            for (Entry e : ordered) {
+                float score = applyScoreLimits(e.type, e.score);
+                NetworkHandler.sendToPlayer(new BonusScorePacket(e.type, score, e.extra, e.victimId, e.victimName), player);
+                ServerData.get().addScore(player, score);
             }
             list.clear();
         }
+    }
+
+    private boolean isPriorityKillBonus(int type) {
+        return type == BonusType.KILL
+            || type == BonusType.KILL_HEADSHOT
+            || type == BonusType.KILL_EXPLOSION
+            || type == BonusType.KILL_CRIT
+            || type == BonusType.KILL_LONG_DISTANCE
+            || type == BonusType.KILL_COMBO;
+    }
+
+    private float applyScoreLimits(int type, float score) {
+        float limited = score;
+        if (type == BonusType.VALUE_TARGET_DESTROYED && limited > VALUE_TARGET_DESTROYED_MAX_SCORE) {
+            limited = VALUE_TARGET_DESTROYED_MAX_SCORE;
+        }
+        int max = ServerData.get().getScoreMaxLimit();
+        if (limited > max) {
+            limited = max;
+        }
+        return limited;
     }
 }

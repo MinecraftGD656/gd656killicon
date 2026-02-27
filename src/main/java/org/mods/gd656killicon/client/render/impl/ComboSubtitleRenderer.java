@@ -21,19 +21,19 @@ import java.util.List;
 public class ComboSubtitleRenderer implements IHudRenderer {
 
     private static final long FADE_IN_DURATION = 200L;
-    private static final long FADE_OUT_DURATION = 200L; // User said "出场有0.5秒的入场动画"? Assuming 0.5s fade out or 0.2s fade out. User said "0.5秒的入场动画" for exit? Wait. "出场有0.5秒的入场动画" -> "Exit has 0.5s entry animation". This is confusing. I will assume 500ms fade out.
-    // Re-reading: "字幕入场有0.2秒的渐入动画，出场有0.5秒的入场动画". Maybe typo for "0.5秒的出场动画" (0.5s exit animation). I'll use 500ms.
+    private static final long FADE_OUT_DURATION = 200L; 
+    
     private static final long EXIT_ANIMATION_DURATION = 500L;
 
-    // Light Effect Constants
-    private static final long LIGHT_SCAN_DURATION = 400L; // From 0.2s to 0.4s
+    
+    private static final long LIGHT_SCAN_DURATION = 400L; 
     private static final float LIGHT_SCAN_DISTANCE = 20.0f;
-    private static final long LIGHT_STRIP_FADE_DELAY = 200L; // From 0.5s to 0.2s
+    private static final long LIGHT_STRIP_FADE_DELAY = 200L; 
     private static final long LIGHT_STRIP_FADE_OUT_DURATION = 200L;
 
     private static ComboSubtitleRenderer instance;
 
-    // Config Fields
+    
     private boolean visible = true;
     private float scale = 1.5f;
     private int xOffset = 0;
@@ -55,23 +55,23 @@ public class ComboSubtitleRenderer implements IHudRenderer {
     private String resetAssistCombo = "death";
     private float comboResetTimeout = 10.0f;
 
-    // State Fields
+    
     private long startTime = -1;
     private boolean isVisible = false;
     private int currentCombo = 0;
     private boolean isAssist = false;
     
-    // Queue System
+    
     private final java.util.Deque<ComboItem> pendingQueue = new java.util.ArrayDeque<>();
     private long lastDequeueTime = 0;
     
-    // Local Tracking
+    
     private int localKillComboCount = 0;
     private int localAssistComboCount = 0;
     private long lastKillTime = 0;
     private long lastAssistTime = 0;
 
-    // Light Effect State
+    
     private float lastScanX = 0;
 
     private static class ComboItem {
@@ -95,7 +95,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
 
     @Override
     public void trigger(TriggerContext context) {
-        // Filter out vehicle destroy assist if needed
+        
         JsonObject config = ConfigManager.getElementConfig("subtitle", "combo");
         if (config == null) return;
 
@@ -107,15 +107,15 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         }
 
         long now = System.currentTimeMillis();
-        // Exclude DESTROY_VEHICLE
+        
         if (context.type() == KillType.DESTROY_VEHICLE) return;
 
         this.isAssist = context.type() == KillType.ASSIST;
         
-        // Reset Logic Check (Time)
+        
         checkResetTimeout(now);
 
-        // Determine Combo Count
+        
         int newCombo;
         boolean isAssistEvent = this.isAssist;
 
@@ -145,14 +145,14 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             }
         }
 
-        // Add to queue instead of setting directly
+        
         if (this.pendingQueue.size() < 10) {
             this.pendingQueue.add(new ComboItem(newCombo, isAssistEvent));
         }
 
-        // Ensure renderer is active
+        
         this.isVisible = true;
-        // startTime will be reset when item is dequeued
+        
     }
     
     public void resetKillCombo() {
@@ -164,21 +164,50 @@ public class ComboSubtitleRenderer implements IHudRenderer {
     }
 
     public void onPlayerDeath() {
-        if ("death".equals(resetKillCombo)) {
-            localKillComboCount = 0;
+        JsonObject config = ConfigManager.getElementConfig("subtitle", "combo");
+        if (config != null) {
+            loadConfig(config);
         }
-        if ("death".equals(resetAssistCombo)) {
+
+        boolean resetKill = "death".equals(resetKillCombo);
+        boolean resetAssist = "death".equals(resetAssistCombo);
+        if (resetKill) {
+            localKillComboCount = 0;
+            lastKillTime = 0;
+        }
+        if (resetAssist) {
             localAssistComboCount = 0;
+            lastAssistTime = 0;
+        }
+        if (resetKill || resetAssist) {
+            pendingQueue.clear();
+            currentCombo = 0;
+            isVisible = false;
+            startTime = -1;
+            lastDequeueTime = 0;
+            lastScanX = 0;
         }
     }
 
     public void onPlayerLogout() {
+        JsonObject config = ConfigManager.getElementConfig("subtitle", "combo");
+        if (config != null) {
+            loadConfig(config);
+        }
         if (!"never".equals(resetKillCombo)) {
             localKillComboCount = 0;
+            lastKillTime = 0;
         }
         if (!"never".equals(resetAssistCombo)) {
             localAssistComboCount = 0;
+            lastAssistTime = 0;
         }
+        pendingQueue.clear();
+        currentCombo = 0;
+        isVisible = false;
+        startTime = -1;
+        lastDequeueTime = 0;
+        lastScanX = 0;
     }
 
     private void checkResetTimeout(long now) {
@@ -195,7 +224,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         }
     }
     
-    // For Preview
+    
     public void triggerPreview(boolean assist, int combo) {
         JsonObject config = ConfigManager.getElementConfig("subtitle", "combo");
         if (config == null) return;
@@ -257,11 +286,11 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         long now = System.currentTimeMillis();
         
         if (this.pendingQueue.isEmpty()) {
-            // No pending items, just continue
+            
             return;
         }
 
-        // 200ms interval
+        
         if (now - this.lastDequeueTime >= 200) {
             ComboItem item = this.pendingQueue.poll();
             if (item != null) {
@@ -269,9 +298,9 @@ public class ComboSubtitleRenderer implements IHudRenderer {
                 this.isAssist = item.isAssist;
                 this.startTime = now;
                 this.lastDequeueTime = now;
-                this.isVisible = true; // Ensure visibility
+                this.isVisible = true; 
                 
-                // Re-trigger light effect
+                
                 if (this.enableLightEffect) {
                     this.lastScanX = 0;
                 }
@@ -285,14 +314,14 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         long currentTime = System.currentTimeMillis();
         long elapsed = currentTime - startTime;
 
-        // Visibility Check
+        
         if (elapsed > this.displayDuration + EXIT_ANIMATION_DURATION) {
             isVisible = false;
             startTime = -1;
             return null;
         }
 
-        // Alpha calculation
+        
         float alpha = 1.0f;
         if (this.enableAnimation) {
             if (elapsed < FADE_IN_DURATION) {
@@ -308,12 +337,12 @@ public class ComboSubtitleRenderer implements IHudRenderer {
              return null;
         }
 
-        // Scale calculation (Pop-in effect)
+        
         float currentScale = this.scale;
         if (this.enableAnimation && this.enableScaleAnimation && elapsed < FADE_IN_DURATION) {
             float progress = (float) elapsed / FADE_IN_DURATION;
             float easedProgress = 1.0f - (float) Math.pow(1.0f - progress, 3);
-            // Animate from 1.5x scale to target scale
+            
             currentScale = Mth.lerp(easedProgress, this.scale * 1.5f, this.scale);
         }
 
@@ -324,7 +353,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         Minecraft mc = Minecraft.getInstance();
         Font font = mc.font;
 
-        // Prepare Text
+        
         String formatKey;
         if (this.isAssist) {
             formatKey = this.currentCombo > 1 ? this.formatAssistMulti : this.formatAssistSingle;
@@ -342,38 +371,38 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         int textWidth = font.width(text);
         int textHeight = font.lineHeight;
         
-        // Center text logic for RenderInternal
-        // We want to scale around the center of the text
+        
+        
         float textHalfWidth = textWidth / 2.0f;
         float textHalfHeight = textHeight / 2.0f;
         
         PoseStack poseStack = guiGraphics.pose();
         poseStack.pushPose();
         
-        // Translate to the center position (centerX, centerY)
+        
         poseStack.translate(centerX, centerY, 0);
-        // Scale around (0,0) which is now (centerX, centerY)
+        
         poseStack.scale(state.currentScale, state.currentScale, 1.0f);
         
-        // Render Light Effect (centered at 0,0 relative to text)
+        
         if (this.enableLightEffect) {
             renderLightEffect(guiGraphics, poseStack, state.elapsed, textWidth, textHeight);
         }
         
-        // Draw text centered at (0,0)
-        // DrawString coordinates are top-left, so we offset by half width/height
+        
+        
         int alphaInt = (int)(state.alpha * 255);
         int finalColor = (color & 0xFFFFFF) | (alphaInt << 24);
         
         if (this.enableBold) {
-            // Render text in bold by drawing it with a slight offset
-            // Standard bold implementation often draws text twice with 1px offset
-            // However, Minecraft Font supports bold via Style or direct bold rendering?
-            // drawString doesn't have a simple boolean for bold unless we use Component.
-            // But we have String text.
-            // Let's use Component to support bold properly.
+            
+            
+            
+            
+            
+            
             Component comp = Component.literal(text).withStyle(style -> style.withBold(true));
-            // Recalculate width if bold changes width (it usually does slightly in MC font)
+            
             textWidth = font.width(comp);
             textHalfWidth = textWidth / 2.0f;
             
@@ -391,16 +420,16 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         
         float currentScanX = LIGHT_SCAN_DISTANCE;
         
-        // Update Scan Position
+        
         if (elapsed < LIGHT_SCAN_DURATION) {
             float progress = (float)elapsed / LIGHT_SCAN_DURATION;
-            // EaseOutCubic
+            
             float t = progress;
             float ease = 1 - (1-t)*(1-t)*(1-t);
             currentScanX = ease * LIGHT_SCAN_DISTANCE;
         }
         
-        // Calculate Alpha
+        
         float baseAlpha = 1.0f;
         if (elapsed > LIGHT_SCAN_DURATION + holdDurationMs) {
             long fadeOutElapsed = elapsed - (LIGHT_SCAN_DURATION + holdDurationMs);
@@ -414,7 +443,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         
         if (baseAlpha <= 0.01f) return;
         
-        // Render
+        
         com.mojang.blaze3d.vertex.Tesselator tesselator = com.mojang.blaze3d.vertex.Tesselator.getInstance();
         com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.getBuilder();
         
@@ -427,33 +456,33 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         float halfHeight = (float)this.lightHeight / 2.0f;
         float yOffset = 1.0f;
         
-        // Center Color (White, high opacity)
+        
         int r = 255;
         int g = 255;
         int b = 255;
         int aCenter = (int)(200 * baseAlpha); 
         int aEdge = 0; 
         
-        // Draw Left Wing
-        // From 0 to -currentScanX
-        // Vertex 1: Top-Right (0, -h)
+        
+        
+        
         buffer.vertex(poseStack.last().pose(), 0, -halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
-        // Vertex 2: Top-Left (-x, -h)
+        
         buffer.vertex(poseStack.last().pose(), -currentScanX, -halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
-        // Vertex 3: Bottom-Left (-x, h)
+        
         buffer.vertex(poseStack.last().pose(), -currentScanX, halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
-        // Vertex 4: Bottom-Right (0, h)
+        
         buffer.vertex(poseStack.last().pose(), 0, halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
         
-        // Draw Right Wing
-        // From 0 to currentScanX
-        // Vertex 1: Top-Right (x, -h)
+        
+        
+        
         buffer.vertex(poseStack.last().pose(), currentScanX, -halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
-        // Vertex 2: Top-Left (0, -h)
+        
         buffer.vertex(poseStack.last().pose(), 0, -halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
-        // Vertex 3: Bottom-Left (0, h)
+        
         buffer.vertex(poseStack.last().pose(), 0, halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
-        // Vertex 4: Bottom-Right (x, h)
+        
         buffer.vertex(poseStack.last().pose(), currentScanX, halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
         
         tesselator.end();

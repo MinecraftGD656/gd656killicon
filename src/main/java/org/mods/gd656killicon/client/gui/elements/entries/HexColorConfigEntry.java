@@ -27,7 +27,7 @@ public class HexColorConfigEntry extends GDRowRenderer {
     private final ColorPickerDialog colorPickerDialog;
     private final String configName;
     
-    // Validator: # followed by 6 hex digits
+    
     private static final Pattern HEX_PATTERN = Pattern.compile("^#[0-9A-Fa-f]{6}$");
 
     public HexColorConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, Consumer<String> onValueChange, TextInputDialog textInputDialog, ColorPickerDialog colorPickerDialog) {
@@ -47,40 +47,40 @@ public class HexColorConfigEntry extends GDRowRenderer {
         this.colorPickerDialog = colorPickerDialog;
         this.configName = configName;
 
-        // 1. Config Name
+        
         this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
 
-        // 2. Text Input (103px)
+        
         this.addColoredColumn(parseColoredText(this.value), 47, false, false, (btn) -> {
             openDialog();
         });
         
-        // 3. Color Preview (17px)
+        
         this.addCustomColumn(17, (btn) -> {
             openColorPicker();
         }, (guiGraphics, x, y, w, h) -> {
-             // Render 13x13 box in center
+             
              int size = 13;
              int bx = x + (w - size) / 2;
              int by = y + (h - size) / 2;
              
-             // Parse color
-             int color = 0xFFFFFFFF; // Default white if invalid
+             
+             int color = 0xFFFFFFFF; 
              try {
                  if (this.value != null && this.value.startsWith("#") && this.value.length() == 7) {
-                     // Parse hex string (substring 1) to int
+                     
                      int rgb = Integer.parseInt(this.value.substring(1), 16);
-                     color = 0xFF000000 | rgb; // Full alpha
+                     color = 0xFF000000 | rgb; 
                  }
              } catch (Exception e) {
-                 // Invalid color, keep default
+                 
              }
              
-             // Draw color (No border as requested)
+             
              guiGraphics.fill(bx, by, bx + size, by + size, color);
         });
 
-        // 4. Reset Button
+        
         this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
              if (this.value != null && this.value.equals(this.defaultValue)) return;
              this.value = this.defaultValue;
@@ -120,7 +120,7 @@ public class HexColorConfigEntry extends GDRowRenderer {
                 }
             }, null);
         } else {
-            // Fallback to text input if color picker is not available
+            
             openDialog();
         }
     }
@@ -131,15 +131,15 @@ public class HexColorConfigEntry extends GDRowRenderer {
     }
 
     private void updateState() {
-        // 更新主要控制区 (Column 1)
+        
         Column controlCol = getColumn(1);
         if (controlCol != null) {
             controlCol.coloredTexts = parseColoredText(this.value);
-            // 强制刷新 textRenderer
+            
             controlCol.textRenderer = null;
         }
 
-        // 更新重置按钮 (Column 3) - Index 3 because: 0=Name, 1=Text, 2=Preview, 3=Reset
+        
         Column resetCol = getColumn(3);
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();

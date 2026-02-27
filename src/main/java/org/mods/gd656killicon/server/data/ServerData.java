@@ -30,13 +30,21 @@ public class ServerData {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final ServerData INSTANCE = new ServerData();
 
-    private double comboWindowSeconds = 5.0;
-    private int assistTimeoutSeconds = 180;
-    private int scoreMaxLimit = Integer.MAX_VALUE;
-    private String scoreboardDisplayName = "Player Score";
-    private String killboardDisplayName = "Player Kills";
-    private String deathboardDisplayName = "Player Deaths";
-    private String assistboardDisplayName = "Player Assists";
+    private static final double DEFAULT_COMBO_WINDOW_SECONDS = 5.0;
+    private static final int DEFAULT_ASSIST_TIMEOUT_SECONDS = 180;
+    private static final int DEFAULT_SCORE_MAX_LIMIT = Integer.MAX_VALUE;
+    private static final String DEFAULT_SCOREBOARD_DISPLAY_NAME = "Player Score";
+    private static final String DEFAULT_KILLBOARD_DISPLAY_NAME = "Player Kills";
+    private static final String DEFAULT_DEATHBOARD_DISPLAY_NAME = "Player Deaths";
+    private static final String DEFAULT_ASSISTBOARD_DISPLAY_NAME = "Player Assists";
+
+    private double comboWindowSeconds = DEFAULT_COMBO_WINDOW_SECONDS;
+    private int assistTimeoutSeconds = DEFAULT_ASSIST_TIMEOUT_SECONDS;
+    private int scoreMaxLimit = DEFAULT_SCORE_MAX_LIMIT;
+    private String scoreboardDisplayName = DEFAULT_SCOREBOARD_DISPLAY_NAME;
+    private String killboardDisplayName = DEFAULT_KILLBOARD_DISPLAY_NAME;
+    private String deathboardDisplayName = DEFAULT_DEATHBOARD_DISPLAY_NAME;
+    private String assistboardDisplayName = DEFAULT_ASSISTBOARD_DISPLAY_NAME;
     private final Set<Integer> disabledBonusTypes = ConcurrentHashMap.newKeySet();
     private final Map<Integer, String> bonusExpressions = new ConcurrentHashMap<>();
     private final Map<Integer, String> defaultExpressions = new HashMap<>();
@@ -110,18 +118,28 @@ public class ServerData {
     public static ServerData get() { return INSTANCE; }
 
     public void init(MinecraftServer server) {
-        if (loaded) return;
         Path root = server.getWorldPath(LevelResource.ROOT).resolve("gd656killicon");
+        if (loaded && configPath != null && root.equals(configPath.getParent())) {
+            return;
+        }
         try {
             Files.createDirectories(root);
         } catch (IOException e) {
             ServerLog.error("Failed to create config directory: %s", e.getMessage());
         }
         this.configPath = root.resolve("server_config.json");
+        applyDefaults();
         load();
         PlayerDataManager.get().init(server);
         initScoreboard(server);
         loaded = true;
+    }
+
+    public void shutdown() {
+        if (!loaded) return;
+        loaded = false;
+        configPath = null;
+        applyDefaults();
     }
 
     public void saveAll() {
@@ -130,7 +148,7 @@ public class ServerData {
         PlayerDataManager.get().forceSave();
     }
 
-    // --- Config Accessors ---
+    
     public double getComboWindowSeconds() { return comboWindowSeconds; }
     public long getComboWindowMs() { return (long) (comboWindowSeconds * 1000.0); }
     public void setComboWindowSeconds(double val) { this.comboWindowSeconds = Math.max(0.1, val); saveConfig(); }
@@ -148,7 +166,7 @@ public class ServerData {
         this.scoreboardDisplayName = name;
         saveConfig();
         
-        // Update existing scoreboard display name
+        
         net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
         if (server != null) {
             net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
@@ -165,7 +183,7 @@ public class ServerData {
         this.killboardDisplayName = name;
         saveConfig();
         
-        // Update existing killboard display name
+        
         net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
         if (server != null) {
             net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
@@ -182,7 +200,7 @@ public class ServerData {
         this.deathboardDisplayName = name;
         saveConfig();
         
-        // Update existing deathboard display name
+        
         net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
         if (server != null) {
             net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
@@ -199,7 +217,7 @@ public class ServerData {
         this.assistboardDisplayName = name;
         saveConfig();
         
-        // Update existing assistboard display name
+        
         net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
         if (server != null) {
             net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
@@ -242,9 +260,9 @@ public class ServerData {
     }
 
     public void resetConfig() {
-        comboWindowSeconds = 5.0;
-        assistTimeoutSeconds = 180;
-        scoreMaxLimit = Integer.MAX_VALUE;
+        comboWindowSeconds = DEFAULT_COMBO_WINDOW_SECONDS;
+        assistTimeoutSeconds = DEFAULT_ASSIST_TIMEOUT_SECONDS;
+        scoreMaxLimit = DEFAULT_SCORE_MAX_LIMIT;
         scoreboardDisplayName = "玩家分数";
         killboardDisplayName = "玩家击杀";
         deathboardDisplayName = "玩家死亡";
@@ -260,6 +278,19 @@ public class ServerData {
         disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
         bonusExpressions.clear();
         saveConfig();
+    }
+
+    private void applyDefaults() {
+        comboWindowSeconds = DEFAULT_COMBO_WINDOW_SECONDS;
+        assistTimeoutSeconds = DEFAULT_ASSIST_TIMEOUT_SECONDS;
+        scoreMaxLimit = DEFAULT_SCORE_MAX_LIMIT;
+        scoreboardDisplayName = DEFAULT_SCOREBOARD_DISPLAY_NAME;
+        killboardDisplayName = DEFAULT_KILLBOARD_DISPLAY_NAME;
+        deathboardDisplayName = DEFAULT_DEATHBOARD_DISPLAY_NAME;
+        assistboardDisplayName = DEFAULT_ASSISTBOARD_DISPLAY_NAME;
+        disabledBonusTypes.clear();
+        disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
+        bonusExpressions.clear();
     }
 
     public float getScore(UUID uuid) {
@@ -445,52 +476,52 @@ public class ServerData {
     public void refreshScoreboard(MinecraftServer server) {
         Scoreboard scoreboard = server.getScoreboard();
         
-        // Refresh score objective
+        
         Objective scoreObjective = scoreboard.getObjective(SCOREBOARD_OBJECTIVE);
         if (scoreObjective != null) {
-            // Clear existing scores
+            
             clearScoreboardScores(scoreboard, scoreObjective);
             
-            // Sync all scores
+            
             PlayerDataManager.get().getAllScores().forEach((uuid, score) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
                 scoreboard.getOrCreatePlayerScore(scoreHolderName, scoreObjective).setScore(Math.round(score));
             });
         }
         
-        // Refresh kill objective
+        
         Objective killObjective = scoreboard.getObjective(KILLBOARD_OBJECTIVE);
         if (killObjective != null) {
-            // Clear existing kills
+            
             clearScoreboardScores(scoreboard, killObjective);
             
-            // Sync all kills
+            
             PlayerDataManager.get().getAllKills().forEach((uuid, kill) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
                 scoreboard.getOrCreatePlayerScore(scoreHolderName, killObjective).setScore(kill);
             });
         }
         
-        // Refresh death objective
+        
         Objective deathObjective = scoreboard.getObjective(DEATHBOARD_OBJECTIVE);
         if (deathObjective != null) {
-            // Clear existing deaths
+            
             clearScoreboardScores(scoreboard, deathObjective);
             
-            // Sync all deaths
+            
             PlayerDataManager.get().getAllDeaths().forEach((uuid, death) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
                 scoreboard.getOrCreatePlayerScore(scoreHolderName, deathObjective).setScore(death);
             });
         }
         
-        // Refresh assist objective
+        
         Objective assistObjective = scoreboard.getObjective(ASSISTBOARD_OBJECTIVE);
         if (assistObjective != null) {
-            // Clear existing assists
+            
             clearScoreboardScores(scoreboard, assistObjective);
             
-            // Sync all assists
+            
             PlayerDataManager.get().getAllAssists().forEach((uuid, assist) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
                 scoreboard.getOrCreatePlayerScore(scoreHolderName, assistObjective).setScore(assist);
@@ -499,13 +530,13 @@ public class ServerData {
     }
 
     private void clearScoreboardScores(Scoreboard scoreboard, Objective objective) {
-        // Clear all scores for this objective
+        
         scoreboard.getPlayerScores(objective).forEach(score -> {
             scoreboard.resetPlayerScore(score.getOwner(), objective);
         });
     }
 
-    // --- Scoreboard Logic ---
+    
     public static final String SCOREBOARD_OBJECTIVE = "gd656killicon.score";
     public static final String KILLBOARD_OBJECTIVE = "gd656killicon.kill";
     public static final String DEATHBOARD_OBJECTIVE = "gd656killicon.death";
@@ -514,7 +545,7 @@ public class ServerData {
     public void initScoreboard(MinecraftServer server) {
         Scoreboard scoreboard = server.getScoreboard();
         
-        // Initialize score objective
+        
         Objective scoreObjective = scoreboard.getObjective(SCOREBOARD_OBJECTIVE);
         if (scoreObjective == null) {
             scoreObjective = scoreboard.addObjective(SCOREBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(scoreboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
@@ -522,14 +553,14 @@ public class ServerData {
             scoreObjective.setDisplayName(Component.literal(scoreboardDisplayName));
         }
 
-        // Sync all existing scores to the objective
+        
         final Objective finalScoreObj = scoreObjective;
         PlayerDataManager.get().getAllScores().forEach((uuid, score) -> {
             String scoreHolderName = getScoreHolderName(server, uuid);
             scoreboard.getOrCreatePlayerScore(scoreHolderName, finalScoreObj).setScore(Math.round(score));
         });
         
-        // Initialize kill objective
+        
         Objective killObjective = scoreboard.getObjective(KILLBOARD_OBJECTIVE);
         if (killObjective == null) {
             killObjective = scoreboard.addObjective(KILLBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(killboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
@@ -537,14 +568,14 @@ public class ServerData {
             killObjective.setDisplayName(Component.literal(killboardDisplayName));
         }
 
-        // Sync all existing kills to the objective
+        
         final Objective finalKillObj = killObjective;
         PlayerDataManager.get().getAllKills().forEach((uuid, kill) -> {
             String scoreHolderName = getScoreHolderName(server, uuid);
             scoreboard.getOrCreatePlayerScore(scoreHolderName, finalKillObj).setScore(kill);
         });
         
-        // Initialize death objective
+        
         Objective deathObjective = scoreboard.getObjective(DEATHBOARD_OBJECTIVE);
         if (deathObjective == null) {
             deathObjective = scoreboard.addObjective(DEATHBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(deathboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
@@ -552,14 +583,14 @@ public class ServerData {
             deathObjective.setDisplayName(Component.literal(deathboardDisplayName));
         }
 
-        // Sync all existing deaths to the objective
+        
         final Objective finalDeathObj = deathObjective;
         PlayerDataManager.get().getAllDeaths().forEach((uuid, death) -> {
             String scoreHolderName = getScoreHolderName(server, uuid);
             scoreboard.getOrCreatePlayerScore(scoreHolderName, finalDeathObj).setScore(death);
         });
         
-        // Initialize assist objective
+        
         Objective assistObjective = scoreboard.getObjective(ASSISTBOARD_OBJECTIVE);
         if (assistObjective == null) {
             assistObjective = scoreboard.addObjective(ASSISTBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(assistboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
@@ -567,7 +598,7 @@ public class ServerData {
             assistObjective.setDisplayName(Component.literal(assistboardDisplayName));
         }
 
-        // Sync all existing assists to the objective
+        
         final Objective finalAssistObj = assistObjective;
         PlayerDataManager.get().getAllAssists().forEach((uuid, assist) -> {
             String scoreHolderName = getScoreHolderName(server, uuid);
@@ -576,15 +607,15 @@ public class ServerData {
     }
 
     public String getScoreHolderName(MinecraftServer server, UUID uuid) {
-        // 1. Try online players
+        
         ServerPlayer player = server.getPlayerList().getPlayer(uuid);
         if (player != null) return player.getScoreboardName();
 
-        // 2. Try profile cache
+        
         var profile = server.getProfileCache().get(uuid);
         if (profile.isPresent()) return profile.get().getName();
 
-        // 3. Fallback to UUID string
+        
         return uuid.toString();
     }
 

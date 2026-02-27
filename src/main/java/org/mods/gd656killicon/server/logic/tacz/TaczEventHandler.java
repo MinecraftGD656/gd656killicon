@@ -81,15 +81,15 @@ public class TaczEventHandler implements ITaczHandler {
         if (victim == null) return;
         UUID victimId = victim.getUUID();
 
-        // Mark gun kill
+        
         gunKillVictims.add(victimId);
 
-        // Mark headshot
+        
         if (event.isHeadShot()) {
             headshotVictims.add(victimId);
         }
 
-        // Check last bullet
+        
         checkLastBullet(event);
     }
 
@@ -164,13 +164,13 @@ public class TaczEventHandler implements ITaczHandler {
 
         int currentAmmo = iGun.getCurrentAmmoCount(stack);
         
-        // If there is ammo left, it's not the last bullet
+        
         if (currentAmmo > 0) return;
 
-        // Check if there is a bullet in the barrel (closed bolt mechanics)
+        
         if (iGun.hasBulletInBarrel(stack)) return;
 
-        // Check gun capacity >= 2 to avoid single-shot weapons (like RPGs or single-shot rifles) counting every shot as "last bullet"
+        
         TimelessAPI.getCommonGunIndex(event.getGunId()).ifPresent(index -> {
             int maxAmmo = index.getGunData().getAmmoAmount();
             if (maxAmmo >= 2 && event.getKilledEntity() != null) {

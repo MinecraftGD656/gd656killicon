@@ -16,10 +16,10 @@ public class TextScrambleEffect {
     private final boolean[] shouldScramble;
     private final long startTime;
     private final long duration;
-    private final long refreshRate; // New: frequency of character changes
+    private final long refreshRate; 
     private final boolean active;
     
-    // Cache for currently displayed random characters
+    
     private final char[] cachedChars;
     private long lastRefreshTime = 0;
 
@@ -54,7 +54,7 @@ public class TextScrambleEffect {
     private boolean isScrambleable(char c) {
         if (Character.isWhitespace(c)) return false;
         if (Character.isDigit(c)) return false;
-        // Basic symbols that shouldn't scramble
+        
         if (c == '+' || c == '-' || c == '.' || c == ',' || c == '(' || c == ')' || c == ':' || c == '|') return false;
         return true;
     }
