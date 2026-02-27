@@ -55,7 +55,6 @@ public class DefaultConfigRegistry {
     }
 
     private static void registerOfficialStructures() {
-        
         java.util.Set<String> p00001 = new java.util.HashSet<>();
         p00001.add("subtitle/kill_feed");
         p00001.add("subtitle/score");
@@ -63,7 +62,6 @@ public class DefaultConfigRegistry {
         p00001.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00001", p00001);
 
-        
         java.util.Set<String> p00002 = new java.util.HashSet<>();
         p00002.add("subtitle/kill_feed");
         p00002.add("subtitle/score");
@@ -71,32 +69,27 @@ public class DefaultConfigRegistry {
         p00002.add("kill_icon/combo");
         OFFICIAL_PRESET_STRUCTURE.put("00002", p00002);
 
-        
         java.util.Set<String> p00003 = new java.util.HashSet<>();
         p00003.add("kill_icon/card_bar");
         p00003.add("kill_icon/card");
         OFFICIAL_PRESET_STRUCTURE.put("00003", p00003);
 
-        
         java.util.Set<String> p00004 = new java.util.HashSet<>();
         p00004.add("subtitle/score");
         p00004.add("subtitle/bonus_list");
         p00004.add("kill_icon/battlefield1");
         OFFICIAL_PRESET_STRUCTURE.put("00004", p00004);
 
-        
         java.util.Set<String> p00005 = new java.util.HashSet<>();
         p00005.add("subtitle/score");
         p00005.add("subtitle/bonus_list");
         OFFICIAL_PRESET_STRUCTURE.put("00005", p00005);
 
-        
         java.util.Set<String> p00006 = new java.util.HashSet<>();
         p00006.add("subtitle/combo");
         p00006.add("subtitle/kill_feed");
         OFFICIAL_PRESET_STRUCTURE.put("00006", p00006);
 
-        
         java.util.Set<String> p00007 = new java.util.HashSet<>();
         p00007.add("subtitle/kill_feed");
         p00007.add("subtitle/score");
@@ -104,7 +97,6 @@ public class DefaultConfigRegistry {
         p00007.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00007", p00007);
 
-        
         java.util.Set<String> p00008 = new java.util.HashSet<>();
         p00008.add("subtitle/score");
         p00008.add("subtitle/bonus_list");
@@ -114,14 +106,11 @@ public class DefaultConfigRegistry {
 
     public static JsonObject getDefaultConfig(String presetId, String elementId) {
         JsonObject config;
-        
         if (PRESET_OVERRIDES.containsKey(presetId) && PRESET_OVERRIDES.get(presetId).containsKey(elementId)) {
             config = PRESET_OVERRIDES.get(presetId).get(elementId).deepCopy();
         } else if (GLOBAL_DEFAULTS.containsKey(elementId)) {
-            
             config = GLOBAL_DEFAULTS.get(elementId).deepCopy();
         } else {
-            
             config = new JsonObject();
         }
         
@@ -160,10 +149,7 @@ public class DefaultConfigRegistry {
     }
 
     private static void registerDefaults() {
-        
-        
 
-        
         JsonObject killFeed = new JsonObject();
         killFeed.addProperty("visible", true);
         killFeed.addProperty("scale", 1.0);
@@ -185,7 +171,6 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("color_normal_text", "#FFFFFF");
         killFeed.addProperty("enable_placeholder_bold", false);
         
-        
         killFeed.addProperty("enable_normal_kill", true);
         killFeed.addProperty("enable_headshot_kill", true);
         killFeed.addProperty("enable_explosion_kill", true);
@@ -194,7 +179,6 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("enable_destroy_vehicle_kill", true);
         killFeed.addProperty("enable_scale_animation", true);
 
-        
         killFeed.addProperty("color_normal_emphasis", "#FFFFFF");
         killFeed.addProperty("color_headshot_emphasis", "#FFFFFF");
         killFeed.addProperty("color_explosion_emphasis", "#FFFFFF");
@@ -202,14 +186,12 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("color_assist_emphasis", "#FFFFFF");
         killFeed.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
 
-        
         killFeed.addProperty("enable_stacking", false);
         killFeed.addProperty("max_lines", 3);
         killFeed.addProperty("line_spacing", 12);
 
         registerGlobal("subtitle/kill_feed", killFeed);
 
-        
         JsonObject score = new JsonObject();
         score.addProperty("visible", true);
         score.addProperty("scale", 2.0);
@@ -233,7 +215,6 @@ public class DefaultConfigRegistry {
         score.addProperty("glow_intensity", 0.5);
         registerGlobal("subtitle/score", score);
 
-        
         JsonObject bonusList = new JsonObject();
         bonusList.addProperty("visible", true);
         bonusList.addProperty("scale", 1.0);
@@ -299,15 +280,8 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("align_left", false);
         bonusList.addProperty("align_right", false);
         bonusList.addProperty("merge_window_duration", 0.5f);
-        bonusList.addProperty("animation_speed", 7.0f); 
-        
-        
-        
-        
-        
-        
+        bonusList.addProperty("animation_speed", 7.0f);         
         bonusList.addProperty("animation_speed", 10.0f);
-        
         bonusList.addProperty("enable_text_sweep_animation", false);
         bonusList.addProperty("enter_animation_duration", 0.2f);
         bonusList.addProperty("kill_bonus_scale", 1.0f);
@@ -319,7 +293,6 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("glow_intensity", 0.5f);
         registerGlobal("subtitle/bonus_list", bonusList);
 
-        
         JsonObject comboSubtitle = new JsonObject();
         comboSubtitle.addProperty("visible", true);
         comboSubtitle.addProperty("scale", 1.5);
@@ -343,7 +316,6 @@ public class DefaultConfigRegistry {
         comboSubtitle.addProperty("combo_reset_timeout", 10.0);
         registerGlobal("subtitle/combo", comboSubtitle);
 
-        
         JsonObject scrolling = new JsonObject();
         scrolling.addProperty("visible", true);
         scrolling.addProperty("scale", 0.4f);
@@ -374,7 +346,6 @@ public class DefaultConfigRegistry {
         injectTextureStyleConfigs("00001", "kill_icon/scrolling", scrolling);
         registerGlobal("kill_icon/scrolling", scrolling);
 
-        
         JsonObject combo = new JsonObject();
         combo.addProperty("visible", true);
         combo.addProperty("scale", 0.6f);
@@ -396,7 +367,6 @@ public class DefaultConfigRegistry {
         injectTextureStyleConfigs("00001", "kill_icon/combo", combo);
         registerGlobal("kill_icon/combo", combo);
 
-        
         JsonObject cardBar = new JsonObject();
         cardBar.addProperty("visible", true);
         cardBar.addProperty("scale", 1.0f);
@@ -414,7 +384,6 @@ public class DefaultConfigRegistry {
         injectTextureStyleConfigs("00001", "kill_icon/card_bar", cardBar);
         registerGlobal("kill_icon/card_bar", cardBar);
 
-        
         JsonObject card = new JsonObject();
         card.addProperty("visible", true);
         card.addProperty("scale", 0.15f);
@@ -435,7 +404,6 @@ public class DefaultConfigRegistry {
         card.addProperty("anim_light_t_texture_frame_height_ratio", 5);
         registerGlobal("kill_icon/card", card);
 
-        
         JsonObject bf1 = new JsonObject();
         bf1.addProperty("visible", true);
         bf1.addProperty("icon_size", 25);
@@ -455,14 +423,11 @@ public class DefaultConfigRegistry {
         injectTextureStyleConfigs("00001", "kill_icon/battlefield1", bf1);
         registerGlobal("kill_icon/battlefield1", bf1);
 
-        
 
-        
         JsonObject score00004 = score.deepCopy();
         score00004.addProperty("x_offset", 35);
         score00004.addProperty("y_offset", 86);
-        score00004.addProperty("format_score", "+\u003cscore\u003e"); 
-        score00004.addProperty("color_high_score", "#FFFFFF");
+        score00004.addProperty("format_score", "+\u003cscore\u003e");         score00004.addProperty("color_high_score", "#FFFFFF");
         score00004.addProperty("align_left", true);
         registerOverride("00004", "subtitle/score", score00004);
 
@@ -473,7 +438,6 @@ public class DefaultConfigRegistry {
         bonusList00004.addProperty("animation_speed", 15.0f);
         registerOverride("00004", "subtitle/bonus_list", bonusList00004);
 
-        
         JsonObject score00005 = score.deepCopy();
         score00005.addProperty("x_offset", 30);
         score00005.addProperty("y_offset", 80);
@@ -501,7 +465,6 @@ public class DefaultConfigRegistry {
         bonusList00005.addProperty("kill_bonus_scale", 1.2f);
         registerOverride("00005", "subtitle/bonus_list", bonusList00005);
 
-        
         JsonObject comboSubtitle00006 = comboSubtitle.deepCopy();
         comboSubtitle00006.addProperty("format_kill_single", "gd656killicon.client.format.preset_00006.combo.kill_single");
         comboSubtitle00006.addProperty("format_kill_multi", "gd656killicon.client.format.preset_00006.combo.kill_multi");

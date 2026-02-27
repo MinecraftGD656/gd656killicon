@@ -83,16 +83,12 @@ public class BonusScorePacket implements IPacket {
     @Override
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
-            
             if (org.mods.gd656killicon.client.config.ClientConfigManager.isShowBonusMessage()) {
                 sendBonusChatMessage();
             }
 
-            
             ScoreSubtitleRenderer.getInstance().addScore(this.score);
             SubtitleRenderer.recordBonusScore(this.bonusType, this.score, this.victimId);
-            
-            
             
             StringBuilder dataBuilder = new StringBuilder();
             dataBuilder.append(this.score);
@@ -108,7 +104,6 @@ public class BonusScorePacket implements IPacket {
                 org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(this.bonusType, this.victimId, 0, data)
             );
             
-            
             recordStatistics();
         });
         context.get().setPacketHandled(true);
@@ -116,17 +111,12 @@ public class BonusScorePacket implements IPacket {
     
     private void recordStatistics() {
         
-        
-        
-        
         if (this.bonusType == org.mods.gd656killicon.common.BonusType.ASSIST) {
-            
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordAssist();
         } else if (this.bonusType == org.mods.gd656killicon.common.BonusType.DAMAGE ||
                    this.bonusType == org.mods.gd656killicon.common.BonusType.EXPLOSION ||
                    this.bonusType == org.mods.gd656killicon.common.BonusType.HEADSHOT ||
                    this.bonusType == org.mods.gd656killicon.common.BonusType.CRIT) {
-            
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordDamage(this.score);
         }
     }

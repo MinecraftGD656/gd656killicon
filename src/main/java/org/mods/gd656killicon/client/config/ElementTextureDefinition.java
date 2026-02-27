@@ -16,7 +16,6 @@ public class ElementTextureDefinition {
     static {
         Map<String, List<String>> map = new HashMap<>();
         
-        
         map.put("kill_icon/scrolling", Arrays.asList(
             "default", 
             "headshot", 
@@ -25,7 +24,6 @@ public class ElementTextureDefinition {
             "destroy_vehicle", 
             "assist"
         ));
-        
         
         map.put("kill_icon/combo", Arrays.asList(
             "combo_1", 
@@ -36,7 +34,6 @@ public class ElementTextureDefinition {
             "combo_6"
         ));
         
-        
         map.put("kill_icon/card", Arrays.asList(
             "default_ct", "default_t", 
             "headshot_ct", "headshot_t", 
@@ -45,11 +42,9 @@ public class ElementTextureDefinition {
             "light_ct", "light_t"
         ));
         
-        
         map.put("kill_icon/card_bar", Arrays.asList(
             "bar_ct", "bar_t"
         ));
-        
         
         map.put("kill_icon/battlefield1", Arrays.asList(
             "default", 

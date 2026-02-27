@@ -27,13 +27,11 @@ public class PlayerDataManager {
     private static final String PLAYERDATA_DIR = "playerdata";
     private static final long AUTO_SAVE_INTERVAL_MINUTES = 5;
     private static final long CACHE_EXPIRE_TIME_MS = 3000; 
-
     private final Map<UUID, PlayerData> playerDataCache;
     private Path playerdataDir;
     private ScheduledExecutorService autoSaveExecutor;
     private boolean initialized = false;
 
-    
     private List<ScoreboardSyncPacket.Entry> scoreboardSnapshot = null;
     private long lastSnapshotTime = 0;
 
@@ -139,7 +137,6 @@ public class PlayerDataManager {
             if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
                 savePlayerData(uuid);
             } else {
-                
                 removePlayerData(uuid);
             }
         });
@@ -436,8 +433,6 @@ public class PlayerDataManager {
     private void updateScoreboardSnapshot(MinecraftServer server) {
         List<ScoreboardSyncPacket.Entry> newSnapshot = new ArrayList<>();
         playerDataCache.forEach((uuid, data) -> {
-            
-            
             String lastLoginName = data.getLastLoginName();
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(uuid);
             
@@ -451,8 +446,7 @@ public class PlayerDataManager {
                     data.getKill(),
                     data.getDeath(),
                     data.getAssist(),
-                    onlinePlayer != null ? onlinePlayer.latency : -1 
-                ));
+                    onlinePlayer != null ? onlinePlayer.latency : -1                 ));
             }
         });
         this.scoreboardSnapshot = newSnapshot;

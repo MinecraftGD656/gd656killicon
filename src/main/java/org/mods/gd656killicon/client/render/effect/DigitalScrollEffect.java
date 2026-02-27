@@ -22,11 +22,7 @@ public class DigitalScrollEffect {
         LINEAR
     }
     
-    
-    private float animationDuration = 1.25f; 
-    private float animationRefreshRate = 0.01f; 
-    private Easing easing = Easing.QUINTIC_OUT;
-    
+    private float animationDuration = 1.25f;     private float animationRefreshRate = 0.01f;     private Easing easing = Easing.QUINTIC_OUT;
     
     private float startValue = 0.0f;
     private float targetValue = 0.0f;
@@ -51,9 +47,6 @@ public class DigitalScrollEffect {
         this.animationRefreshRate = animationRefreshRate;
         this.easing = easing;
     }
-    
-    
-    
     
     
     /**
@@ -107,9 +100,6 @@ public class DigitalScrollEffect {
     public Easing getEasing() {
         return easing;
     }
-    
-    
-    
     
     
     /**
@@ -180,9 +170,6 @@ public class DigitalScrollEffect {
     }
     
     
-    
-    
-    
     /**
      * Updates the animation state based on the current time.
      * This should be called each frame or regularly to advance the animation.
@@ -194,21 +181,16 @@ public class DigitalScrollEffect {
             return currentValue;
         }
         
-        
         if (lastUpdateTime > 0 && currentTime - lastUpdateTime < animationRefreshRate * 1000) {
             return currentValue;
         }
         
-        
         float elapsedSeconds = (currentTime - startTime) / 1000.0f;
         float progress = Math.min(elapsedSeconds / animationDuration, 1.0f);
         
-        
         float easedProgress = applyEasing(progress);
         
-        
         currentValue = Mth.lerp(easedProgress, startValue, targetValue);
-        
         
         if (progress >= 1.0f) {
             currentValue = targetValue;
@@ -236,9 +218,6 @@ public class DigitalScrollEffect {
     }
     
     
-    
-    
-    
     /**
      * Applies the configured easing function to a progress value.
      * @param progress Linear progress value (0 to 1)
@@ -250,7 +229,6 @@ public class DigitalScrollEffect {
         
         switch (easing) {
             case CUBIC_OUT:
-                
                 float t = 1.0f - progress;
                 return 1.0f - t * t * t;
                 
@@ -259,7 +237,6 @@ public class DigitalScrollEffect {
                 
             case QUINTIC_OUT:
             default:
-                
                 float t2 = 1.0f - progress;
                 return 1.0f - t2 * t2 * t2 * t2 * t2;
         }

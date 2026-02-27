@@ -29,23 +29,18 @@ public class ConfigScreenHeader {
     private long openTime;
     private long lastRenderTime;
     
-    
-    private int splitPoint; 
-    private double scrollX;
+    private int splitPoint;     private double scrollX;
     private double targetScrollX;
     private double maxScroll;
     private boolean isDragging;
     private boolean isPressed;
     private double lastMouseX;
     
-    
     private final List<Tab> tabs = new ArrayList<>();
     private Tab selectedTab;
 
-    
     private GDButton saveExitButton;
 
-    
     private ConfigTabContent overrideContent;
 
     public ConfigScreenHeader() {
@@ -54,7 +49,6 @@ public class ConfigScreenHeader {
         this.subtitle = Component.translatable("gd656killicon.client.gui.config.subtitle");
         this.openTime = System.currentTimeMillis();
         this.lastRenderTime = System.currentTimeMillis();
-        
         
         initTabs();
     }
@@ -76,16 +70,13 @@ public class ConfigScreenHeader {
         }
     }
 
-    
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        
         if (saveExitButton != null && overrideContent == null && saveExitButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
 
         if (button == 0 && mouseX > splitPoint && mouseY <= HEADER_HEIGHT + HEADER_CLICK_ZONE) {
             double localMouseX = mouseX - splitPoint + scrollX;
-            
             
             for (Tab tab : tabs) {
                 if (localMouseX >= tab.x && localMouseX <= tab.x + tab.width && mouseY >= tab.finalY && mouseY <= tab.finalY + tab.height) {
@@ -94,15 +85,13 @@ public class ConfigScreenHeader {
                         selectedTab = tab;
                         selectedTab.isSelected = true;
                         selectedTab.content.onTabOpen();
-                        overrideContent = null; 
-                    }
+                        overrideContent = null;                     }
                     isDragging = false;
                     isPressed = true;
                     lastMouseX = mouseX;
                     return true;
                 }
             }
-            
             
             isDragging = false;
             isPressed = true;
@@ -152,12 +141,10 @@ public class ConfigScreenHeader {
         }
     }
 
-    
     public void render(GuiGraphics guiGraphics, int screenWidth, int mouseX, int mouseY, float partialTick) {
         long now = System.currentTimeMillis();
         float dt = (now - lastRenderTime) / 1000.0f;
         lastRenderTime = now;
-        
         
         ConfigTabContent activeTab = getSelectedTabContent();
         int screenHeight = guiGraphics.guiHeight();
@@ -165,28 +152,21 @@ public class ConfigScreenHeader {
             activeTab.updateLayout(screenWidth, screenHeight);
         }
 
-        
         calculateLayout(screenWidth);
         updateScroll(dt);
 
-        
         updateFooterButtons(screenWidth, screenHeight);
-        
         
         renderPart2(guiGraphics, screenWidth, mouseX, mouseY, now, dt);
         
-        
         renderPart1(guiGraphics, now);
-        
         
         renderIntroSlice(guiGraphics, screenWidth, now);
 
-        
         if (saveExitButton != null && overrideContent == null) {
             saveExitButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
 
-        
         renderRegionBorders(guiGraphics, screenWidth, screenHeight);
     }
 
@@ -197,7 +177,6 @@ public class ConfigScreenHeader {
         int width = area1Right - DEFAULT_PADDING;
         int height = ROW_HEADER_HEIGHT;
 
-        
         ConfigTabContent activeTab = getSelectedTabContent();
         if (activeTab != null) {
             float offset = activeTab.getSidebarOffset();
@@ -222,9 +201,7 @@ public class ConfigScreenHeader {
     private void renderRegionBorders(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
         int goldBarBottom = HEADER_HEIGHT + GOLD_BAR_HEIGHT;
         
-        
         int area1Right = (screenWidth - 2 * DEFAULT_PADDING) / 3 + DEFAULT_PADDING;
-        
         
         int area1Bottom;
         float sidebarOffset = 0;
@@ -232,7 +209,6 @@ public class ConfigScreenHeader {
         
         ConfigTabContent activeTab = getSelectedTabContent();
         if (activeTab != null) {
-            
             area1Bottom = activeTab.getArea1Bottom();
             sidebarOffset = activeTab.getSidebarOffset();
             isSidebarFloating = activeTab.isSidebarFloating();
@@ -242,18 +218,12 @@ public class ConfigScreenHeader {
         
         int area4Top = screenHeight - DEFAULT_PADDING - REGION_4_HEIGHT;
         
-        
         int translucentGray = (0x80 << 24) | (COLOR_GRAY & 0xFFFFFF);
-        
         
         int sideX1 = DEFAULT_PADDING + (int)sidebarOffset;
         int sideX2 = area1Right + (int)sidebarOffset;
         
-        
         drawBorderRect(guiGraphics, sideX1, goldBarBottom + DEFAULT_PADDING, sideX2, area1Bottom, translucentGray);
-        
-        
-        
         
         int area2X1 = isSidebarFloating ? DEFAULT_PADDING : (area1Right + DEFAULT_PADDING);
         int area2Top = goldBarBottom + DEFAULT_PADDING;
@@ -264,19 +234,13 @@ public class ConfigScreenHeader {
             drawBorderRect(guiGraphics, area2X1, area2Top, screenWidth - DEFAULT_PADDING, screenHeight - DEFAULT_PADDING, translucentGray);
         }
         
-        
         drawBorderRect(guiGraphics, sideX1, area1Bottom + DEFAULT_PADDING, sideX2, area4Top - DEFAULT_PADDING, translucentGray);
-        
         
         drawBorderRect(guiGraphics, sideX1, area4Top, sideX2, screenHeight - DEFAULT_PADDING, translucentGray);
     }
     
     private void drawBorderRect(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int color) {
-        guiGraphics.fill(x1, y1, x2, y1 + 1, color); 
-        guiGraphics.fill(x1, y2 - 1, x2, y2, color); 
-        guiGraphics.fill(x1, y1, x1 + 1, y2, color); 
-        guiGraphics.fill(x2 - 1, y1, x2, y2, color); 
-    }
+        guiGraphics.fill(x1, y1, x2, y1 + 1, color);         guiGraphics.fill(x1, y2 - 1, x2, y2, color);         guiGraphics.fill(x1, y1, x1 + 1, y2, color);         guiGraphics.fill(x2 - 1, y1, x2, y2, color);     }
 
     private void drawBorderRectNoTop(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int color) {
         guiGraphics.fill(x1, y2 - 1, x2, y2, color);
@@ -300,9 +264,7 @@ public class ConfigScreenHeader {
         int titleWidth = minecraft.font.width(title);
         int subtitleWidth = minecraft.font.width(subtitle);
         
-        
         splitPoint = titleWidth + (int)(subtitleWidth * 0.5f) + DEFAULT_PADDING + SPLIT_POINT_OFFSET;
-        
         
         float currentX = 0;
         for (Tab tab : tabs) {
@@ -313,36 +275,29 @@ public class ConfigScreenHeader {
             currentX += tab.width + TAB_SPACING;
         }
         
-        
         float totalContentWidth = currentX;
         float visibleWidth = screenWidth - splitPoint;
         maxScroll = Math.max(0, totalContentWidth - visibleWidth);
-        
         
         if (targetScrollX > maxScroll) targetScrollX = maxScroll;
         if (scrollX > maxScroll) scrollX = maxScroll;
     }
 
     private void renderPart1(GuiGraphics guiGraphics, long now) {
-        
         guiGraphics.fill(0, 0, splitPoint, HEADER_HEIGHT, COLOR_BG);
         guiGraphics.fill(0, HEADER_HEIGHT, splitPoint, HEADER_HEIGHT + GOLD_BAR_HEIGHT, COLOR_GOLD);
         
-        
         guiGraphics.fillGradient(0, HEADER_HEIGHT - 5, splitPoint, HEADER_HEIGHT, 0x00000000, (0x99 << 24) | (COLOR_GOLD & 0x00FFFFFF));
-        
         
         long elapsed = now - openTime;
         float ease = getEaseOutCubic(Math.min(1.0f, elapsed / (float)INTRO_DURATION_MS));
         float animOffsetX = -TITLE_ANIM_OFFSET * (1.0f - ease);
-        
         
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(animOffsetX + DEFAULT_PADDING, (float)DEFAULT_PADDING, 0);
         guiGraphics.drawString(minecraft.font, title, 0, 0, COLOR_GOLD, true);
         guiGraphics.pose().popPose();
 
-        
         float subtitleX = DEFAULT_PADDING + minecraft.font.width(title) + 5;
         float subtitleY = DEFAULT_PADDING + 9 - 11 * 0.5f;
         
@@ -354,7 +309,6 @@ public class ConfigScreenHeader {
     }
 
     private void renderPart2(GuiGraphics guiGraphics, int screenWidth, int mouseX, int mouseY, long now, float dt) {
-        
         guiGraphics.enableScissor(splitPoint, 0, screenWidth, HEADER_HEIGHT + 10);
         
         guiGraphics.pose().pushPose();
@@ -362,10 +316,8 @@ public class ConfigScreenHeader {
         
         double localMouseX = mouseX - splitPoint + scrollX;
         
-        
         renderPart2Background(guiGraphics, screenWidth);
 
-        
         renderTabs(guiGraphics, localMouseX, mouseY, now, dt);
         
         guiGraphics.pose().popPose();
@@ -382,13 +334,11 @@ public class ConfigScreenHeader {
             return;
         }
         
-        
         if (selectedTab.x > 0) {
             guiGraphics.fill(0, 0, selectedTab.x, HEADER_HEIGHT, COLOR_BG);
             guiGraphics.fill(0, HEADER_HEIGHT, selectedTab.x, HEADER_HEIGHT + GOLD_BAR_HEIGHT, COLOR_GOLD);
             renderPart2Glow(guiGraphics, 0, selectedTab.x);
         }
-        
         
         int tabRight = selectedTab.x + selectedTab.width;
         if (tabRight < drawEnd) {
@@ -412,7 +362,6 @@ public class ConfigScreenHeader {
             boolean isSelected = (tab == selectedTab);
             boolean hovered = localMouseX >= tab.x && localMouseX <= tab.x + tab.width && mouseY >= tab.finalY && mouseY <= tab.finalY + tab.height && mouseY <= HEADER_HEIGHT + HEADER_CLICK_ZONE;
 
-            
             if (hovered) {
                 tab.hoverProgress = Math.min(1.0f, tab.hoverProgress + ANIMATION_SPEED * dt);
             } else {
@@ -425,12 +374,10 @@ public class ConfigScreenHeader {
                 tab.selectionProgress = Math.max(0.0f, tab.selectionProgress - ANIMATION_SPEED * dt);
             }
             
-            
             int distance = Math.abs(i - selectedIndex);
             long delay = distance * (long)TAB_DELAY_MS;
             long tabIntroElapsed = now - (openTime + delay);
             float introEase = getEaseOutCubic(tabIntroElapsed > 0 ? Math.min(1.0f, tabIntroElapsed / (float)INTRO_DURATION_MS) : 0.0f);
-            
             
             float textCurrentY = HEADER_HEIGHT + (tab.finalY - HEADER_HEIGHT) * introEase;
             int alpha = Math.max(5, (int)(255 * introEase));
@@ -440,12 +387,10 @@ public class ConfigScreenHeader {
             
             int textX = tab.x + (tab.width - minecraft.font.width(tab.content.getTitle())) / 2;
             
-            
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(textX, textCurrentY + 8.0f, 0);
             guiGraphics.drawString(minecraft.font, tab.content.getTitle(), 0, 0, colorWithAlpha, true);
             guiGraphics.pose().popPose();
-            
             
             if (tab.selectionProgress > 0.01f) {
                 float borderEase = getEaseOutCubic(tab.selectionProgress);
@@ -455,7 +400,6 @@ public class ConfigScreenHeader {
                 guiGraphics.fill(tab.x, borderCurrentY, tab.x + 1, HEADER_HEIGHT + GOLD_BAR_HEIGHT, COLOR_GOLD);
                 guiGraphics.fill(tab.x + tab.width - 1, borderCurrentY, tab.x + tab.width, HEADER_HEIGHT + GOLD_BAR_HEIGHT, COLOR_GOLD);
             }
-            
             
             if (tab.hoverProgress > 0.01f) {
                 float hoverEase = getEaseOutCubic(tab.hoverProgress);

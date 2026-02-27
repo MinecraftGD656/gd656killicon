@@ -41,7 +41,6 @@ public class ExternalSoundManager {
     private static final Map<String, Boolean> BLOCKING_STATUS = new ConcurrentHashMap<>();
     private static final ExecutorService SOUND_THREAD_POOL = Executors.newCachedThreadPool();
     private static final long SOUND_COOLDOWN = 10L; 
-
     private static final String[] DEFAULT_SOUNDS = {
         "combokillsound_1_cf.ogg",
         "combokillsound_2_cf.ogg",
@@ -90,9 +89,7 @@ public class ExternalSoundManager {
     public static void reloadAsync() {
         SOUND_THREAD_POOL.submit(() -> {
             try {
-                
                 ensureAllPresetsSoundFiles(false);
-                
                 
                 clearCache();
 
@@ -101,7 +98,6 @@ public class ExternalSoundManager {
 
                 ClientMessageLogger.info("Async sound reload complete for preset %s: %d loaded.", currentPresetId, finalLoadedCount);
             } catch (Exception e) {
-                
                 ClientMessageLogger.error("Async sound reload failed: %s", e.getMessage());
             }
         });
@@ -343,7 +339,6 @@ public class ExternalSoundManager {
     public static boolean resetSound(String presetId, String soundName) {
         if (presetId == null || soundName == null) return false;
         
-        
         Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.get(presetId);
         if (presetBackups != null && presetBackups.containsKey(soundName)) {
             SoundBackup backup = presetBackups.remove(soundName);
@@ -365,18 +360,14 @@ public class ExternalSoundManager {
             }
         }
 
-        
         if (isSoundModified(presetId, soundName)) {
-            
             try {
                 Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
                 Path targetPath = presetDir.resolve(soundName);
                 String baseName = resolveBaseName(soundName);
                 
-                
                 Files.deleteIfExists(presetDir.resolve(baseName + ".ogg"));
                 Files.deleteIfExists(presetDir.resolve(baseName + ".wav"));
-                
                 
                 ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
                 try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
@@ -404,7 +395,6 @@ public class ExternalSoundManager {
         ensureSoundFilesForPreset(presetId, true);
         ClientMessageLogger.chatSuccess("gd656killicon.client.sound.reset_success", presetId);
 
-        
         if (presetId.equals(ConfigManager.getCurrentPresetId())) {
             reload();
         }
@@ -418,12 +408,10 @@ public class ExternalSoundManager {
                 
                 ClientMessageLogger.info("Async sound reset complete for preset %s.", presetId);
 
-                
                 if (presetId.equals(ConfigManager.getCurrentPresetId())) {
                     reloadAsync();
                 }
             } catch (Exception e) {
-                
                 ClientMessageLogger.error("Async sound reset failed for preset %s: %s", presetId, e.getMessage());
             }
         });
@@ -444,18 +432,13 @@ public class ExternalSoundManager {
                 Set<String> presets = ConfigManager.getPresetIds();
                 
                 for (String presetId : presets) {
-                    
-                    
-                    
                     ensureSoundFilesForPreset(presetId, true);
                 }
                 
                 ClientMessageLogger.info("Async sound reset complete for all presets.");
                 
-                
                 reloadAsync();
             } catch (Exception e) {
-                
                 ClientMessageLogger.error("Async sound reset failed: %s", e.getMessage());
             }
         });
@@ -488,8 +471,6 @@ public class ExternalSoundManager {
             AudioInputStream ais = AudioSystem.getAudioInputStream(path.toFile());
             AudioFormat format = ais.getFormat();
             
-            
-            
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] data = new byte[4096];
             int nRead;
@@ -506,7 +487,6 @@ public class ExternalSoundManager {
     private static SoundData loadOgg(Path path) {
         ByteBuffer vorbisBuffer = null;
         try {
-            
             byte[] bytes = Files.readAllBytes(path);
             vorbisBuffer = BufferUtils.createByteBuffer(bytes.length);
             vorbisBuffer.put(bytes);
@@ -524,7 +504,6 @@ public class ExternalSoundManager {
                 int channels = channelsBuffer.get(0);
                 int sampleRate = sampleRateBuffer.get(0);
 
-                
                 byte[] pcmBytes = new byte[pcm.capacity() * 2];
                 for (int i = 0; i < pcm.capacity(); i++) {
                     short sample = pcm.get(i);
@@ -532,7 +511,6 @@ public class ExternalSoundManager {
                     pcmBytes[i * 2 + 1] = (byte) ((sample >> 8) & 0xFF);
                 }
 
-                
                 AudioFormat format = new AudioFormat(sampleRate, 16, channels, true, false);
                 return new SoundData(pcmBytes, format);
             }
@@ -541,10 +519,6 @@ public class ExternalSoundManager {
             return null;
         } finally {
             if (vorbisBuffer != null) {
-                
-                
-                
-                
             }
         }
     }
@@ -574,9 +548,7 @@ public class ExternalSoundManager {
         SoundData data = SOUND_CACHE.get(name);
         String resolvedName = name;
         if (data == null) {
-            
             if (!name.endsWith("_cf") && !name.endsWith("_df")) {
-                
                 for (String key : SOUND_CACHE.keySet()) {
                     if (key.startsWith(name)) {
                         data = SOUND_CACHE.get(key);
@@ -591,12 +563,10 @@ public class ExternalSoundManager {
         final SoundData finalData = data;
         final String finalName = resolvedName;
         
-        
         long frameLength = finalData.pcmData.length / finalData.format.getFrameSize();
         double durationInSeconds = frameLength / finalData.format.getFrameRate();
         long durationMs = (long) (durationInSeconds * 1000);
         SOUND_DURATIONS_MS.put(name, durationMs); 
-
         if (blocking) {
             BLOCKING_STATUS.put(name, true);
         }
@@ -620,12 +590,10 @@ public class ExternalSoundManager {
                 SourceDataLine line = (SourceDataLine) AudioSystem.getLine(info);
                 line.open(finalData.format);
                 
-                
                 if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                     FloatControl gainControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
                     float masterVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MASTER);
                     masterVolume *= Math.max(0.0f, soundVolume / 100.0f);
-                    
                     
                     if (masterVolume <= 0.0001f) {
                         masterVolume = 0.0001f;

@@ -31,8 +31,7 @@ public class ScoreboardSyncPacket implements IPacket {
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
-                buffer.readInt() 
-            ));
+                buffer.readInt()             ));
         }
     }
 
@@ -54,7 +53,6 @@ public class ScoreboardSyncPacket implements IPacket {
     @Override
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
-            
             org.mods.gd656killicon.client.gui.tabs.ScoreboardTab.updateData(this.entries);
         });
         context.get().setPacketHandled(true);

@@ -134,14 +134,11 @@ public class ConfigManager {
     }
 
     public static void resetFull() {
-        
         resetConfig();
 
-        
         java.nio.file.Path assetsDir = net.minecraftforge.fml.loading.FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
         if (java.nio.file.Files.exists(assetsDir)) {
             try {
-                
                 java.nio.file.Files.list(assetsDir).forEach(presetPath -> {
                     String presetName = presetPath.getFileName().toString();
                     boolean isOfficial = isOfficialPreset(presetName);
@@ -149,7 +146,6 @@ public class ConfigManager {
                     if (java.nio.file.Files.isDirectory(presetPath)) {
                         try {
                             if (isOfficial) {
-                                
                                 java.nio.file.Files.list(presetPath).forEach(subPath -> {
                                     String subName = subPath.getFileName().toString();
                                     if (!"sounds".equals(subName)) {
@@ -157,7 +153,6 @@ public class ConfigManager {
                                     }
                                 });
                             } else {
-                                
                                 deleteRecursively(presetPath);
                             }
                         } catch (java.io.IOException e) {
@@ -170,7 +165,6 @@ public class ConfigManager {
             }
         }
 
-        
         org.mods.gd656killicon.client.textures.ExternalTextureManager.resetAllTexturesAsync();
         org.mods.gd656killicon.client.sounds.ExternalSoundManager.resetAllSoundsAsync();
 
@@ -186,7 +180,6 @@ public class ConfigManager {
             }
             java.nio.file.Files.deleteIfExists(path);
         } catch (java.io.IOException e) {
-            
         }
     }
 }

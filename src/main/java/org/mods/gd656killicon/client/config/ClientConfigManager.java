@@ -16,7 +16,6 @@ public class ClientConfigManager {
     private static final File CONFIG_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon").toFile();
     private static final File GLOBAL_CONFIG_FILE = new File(CONFIG_DIR, "client_config.json");
 
-    
     private static final String DEFAULT_CURRENT_PRESET = "00001";
     private static final boolean DEFAULT_ENABLE_SOUND = true;
     private static final boolean DEFAULT_SHOW_BONUS_MESSAGE = false;
@@ -25,7 +24,6 @@ public class ClientConfigManager {
     private static final int DEFAULT_ACE_LAG_INTENSITY = 5;
     private static final String DEFAULT_LAST_LANGUAGE = "";
 
-    
     private static String currentPresetId = DEFAULT_CURRENT_PRESET;
     private static boolean enableSound = DEFAULT_ENABLE_SOUND;
     private static boolean showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
@@ -34,7 +32,6 @@ public class ClientConfigManager {
     private static int aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
     private static String lastLanguageCode = DEFAULT_LAST_LANGUAGE;
 
-    
     private static String tempCurrentPresetId = null;
     private static Boolean tempEnableSound = null;
     private static Boolean tempShowBonusMessage = null;
@@ -118,7 +115,6 @@ public class ClientConfigManager {
 
         try (FileReader reader = new FileReader(GLOBAL_CONFIG_FILE)) {
             JsonObject json = GSON.fromJson(reader, JsonObject.class);
-            
             currentPresetId = json.has("current_preset") ? json.get("current_preset").getAsString() : DEFAULT_CURRENT_PRESET;
             enableSound = json.has("enable_sound") ? json.get("enable_sound").getAsBoolean() : DEFAULT_ENABLE_SOUND;
             showBonusMessage = json.has("show_bonus_message") ? json.get("show_bonus_message").getAsBoolean() : DEFAULT_SHOW_BONUS_MESSAGE;
@@ -129,7 +125,6 @@ public class ClientConfigManager {
         } catch (Exception e) {
             ClientMessageLogger.error("gd656killicon.client.config.load_fail", e.getMessage());
             e.printStackTrace();
-            
             currentPresetId = DEFAULT_CURRENT_PRESET;
             enableSound = DEFAULT_ENABLE_SOUND;
             showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
@@ -149,7 +144,6 @@ public class ClientConfigManager {
         json.addProperty("enable_ace_lag", DEFAULT_ENABLE_ACE_LAG);
         json.addProperty("ace_lag_intensity", DEFAULT_ACE_LAG_INTENSITY);
         json.addProperty("last_language", DEFAULT_LAST_LANGUAGE);
-        
         
         currentPresetId = DEFAULT_CURRENT_PRESET;
         enableSound = DEFAULT_ENABLE_SOUND;

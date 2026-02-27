@@ -12,7 +12,6 @@ public class ClientSetup {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        
         event.enqueueWork(() -> {
             org.mods.gd656killicon.client.stats.ClientStatsManager.init();
             org.mods.gd656killicon.client.config.ConfigManager.init();
@@ -30,10 +29,8 @@ public class ClientSetup {
             org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "bonus_list", org.mods.gd656killicon.client.render.impl.BonusListRenderer.getInstance());
             org.mods.gd656killicon.client.render.HudElementManager.register("global", "ace_logo", new org.mods.gd656killicon.client.render.impl.AceLogoRenderer());
             
-            
             registerConfigScreen();
         });
-        
         
         org.mods.gd656killicon.client.command.ClientCommand.init();
     }

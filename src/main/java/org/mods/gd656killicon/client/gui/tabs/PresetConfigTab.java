@@ -37,10 +37,7 @@ import com.google.gson.JsonObject;
 
 public class PresetConfigTab extends ConfigTabContent {
     private enum PanelState {
-        HIDDEN, 
-        PEEK,   
-        OPEN    
-    }
+        HIDDEN,         PEEK,           OPEN        }
 
     private final Map<String, ElementPreview> previewElements = new HashMap<>();
     private PanelState state = PanelState.HIDDEN;
@@ -49,13 +46,11 @@ public class PresetConfigTab extends ConfigTabContent {
     private float targetTranslation;
     private long lastFrameTime;
     
-    
     private PanelState rightPanelState = PanelState.HIDDEN;
     private float currentRightTranslation;
     private float targetRightTranslation;
     private boolean rightPanelInitialized = false;
 
-    
     private final List<GDRowRenderer> presetRows = new ArrayList<>();
     private double scrollY = 0;
     private double targetScrollY = 0;
@@ -64,20 +59,15 @@ public class PresetConfigTab extends ConfigTabContent {
     private double lastMouseY = 0;
     private int createRowIndex = -1;
 
-    
     private static final int TRIGGER_ZONE_WIDTH = GuiConstants.DEFAULT_PADDING; 
-
-    
     private boolean isEditMode = false;
     private boolean isExportMode = false;
     private Set<String> resetCompletedStates = new HashSet<>();
-    
     
     private GDTextRenderer rightTitleRenderer;
     private GDTextRenderer rightInfoRenderer;
     private GDButton rightAddButton;
     private GDButton rightSoundButton;
-    
     
     private boolean isAddElementExpanded = false;
     private List<GDRowRenderer> availableElementRows = new ArrayList<>();
@@ -86,14 +76,12 @@ public class PresetConfigTab extends ConfigTabContent {
     private boolean isElementListDragging = false;
     private double elementListLastMouseY = 0;
 
-    
     private List<GDRowRenderer> currentElementRows = new ArrayList<>();
     private double contentScrollY = 0;
     private double targetContentScrollY = 0;
     private boolean isContentDragging = false;
     private double contentLastMouseY = 0;
 
-    
     private static class UndoState {
         final String elementId;
         final JsonObject configSnapshot;
@@ -112,7 +100,6 @@ public class PresetConfigTab extends ConfigTabContent {
 
     public PresetConfigTab(Minecraft minecraft) {
         super(minecraft, "gd656killicon.client.gui.config.tab.preset");
-        
         this.lastFrameTime = Util.getMillis();
         
         rebuildPresetList();
@@ -125,7 +112,6 @@ public class PresetConfigTab extends ConfigTabContent {
     private void updatePreviews() {
         String currentId = ClientConfigManager.getCurrentPresetId();
         Set<String> elementIds = ElementConfigManager.getElementIds(currentId);
-        
         
         previewElements.keySet().removeIf(id -> !elementIds.contains(id));
         
@@ -150,17 +136,12 @@ public class PresetConfigTab extends ConfigTabContent {
 
         for (int i = 0; i < sortedPresets.size(); i++) {
             String id = sortedPresets.get(i);
-            
             GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0, false);
-            
             
             if (i % 2 != 0) row.setBackgroundAlpha(0.15f);
             else row.setBackgroundAlpha(0.3f);
 
-            
-            
             String displayName = " " + ElementConfigManager.getPresetDisplayName(id);
-            
             int nameColor;
             if (ElementConfigManager.isOfficialPreset(id)) {
                 nameColor = isEditMode ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
@@ -168,18 +149,12 @@ public class PresetConfigTab extends ConfigTabContent {
                 nameColor = GuiConstants.COLOR_WHITE;
             }
             
-            
-            
             row.addColumn(displayName, -1, nameColor, false, false);
-            
-            
-            
             
             int idWidth = isEditMode ? 110 : 60;
             int idColor = id.equals(currentId) ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE;
             
             if (isExportMode) {
-                 
                  String exportLabel = I18n.get("gd656killicon.client.gui.config.preset.action.export");
                  row.addColumn(exportLabel, idWidth, GuiConstants.COLOR_WHITE, true, true, (btn) -> {
                       openExportDialog(id);
@@ -187,10 +162,7 @@ public class PresetConfigTab extends ConfigTabContent {
             } else {
                 row.addColumn(id, idWidth, idColor, true, true);
                 
-                
                 if (!isEditMode) {
-                    
-                    
                     
                     row.getColumn(1).onClick = (btn) -> {
                          if (btn == 0) {
@@ -200,8 +172,6 @@ public class PresetConfigTab extends ConfigTabContent {
                     };
                 } else {
                     
-                    
-                    
                     if (!ElementConfigManager.isOfficialPreset(id)) {
                         List<GDRowRenderer.Column> nameHoverCols = new ArrayList<>();
                         nameHoverCols.add(createActionColumn(I18n.get("gd656killicon.client.gui.config.preset.action.edit_name_tooltip"), GuiConstants.COLOR_GRAY, (btn) -> {
@@ -210,11 +180,8 @@ public class PresetConfigTab extends ConfigTabContent {
                         row.setColumnHoverReplacement(0, nameHoverCols);
                     }
     
-                    
                     List<GDRowRenderer.Column> idHoverCols = new ArrayList<>();
                     if (ElementConfigManager.isOfficialPreset(id)) {
-                        
-                        
                         boolean configReset = resetCompletedStates.contains(id + ":config");
                         idHoverCols.add(createActionColumn(
                             configReset ? I18n.get("gd656killicon.client.gui.config.preset.action.reset_config.done") : I18n.get("gd656killicon.client.gui.config.preset.action.reset_config"),
@@ -225,7 +192,6 @@ public class PresetConfigTab extends ConfigTabContent {
                                 rebuildPresetList();
                             }
                         ));
-                        
                         
                         boolean textureReset = resetCompletedStates.contains(id + ":textures");
                         idHoverCols.add(createActionColumn(
@@ -238,7 +204,6 @@ public class PresetConfigTab extends ConfigTabContent {
                             }
                         ));
     
-                        
                         boolean soundReset = resetCompletedStates.contains(id + ":sounds");
                         idHoverCols.add(createActionColumn(
                             soundReset ? I18n.get("gd656killicon.client.gui.config.preset.action.reset_sounds.done") : I18n.get("gd656killicon.client.gui.config.preset.action.reset_sounds"),
@@ -250,16 +215,12 @@ public class PresetConfigTab extends ConfigTabContent {
                             }
                         ));
                     } else {
-                        
-                        
                         idHoverCols.add(createActionColumn(I18n.get("gd656killicon.client.gui.config.preset.action.edit_id"), GuiConstants.COLOR_GRAY, (btn) -> {
                             openRenameIdDialog(id);
                         }));
                         
-                        
                         idHoverCols.add(createActionColumn(I18n.get("gd656killicon.client.gui.config.preset.action.delete"), GuiConstants.COLOR_RED, (btn) -> {
                             if (ElementConfigManager.deletePreset(id)) {
-                                
                                 if (id.equals(ClientConfigManager.getCurrentPresetId())) {
                                     ConfigManager.setCurrentPresetId("00001");
                                 }
@@ -274,16 +235,13 @@ public class PresetConfigTab extends ConfigTabContent {
             presetRows.add(row);
         }
         
-        
         GDRowRenderer createRow = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, false);
         createRow.addColumn(I18n.get("gd656killicon.client.gui.config.preset.create_new"), -1, GuiConstants.COLOR_GREEN, true, true, (btn) -> {
             String newId = ElementConfigManager.createNewPreset();
-            ConfigManager.setCurrentPresetId(newId); 
-            rebuildPresetList();
+            ConfigManager.setCurrentPresetId(newId);             rebuildPresetList();
         });
         createRowIndex = presetRows.size();
         presetRows.add(createRow);
-        
         
         GDRowRenderer toggleRow = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, false);
         String toggleText = isEditMode ? I18n.get("gd656killicon.client.gui.config.preset.exit_edit_mode") : I18n.get("gd656killicon.client.gui.config.preset.enter_edit_mode");
@@ -297,7 +255,6 @@ public class PresetConfigTab extends ConfigTabContent {
         
         presetRows.add(toggleRow);
 
-        
         GDRowRenderer exportToggleRow = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, false);
         String exportToggleText = isExportMode ? I18n.get("gd656killicon.client.gui.config.preset.exit_export_mode") : I18n.get("gd656killicon.client.gui.config.preset.enter_export_mode");
         int exportToggleColor = isExportMode ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_SKY_BLUE;
@@ -359,7 +316,6 @@ public class PresetConfigTab extends ConfigTabContent {
                            openImportDuplicateDialog(file, originalId);
                       } else {
                            String targetId = originalId != null ? originalId : PresetPackManager.generateRandomId();
-                           
                            if (ElementConfigManager.getActivePresets().containsKey(targetId)) {
                                 openImportDuplicateDialog(file, targetId);
                            } else {
@@ -386,27 +342,19 @@ public class PresetConfigTab extends ConfigTabContent {
 
         for (int i = 0; i < sortedTypes.size(); i++) {
             String type = sortedTypes.get(i);
-            
-            
             GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0, false);
-            
             
             if (i % 2 != 0) row.setBackgroundAlpha(0.15f);
             else row.setBackgroundAlpha(0.3f);
 
-            
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             texts.add(new GDTextRenderer.ColoredText(" [" + type + "] ", GuiConstants.COLOR_GRAY));
-            
             
             String nameKey = "gd656killicon.element.name." + type.replace("/", ".");
             String name = I18n.exists(nameKey) ? I18n.get(nameKey) : type;
             texts.add(new GDTextRenderer.ColoredText(name, GuiConstants.COLOR_GOLD));
             
-            
             row.addColoredColumn(texts, -1, false, false, null);
-            
-            
             
             row.addColumn(I18n.get("gd656killicon.client.gui.config.preset.add_button"), 40, GuiConstants.COLOR_WHITE, true, true, (btn) -> {
                 ElementConfigManager.addElement(currentPresetId, type);
@@ -425,8 +373,7 @@ public class PresetConfigTab extends ConfigTabContent {
         col.color = color;
         col.isCentered = true;
         col.onClick = onClick;
-        col.isDarker = true; 
-        return col;
+        col.isDarker = true;         return col;
     }
 
     private void openRenameDialog(String presetId) {
@@ -440,7 +387,6 @@ public class PresetConfigTab extends ConfigTabContent {
     private void openRenameIdDialog(String currentId) {
         textInputDialog.show(currentId, I18n.get("gd656killicon.client.gui.config.dialog.enter_text"), (newId) -> {
             if (ElementConfigManager.renamePresetId(currentId, newId)) {
-                
                 if (currentId.equals(ClientConfigManager.getCurrentPresetId())) {
                      ConfigManager.setCurrentPresetId(newId);
                 }
@@ -469,7 +415,6 @@ public class PresetConfigTab extends ConfigTabContent {
 
     @Override
     protected void updateConfigRowsLayout(int screenWidth, int screenHeight) {
-        
         int contentX = TRIGGER_ZONE_WIDTH;
         
         int contentY = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING;
@@ -481,7 +426,6 @@ public class PresetConfigTab extends ConfigTabContent {
             int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;
             
             row.setBounds(contentX, currentY, contentX + contentWidth, currentY + rowHeight);
-            
             
             if (i % 2 != 0) {
                 row.setBackgroundAlpha(0.15f);
@@ -495,60 +439,43 @@ public class PresetConfigTab extends ConfigTabContent {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
-        
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int panelWidth = area1Right + GuiConstants.DEFAULT_PADDING;
         
-        
         updateResetButtonState();
 
-        
         boolean isDialogVisible = textInputDialog.isVisible() || promptDialog.isVisible();
         boolean isPanelOpen = (state == PanelState.OPEN);
         boolean isRightPanelOpen = (rightPanelState == PanelState.OPEN);
 
-        
-        
         int panelMouseX = isDialogVisible ? -10000 : mouseX;
         int panelMouseY = isDialogVisible ? -10000 : mouseY;
 
-        
-        
         int bgMouseX = (isDialogVisible || isPanelOpen || isRightPanelOpen) ? -10000 : mouseX;
         int bgMouseY = (isDialogVisible || isPanelOpen || isRightPanelOpen) ? -10000 : mouseY;
 
-        
         long currentTime = Util.getMillis();
-        float deltaTime = (currentTime - lastFrameTime) / 1000.0f; 
-        lastFrameTime = currentTime;
-        
-        
+        float deltaTime = (currentTime - lastFrameTime) / 1000.0f;         lastFrameTime = currentTime;
         
         if (state == PanelState.HIDDEN) {
             targetTranslation = -panelWidth;
-            
-            
             if (!isRightPanelOpen && panelMouseX >= 0 && panelMouseX <= TRIGGER_ZONE_WIDTH) {
                 state = PanelState.PEEK;
             }
         } else if (state == PanelState.PEEK) {
             targetTranslation = TRIGGER_ZONE_WIDTH - panelWidth;
-            
             if (panelMouseX > TRIGGER_ZONE_WIDTH) {
                 state = PanelState.HIDDEN;
             }
         } else if (state == PanelState.OPEN) {
             targetTranslation = 0;
-            
         }
-        
         
         if (!initialized) {
              currentTranslation = -panelWidth;
              initialized = true;
         }
 
-        
         float speed = 15.0f;
         if (Math.abs(targetTranslation - currentTranslation) > 0.1f) {
             currentTranslation += (targetTranslation - currentTranslation) * speed * deltaTime;
@@ -556,37 +483,27 @@ public class PresetConfigTab extends ConfigTabContent {
             currentTranslation = targetTranslation;
         }
 
-        
-        
         int rightPanelWidth = panelWidth;
         int rightTriggerZoneStart = screenWidth - TRIGGER_ZONE_WIDTH;
 
-        
         if (rightPanelState == PanelState.HIDDEN) {
-            targetRightTranslation = rightPanelWidth; 
-            
-            
-            if (!isPanelOpen && panelMouseX >= rightTriggerZoneStart && panelMouseX <= screenWidth) {
+            targetRightTranslation = rightPanelWidth;             if (!isPanelOpen && panelMouseX >= rightTriggerZoneStart && panelMouseX <= screenWidth) {
                 rightPanelState = PanelState.PEEK;
             }
         } else if (rightPanelState == PanelState.PEEK) {
             targetRightTranslation = rightPanelWidth - TRIGGER_ZONE_WIDTH;
-            
             if (panelMouseX < rightTriggerZoneStart) {
                 rightPanelState = PanelState.HIDDEN;
             }
         } else if (rightPanelState == PanelState.OPEN) {
             targetRightTranslation = 0;
-            
         }
 
-        
         if (!rightPanelInitialized) {
              currentRightTranslation = rightPanelWidth;
              rightPanelInitialized = true;
         }
 
-        
         if (Math.abs(targetRightTranslation - currentRightTranslation) > 0.1f) {
             currentRightTranslation += (targetRightTranslation - currentRightTranslation) * speed * deltaTime;
         } else {
@@ -599,15 +516,11 @@ public class PresetConfigTab extends ConfigTabContent {
             }
         }
 
-        
         List<ElementPreview> renderList = new ArrayList<>(previewElements.values());
-        
         
         for (ElementPreview preview : renderList) {
             preview.updatePosition(screenWidth, screenHeight);
         }
-        
-        
         
         renderList.sort((a, b) -> {
             boolean aIsDragged = draggingElementId != null && a.getElementId().equals(draggingElementId);
@@ -619,23 +532,18 @@ public class PresetConfigTab extends ConfigTabContent {
             return Integer.compare(a.getZIndex(), b.getZIndex());
         });
         
-        
         ElementPreview hoveredElement = null;
-        
         
         if (draggingElementId != null && previewElements.containsKey(draggingElementId)) {
             hoveredElement = previewElements.get(draggingElementId);
         } else {
-            
             for (int i = renderList.size() - 1; i >= 0; i--) {
                 ElementPreview preview = renderList.get(i);
                 if (preview.isMouseOver(bgMouseX, bgMouseY)) {
                     hoveredElement = preview;
-                    break; 
-                }
+                    break;                 }
             }
         }
-        
         
         for (ElementPreview preview : renderList) {
             preview.render(guiGraphics, partialTick, screenWidth, preview == hoveredElement, bgMouseX, bgMouseY);
@@ -669,30 +577,21 @@ public class PresetConfigTab extends ConfigTabContent {
             }
         }
 
-        
         int top = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT;
-        
         
         float visibleWidth = currentTranslation + panelWidth;
         
         
-        
-        
-        
         if (visibleWidth > 0) {
-            
             guiGraphics.enableScissor(0, top, (int)Math.ceil(visibleWidth), screenHeight);
             
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(currentTranslation, 0, 0);
             
-            
             guiGraphics.fill(0, top, panelWidth, screenHeight, GuiConstants.COLOR_BG);
 
-            
             if (titleRenderer != null) titleRenderer.render(guiGraphics, partialTick);
             if (subtitleRenderer != null) subtitleRenderer.render(guiGraphics, partialTick);
-            
             
             GDRowRenderer hoveredRow = null;
             for (GDRowRenderer row : configRows) {
@@ -707,64 +606,35 @@ public class PresetConfigTab extends ConfigTabContent {
             
             guiGraphics.pose().popPose();
             guiGraphics.disableScissor(); 
-
-            
             renderPresetList(guiGraphics, panelMouseX, panelMouseY, partialTick, panelWidth, screenHeight, deltaTime);
         }
 
-        
-        
         float rightVisibleWidth = rightPanelWidth - currentRightTranslation;
         int rightPanelX = screenWidth - rightPanelWidth;
         
-        
         if (rightVisibleWidth > 0) {
-            
-            
             int scissorX = (int)(screenWidth - rightVisibleWidth);
             guiGraphics.enableScissor(scissorX, top, screenWidth, screenHeight);
             
             guiGraphics.pose().pushPose();
-            
-            
-            
             guiGraphics.pose().translate(currentRightTranslation, 0, 0);
-            
             
             guiGraphics.fill(rightPanelX, top, rightPanelX + rightPanelWidth, screenHeight, GuiConstants.COLOR_BG);
             
             guiGraphics.pose().popPose(); 
-
-            
-            
-            
             int contentX = (int)(rightPanelX + currentRightTranslation + GuiConstants.DEFAULT_PADDING);
             int contentY = top + GuiConstants.DEFAULT_PADDING;
             int contentWidth = rightPanelWidth - 2 * GuiConstants.DEFAULT_PADDING;
             
-            
-            int lineHeight = 9; 
-            int textSpacing = 4;
-            
-            
+            int lineHeight = 9;             int textSpacing = 4;
             int borderPadding = 1; 
             int titleBoxHeight = borderPadding + lineHeight + textSpacing + lineHeight + borderPadding;
             
-            
-            
-            
-            int borderColor = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x80 << 24); 
-            
-            
+            int borderColor = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x80 << 24);             
             guiGraphics.fill(contentX, contentY, contentX + contentWidth, contentY + 1, borderColor);
-            
             guiGraphics.fill(contentX, contentY + titleBoxHeight - 1, contentX + contentWidth, contentY + titleBoxHeight, borderColor);
-            
             guiGraphics.fill(contentX, contentY + 1, contentX + 1, contentY + titleBoxHeight - 1, borderColor);
-            
             guiGraphics.fill(contentX + contentWidth - 1, contentY + 1, contentX + contentWidth, contentY + titleBoxHeight - 1, borderColor);
-            
-            
             
             if (rightTitleRenderer == null) {
                 rightTitleRenderer = new GDTextRenderer(I18n.get("gd656killicon.client.gui.config.preset.element_control_title"), 
@@ -778,11 +648,8 @@ public class PresetConfigTab extends ConfigTabContent {
                 rightTitleRenderer.setY1(contentY + borderPadding);
                 rightTitleRenderer.setX2(contentX + contentWidth - borderPadding);
                 rightTitleRenderer.setY2(contentY + borderPadding + lineHeight);
-                
             }
             rightTitleRenderer.renderInternal(guiGraphics, partialTick, true, deltaTime);
-            
-            
             
             String currentId = ClientConfigManager.getCurrentPresetId();
             String currentName = ElementConfigManager.getPresetDisplayName(currentId);
@@ -805,11 +672,8 @@ public class PresetConfigTab extends ConfigTabContent {
                 rightInfoRenderer.setY1(infoY);
                 rightInfoRenderer.setX2(contentX + contentWidth - borderPadding);
                 rightInfoRenderer.setY2(infoY + lineHeight);
-                rightInfoRenderer.setColoredTexts(infoTexts); 
-            }
+                rightInfoRenderer.setColoredTexts(infoTexts);             }
             rightInfoRenderer.renderInternal(guiGraphics, partialTick, true, deltaTime);
-            
-            
             
             int buttonHeight = 17;
             int buttonPadding = 1;
@@ -818,40 +682,26 @@ public class PresetConfigTab extends ConfigTabContent {
             int bottomBoxHeight;
             
             if (isAddElementExpanded) {
-                
                 bottomBoxHeight = totalButtonsHeight + 3 * GuiConstants.ROW_HEADER_HEIGHT + 4;
             } else {
                 bottomBoxHeight = buttonPadding + totalButtonsHeight + buttonPadding;
             }
             
-            
             int bottomBoxY = screenHeight - GuiConstants.DEFAULT_PADDING - bottomBoxHeight;
             
-            
-            
             guiGraphics.fill(contentX, bottomBoxY, contentX + contentWidth, bottomBoxY + 1, borderColor);
-            
             guiGraphics.fill(contentX, bottomBoxY + bottomBoxHeight - 1, contentX + contentWidth, bottomBoxY + bottomBoxHeight, borderColor);
-            
             guiGraphics.fill(contentX, bottomBoxY + 1, contentX + 1, bottomBoxY + bottomBoxHeight - 1, borderColor);
-            
             guiGraphics.fill(contentX + contentWidth - 1, bottomBoxY + 1, contentX + contentWidth, bottomBoxY + bottomBoxHeight - 1, borderColor);
             
-            
             if (isAddElementExpanded) {
-                
-                
-                
-                
                 int listTop = bottomBoxY + 1;
                 int soundButtonY = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight;
                 int addButtonY = soundButtonY - buttonSpacing - buttonHeight;
                 int listBottom = addButtonY - 2;
                 int listHeight = listBottom - listTop;
                 
-                
                 updateElementListScroll(deltaTime, mouseY, listHeight);
-                
                 
                 guiGraphics.enableScissor(contentX + 1, listTop, contentX + contentWidth - 1, listBottom);
                 
@@ -861,7 +711,6 @@ public class PresetConfigTab extends ConfigTabContent {
                     guiGraphics.pose().pushPose();
                     guiGraphics.pose().translate(0, (float)-elementListScrollY, 0);
     
-                    
                     int currentY = listTop;
                     for (GDRowRenderer row : availableElementRows) {
                         row.setX1(contentX + 1);
@@ -869,28 +718,18 @@ public class PresetConfigTab extends ConfigTabContent {
                         row.setX2(contentX + contentWidth - 1);
                         row.setY2(currentY + GuiConstants.ROW_HEADER_HEIGHT);
                         
-                        
-                        
                         double scrolledY = currentY - elementListScrollY;
                         if (scrolledY + GuiConstants.ROW_HEADER_HEIGHT > listTop && scrolledY < listBottom) {
                             row.render(guiGraphics, mouseX, (int)(mouseY + elementListScrollY), partialTick);
                         }
-                        currentY += GuiConstants.ROW_HEADER_HEIGHT + 1; 
-                    }
+                        currentY += GuiConstants.ROW_HEADER_HEIGHT + 1;                     }
                     
                     guiGraphics.pose().popPose();
                 }
                 guiGraphics.disableScissor();
                 
-                
-                
-                
-                
-                
-                
                 guiGraphics.enableScissor(scissorX, top, screenWidth, screenHeight);
             }
-            
             
             int soundButtonY = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight;
             int addButtonY = soundButtonY - buttonSpacing - buttonHeight;
@@ -942,24 +781,16 @@ public class PresetConfigTab extends ConfigTabContent {
             }
             rightSoundButton.render(guiGraphics, mouseX, mouseY, partialTick);
             
-            
-            
             int middleBoxY = contentY + titleBoxHeight + GuiConstants.DEFAULT_PADDING;
             int middleBoxBottom = bottomBoxY - GuiConstants.DEFAULT_PADDING;
             int middleBoxHeight = middleBoxBottom - middleBoxY;
             
             if (middleBoxHeight > 0) {
-                
-                
                 guiGraphics.fill(contentX, middleBoxY, contentX + contentWidth, middleBoxY + 1, borderColor);
-                
                 guiGraphics.fill(contentX, middleBoxBottom - 1, contentX + contentWidth, middleBoxBottom, borderColor);
-                
                 guiGraphics.fill(contentX, middleBoxY + 1, contentX + 1, middleBoxBottom - 1, borderColor);
-                
                 guiGraphics.fill(contentX + contentWidth - 1, middleBoxY + 1, contentX + contentWidth, middleBoxBottom - 1, borderColor);
 
-                
                 int contentListTop = middleBoxY + 1;
                 int contentListBottom = middleBoxBottom - 1;
                 int contentListHeight = contentListBottom - contentListTop;
@@ -978,7 +809,6 @@ public class PresetConfigTab extends ConfigTabContent {
                         row.setX2(contentX + contentWidth - 1);
                         row.setY2(currentY + GuiConstants.ROW_HEADER_HEIGHT);
                         
-                        
                         double scrolledY = currentY - contentScrollY;
                         if (scrolledY + GuiConstants.ROW_HEADER_HEIGHT > contentListTop && scrolledY < contentListBottom) {
                             row.render(guiGraphics, mouseX, (int)(mouseY + contentScrollY), partialTick);
@@ -989,7 +819,6 @@ public class PresetConfigTab extends ConfigTabContent {
                     guiGraphics.pose().popPose();
                     guiGraphics.disableScissor();
                     
-                    
                     guiGraphics.enableScissor(scissorX, top, screenWidth, screenHeight);
                 } else {
                     guiGraphics.drawCenteredString(Minecraft.getInstance().font, Component.translatable("gd656killicon.client.gui.config.preset.no_elements"), contentX + contentWidth / 2, middleBoxY + middleBoxHeight / 2 - 4, GuiConstants.COLOR_GRAY);
@@ -999,9 +828,7 @@ public class PresetConfigTab extends ConfigTabContent {
             guiGraphics.disableScissor();
         }
 
-        
         renderSideButtons(guiGraphics, panelMouseX, panelMouseY, partialTick, screenWidth, screenHeight);
-        
         
         textInputDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         promptDialog.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -1050,20 +877,14 @@ public class PresetConfigTab extends ConfigTabContent {
         int panelWidth = area1Right + GuiConstants.DEFAULT_PADDING;
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
 
-        
         if (state == PanelState.PEEK) {
-            
             if (mouseX <= TRIGGER_ZONE_WIDTH) {
                 state = PanelState.OPEN;
                 return true;
             }
         } else if (state == PanelState.OPEN) {
-            
             if (mouseX > panelWidth) {
-                state = PanelState.HIDDEN; 
-                return true; 
-            }
-            
+                state = PanelState.HIDDEN;                 return true;             }
             if (resetButton != null && resetButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
@@ -1071,13 +892,11 @@ public class PresetConfigTab extends ConfigTabContent {
                 return true;
             }
             
-            
             int startY = this.area1Bottom + GuiConstants.DEFAULT_PADDING;
             int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
             int endY = screenHeight - GuiConstants.DEFAULT_PADDING - buttonHeight - 1 - buttonHeight - GuiConstants.DEFAULT_PADDING;
             
             if (mouseY >= startY && mouseY <= endY && mouseX <= panelWidth) {
-                
                 float translatedMouseX = (float)mouseX - currentTranslation;
                 double adjustedMouseY = mouseY + scrollY;
                 
@@ -1087,19 +906,16 @@ public class PresetConfigTab extends ConfigTabContent {
                     }
                 }
 
-                
                 isDragging = true;
                 lastMouseY = mouseY;
                 return true;
             }
 
-            
             if (mouseX <= panelWidth) {
                 return true;
             }
         }
 
-        
         if (rightPanelState == PanelState.PEEK) {
             int rightTriggerZoneStart = screenWidth - TRIGGER_ZONE_WIDTH;
             if (mouseX >= rightTriggerZoneStart) {
@@ -1109,17 +925,13 @@ public class PresetConfigTab extends ConfigTabContent {
         } else if (rightPanelState == PanelState.OPEN) {
             int rightPanelX = screenWidth - panelWidth;
             
-            
             if (mouseX < rightPanelX) {
                 rightPanelState = PanelState.HIDDEN;
                 return true;
             }
             
-            
             int contentX = rightPanelX + GuiConstants.DEFAULT_PADDING;
-            
 
-            
             int buttonHeight = 17;
             int buttonPadding = 1;
             int buttonSpacing = 1;
@@ -1134,7 +946,6 @@ public class PresetConfigTab extends ConfigTabContent {
             int soundButtonY = bottomBoxY + bottomBoxHeight - buttonPadding - buttonHeight;
             int addButtonY = soundButtonY - buttonSpacing - buttonHeight;
 
-            
             if (rightAddButton != null && rightAddButton.mouseClicked(mouseX, mouseY, button)) {
                 return true;
             }
@@ -1142,34 +953,26 @@ public class PresetConfigTab extends ConfigTabContent {
                 return true;
             }
 
-            
             if (isAddElementExpanded) {
                 int listTop = bottomBoxY + 1;
                 int listBottom = addButtonY - 2;
                 
-                
                 if (mouseY >= listTop && mouseY <= listBottom && mouseX >= contentX && mouseX <= contentX + (panelWidth - 2 * GuiConstants.DEFAULT_PADDING)) {
                      double adjustedMouseY = mouseY + elementListScrollY;
                      for (GDRowRenderer row : availableElementRows) {
-                         
-                         
-                         
                          if (row.mouseClicked(mouseX, adjustedMouseY, button)) {
                              return true;
                          }
                      }
-                     
                      isElementListDragging = true;
                      elementListLastMouseY = mouseY;
                      return true;
                 }
             }
             
-            
             int top = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT;
             int contentY = top + GuiConstants.DEFAULT_PADDING;
-            int titleBoxHeight = 24; 
-            int middleBoxY = contentY + titleBoxHeight + GuiConstants.DEFAULT_PADDING;
+            int titleBoxHeight = 24;             int middleBoxY = contentY + titleBoxHeight + GuiConstants.DEFAULT_PADDING;
             int middleBoxBottom = bottomBoxY - GuiConstants.DEFAULT_PADDING;
             
             if (mouseY >= middleBoxY && mouseY <= middleBoxBottom && mouseX >= contentX && mouseX <= contentX + (panelWidth - 2 * GuiConstants.DEFAULT_PADDING)) {
@@ -1184,12 +987,9 @@ public class PresetConfigTab extends ConfigTabContent {
                  return true;
             }
             
-            return true; 
-        }
-        
+            return true;         }
         
         List<ElementPreview> clickList = new ArrayList<>(previewElements.values());
-        
         for (ElementPreview preview : clickList) {
              preview.updatePosition(screenWidth, screenHeight);
         }
@@ -1199,21 +999,18 @@ public class PresetConfigTab extends ConfigTabContent {
             ElementPreview.PreviewInteractionResult result = preview.mouseClicked(mouseX, mouseY, button);
             if (result != ElementPreview.PreviewInteractionResult.PASS) {
                 if (result == ElementPreview.PreviewInteractionResult.DOUBLE_CLICK) {
-                     
                      String id = preview.getElementId();
                      String currentId = ClientConfigManager.getCurrentPresetId();
                      if (header != null) {
                         ElementConfigBuilder builder = ElementConfigBuilderRegistry.getBuilder(id);
                         header.setOverrideContent(new ElementConfigContent(minecraft, currentId, id, builder, () -> {
                             header.setOverrideContent(null);
-                            preview.resetVisualState(); 
-                            updatePreviews();
+                            preview.resetVisualState();                             updatePreviews();
                             updateCurrentElementRows();
                         }));
                      }
                      return true;
                 } else if (result == ElementPreview.PreviewInteractionResult.RIGHT_CLICK) {
-                     
                      String id = preview.getElementId();
                      String currentId = ClientConfigManager.getCurrentPresetId();
                      JsonObject config = ElementConfigManager.getElementConfig(currentId, id);
@@ -1222,12 +1019,10 @@ public class PresetConfigTab extends ConfigTabContent {
                      updateCurrentElementRows();
                      updatePreviews();
                      
-                     
                      minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
                      return true;
                 }
 
-                
                 draggingElementId = preview.getElementId();
                 String currentPresetId = ClientConfigManager.getCurrentPresetId();
                 JsonObject config = ElementConfigManager.getElementConfig(currentPresetId, draggingElementId);
@@ -1251,8 +1046,6 @@ public class PresetConfigTab extends ConfigTabContent {
     }
     
     private void renderPresetList(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int panelWidth, int screenHeight, float dt) {
-        
-        
         int startY = this.area1Bottom + GuiConstants.DEFAULT_PADDING;
         
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
@@ -1261,26 +1054,17 @@ public class PresetConfigTab extends ConfigTabContent {
         int listHeight = endY - startY;
         if (listHeight <= 0) return;
 
-        
         updateScroll(dt, mouseY, listHeight);
 
-        
-        
         float translatedMouseX = mouseX - currentTranslation;
-        
         
         int visibleWidth = (int)Math.ceil(currentTranslation + panelWidth);
         if (visibleWidth <= 0) return;
 
-        
-        
         if (visibleWidth > 0 && endY > startY) {
             guiGraphics.enableScissor(0, startY, visibleWidth, endY);
             
             guiGraphics.pose().pushPose();
-            
-            
-            
             guiGraphics.pose().translate(currentTranslation, -scrollY, 0);
 
             int currentY = startY;
@@ -1293,18 +1077,14 @@ public class PresetConfigTab extends ConfigTabContent {
                     currentY += 1;
                 }
 
-                
-                
                 int rowX1 = GuiConstants.DEFAULT_PADDING;
                 int rowX2 = panelWidth - GuiConstants.DEFAULT_PADDING;
                 
                 row.setBounds(rowX1, currentY, rowX2, currentY + rowHeight);
                 
-                
                 row.render(guiGraphics, (int)translatedMouseX, (int)(mouseY + scrollY), partialTick);
                 
-                currentY += rowHeight + 1; 
-            }
+                currentY += rowHeight + 1;             }
             
             guiGraphics.pose().popPose();
             guiGraphics.disableScissor();
@@ -1312,7 +1092,6 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     private void updateScroll(float dt, double currentMouseY, int viewHeight) {
-        
         int contentHeight = getPresetListContentHeight();
         double maxScroll = Math.max(0, contentHeight - viewHeight);
         
@@ -1354,7 +1133,6 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     private void updateElementListScroll(float dt, double currentMouseY, int viewHeight) {
-        
         int contentHeight = availableElementRows.size() * (GuiConstants.ROW_HEADER_HEIGHT + 1);
         double maxScroll = Math.max(0, contentHeight - viewHeight);
         
@@ -1388,7 +1166,6 @@ public class PresetConfigTab extends ConfigTabContent {
             if (i % 2 != 0) row.setBackgroundAlpha(0.15f);
             else row.setBackgroundAlpha(0.3f);
 
-            
             JsonObject config = ElementConfigManager.getElementConfig(currentId, id);
             boolean isVisible = config != null && (config.has("visible") ? config.get("visible").getAsBoolean() : true);
 
@@ -1414,21 +1191,13 @@ public class PresetConfigTab extends ConfigTabContent {
             });
             row.getColumn(1).isDarker = true;
 
-            
             int toggleWidth = GuiConstants.ROW_HEADER_HEIGHT;
-            String toggleText = isVisible ? "👁" : "×"; 
-            
-            int toggleColor = GuiConstants.COLOR_WHITE; 
+            String toggleText = isVisible ? "👁" : "×";             int toggleColor = GuiConstants.COLOR_WHITE; 
             row.addColumn(toggleText, toggleWidth, toggleColor, false, true, (btn) -> {
                 ElementConfigManager.updateConfigValue(currentId, id, "visible", String.valueOf(!isVisible));
                 updateCurrentElementRows();
                 updatePreviews();
             });
-            
-            
-            
-            
-            
 
             int deleteWidth = GuiConstants.ROW_HEADER_HEIGHT;
             row.addColumn("×", deleteWidth, GuiConstants.COLOR_RED, true, true, (btn) -> {
@@ -1439,7 +1208,6 @@ public class PresetConfigTab extends ConfigTabContent {
             });
             row.getColumn(3).isDarker = true;
 
-            
             row.setOnHover((hovered) -> {
                 ElementPreview preview = previewElements.get(id);
                 if (preview != null) {
@@ -1477,10 +1245,8 @@ public class PresetConfigTab extends ConfigTabContent {
             return promptDialog.mouseScrolled(mouseX, mouseY, delta);
         }
         if (textInputDialog.isVisible()) {
-            return true; 
-        }
+            return true;         }
 
-        
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int panelWidth = area1Right + GuiConstants.DEFAULT_PADDING;
@@ -1490,10 +1256,8 @@ public class PresetConfigTab extends ConfigTabContent {
              return true;
         }
         
-        
         int rightPanelX = screenWidth - panelWidth;
         if (rightPanelState == PanelState.OPEN && mouseX >= rightPanelX) {
-             
              if (isAddElementExpanded) {
                  int bottomBoxHeight = 17 + 3 * GuiConstants.ROW_HEADER_HEIGHT + 4;
                  int bottomBoxY = minecraft.getWindow().getGuiScaledHeight() - GuiConstants.DEFAULT_PADDING - bottomBoxHeight;
@@ -1503,7 +1267,6 @@ public class PresetConfigTab extends ConfigTabContent {
                      return true;
                  }
              }
-             
              
              targetContentScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
              return true;
@@ -1525,11 +1288,9 @@ public class PresetConfigTab extends ConfigTabContent {
         isElementListDragging = false;
         isContentDragging = false;
 
-        
         if (draggingElementId != null && dragStartConfig != null) {
              String currentPresetId = ClientConfigManager.getCurrentPresetId();
              JsonObject currentConfig = ElementConfigManager.getElementConfig(currentPresetId, draggingElementId);
-             
              
              if (currentConfig != null && !currentConfig.equals(dragStartConfig)) {
                  undoStacks.computeIfAbsent(currentPresetId, k -> new java.util.ArrayDeque<>()).push(new UndoState(draggingElementId, dragStartConfig));
@@ -1539,8 +1300,6 @@ public class PresetConfigTab extends ConfigTabContent {
              dragStartConfig = null;
         }
 
-        
-        
         if (state == PanelState.OPEN) {
             return true;
         }
@@ -1563,7 +1322,6 @@ public class PresetConfigTab extends ConfigTabContent {
             return true;
         }
 
-        
         if (state == PanelState.OPEN) {
             return true;
         }

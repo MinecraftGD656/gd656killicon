@@ -64,7 +64,6 @@ public class GifToSpriteSheetConverter {
             int width = reader.getWidth(0);
             int height = reader.getHeight(0);
             
-            
             int totalHeight = height * numFrames;
 
             BufferedImage spriteSheet = new BufferedImage(width, totalHeight, BufferedImage.TYPE_INT_ARGB);
@@ -84,8 +83,6 @@ public class GifToSpriteSheetConverter {
             ImageIO.write(spriteSheet, "png", outputFile);
 
             int avgInterval = numFrames > 0 ? (int) (totalDelay / numFrames) : 100;
-            
-            
             
             return new ConversionResult(outputFile, numFrames, avgInterval, width, height);
 
@@ -108,10 +105,7 @@ public class GifToSpriteSheetConverter {
                     NamedNodeMap attrs = node.getAttributes();
                     Node delayNode = attrs.getNamedItem("delayTime");
                     if (delayNode != null) {
-                        
                         int delay = Integer.parseInt(delayNode.getNodeValue());
-                        
-                        
                         if (delay <= 0) delay = 10;
                         return delay * 10;
                     }
@@ -119,6 +113,5 @@ public class GifToSpriteSheetConverter {
             }
         }
         
-        return 100; 
-    }
+        return 100;     }
 }

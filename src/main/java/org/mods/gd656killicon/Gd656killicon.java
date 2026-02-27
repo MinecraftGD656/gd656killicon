@@ -14,16 +14,11 @@ public class Gd656killicon {
     public Gd656killicon() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        
-        
 
-        
         NetworkHandler.register();
 
-        
         net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT, () -> () -> org.mods.gd656killicon.client.ClientSetup.registerConfigScreen());
 
-        
         MinecraftForge.EVENT_BUS.register(this);
     }
 }

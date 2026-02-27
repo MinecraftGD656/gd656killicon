@@ -16,9 +16,7 @@ public class TextScrambleEffect {
     private final boolean[] shouldScramble;
     private final long startTime;
     private final long duration;
-    private final long refreshRate; 
-    private final boolean active;
-    
+    private final long refreshRate;     private final boolean active;
     
     private final char[] cachedChars;
     private long lastRefreshTime = 0;
@@ -54,7 +52,6 @@ public class TextScrambleEffect {
     private boolean isScrambleable(char c) {
         if (Character.isWhitespace(c)) return false;
         if (Character.isDigit(c)) return false;
-        
         if (c == '+' || c == '-' || c == '.' || c == ',' || c == '(' || c == ')' || c == ':' || c == '|') return false;
         return true;
     }
@@ -73,7 +70,6 @@ public class TextScrambleEffect {
 
         if (progress >= 1.0f) return target;
 
-        // Check if we need to refresh the random characters based on refreshRate
         boolean shouldUpdateCache = (now - lastRefreshTime) >= refreshRate;
         if (shouldUpdateCache) {
             lastRefreshTime = now;
@@ -86,7 +82,6 @@ public class TextScrambleEffect {
                 continue;
             }
 
-            // Staggered reveal based on character position
             float charRevealStart = (float) i / target.length() * 0.4f; 
             float charRevealDuration = 0.6f; 
             float charProgress = Math.max(0, Math.min(1.0f, (progress - charRevealStart) / charRevealDuration));
@@ -104,19 +99,15 @@ public class TextScrambleEffect {
     }
 
     private char getRandomCharLike(char original) {
-        // CJK Unified Ideographs
         if (original >= 0x4E00 && original <= 0x9FFF) {
             return SCRAMBLE_CJK.charAt(RANDOM.nextInt(SCRAMBLE_CJK.length()));
         }
-        // Latin letters
         if ((original >= 'a' && original <= 'z') || (original >= 'A' && original <= 'Z')) {
             return SCRAMBLE_LATIN.charAt(RANDOM.nextInt(SCRAMBLE_LATIN.length()));
         }
-        // Digits (though we usually don't scramble them, handle just in case)
         if (original >= '0' && original <= '9') {
             return SCRAMBLE_NUMERIC.charAt(RANDOM.nextInt(SCRAMBLE_NUMERIC.length()));
         }
-        // Fallback to random Latin if unknown
         return SCRAMBLE_LATIN.charAt(RANDOM.nextInt(SCRAMBLE_LATIN.length()));
     }
 

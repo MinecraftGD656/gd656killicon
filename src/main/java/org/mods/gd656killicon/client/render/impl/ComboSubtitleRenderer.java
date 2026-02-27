@@ -21,19 +21,13 @@ import java.util.List;
 public class ComboSubtitleRenderer implements IHudRenderer {
 
     private static final long FADE_IN_DURATION = 200L;
-    private static final long FADE_OUT_DURATION = 200L; 
-    
-    private static final long EXIT_ANIMATION_DURATION = 500L;
+    private static final long FADE_OUT_DURATION = 200L;     private static final long EXIT_ANIMATION_DURATION = 500L;
 
-    
-    private static final long LIGHT_SCAN_DURATION = 400L; 
-    private static final float LIGHT_SCAN_DISTANCE = 20.0f;
-    private static final long LIGHT_STRIP_FADE_DELAY = 200L; 
-    private static final long LIGHT_STRIP_FADE_OUT_DURATION = 200L;
+    private static final long LIGHT_SCAN_DURATION = 400L;     private static final float LIGHT_SCAN_DISTANCE = 20.0f;
+    private static final long LIGHT_STRIP_FADE_DELAY = 200L;     private static final long LIGHT_STRIP_FADE_OUT_DURATION = 200L;
 
     private static ComboSubtitleRenderer instance;
 
-    
     private boolean visible = true;
     private float scale = 1.5f;
     private int xOffset = 0;
@@ -55,23 +49,19 @@ public class ComboSubtitleRenderer implements IHudRenderer {
     private String resetAssistCombo = "death";
     private float comboResetTimeout = 10.0f;
 
-    
     private long startTime = -1;
     private boolean isVisible = false;
     private int currentCombo = 0;
     private boolean isAssist = false;
     
-    
     private final java.util.Deque<ComboItem> pendingQueue = new java.util.ArrayDeque<>();
     private long lastDequeueTime = 0;
-    
     
     private int localKillComboCount = 0;
     private int localAssistComboCount = 0;
     private long lastKillTime = 0;
     private long lastAssistTime = 0;
 
-    
     private float lastScanX = 0;
 
     private static class ComboItem {
@@ -95,7 +85,6 @@ public class ComboSubtitleRenderer implements IHudRenderer {
 
     @Override
     public void trigger(TriggerContext context) {
-        
         JsonObject config = ConfigManager.getElementConfig("subtitle", "combo");
         if (config == null) return;
 
@@ -107,15 +96,12 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         }
 
         long now = System.currentTimeMillis();
-        
         if (context.type() == KillType.DESTROY_VEHICLE) return;
 
         this.isAssist = context.type() == KillType.ASSIST;
         
-        
         checkResetTimeout(now);
 
-        
         int newCombo;
         boolean isAssistEvent = this.isAssist;
 
@@ -145,14 +131,11 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             }
         }
 
-        
         if (this.pendingQueue.size() < 10) {
             this.pendingQueue.add(new ComboItem(newCombo, isAssistEvent));
         }
 
-        
         this.isVisible = true;
-        
     }
     
     public void resetKillCombo() {
@@ -224,7 +207,6 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         }
     }
     
-    
     public void triggerPreview(boolean assist, int combo) {
         JsonObject config = ConfigManager.getElementConfig("subtitle", "combo");
         if (config == null) return;
@@ -286,11 +268,9 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         long now = System.currentTimeMillis();
         
         if (this.pendingQueue.isEmpty()) {
-            
             return;
         }
 
-        
         if (now - this.lastDequeueTime >= 200) {
             ComboItem item = this.pendingQueue.poll();
             if (item != null) {
@@ -298,9 +278,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
                 this.isAssist = item.isAssist;
                 this.startTime = now;
                 this.lastDequeueTime = now;
-                this.isVisible = true; 
-                
-                
+                this.isVisible = true;                 
                 if (this.enableLightEffect) {
                     this.lastScanX = 0;
                 }
@@ -314,14 +292,12 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         long currentTime = System.currentTimeMillis();
         long elapsed = currentTime - startTime;
 
-        
         if (elapsed > this.displayDuration + EXIT_ANIMATION_DURATION) {
             isVisible = false;
             startTime = -1;
             return null;
         }
 
-        
         float alpha = 1.0f;
         if (this.enableAnimation) {
             if (elapsed < FADE_IN_DURATION) {
@@ -337,12 +313,10 @@ public class ComboSubtitleRenderer implements IHudRenderer {
              return null;
         }
 
-        
         float currentScale = this.scale;
         if (this.enableAnimation && this.enableScaleAnimation && elapsed < FADE_IN_DURATION) {
             float progress = (float) elapsed / FADE_IN_DURATION;
             float easedProgress = 1.0f - (float) Math.pow(1.0f - progress, 3);
-            
             currentScale = Mth.lerp(easedProgress, this.scale * 1.5f, this.scale);
         }
 
@@ -353,7 +327,6 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         Minecraft mc = Minecraft.getInstance();
         Font font = mc.font;
 
-        
         String formatKey;
         if (this.isAssist) {
             formatKey = this.currentCombo > 1 ? this.formatAssistMulti : this.formatAssistSingle;
@@ -371,38 +344,24 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         int textWidth = font.width(text);
         int textHeight = font.lineHeight;
         
-        
-        
         float textHalfWidth = textWidth / 2.0f;
         float textHalfHeight = textHeight / 2.0f;
         
         PoseStack poseStack = guiGraphics.pose();
         poseStack.pushPose();
         
-        
         poseStack.translate(centerX, centerY, 0);
-        
         poseStack.scale(state.currentScale, state.currentScale, 1.0f);
-        
         
         if (this.enableLightEffect) {
             renderLightEffect(guiGraphics, poseStack, state.elapsed, textWidth, textHeight);
         }
         
-        
-        
         int alphaInt = (int)(state.alpha * 255);
         int finalColor = (color & 0xFFFFFF) | (alphaInt << 24);
         
         if (this.enableBold) {
-            
-            
-            
-            
-            
-            
             Component comp = Component.literal(text).withStyle(style -> style.withBold(true));
-            
             textWidth = font.width(comp);
             textHalfWidth = textWidth / 2.0f;
             
@@ -420,15 +379,12 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         
         float currentScanX = LIGHT_SCAN_DISTANCE;
         
-        
         if (elapsed < LIGHT_SCAN_DURATION) {
             float progress = (float)elapsed / LIGHT_SCAN_DURATION;
-            
             float t = progress;
             float ease = 1 - (1-t)*(1-t)*(1-t);
             currentScanX = ease * LIGHT_SCAN_DISTANCE;
         }
-        
         
         float baseAlpha = 1.0f;
         if (elapsed > LIGHT_SCAN_DURATION + holdDurationMs) {
@@ -443,7 +399,6 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         
         if (baseAlpha <= 0.01f) return;
         
-        
         com.mojang.blaze3d.vertex.Tesselator tesselator = com.mojang.blaze3d.vertex.Tesselator.getInstance();
         com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.getBuilder();
         
@@ -456,33 +411,20 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         float halfHeight = (float)this.lightHeight / 2.0f;
         float yOffset = 1.0f;
         
-        
         int r = 255;
         int g = 255;
         int b = 255;
         int aCenter = (int)(200 * baseAlpha); 
         int aEdge = 0; 
         
-        
-        
-        
         buffer.vertex(poseStack.last().pose(), 0, -halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
-        
         buffer.vertex(poseStack.last().pose(), -currentScanX, -halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
-        
         buffer.vertex(poseStack.last().pose(), -currentScanX, halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
-        
         buffer.vertex(poseStack.last().pose(), 0, halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
-        
-        
-        
         
         buffer.vertex(poseStack.last().pose(), currentScanX, -halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
-        
         buffer.vertex(poseStack.last().pose(), 0, -halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
-        
         buffer.vertex(poseStack.last().pose(), 0, halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
-        
         buffer.vertex(poseStack.last().pose(), currentScanX, halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
         
         tesselator.end();

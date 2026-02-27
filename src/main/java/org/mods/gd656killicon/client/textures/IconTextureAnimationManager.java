@@ -32,8 +32,7 @@ public class IconTextureAnimationManager {
 
     public static TextureFrame getTextureFrame(String presetId, String elementId, String textureKey, String textureFileName, long startTime, JsonObject config) {
         TextureDimensions dims = ExternalTextureManager.getTextureDimensions(presetId, textureFileName);
-        int totalW = dims.width > 0 ? dims.width : 64; 
-        int totalH = dims.height > 0 ? dims.height : 64;
+        int totalW = dims.width > 0 ? dims.width : 64;         int totalH = dims.height > 0 ? dims.height : 64;
 
         String prefix = "anim_" + textureKey + "_";
         
@@ -49,16 +48,13 @@ public class IconTextureAnimationManager {
         boolean loop = getBoolean(config, prefix + "texture_animation_loop", false);
         String style = getString(config, prefix + "texture_animation_play_style", "sequential");
         
-        
         int frameW, frameH;
         if ("horizontal".equalsIgnoreCase(orientation)) {
             frameW = totalW / totalFrames;
             frameH = totalH;
-        } else { 
-            frameW = totalW;
+        } else {             frameW = totalW;
             frameH = totalH / totalFrames;
         }
-        
         
         long elapsed = System.currentTimeMillis() - startTime;
         if (elapsed < 0) elapsed = 0;
@@ -89,7 +85,6 @@ public class IconTextureAnimationManager {
                          frameIndex = cycleLen - cyclePos;
                      }
                  } else {
-                     
                      long effectiveTick = Math.min(currentTick, cycleLen);
                      int cyclePos = (int) effectiveTick;
                      if (cyclePos < totalFrames) {
@@ -101,17 +96,14 @@ public class IconTextureAnimationManager {
              } else {
                  frameIndex = 0;
              }
-        } else { 
-             if (loop) {
+        } else {              if (loop) {
                  frameIndex = (int)(currentTick % totalFrames);
              } else {
                  frameIndex = (int)Math.min(currentTick, totalFrames - 1);
              }
         }
         
-        
         frameIndex = Mth.clamp(frameIndex, 0, totalFrames - 1);
-        
         
         int u = 0, v = 0;
         if ("horizontal".equalsIgnoreCase(orientation)) {

@@ -8,7 +8,6 @@ import org.mods.gd656killicon.common.KillType;
 public class SoundTriggerManager {
 
     public static void tryPlaySound(String category, String name, int killType, int comboCount, boolean hasHelmet) {
-        
         JsonObject config = ConfigManager.getElementConfig(category, name);
         if (config == null) {
             return;
@@ -19,9 +18,7 @@ public class SoundTriggerManager {
             return;
         }
 
-        
         if ("kill_icon".equals(category) && "card".equals(name)) {
-            
             if (killType == KillType.HEADSHOT) {
                 if (hasHelmet) {
                     ExternalSoundManager.playSound("cardkillsound_armorheadshot_cs");

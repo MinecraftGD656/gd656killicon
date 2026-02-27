@@ -45,7 +45,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     private final Map<UUID, Long> headshotDamageVictims = new ConcurrentHashMap<>();
     private final Set<UUID> gunKillVictims = Collections.newSetFromMap(new ConcurrentHashMap<>());
     
-    
     private static Field customExplosionDamageField;
     private static Field explosionRadiusField;
     private static boolean reflectionFailed = false;
@@ -53,25 +52,18 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     @Override
     public void init() {
         MinecraftForge.EVENT_BUS.register(this);
-        
-        
-        
-        
         try {
             Class<?> neoForgeClass = Class.forName("net.neoforged.neoforge.common.NeoForge");
             Object eventBus = neoForgeClass.getField("EVENT_BUS").get(null);
             eventBus.getClass().getMethod("register", Object.class).invoke(eventBus, this);
         } catch (Exception e) {
-            
             MinecraftForge.EVENT_BUS.register(this);
         }
-        
         
         try {
             Class<?> customExplosionClass = Class.forName("com.atsuishio.superbwarfare.tools.CustomExplosion");
             customExplosionDamageField = customExplosionClass.getDeclaredField("damage");
             customExplosionDamageField.setAccessible(true);
-            
             
             explosionRadiusField = net.minecraft.world.level.Explosion.class.getDeclaredField("radius");
             explosionRadiusField.setAccessible(true);
@@ -85,7 +77,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
     @Override
     public void tick() {
-        
         long now = System.currentTimeMillis();
         headshotVictims.entrySet().removeIf(entry -> now - entry.getValue() > 5000);
         headshotDamageVictims.entrySet().removeIf(entry -> now - entry.getValue() > 5000);
@@ -134,12 +125,10 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
         net.minecraft.world.damagesource.DamageSource source = event.getSource();
         
-        
         if (DamageTypeTool.isGunDamage(source)) {
             UUID victimId = victim.getUUID();
             gunKillVictims.add(victimId);
 
-            
             if (DamageTypeTool.isHeadshotDamage(source)) {
                 headshotVictims.put(victimId, System.currentTimeMillis());
             }
@@ -154,23 +143,17 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         boolean isPlayer = attacker instanceof ServerPlayer;
         UUID playerUuid = isPlayer ? attacker.getUUID() : null;
         
-        
-        float baseDamage = 100.0f; 
-        float finalRadius = 4.0f; 
-        
+        float baseDamage = 100.0f;         float finalRadius = 4.0f;         
         if (!reflectionFailed) {
             try {
-                
                 if (explosionRadiusField != null) {
                     finalRadius = explosionRadiusField.getFloat(event.getExplosion());
                 }
-                
                 
                 if (customExplosionDamageField != null && event.getExplosion().getClass().getName().equals("com.atsuishio.superbwarfare.tools.CustomExplosion")) {
                     baseDamage = customExplosionDamageField.getFloat(event.getExplosion());
                 }
             } catch (Exception e) {
-                
             }
         }
 
@@ -178,7 +161,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
         for (Entity entity : event.getAffectedEntities()) {
             if (entity instanceof VehicleEntity vehicle) {
-                
                 double dist = Math.sqrt(entity.distanceToSqr(explosionPos));
                 if (dist > finalRadius) dist = finalRadius;
                 
@@ -195,7 +177,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
                     if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
                         ServerCore.BONUS.add((ServerPlayer)attacker, BonusType.HIT_VEHICLE_ARMOR, estimatedDamage, null);
                     }
-                    
                     vehicle.getEntityData().set(VehicleEntity.LAST_ATTACKER_UUID, attacker.getStringUUID());
                 }
             }
@@ -204,7 +185,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
     @SubscribeEvent
     public void onShoot(ShootEvent event) {
-        
     }
 
 
@@ -212,7 +192,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     @SubscribeEvent
     public void onRepair(LivingDamageEvent event) {
         if (event.getEntity().level().isClientSide) return;
-        
         
         net.minecraft.world.entity.Entity entity = event.getEntity();
         if (!(entity instanceof VehicleEntity vehicle)) return;
@@ -239,7 +218,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
         if (!(event.getData().item() instanceof RepairToolItem)) return;
 
-        
         double reachDistance = 5.0;
         net.minecraft.world.phys.Vec3 viewVector = player.getViewVector(1.0F);
         net.minecraft.world.phys.Vec3 startPos = player.getEyePosition();
@@ -252,28 +230,22 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         );
 
         if (hitResult != null && hitResult.getEntity() instanceof VehicleEntity vehicle) {
-            
             Entity lastDriver = EntityFindUtil.findEntity(player.level(), vehicle.getEntityData().get(LAST_DRIVER_UUID));
             boolean isDamage = (lastDriver != null && !SeekTool.IN_SAME_TEAM.test(shooter, lastDriver) && lastDriver.getTeam() != null) || shooter.isShiftKeyDown();
 
             if (isDamage) {
-                
-                float damage = 0.5f; 
-                if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
+                float damage = 0.5f;                 if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
                     ServerCore.BONUS.add(player, BonusType.HIT_VEHICLE_ARMOR, damage, null);
                 }
                 VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
                 tracker.recordDamage(player.getUUID(), damage, true);
                 
-                
                 vehicle.getEntityData().set(VehicleEntity.LAST_ATTACKER_UUID, player.getStringUUID());
             } else {
-                
                 if (vehicle.getHealth() < vehicle.getMaxHealth()) {
                     long now = System.currentTimeMillis();
                     long lastBonusTime = lastRepairBonusTimeMap.getOrDefault(player, 0L);
-                    if (now - lastBonusTime > 2000) { 
-                        if (ServerData.get().isBonusEnabled(BonusType.VEHICLE_REPAIR)) {
+                    if (now - lastBonusTime > 2000) {                         if (ServerData.get().isBonusEnabled(BonusType.VEHICLE_REPAIR)) {
                             ServerCore.BONUS.add(player, BonusType.VEHICLE_REPAIR, 1.0f, null);
                             lastRepairBonusTimeMap.put(player, now);
                         }
@@ -291,18 +263,13 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         Entity target = event.getTarget();
         if (!(target instanceof VehicleEntity vehicle)) return;
 
-        
-        
-        
-        float damage = 1.0f; 
-        
+        float damage = 1.0f;         
         if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
             ServerCore.BONUS.add(player, BonusType.HIT_VEHICLE_ARMOR, damage, null);
         }
 
         VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
         tracker.recordDamage(player.getUUID(), damage, true);
-        
         
         vehicle.getEntityData().set(VehicleEntity.LAST_ATTACKER_UUID, player.getStringUUID());
     }
@@ -312,11 +279,9 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         if (event.getLevel().isClientSide()) return;
         if (!(event.getEntity() instanceof VehicleEntity vehicle)) return;
 
-        
         if (vehicle.getHealth() <= 0) {
             VehicleCombatTracker tracker = combatTrackerMap.get(vehicle);
             if (tracker != null) {
-                
                 String lastAttackerUuidStr = vehicle.getEntityData().get(VehicleEntity.LAST_ATTACKER_UUID);
                 String lastDriverUuidStr = vehicle.getEntityData().get(LAST_DRIVER_UUID);
                 UUID lastDriverUuid = null;
@@ -349,13 +314,11 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         net.minecraft.world.damagesource.DamageSource source = event.getSource();
         net.minecraft.world.entity.Entity attacker = source.getEntity();
 
-        
         if (attacker instanceof VehicleEntity vehicle) {
             recordVehicleDamage(vehicle, event.getAmount());
         } else if (source.getDirectEntity() instanceof VehicleEntity vehicle) {
             recordVehicleDamage(vehicle, event.getAmount());
         } else if (attacker instanceof ServerPlayer player && player.getVehicle() instanceof VehicleEntity vehicle) {
-            
             recordVehicleDamage(vehicle, event.getAmount());
         }
     }
@@ -368,10 +331,8 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     private void processVehicleDestruction(VehicleEntity vehicle, VehicleCombatTracker tracker) {
         long now = System.currentTimeMillis();
         
-        
         ServerPlayer killer = null;
         if (tracker.lastAttackerWasPlayer && tracker.lastAttackerUuid != null) {
-            
             if (now - tracker.lastAttackTime < ServerData.get().getAssistTimeoutMs()) {
                 killer = ServerCore.getServer().getPlayerList().getPlayer(tracker.lastAttackerUuid);
             }
@@ -394,13 +355,11 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         }
 
         if (killer != null) {
-            
             double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
             int score = (int) Math.ceil(maxHealth * multiplier);
             if (score > 0) {
                 ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null, vehicle.getId(), vehicleNameKey);
             }
-            
             
             if (tracker.accumulatedDamageDealt > 0) {
                 if (ServerData.get().isBonusEnabled(BonusType.VALUE_TARGET_DESTROYED)) {
@@ -408,10 +367,8 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
                 }
             }
             
-            
             org.mods.gd656killicon.server.data.PlayerDataManager.get().addKill(killer.getUUID(), 1);
 
-            
             sendKillEffects(killer, KillType.DESTROY_VEHICLE, 0, vehicle.getId(), extraInfo);
         }
     }
@@ -419,7 +376,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     private void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, String victimName) {
         double window = ServerData.get().getComboWindowSeconds();
         boolean hasHelmet = false;
-        
         
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName), player);
         if (combo > 0) {
@@ -432,7 +388,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         }
         
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, window, hasHelmet, victimName), player);
-        
         
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);

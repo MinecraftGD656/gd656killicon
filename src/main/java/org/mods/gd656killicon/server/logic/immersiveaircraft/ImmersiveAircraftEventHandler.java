@@ -38,10 +38,8 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         MinecraftForge.EVENT_BUS.register(this);
         ServerLog.info("ImmersiveAircraft event handler registered.");
         
-        
         if (ModList.get().isLoaded("tacz")) {
             try {
-                
                 Class<?> listenerClass = Class.forName("org.mods.gd656killicon.server.logic.immersiveaircraft.ImmersiveAircraftEventHandler$TaczListener");
                 Object listener = listenerClass.getDeclaredConstructor(ImmersiveAircraftEventHandler.class).newInstance(this);
                 MinecraftForge.EVENT_BUS.register(listener);
@@ -51,7 +49,6 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
             }
         }
     }
-    
     
     public class TaczListener {
         @SubscribeEvent
@@ -65,10 +62,8 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
             
             float amount = event.getAmount();
             
-            
             VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
             tracker.recordDamage(player.getUUID(), amount, true);
-            
             
             if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
                 if (amount > 0) {
@@ -80,7 +75,6 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
 
     @Override
     public void tick() {
-        
         var iterator = combatTrackerMap.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<VehicleEntity, VehicleCombatTracker> entry = iterator.next();
@@ -99,7 +93,6 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         if (event.getLevel().isClientSide) return;
         if (!(event.getEntity() instanceof VehicleEntity vehicle)) return;
 
-        
         if (vehicle.getHealth() <= 0) {
             VehicleCombatTracker tracker = combatTrackerMap.get(vehicle);
             if (tracker != null) {
@@ -115,10 +108,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         if (!(event.getTarget() instanceof VehicleEntity vehicle)) return;
         
         if (event.getEntity() instanceof ServerPlayer player) {
-            
             if (player.getAbilities().instabuild) {
-                
-                
                 VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
                 tracker.recordDamage(player.getUUID(), vehicle.getHealth(), true);
                 
@@ -127,7 +117,6 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
                 return;
             }
 
-            
             VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
             tracker.recordDamage(player.getUUID(), DEFAULT_TRACKING_DAMAGE, true);
             

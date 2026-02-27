@@ -50,7 +50,6 @@ public class HudElementManager {
             return;
         }
         
-        
         if (!event.getOverlay().id().equals(VanillaGuiOverlay.CHAT_PANEL.id())) {
             return;
         }

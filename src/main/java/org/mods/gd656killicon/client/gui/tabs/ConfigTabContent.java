@@ -26,18 +26,15 @@ public abstract class ConfigTabContent {
     protected int area1Bottom;
     protected final List<GDRowRenderer> configRows = new ArrayList<>();
 
-    
     protected double scrollY = 0;
     protected double targetScrollY = 0;
     protected static final double SCROLL_SMOOTHING = 15.0;
     protected boolean useDefaultScroll = true;
     protected int totalContentHeight = 0;
 
-    
     private GDTextRenderer dynamicTitleRenderer;
     private GDTextRenderer dynamicSubtitleRenderer;
 
-    
     protected GDButton resetButton;
     protected GDButton cancelButton;
     protected boolean isResetConfirming = false;
@@ -48,7 +45,6 @@ public abstract class ConfigTabContent {
     protected ColorPickerDialog colorPickerDialog;
     protected PromptDialog promptDialog;
 
-    
     protected boolean isDragging = false;
     protected double lastMouseY = 0;
     protected long lastFrameTime = 0;
@@ -96,18 +92,15 @@ public abstract class ConfigTabContent {
     }
 
     public void onFilesDrop(java.util.List<java.nio.file.Path> paths) {
-        
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateResetButtonState();
 
-        
         boolean isDialogVisible = textInputDialog.isVisible() || colorPickerDialog.isVisible() || promptDialog.isVisible();
         int effectiveMouseX = isDialogVisible ? -1 : mouseX;
         int effectiveMouseY = isDialogVisible ? -1 : mouseY;
 
-        
         GDRowRenderer hoveredRow = null;
         for (GDRowRenderer row : configRows) {
             if (row.isHovered(effectiveMouseX, effectiveMouseY)) {
@@ -116,22 +109,16 @@ public abstract class ConfigTabContent {
             }
         }
 
-        
         if (titleRenderer != null) titleRenderer.render(guiGraphics, partialTick);
         if (subtitleRenderer != null) subtitleRenderer.render(guiGraphics, partialTick);
         
-        
         renderContent(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick, screenWidth, screenHeight, headerHeight);
-        
         
         renderSideButtons(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick, screenWidth, screenHeight);
 
-        
-        
         if (this instanceof GlobalConfigTab && hoveredRow != null && hoveredRow.getHoverTitle() != null) {
             renderDynamicDescription(guiGraphics, hoveredRow, partialTick);
         }
-        
         
         if (textInputDialog.isVisible()) {
             textInputDialog.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -174,19 +161,14 @@ public abstract class ConfigTabContent {
     }
 
     protected void renderSideButtons(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
-        
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int buttonY = screenHeight - GuiConstants.DEFAULT_PADDING - GuiConstants.ROW_HEADER_HEIGHT - 1 - GuiConstants.ROW_HEADER_HEIGHT;
-        
-        
         
         int totalWidth = area1Right - GuiConstants.DEFAULT_PADDING;
         int buttonWidth = (totalWidth - 1) / 2;
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
         int x1 = GuiConstants.DEFAULT_PADDING + (int)getSidebarOffset();
 
-        
-        
         /*
         if (isResetConfirming && System.currentTimeMillis() - resetConfirmTime > RESET_CONFIRM_TIMEOUT) {
             isResetConfirming = false;
@@ -201,11 +183,8 @@ public abstract class ConfigTabContent {
                 if (isResetConfirming) {
                     long elapsed = System.currentTimeMillis() - resetConfirmTime;
                     if (elapsed >= 3000) {
-                        
                         ConfigManager.resetFull();
-                        
                         ConfigManager.discardChanges();
-                        
                         
                         if (minecraft.screen != null) {
                             minecraft.screen.onClose();
@@ -216,7 +195,6 @@ public abstract class ConfigTabContent {
                         btn.setTextColor(GuiConstants.COLOR_WHITE);
                     }
                 } else {
-                    
                     isResetConfirming = true;
                     resetConfirmTime = System.currentTimeMillis();
                     btn.setMessage(Component.translatable("gd656killicon.client.gui.config.button.confirm_reset_time", 3));
@@ -233,7 +211,6 @@ public abstract class ConfigTabContent {
 
         if (cancelButton == null) {
             cancelButton = new GDButton(x1 + buttonWidth + 1, buttonY, buttonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.button.cancel"), (btn) -> {
-                
                 if (minecraft.screen != null) {
                     minecraft.screen.onClose();
                 }
@@ -248,17 +225,12 @@ public abstract class ConfigTabContent {
     }
 
     protected void renderDynamicDescription(GuiGraphics guiGraphics, GDRowRenderer row, float partialTick) {
-        
         int area1Right = (minecraft.getWindow().getGuiScaledWidth() - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int x1 = GuiConstants.DEFAULT_PADDING;
-        
         
         int y1 = this.area1Bottom + GuiConstants.DEFAULT_PADDING;
         
         int x2 = area1Right;
-        
-        
-        
         
         int titleHeight = 18;
         if (dynamicTitleRenderer == null) {
@@ -269,10 +241,7 @@ public abstract class ConfigTabContent {
         }
         dynamicTitleRenderer.render(guiGraphics, partialTick);
 
-        
-        
         int subY1 = y1 + titleHeight + GuiConstants.DEFAULT_PADDING / 2;
-        
         int buttonY = minecraft.getWindow().getGuiScaledHeight() - GuiConstants.DEFAULT_PADDING - GuiConstants.REGION_4_HEIGHT - 1 - GuiConstants.REGION_4_HEIGHT;
         int subY2 = buttonY - GuiConstants.DEFAULT_PADDING;
         
@@ -305,14 +274,12 @@ public abstract class ConfigTabContent {
     protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         if (!configRows.isEmpty()) {
             if (useDefaultScroll) {
-                
                 long now = System.nanoTime();
                 if (lastFrameTime == 0) lastFrameTime = now;
                 float dt = (now - lastFrameTime) / 1_000_000_000.0f;
                 lastFrameTime = now;
                 if (dt > 0.1f) dt = 0.1f;
 
-                
                 if (isDragging) {
                     double diff = mouseY - lastMouseY;
                     targetScrollY -= diff;
@@ -327,7 +294,6 @@ public abstract class ConfigTabContent {
                 int contentWidth = screenWidth - contentX - GuiConstants.DEFAULT_PADDING;
                 int contentHeight = screenHeight - contentY - GuiConstants.DEFAULT_PADDING;
 
-                
                 guiGraphics.enableScissor(contentX, contentY, contentX + contentWidth, contentY + contentHeight);
                 guiGraphics.pose().pushPose();
                 guiGraphics.pose().translate(0, -scrollY, 0);
@@ -346,7 +312,6 @@ public abstract class ConfigTabContent {
             return;
         }
 
-        
         Component noContent = Component.translatable("gd656killicon.client.gui.config.no_content");
         int textWidth = minecraft.font.width(noContent);
         
@@ -389,7 +354,6 @@ public abstract class ConfigTabContent {
         int goldBarBottom = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT;
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         
-        
         int x1 = GuiConstants.DEFAULT_PADDING;
         int y1 = goldBarBottom + GuiConstants.DEFAULT_PADDING;
         int x2 = area1Right;
@@ -397,13 +361,11 @@ public abstract class ConfigTabContent {
         int y2 = y1 + titleHeight;
 
         if (titleRenderer == null) {
-            onTabOpen(); 
-            titleRenderer = new GDTextRenderer(title.getString(), x1, y1, x2, y2, 3.0f, GuiConstants.COLOR_WHITE, false);
+            onTabOpen();             titleRenderer = new GDTextRenderer(title.getString(), x1, y1, x2, y2, 3.0f, GuiConstants.COLOR_WHITE, false);
         } else {
             titleRenderer.setX1(x1); titleRenderer.setY1(y1); titleRenderer.setX2(x2); titleRenderer.setY2(y2);
         }
 
-        
         int subY1 = y2 + GuiConstants.DEFAULT_PADDING / 2;
         int subX1 = GuiConstants.DEFAULT_PADDING;
         int subX2 = area1Right;
@@ -428,35 +390,24 @@ public abstract class ConfigTabContent {
         int currentY = contentY;
         for (int i = 0; i < configRows.size(); i++) {
             GDRowRenderer row = configRows.get(i);
-            int rowHeight = GuiConstants.ROW_HEADER_HEIGHT; 
-            
-            
+            int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;             
             row.setBounds(contentX, currentY, contentX + contentWidth, currentY + rowHeight);
             
-            
-            
-            
             if (i % 2 != 0) {
-                row.setBackgroundAlpha(0.15f); 
-            } else {
-                row.setBackgroundAlpha(0.3f); 
-            }
+                row.setBackgroundAlpha(0.15f);             } else {
+                row.setBackgroundAlpha(0.3f);             }
             
-            currentY += rowHeight + 1; 
-        }
+            currentY += rowHeight + 1;         }
         
         this.totalContentHeight = currentY - contentY;
     }
 
     protected void renderTabHeader(GuiGraphics guiGraphics, int screenWidth, int screenHeight, float partialTick) {
-        
         updateLayout(screenWidth, screenHeight);
     }
 
     protected void updateSubtitle(int x1, int y1, int x2) {
-        
         String key = title.getContents().toString();
-        
         String translationKey = "";
         if (title.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc) {
             translationKey = tc.getKey();
@@ -504,7 +455,6 @@ public abstract class ConfigTabContent {
                          return true;
                      }
                  }
-                 
                  
                  isDragging = true;
                  lastMouseY = mouseY;

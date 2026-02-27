@@ -19,7 +19,6 @@ import org.ywzj.vehicle.entity.vehicle.AbstractVehicle;
 import java.util.*;
 
 public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
-    
     private final Map<AbstractVehicle, VehicleCombatTracker> combatTrackerMap = new WeakHashMap<>();
     private final Map<ServerPlayer, Long> lastRepairBonusTimeMap = new WeakHashMap<>();
 
@@ -37,14 +36,12 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         net.minecraft.world.entity.Entity entity = player.level().getEntity(event.entityId);
         if (!(entity instanceof AbstractVehicle vehicle)) return;
 
-        
         if (vehicle.isDestroyed()) return;
 
         if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
             ServerCore.BONUS.add(player, BonusType.HIT_VEHICLE_ARMOR, event.damage, null);
         }
 
-        
         combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
     }
 
@@ -54,20 +51,16 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         
         ServerPlayer player = (ServerPlayer) event.player;
         
-        
         if (player.isUsingItem()) {
             net.minecraft.world.item.ItemStack stack = player.getUseItem();
             if (stack.getItem() == org.ywzj.vehicle.all.AllItems.REPAIR_TOOL.get()) {
                 long now = System.currentTimeMillis();
                 Long lastTime = lastRepairBonusTimeMap.getOrDefault(player, 0L);
                 
-                
                 if (now - lastTime >= 2000) {
-                    
                     net.minecraft.world.phys.Vec3 viewVector = player.getViewVector(1.0F);
                     net.minecraft.world.phys.Vec3 startPos = player.getEyePosition();
-                    net.minecraft.world.phys.Vec3 endPos = startPos.add(viewVector.scale(3.0)); 
-                    
+                    net.minecraft.world.phys.Vec3 endPos = startPos.add(viewVector.scale(3.0));                     
                     net.minecraft.world.phys.EntityHitResult hitResult = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(
                             player, startPos, endPos,
                             player.getBoundingBox().expandTowards(viewVector.scale(3.0)).inflate(1.0),
@@ -75,13 +68,10 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
                     );
                     
                     if (hitResult != null && hitResult.getEntity() instanceof AbstractVehicle vehicle) {
-                        
                         if (!vehicle.isDestroyed() && vehicle.getHealth() < vehicle.getMaxHealth()) {
-                            
                             if (ServerData.get().isBonusEnabled(BonusType.VEHICLE_REPAIR)) {
                                 ServerCore.BONUS.add(player, BonusType.VEHICLE_REPAIR, 1.0f, null);
                             }
-                            
                             
                             lastRepairBonusTimeMap.put(player, now);
                         }
@@ -93,7 +83,6 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
 
     @SubscribeEvent
     public void onVehicleAttack(VehicleAttackEvent event) {
-        
         if (event.getVehicle().isDestroyed()) return;
 
         VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(event.getVehicle(), v -> new VehicleCombatTracker());
@@ -102,16 +91,13 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         boolean isPlayer = attacker instanceof ServerPlayer;
         UUID attackerUuid = isPlayer ? attacker.getUUID() : null;
 
-        
         tracker.lastAttackTime = System.currentTimeMillis();
         tracker.lastAttackerWasPlayer = isPlayer;
         if (attackerUuid != null) {
             tracker.lastAttackerUuid = attackerUuid;
         }
 
-        
         if (event.getVehicle().getControllingPassenger() instanceof ServerPlayer player) {
-            
         }
     }
 
@@ -141,13 +127,11 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         net.minecraft.world.damagesource.DamageSource source = event.getSource();
         net.minecraft.world.entity.Entity attacker = source.getEntity();
         
-        
         if (attacker instanceof AbstractVehicle vehicle) {
             recordVehicleDamage(vehicle, event.getAmount());
         } else if (source.getDirectEntity() instanceof AbstractVehicle vehicle) {
             recordVehicleDamage(vehicle, event.getAmount());
         } else if (attacker instanceof ServerPlayer player && player.getVehicle() instanceof AbstractVehicle vehicle) {
-            
             recordVehicleDamage(vehicle, event.getAmount());
         }
     }
@@ -158,16 +142,13 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         if (vehicle.getControllingPassenger() instanceof ServerPlayer driver) {
             tracker.lastDriverUuid = driver.getUUID();
         }
-        
     }
 
     private void handleVehicleDestruction(AbstractVehicle vehicle, VehicleCombatTracker tracker) {
         long now = System.currentTimeMillis();
         
-        
         ServerPlayer killer = null;
         if (tracker.lastAttackerWasPlayer && tracker.lastAttackerUuid != null) {
-            
             if (now - tracker.lastAttackTime < ServerData.get().getAssistTimeoutMs()) {
                 killer = ServerCore.getServer().getPlayerList().getPlayer(tracker.lastAttackerUuid);
             }
@@ -182,27 +163,21 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         }
 
         if (killer != null) {
-            
             double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
             int score = (int) Math.ceil(maxHealth * multiplier);
             if (score > 0) {
                 ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null, vehicle.getId(), vehicleNameKey);
             }
             
-            
             if (tracker.accumulatedDamageDealt > 0) {
-                
                 if (ServerData.get().isBonusEnabled(BonusType.VALUE_TARGET_DESTROYED)) {
                     ServerCore.BONUS.add(killer, BonusType.VALUE_TARGET_DESTROYED, tracker.accumulatedDamageDealt, null);
                 }
             } else {
-                
             }
-            
             
             org.mods.gd656killicon.server.data.PlayerDataManager.get().addKill(killer.getUUID(), 1);
 
-            
             sendKillEffects(killer, KillType.DESTROY_VEHICLE, 0, vehicle.getId(), extraInfo);
         }
     }
@@ -210,7 +185,6 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
     private void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, String victimName) {
         double window = ServerData.get().getComboWindowSeconds();
         boolean hasHelmet = false;
-        
         
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName), player);
         if (combo > 0) {
@@ -223,7 +197,6 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         }
         
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, window, hasHelmet, victimName), player);
-        
         
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
     }

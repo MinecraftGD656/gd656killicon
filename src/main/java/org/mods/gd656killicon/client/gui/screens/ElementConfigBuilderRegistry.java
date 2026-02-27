@@ -27,7 +27,6 @@ public class ElementConfigBuilderRegistry {
     private static final Map<String, ElementConfigBuilder> builders = new HashMap<>();
     private static final ElementConfigBuilder DEFAULT_BUILDER = new DefaultElementConfigBuilder();
     
-    
     private static final Pattern HEX_PATTERN = Pattern.compile("^#[0-9A-Fa-f]{6}$");
     private static final Set<String> INTEGER_KEYS = Set.of(
         "x_offset",
@@ -58,10 +57,8 @@ public class ElementConfigBuilderRegistry {
         return builders.getOrDefault(elementId, DEFAULT_BUILDER);
     }
 
-    
     private static boolean isIntegerKey(String key) {
         if (INTEGER_KEYS.contains(key)) return true;
-        
         if (key.startsWith("anim_")) {
             for (String intKey : INTEGER_KEYS) {
                 if (key.endsWith("_" + intKey)) return true;
@@ -79,14 +76,11 @@ public class ElementConfigBuilderRegistry {
             String presetId = elementContent.getPresetId();
             String elementId = elementContent.getElementId();
             
-            
             Set<String> configKeys = ElementConfigManager.getConfigKeys(presetId, elementId);
             JsonObject currentConfig = ElementConfigManager.getElementConfig(presetId, elementId);
-            
             JsonObject defaultConfig = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
             
             if (currentConfig == null) currentConfig = new JsonObject();
-            
             
             java.util.function.Function<String, Boolean> getConfigBoolean = (k) -> {
                 JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
@@ -95,14 +89,10 @@ public class ElementConfigBuilderRegistry {
                 return liveDefault != null && liveDefault.has(k) && liveDefault.get(k).getAsBoolean();
             };
 
-            
             java.util.function.Function<String, java.util.function.Supplier<Boolean>> getDependency = (k) -> {
-                
                 if (!k.equals("visible") && configKeys.contains("visible")) {
-                     
                      return () -> {
                          if (!getConfigBoolean.apply("visible")) return false;
-                         
                          
                         if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
                         if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
@@ -131,12 +121,8 @@ public class ElementConfigBuilderRegistry {
                              return "time".equals(killReset) || "time".equals(assistReset);
                          }
                          
-                         
                          if (elementId.equals("kill_icon/battlefield1")) {
-                             
-                             
                          }
-                         
                          
                          if (k.startsWith("anim_")) {
                              String matchingTexture = null;
@@ -172,7 +158,6 @@ public class ElementConfigBuilderRegistry {
                      };
                 }
                 
-                
                 return () -> {
                      if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
                      if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
@@ -201,12 +186,9 @@ public class ElementConfigBuilderRegistry {
                          return "time".equals(killReset) || "time".equals(assistReset);
                      }
 
-                     
                      if (k.startsWith("anim_")) {
-                         
                          String matchingTexture = null;
                          for (String texture : ElementTextureDefinition.getTextures(elementId)) {
-                             
                              String prefix = "anim_" + texture + "_";
                              if (k.startsWith(prefix)) {
                                  matchingTexture = texture;
@@ -218,7 +200,6 @@ public class ElementConfigBuilderRegistry {
                              String prefix = "anim_" + matchingTexture + "_";
                              String property = k.substring(prefix.length());
                              
-                             
                              if (property.equals("enable_texture_animation")) return true;
                              if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
                                  String enableKey = prefix + "enable_texture_animation";
@@ -227,7 +208,6 @@ public class ElementConfigBuilderRegistry {
                                  }
                                  return true;
                              }
-                             
                              
                              String enableKey = prefix + "enable_texture_animation";
                              if (configKeys.contains(enableKey)) {
@@ -240,11 +220,8 @@ public class ElementConfigBuilderRegistry {
                 };
             };
 
-            
             List<String> sortedKeys = new java.util.ArrayList<>(configKeys);
-            
             java.util.Collections.sort(sortedKeys);
-            
             
             for (String key : sortedKeys) {
                 if (key.equals("enable_icon_effect")) {
@@ -253,7 +230,6 @@ public class ElementConfigBuilderRegistry {
                 if (key.startsWith("ring_effect_normal_") && configKeys.contains("ring_effect_crit_color")) {
                     continue;
                 }
-                
                 JsonElement defaultElement = defaultConfig.get(key);
                 if (defaultElement == null || !defaultElement.isJsonPrimitive()) {
                     continue; 
@@ -264,19 +240,16 @@ public class ElementConfigBuilderRegistry {
                 String finalElementId = elementId;
                 String finalKey = key;
                 
-                
                 String nameKey = "gd656killicon.client.gui.config.element." + elementId.replace("/", ".") + "." + key;
                 String displayName;
                 
                 if (I18n.exists(nameKey)) {
                     displayName = I18n.get(nameKey);
                 } else {
-                    
                     String genericKey = "gd656killicon.client.gui.config.generic." + key;
                     if (I18n.exists(genericKey)) {
                         displayName = I18n.get(genericKey);
                     } else if (key.startsWith("anim_")) {
-                        
                         String matchingTexture = null;
                         for (String texture : ElementTextureDefinition.getTextures(elementId)) {
                             if (key.startsWith("anim_" + texture + "_")) {
@@ -321,8 +294,7 @@ public class ElementConfigBuilderRegistry {
                         0.3f, 
                         displayName,
                         key,
-                        "gd656killicon.config.desc." + key, 
-                        currentValue, 
+                        "gd656killicon.config.desc." + key,                         currentValue, 
                         defaultValue, 
                         (newValue) -> {
                             ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, String.valueOf(newValue));

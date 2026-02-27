@@ -25,22 +25,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class SubtitleRenderer implements IHudRenderer {
 
-    
-    
-    
-    private static final long FADE_IN_DURATION = 200L; 
-    private static final long FADE_OUT_DURATION = 300L; 
-    private static final int DEFAULT_PLACEHOLDER_COLOR = 0xFF008B8B;
+    private static final long FADE_IN_DURATION = 200L;     private static final long FADE_OUT_DURATION = 300L;     private static final int DEFAULT_PLACEHOLDER_COLOR = 0xFF008B8B;
     private static final int DEFAULT_EMPHASIS_COLOR = 0xFFFFFFFF;
     private static final long SCORE_WAIT_WINDOW_MS = 2000L;
     private static final long SCORE_CACHE_WINDOW_MS = 10000L;
     private static final int PREVIEW_SCORE_VICTIM_ID = -9999;
     private static final Map<Integer, ScoreEntry> RECENT_SCORES = new ConcurrentHashMap<>();
 
-    
-    
-    
-    
     
     private int configXOffset = 0;
     private int configYOffset = 20;
@@ -51,7 +42,6 @@ public class SubtitleRenderer implements IHudRenderer {
     private float scale = 1.0f;
     private int emphasisColor = DEFAULT_EMPHASIS_COLOR;
     
-    
     private boolean enableNormalKill = true;
     private boolean enableHeadshotKill = true;
     private boolean enableExplosionKill = true;
@@ -59,13 +49,11 @@ public class SubtitleRenderer implements IHudRenderer {
     private boolean enableAssistKill = true;
     private boolean enableDestroyVehicleKill = true;
 
-    
     private boolean enableStacking = false;
     private int maxLines = 5;
     private int lineSpacing = 12;
     private int normalTextColor = 0xFFFFFFFF;
 
-    
     private long startTime = -1;
     private boolean isVisible = false;
     private boolean isPreview = false;
@@ -76,23 +64,15 @@ public class SubtitleRenderer implements IHudRenderer {
     private String victimName = "";
     private ItemStack heldItem = ItemStack.EMPTY;
     private String currentWeaponName = "";
-    private String rawFormat = ""; 
-    private float currentDistance = 0.0f;
+    private String rawFormat = "";     private float currentDistance = 0.0f;
 
-    
     private final List<SubtitleItem> stackedItems = new ArrayList<>();
     private final java.util.Deque<SubtitleItem> pendingQueue = new java.util.ArrayDeque<>();
     private long lastDequeueTime = 0;
 
-    
-    
-    
     public SubtitleRenderer() {
     }
 
-    
-    
-    
     @Override
     public void trigger(TriggerContext context) {
         JsonObject config = ConfigManager.getElementConfig("subtitle", "kill_feed");
@@ -108,7 +88,6 @@ public class SubtitleRenderer implements IHudRenderer {
             return;
         }
 
-        
         if (!isKillTypeEnabled(context.type())) {
             return;
         }
@@ -158,9 +137,6 @@ public class SubtitleRenderer implements IHudRenderer {
             wName = "Unknown";
         }
         
-        
-        
-        
         String formatKey = formatKeyForType(type);
         String colorKey = placeholderColorKeyForType(type);
         String emphasisColorKey = emphasisColorKeyForType(type);
@@ -183,7 +159,6 @@ public class SubtitleRenderer implements IHudRenderer {
         if (this.enableStacking) {
             addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId);
         } else {
-            
             this.currentKillType = type;
             this.victimId = entityId;
             this.currentVictimId = entityId;
@@ -225,7 +200,6 @@ public class SubtitleRenderer implements IHudRenderer {
             return;
         }
 
-        
         if (!isKillTypeEnabled(killType)) {
             return;
         }
@@ -268,12 +242,8 @@ public class SubtitleRenderer implements IHudRenderer {
     }
 
     private void addItemToStack(String format, int pColor, int eColor, String wName, String vName, long duration, float distance, int victimId) {
-        
-        SubtitleItem newItem = new SubtitleItem(format, pColor, eColor, wName, vName, 0, duration, distance, victimId); 
-        
-        
+        SubtitleItem newItem = new SubtitleItem(format, pColor, eColor, wName, vName, 0, duration, distance, victimId);         
         if (this.pendingQueue.size() >= 10) {
-            
             return;
         }
         
@@ -322,19 +292,14 @@ public class SubtitleRenderer implements IHudRenderer {
     private void renderStacked(GuiGraphics guiGraphics, Font font, int centerX, int startY) {
         long now = System.currentTimeMillis();
         
-        
         if (!pendingQueue.isEmpty()) {
-            
             if (now - lastDequeueTime >= 200) {
                 SubtitleItem newItem = pendingQueue.poll();
                 if (newItem != null) {
-                    newItem.spawnTime = now; 
-                    this.stackedItems.add(newItem);
-                    
+                    newItem.spawnTime = now;                     this.stackedItems.add(newItem);
                     
                     while (this.stackedItems.size() > this.maxLines) {
-                         this.stackedItems.remove(0); 
-                    }
+                         this.stackedItems.remove(0);                     }
                     
                     lastDequeueTime = now;
                 }
@@ -347,17 +312,11 @@ public class SubtitleRenderer implements IHudRenderer {
         }
 
         
-        
-        
-        
-        
         boolean hasVisibleItems = false;
-        
         
         Iterator<SubtitleItem> iterator = stackedItems.iterator();
         while (iterator.hasNext()) {
             SubtitleItem item = iterator.next();
-            
             long hideTime = item.spawnTime + item.duration;
             if (now >= hideTime + FADE_OUT_DURATION) {
                 iterator.remove();
@@ -380,28 +339,20 @@ public class SubtitleRenderer implements IHudRenderer {
         for (int i = 0; i < stackedItems.size(); i++) {
             SubtitleItem item = stackedItems.get(i);
             
-            
-            
             int posFromBottom = stackedItems.size() - 1 - i;
             float targetRelY = - (posFromBottom * this.lineSpacing);
             
-            
-            float smooth = 0.2f; 
-            item.currentRelY = Mth.lerp(smooth, item.currentRelY, targetRelY);
-            
+            float smooth = 0.2f;             item.currentRelY = Mth.lerp(smooth, item.currentRelY, targetRelY);
             
             if (Math.abs(item.currentRelY - targetRelY) < 0.5f) item.currentRelY = targetRelY;
             
-            
             float itemAlpha = 1.0f;
-            
             
             long hideTime = item.spawnTime + item.duration;
             if (now >= hideTime) {
                 long fadeElapsed = now - hideTime;
                 itemAlpha = Math.max(0.0f, 1.0f - (float) fadeElapsed / FADE_OUT_DURATION);
             }
-            
             
             if (i == stackedItems.size() - 1) {
                 long elapsed = now - item.spawnTime;
@@ -411,18 +362,13 @@ public class SubtitleRenderer implements IHudRenderer {
                 }
             }
             
-            
-            
-            
             if (this.maxLines > 1) {
                 float posAlpha = Math.max(0.0f, 1.0f - (float) posFromBottom / (this.maxLines - 1));
-                
                 itemAlpha *= posAlpha;
             }
             
             if (itemAlpha <= 0.05f) continue;
 
-            
             int drawY = startY + Math.round(item.currentRelY);
             
             RenderState state = new RenderState(now - item.spawnTime, itemAlpha, this.scale);
@@ -445,14 +391,6 @@ public class SubtitleRenderer implements IHudRenderer {
         }
 
         float currentScale = this.scale;
-        
-        
-        
-        
-        
-        
-        
-        
         /*
         if (elapsed < FADE_IN_DURATION) {
             float progress = (float) elapsed / FADE_IN_DURATION;
@@ -460,12 +398,9 @@ public class SubtitleRenderer implements IHudRenderer {
             currentScale = Mth.lerp(easedProgress, 1.5f, this.scale);
         }
         */
-        
-        
 
         return new RenderState(elapsed, alpha, currentScale);
     }
-    
     
     private boolean enableScaleAnimation = false;
 
@@ -485,7 +420,6 @@ public class SubtitleRenderer implements IHudRenderer {
         float pivotY = textY + font.lineHeight / 2.0f;
 
         poseStack.translate(pivotX, pivotY, 0);
-        
         
         float s = state.currentScale;
         if (this.enableScaleAnimation && state.elapsed < FADE_IN_DURATION) {
@@ -526,8 +460,7 @@ public class SubtitleRenderer implements IHudRenderer {
         String vName;
         long spawnTime;
         long duration;
-        float currentRelY; 
-        float distance;
+        float currentRelY;         float distance;
         int victimId;
         
         public SubtitleItem(String format, int pColor, int eColor, String wName, String vName, long spawnTime, long duration, float distance, int victimId) {
@@ -538,8 +471,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.vName = vName;
             this.spawnTime = spawnTime;
             this.duration = duration;
-            this.currentRelY = 0; 
-            this.distance = distance;
+            this.currentRelY = 0;             this.distance = distance;
             this.victimId = victimId;
         }
     }
@@ -575,9 +507,6 @@ public class SubtitleRenderer implements IHudRenderer {
 
     private record ScoreEntry(float score, long timestamp) {}
 
-    
-    
-    
 
     /**
      * Loads configuration from the JSON object.
@@ -593,7 +522,6 @@ public class SubtitleRenderer implements IHudRenderer {
             this.scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
             this.enableScaleAnimation = !config.has("enable_scale_animation") || config.get("enable_scale_animation").getAsBoolean();
 
-            
             this.enableNormalKill = !config.has("enable_normal_kill") || config.get("enable_normal_kill").getAsBoolean();
             this.enableHeadshotKill = !config.has("enable_headshot_kill") || config.get("enable_headshot_kill").getAsBoolean();
             this.enableExplosionKill = !config.has("enable_explosion_kill") || config.get("enable_explosion_kill").getAsBoolean();
@@ -601,7 +529,6 @@ public class SubtitleRenderer implements IHudRenderer {
             this.enableAssistKill = !config.has("enable_assist_kill") || config.get("enable_assist_kill").getAsBoolean();
             this.enableDestroyVehicleKill = !config.has("enable_destroy_vehicle_kill") || config.get("enable_destroy_vehicle_kill").getAsBoolean();
 
-            
             this.enableStacking = config.has("enable_stacking") && config.get("enable_stacking").getAsBoolean();
             this.maxLines = config.has("max_lines") ? config.get("max_lines").getAsInt() : 5;
             this.lineSpacing = config.has("line_spacing") ? config.get("line_spacing").getAsInt() : 12;
@@ -612,7 +539,6 @@ public class SubtitleRenderer implements IHudRenderer {
             String normalColorHex = config.has("color_normal_placeholder")
                     ? config.get("color_normal_placeholder").getAsString()
                     : "#008B8B";
-            
             
             this.format = normalFormat;
             if (net.minecraft.client.resources.language.I18n.exists(this.format)) {
@@ -681,9 +607,6 @@ public class SubtitleRenderer implements IHudRenderer {
         String tempFormat = fmt;
 
         
-        
-        
-        
         while (!tempFormat.isEmpty()) {
             int weaponIdx = tempFormat.indexOf("<weapon>");
             int targetIdx = tempFormat.indexOf("<target>");
@@ -692,16 +615,13 @@ public class SubtitleRenderer implements IHudRenderer {
             int emphasisStart = tempFormat.indexOf("/");
             int emphasisEnd = -1;
             
-            
             if (emphasisStart != -1) {
                 emphasisEnd = tempFormat.indexOf("\\", emphasisStart + 1);
-                if (emphasisEnd == -1) emphasisStart = -1; // Invalid if no closing
-            }
+                if (emphasisEnd == -1) emphasisStart = -1;             }
 
             int firstIdx = -1;
             String type = "";
 
-            // Find the earliest occurrence
             if (weaponIdx != -1) {
                 firstIdx = weaponIdx;
                 type = "weapon";
@@ -724,7 +644,6 @@ public class SubtitleRenderer implements IHudRenderer {
             }
 
             if (firstIdx == -1) {
-                // No placeholders left
                 int targetColor = this.normalTextColor;
                 int interpolatedColor = interpolateFromWhite(targetColor, colorProgress);
                 fullText.getSiblings().add(Component.literal(tempFormat).withStyle(style -> 
@@ -732,7 +651,6 @@ public class SubtitleRenderer implements IHudRenderer {
                 break;
             }
 
-            // Normal text prefix
             if (firstIdx > 0) {
                 String prefix = tempFormat.substring(0, firstIdx);
                 int targetColor = this.normalTextColor;
@@ -741,7 +659,6 @@ public class SubtitleRenderer implements IHudRenderer {
                     style.withColor(interpolatedColor & 0x00FFFFFF)));
             }
 
-            // Process placeholder
             if (type.equals("weapon")) {
                 int targetColor = pColor & 0x00FFFFFF;
                 int interpolatedColor = interpolateFromWhite(targetColor, colorProgress);

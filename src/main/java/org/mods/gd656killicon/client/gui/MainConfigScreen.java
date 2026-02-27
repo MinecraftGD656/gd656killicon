@@ -59,7 +59,6 @@ public class MainConfigScreen extends Screen {
         int totalWidth = btnWidth * 3 + spacing * 2;
         int startX = (width - totalWidth) / 2;
         
-        
         int textHeight = font.lineHeight;
         int gap = 5;
         int groupHeight = textHeight + gap + btnHeight;
@@ -132,13 +131,11 @@ public class MainConfigScreen extends Screen {
                 renderBackground(guiGraphics);
             }
             
-            
             int textHeight = font.lineHeight;
             int gap = 5;
             int groupHeight = textHeight + gap + GuiConstants.ROW_HEADER_HEIGHT;
             int groupY = (height - groupHeight) / 2;
             guiGraphics.drawCenteredString(font, Component.translatable("gd656killicon.client.gui.config.exit_dialog.title"), width / 2, groupY, GuiConstants.COLOR_WHITE);
-            
             
             if (btnExitNoSave != null) btnExitNoSave.render(guiGraphics, mouseX, mouseY, partialTick);
             if (btnCancel != null) btnCancel.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -153,9 +150,7 @@ public class MainConfigScreen extends Screen {
             renderBackground(guiGraphics);
         }
         
-        
         header.render(guiGraphics, width, mouseX, mouseY, partialTick);
-        
         
         ConfigTabContent activeTab = header.getSelectedTabContent();
         if (activeTab != null) {
@@ -174,7 +169,6 @@ public class MainConfigScreen extends Screen {
             return true;
         }
         if (header.mouseClicked(mouseX, mouseY, button)) {
-            
             this.quickScoreboardMode = false;
             return true;
         }
@@ -266,8 +260,7 @@ public class MainConfigScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (showExitConfirmation) {
-            if (keyCode == 256) { 
-                showExitConfirmation = false;
+            if (keyCode == 256) {                 showExitConfirmation = false;
                 return true;
             }
             return super.keyPressed(keyCode, scanCode, modifiers);
@@ -281,11 +274,8 @@ public class MainConfigScreen extends Screen {
 
     private void renderGildedBlackstoneBackground(GuiGraphics guiGraphics) {
         RenderSystem.setShaderTexture(0, BACKGROUND_TEXTURE);
-        RenderSystem.setShaderColor(0.25F, 0.25F, 0.25F, 1.0F); 
-        
-        
-        int size = 32; 
-        int cols = width / size + 1;
+        RenderSystem.setShaderColor(0.25F, 0.25F, 0.25F, 1.0F);         
+        int size = 32;         int cols = width / size + 1;
         int rows = height / size + 1;
 
         for (int x = 0; x < cols; x++) {

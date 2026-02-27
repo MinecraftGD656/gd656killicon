@@ -24,24 +24,15 @@ import java.util.Queue;
 
 public class Battlefield1Renderer implements IHudRenderer {
 
-    
-    
-    
     private static final String SOUND_NAME = "killsound_bf1";
     private static final String HEADSHOT_SOUND_NAME = "headshotkillsound_bf1";
 
-    
-    
-    
     private boolean visible = true;
-    private int iconSize = 40; 
-    private int borderSize = 3;
+    private int iconSize = 40;     private int borderSize = 3;
     private int xOffset = 0;
     private int yOffset = 0;
     private int backgroundColor = 0x000000;
-    private float iconBoxAlpha = 0.2f; 
-    private float textBoxAlpha = 0.1f; 
-    private float scaleWeapon = 1.0f;
+    private float iconBoxAlpha = 0.2f;     private float textBoxAlpha = 0.1f;     private float scaleWeapon = 1.0f;
     private float scaleVictim = 1.2f;
     private float scaleHealth = 1.5f;
     private int colorVictim = 0xFF0000;
@@ -49,17 +40,12 @@ public class Battlefield1Renderer implements IHudRenderer {
     private long displayDuration = 300L;
     private JsonObject currentConfig;
 
-    
-    
-    
     private long startTime = -1;
     private boolean isVisible = false;
-    
     
     private static final int MAX_QUEUE_SIZE = 5;
     private final Queue<TriggerContext> displayQueue = new ArrayDeque<>();
     private long lastSwitchTime = 0;
-    
     
     private String weaponName = "";
     private String victimName = "";
@@ -67,30 +53,19 @@ public class Battlefield1Renderer implements IHudRenderer {
     private int killType = KillType.NORMAL;
     private String currentIconPath = "killicon_battlefield1_default.png";
 
-    
-    
-    
     @Override
     public void trigger(TriggerContext context) {
-        
         if (context.type() == KillType.ASSIST) {
             return;
         }
 
-        
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "battlefield1");
         if (config == null) return;
-        
-        
-        
-        
-        
         
         
         if (displayQueue.size() < MAX_QUEUE_SIZE) {
             displayQueue.offer(context);
         }
-        
     }
 
     private void processContext(TriggerContext context) {
@@ -107,7 +82,6 @@ public class Battlefield1Renderer implements IHudRenderer {
         this.killType = context.type();
         Minecraft mc = Minecraft.getInstance();
 
-        
         String soundToPlay = SOUND_NAME;
         if (this.killType == KillType.HEADSHOT) {
             soundToPlay = HEADSHOT_SOUND_NAME;
@@ -120,12 +94,9 @@ public class Battlefield1Renderer implements IHudRenderer {
             currentConfig
         );
 
-        
         ExternalSoundManager.playSound(soundToPlay);
 
-        
         if (this.killType == KillType.DESTROY_VEHICLE) {
-            
             if (context.extraData() != null && context.extraData().contains("|")) {
                 String[] parts = context.extraData().split("\\|", 2);
                 if (parts.length > 0) {
@@ -143,7 +114,6 @@ public class Battlefield1Renderer implements IHudRenderer {
                  this.healthText = "?";
             }
             
-            
             if (mc.player != null) {
                 if (mc.player.getVehicle() != null) {
                     this.weaponName = mc.player.getVehicle().getDisplayName().getString();
@@ -157,7 +127,6 @@ public class Battlefield1Renderer implements IHudRenderer {
                 this.weaponName = "Unknown";
             }
         } else {
-            
             if (mc.player != null) {
                 if (mc.player.getVehicle() != null) {
                     this.weaponName = mc.player.getVehicle().getDisplayName().getString();
@@ -171,7 +140,6 @@ public class Battlefield1Renderer implements IHudRenderer {
                 this.weaponName = "Unknown";
             }
 
-            
             String nameOverride = null;
             if (context.extraData() != null && !context.extraData().isEmpty()) {
                  String extra = context.extraData();
@@ -184,7 +152,6 @@ public class Battlefield1Renderer implements IHudRenderer {
 
             if (nameOverride != null) {
                 this.victimName = net.minecraft.client.resources.language.I18n.get(nameOverride);
-                
                 if (mc.level != null && context.entityId() != -1) {
                      Entity entity = mc.level.getEntity(context.entityId());
                      if (entity instanceof LivingEntity living) {
@@ -203,8 +170,7 @@ public class Battlefield1Renderer implements IHudRenderer {
                         float maxHealth = living.getMaxHealth();
                         this.healthText = String.valueOf((int) maxHealth);
                     } else {
-                        this.healthText = "20"; 
-                    }
+                        this.healthText = "20";                     }
                 } else {
                     this.victimName = "Unknown";
                     this.healthText = "?";
@@ -271,7 +237,6 @@ public class Battlefield1Renderer implements IHudRenderer {
     public void render(GuiGraphics guiGraphics, float partialTick) {
         long currentTime = System.currentTimeMillis();
 
-        
         if (!displayQueue.isEmpty()) {
             boolean shouldSwitch = !isVisible;
             if (isVisible) {

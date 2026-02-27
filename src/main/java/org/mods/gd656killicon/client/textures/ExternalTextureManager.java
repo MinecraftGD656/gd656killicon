@@ -33,7 +33,6 @@ public class ExternalTextureManager {
     private static final Map<String, ResourceLocation> TEXTURE_CACHE = new HashMap<>();
     private static final ExecutorService TEXTURE_THREAD_POOL = Executors.newCachedThreadPool();
     
-    
     private static final String[] DEFAULT_TEXTURES = {
         "killicon_scrolling_default.png",
         "killicon_scrolling_headshot.png",
@@ -88,7 +87,6 @@ public class ExternalTextureManager {
         clearCache();
         ClientMessageLogger.chatInfo("gd656killicon.client.texture.reloading");
         
-        
         String currentPresetId = ConfigManager.getCurrentPresetId();
         int loadedCount = loadTexturesForPreset(currentPresetId);
         
@@ -100,13 +98,11 @@ public class ExternalTextureManager {
             try {
                 ClientMessageLogger.info("Async texture reload started.");
 
-                
                 ensureAllPresetsTextureFiles(false);
 
                 String currentPresetId = ConfigManager.getCurrentPresetId();
                 Path presetDir = CONFIG_ASSETS_DIR.resolve(currentPresetId).resolve("textures");
                 final int[] totalTextures = { DEFAULT_TEXTURES.length };
-                
                 
                 Map<String, NativeImage> loadedImages = new HashMap<>();
                 AtomicInteger processedCount = new AtomicInteger(0);
@@ -128,7 +124,6 @@ public class ExternalTextureManager {
                     }
                 }
 
-                
                 Minecraft.getInstance().execute(() -> {
                     clearCache();
                     int successCount = 0;
@@ -142,8 +137,6 @@ public class ExternalTextureManager {
                             TEXTURE_CACHE.put(currentPresetId + ":" + path, dynamicLoc);
                             successCount++;
                         } catch (Exception e) {
-                             
-                             
                              image.close();
                         }
                     }
@@ -160,7 +153,6 @@ public class ExternalTextureManager {
         ensureCommonTextureFiles(false);
         ensureTextureFilesForPreset(presetId, true);
         ClientMessageLogger.chatSuccess("gd656killicon.client.texture.reset_success", presetId);
-        
         
         if (presetId.equals(ConfigManager.getCurrentPresetId())) {
             reload();
@@ -224,17 +216,14 @@ public class ExternalTextureManager {
         String resolvedPath = IconTextureAnimationManager.resolveTexturePath(path);
         String cacheKey = presetId + ":" + resolvedPath;
         
-        
         if (TEXTURE_CACHE.containsKey(cacheKey)) {
             return TEXTURE_CACHE.get(cacheKey);
         }
 
-        
         if (loadExternalTexture(presetId, resolvedPath)) {
             return TEXTURE_CACHE.get(cacheKey);
         }
 
-        
         return ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + resolvedPath);
     }
 
@@ -511,7 +500,6 @@ public class ExternalTextureManager {
         try (InputStream stream = new FileInputStream(file.toFile())) {
             NativeImage image = NativeImage.read(stream);
             DynamicTexture texture = new DynamicTexture(image);
-            
             String dynamicName = "gd656killicon_external_" + presetId + "_" + path.replace("/", "_").replace(".", "_");
             ResourceLocation dynamicLoc = Minecraft.getInstance().getTextureManager().register(dynamicName, texture);
             
@@ -524,7 +512,6 @@ public class ExternalTextureManager {
     }
 
     private static void clearCache() {
-        
         for (ResourceLocation loc : TEXTURE_CACHE.values()) {
             Minecraft.getInstance().getTextureManager().release(loc);
         }
@@ -580,7 +567,6 @@ public class ExternalTextureManager {
             return TEXTURE_DIMENSIONS.get(key);
         }
         
-        
         Path file = resolveExternalTexturePath(presetId, path);
         if (Files.exists(file)) {
              try (InputStream stream = new FileInputStream(file.toFile());
@@ -591,7 +577,6 @@ public class ExternalTextureManager {
              } catch (IOException ignored) {}
         }
         
-        
         ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
         try {
              try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open();
@@ -601,7 +586,6 @@ public class ExternalTextureManager {
                  return dims;
              }
         } catch (Exception e) {
-             
              try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + path)) {
                 if (stream != null) {
                      try (NativeImage image = NativeImage.read(stream)) {

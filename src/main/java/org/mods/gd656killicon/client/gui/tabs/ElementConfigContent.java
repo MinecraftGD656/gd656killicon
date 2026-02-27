@@ -136,7 +136,6 @@ public class ElementConfigContent extends ConfigTabContent {
     private GDButton saveButton;
     private ConfirmDialog textureResetDialog;
     
-    
     private boolean isConfirmingReset = false;
     private long resetConfirmTime = 0;
 
@@ -147,7 +146,6 @@ public class ElementConfigContent extends ConfigTabContent {
         this.builder = builder;
         this.onClose = onClose;
         this.textureResetDialog = new ConfirmDialog(minecraft, null, null);
-        
         
         JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
         this.initialConfig = current != null ? current.deepCopy() : new JsonObject();
@@ -168,23 +166,19 @@ public class ElementConfigContent extends ConfigTabContent {
     private void refreshVisibleRows() {
         this.configRows.clear();
         
-        
         updateRowActiveConditions();
 
-        
         if (!isKillIconElement() || !ElementTextureDefinition.hasTextures(elementId)) {
             this.configRows.addAll(this.allConfigRows);
             sortConfigRows();
             return;
         }
 
-        
         if (selectedSecondaryTab == null) {
             ensureSecondaryTabs();
         }
         
-        if (selectedSecondaryTab == null) return; 
-        
+        if (selectedSecondaryTab == null) return;         
         boolean isGeneral = "general".equals(selectedSecondaryTab.elementId);
         String texturePrefix = "anim_" + selectedSecondaryTab.elementId + "_";
         String textureStyleKey = ElementTextureDefinition.getTextureStyleKey(selectedSecondaryTab.elementId);
@@ -197,12 +191,10 @@ public class ElementConfigContent extends ConfigTabContent {
             boolean isTextureStyleKey = key.startsWith("texture_style_");
             
             if (isGeneral) {
-                
                 if (!isAnimKey && !isTextureStyleKey) {
                     this.configRows.add(row);
                 }
             } else {
-                
                 if (key.startsWith(texturePrefix) || key.equals(textureStyleKey)) {
                     this.configRows.add(row);
                 }
@@ -217,9 +209,7 @@ public class ElementConfigContent extends ConfigTabContent {
             String key = getConfigKey(row);
             if (key == null) continue;
 
-            
             if ("subtitle/kill_feed".equals(elementId)) {
-                
                 if (key.equals("max_lines") || key.equals("line_spacing")) {
                     row.setActiveCondition(() -> {
                         JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
@@ -227,17 +217,14 @@ public class ElementConfigContent extends ConfigTabContent {
                     });
                 }
                 
-                
                 else if (key.contains("headshot")) {
                     if (!key.equals("enable_headshot_kill")) {
                         row.setActiveCondition(() -> {
                             JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-                            
                             return config == null || !config.has("enable_headshot_kill") || config.get("enable_headshot_kill").getAsBoolean();
                         });
                     }
                 }
-                
                 
                 else if (key.contains("explosion")) {
                     if (!key.equals("enable_explosion_kill")) {
@@ -248,7 +235,6 @@ public class ElementConfigContent extends ConfigTabContent {
                     }
                 }
                 
-                
                 else if (key.contains("crit")) {
                     if (!key.equals("enable_crit_kill")) {
                         row.setActiveCondition(() -> {
@@ -257,7 +243,6 @@ public class ElementConfigContent extends ConfigTabContent {
                         });
                     }
                 }
-                
                 
                 else if (key.contains("assist")) {
                     if (!key.equals("enable_assist_kill")) {
@@ -268,7 +253,6 @@ public class ElementConfigContent extends ConfigTabContent {
                     }
                 }
                 
-                
                 else if (key.contains("destroy_vehicle")) {
                     if (!key.equals("enable_destroy_vehicle_kill")) {
                         row.setActiveCondition(() -> {
@@ -278,8 +262,6 @@ public class ElementConfigContent extends ConfigTabContent {
                     }
                 }
                 
-                
-                 
                  else if (key.equals("format_normal") || key.equals("color_normal_placeholder") || key.equals("color_normal_emphasis")) {
                       row.setActiveCondition(() -> {
                          JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
@@ -288,7 +270,6 @@ public class ElementConfigContent extends ConfigTabContent {
                  }
              }
          }
-         
          
          for (GDRowRenderer row : allConfigRows) {
              String key = getConfigKey(row);
@@ -324,7 +305,6 @@ public class ElementConfigContent extends ConfigTabContent {
     
     @Override
     protected void updateSubtitle(int x1, int y1, int x2) {
-        
         String presetName = ElementConfigManager.getPresetDisplayName(presetId);
         
         List<GDTextRenderer.ColoredText> presetTexts = new ArrayList<>();
@@ -342,7 +322,6 @@ public class ElementConfigContent extends ConfigTabContent {
             subtitleRenderer.setColoredTexts(presetTexts);
         }
 
-        
         String nameKey = "gd656killicon.element.name." + elementId.replace("/", ".");
         String elementName = I18n.exists(nameKey) ? I18n.get(nameKey) : elementId;
 
@@ -352,7 +331,6 @@ public class ElementConfigContent extends ConfigTabContent {
         elementTexts.add(new GDTextRenderer.ColoredText(elementName, GuiConstants.COLOR_GOLD));
 
         int line2Y = y1 + 9 + 2; 
-
         if (elementInfoRenderer == null) {
             elementInfoRenderer = new GDTextRenderer(elementTexts, x1, line2Y, x2, line2Y + 9, 1.0f, false);
         } else {
@@ -363,22 +341,16 @@ public class ElementConfigContent extends ConfigTabContent {
             elementInfoRenderer.setColoredTexts(elementTexts);
         }
 
-        
         this.calculatedBottom = line2Y + 9;
     }
 
     @Override
     public void updateLayout(int screenWidth, int screenHeight) {
         super.updateLayout(screenWidth, screenHeight);
-        
         this.area1Bottom = this.calculatedBottom;
-        
         
         int padding = GuiConstants.DEFAULT_PADDING;
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
-        
-        
-        
         int row2Y = screenHeight - padding - buttonHeight;
         int row1Y = row2Y - 1 - buttonHeight;
         
@@ -386,7 +358,6 @@ public class ElementConfigContent extends ConfigTabContent {
         int gridY = this.calculatedBottom + padding;
         int area1Right = (screenWidth - 2 * padding) / 3 + padding;
         int gridWidth = area1Right - padding;
-        
         int gridHeight = row1Y - gridY - padding;
         
         if (gridHeight > 0 && gridWidth > 0) {
@@ -407,7 +378,6 @@ public class ElementConfigContent extends ConfigTabContent {
         boolean dialogVisible = resetDialogVisible || promptVisible || textInputDialog.isVisible() || colorPickerDialog.isVisible();
         int effectiveMouseX = dialogVisible ? -1 : mouseX;
         int effectiveMouseY = dialogVisible ? -1 : mouseY;
-        
         if (gridWidget == null) {
             updateLayout(screenWidth, screenHeight);
         }
@@ -426,8 +396,6 @@ public class ElementConfigContent extends ConfigTabContent {
             renderBonusListPreview(guiGraphics, partialTick);
         }
 
-        
-        
         if (elementInfoRenderer != null) {
             elementInfoRenderer.render(guiGraphics, partialTick);
         }
@@ -444,7 +412,6 @@ public class ElementConfigContent extends ConfigTabContent {
         if (!dialogVisible) {
             renderSecondaryTabs(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick);
         }
-        
         
         if (isConfirmingReset) {
             long elapsed = System.currentTimeMillis() - resetConfirmTime;
@@ -485,7 +452,6 @@ public class ElementConfigContent extends ConfigTabContent {
             if (useDefaultScroll) {
                 float dt = minecraft.getDeltaFrameTime() / 20.0f;
 
-                
                 if (isDragging) {
                     double diff = mouseY - lastMouseY;
                     targetScrollY -= diff;
@@ -830,7 +796,6 @@ public class ElementConfigContent extends ConfigTabContent {
         }
         long now = System.currentTimeMillis();
         if (now - lastComboSubtitlePreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
-            
             int combo = 1 + PREVIEW_RANDOM.nextInt(8);
             boolean isAssist = PREVIEW_RANDOM.nextBoolean();
             comboSubtitlePreviewRenderer.triggerPreview(isAssist, combo);
@@ -845,31 +810,6 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         
         
         
@@ -985,13 +925,11 @@ public class ElementConfigContent extends ConfigTabContent {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
             return textureResetDialog.keyPressed(keyCode, scanCode, modifiers);
         }
-        
         if (super.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
 
-        if (keyCode == 256) { 
-            closeContent();
+        if (keyCode == 256) {             closeContent();
             return true;
         }
         return false;
@@ -999,60 +937,46 @@ public class ElementConfigContent extends ConfigTabContent {
     
     @Override
     protected void updateResetButtonState() {
-        
     }
     
     @Override
     protected void renderSideButtons(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
-        
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
         int padding = GuiConstants.DEFAULT_PADDING;
         
-        
         int row2Y = screenHeight - padding - buttonHeight;
-        
         int row1Y = row2Y - 1 - buttonHeight;
-        
         
         int totalWidth = area1Right - padding;
         int x1 = padding + (int)getSidebarOffset();
 
-        
         int row1ButtonWidth = (totalWidth - 1) / 2;
 
-        
         if (resetButton == null) {
             resetButton = new GDButton(x1, row1Y, row1ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.reset_element"), (btn) -> {
                 if (isConfirmingReset) {
-                    
                     JsonObject safeDefaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
                     if (!safeDefaults.entrySet().isEmpty()) {
                         ElementConfigManager.setElementConfig(presetId, elementId, safeDefaults);
-                        
                         ExternalTextureManager.resetTexturesForElement(presetId, elementId);
                     }
                     
                     isConfirmingReset = false;
-                    
                     closeContent();
                 } else {
-                    
                     isConfirmingReset = true;
                     resetConfirmTime = System.currentTimeMillis();
-                    btn.setMessage(Component.translatable("gd656killicon.client.gui.config.button.confirm_reset")); 
-                    btn.setTextColor(GuiConstants.COLOR_RED);
+                    btn.setMessage(Component.translatable("gd656killicon.client.gui.config.button.confirm_reset"));                     btn.setTextColor(GuiConstants.COLOR_RED);
                 }
             });
         }
-        
         
         
         resetButton.setX(x1);
         resetButton.setY(row1Y);
         resetButton.setWidth(row1ButtonWidth);
         resetButton.render(guiGraphics, mouseX, mouseY, partialTick);
-        
         
         if (cancelButton == null) {
             cancelButton = new GDButton(x1 + row1ButtonWidth + 1, row1Y, row1ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.button.cancel"), (btn) -> {
@@ -1065,13 +989,10 @@ public class ElementConfigContent extends ConfigTabContent {
         cancelButton.setWidth(row1ButtonWidth);
         cancelButton.render(guiGraphics, mouseX, mouseY, partialTick);
         
-        
         int row2ButtonWidth = totalWidth;
 
-        
         if (saveButton == null) {
             saveButton = new GDButton(x1, row2Y, row2ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.save_and_exit"), (btn) -> {
-                
                 closeContent();
             });
         }
@@ -1200,10 +1121,8 @@ public class ElementConfigContent extends ConfigTabContent {
         }
 
         if (gifPath != null) {
-            
             handleGifDrop(gifPath, targetFileName);
         } else if (pngPath != null) {
-            
             boolean replaced = ExternalTextureManager.replaceTextureWithBackup(presetId, targetFileName, pngPath);
             if (replaced) {
                 promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_success"), PromptDialog.PromptType.SUCCESS, null);
@@ -1212,7 +1131,6 @@ public class ElementConfigContent extends ConfigTabContent {
     }
 
     private void handleGifDrop(Path gifPath, String targetFileName) {
-        
         try {
             File tempFile = File.createTempFile("gd656_gif_convert_", ".png");
             tempFile.deleteOnExit();
@@ -1220,13 +1138,10 @@ public class ElementConfigContent extends ConfigTabContent {
             GifToSpriteSheetConverter.ConversionResult result = GifToSpriteSheetConverter.convertGifToSpriteSheet(gifPath, tempFile.toPath());
             
             if (result.success && result.outputPng != null) {
-                
                 boolean replaced = ExternalTextureManager.replaceTextureWithBackup(presetId, targetFileName, result.outputPng.toPath());
                 
                 if (replaced) {
-                    
                     applyGifAnimationToSharedTextures(targetFileName, result);
-                    
                     
                     rebuildUI();
                     
@@ -1346,11 +1261,9 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
 
-        
         String generalKey = "gd656killicon.client.gui.config.tab.general";
         String generalLabel = I18n.exists(generalKey) ? I18n.get(generalKey) : "General";
         secondaryTabs.add(new SecondaryTab("general", generalLabel));
-        
         
         List<String> textures = ElementTextureDefinition.getTextures(elementId);
         for (String texture : textures) {
@@ -1439,7 +1352,6 @@ public class ElementConfigContent extends ConfigTabContent {
         comboSubtitlePreviewRenderer.resetPreview();
         scorePreviewRenderer.resetPreview();
         bonusListPreviewRenderer.resetPreview();
-        
         
         lastPreviewTriggerTime = 0;
         lastComboPreviewTriggerTime = 0;

@@ -16,33 +16,26 @@ import java.util.function.Consumer;
 
 public class HelpTab extends ConfigTabContent {
 
-    
     private int area3X1, area3Y1, area3X2, area3Y2;
-    private double scrollY3 = 0; 
-    private double targetScrollY3 = 0;
+    private double scrollY3 = 0;     private double targetScrollY3 = 0;
     private GDTextRenderer area3TextRenderer;
     private boolean isDragging3 = false;
     private double lastMouseY3 = 0;
 
-    
     private int area2X1, area2Y1, area2X2, area2Y2;
     private final List<GDRowRenderer> contentRenderers = new ArrayList<>();
     private int[] categoryStartIndices = new int[3];
-    
     private boolean isCommandExpanded = false;
     private boolean isBonusExpanded = false;
     private boolean isPresetExpanded = false;
-    
     private boolean isCommandBonusExpanded = false;
     private boolean isCommandResetExpanded = false;
     private boolean isCommandConfigExpanded = false;
     private boolean isCommandStatisticsExpanded = false;
     private boolean isCommandDebugExpanded = false;
 
-    
     private final List<Integer> rowHeights = new ArrayList<>();
 
-    
     private boolean isDragging = false;
     private double lastMouseY = 0;
     private int lastContentWidth = 0;
@@ -58,28 +51,23 @@ public class HelpTab extends ConfigTabContent {
         targetScrollY = 0;
         scrollY3 = 0;
         targetScrollY3 = 0;
-        rebuildContent(); 
-    }
+        rebuildContent();     }
 
     private void rebuildContent() {
         contentRenderers.clear();
         rowHeights.clear();
-        
         
         int area1Right = (minecraft.getWindow().getGuiScaledWidth() - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int x1 = area1Right + GuiConstants.DEFAULT_PADDING;
         int x2 = minecraft.getWindow().getGuiScaledWidth() - GuiConstants.DEFAULT_PADDING;
         int contentWidth = x2 - x1;
 
-        
         addCategoryHeader(0, "gd656killicon.client.gui.help.category.commands", isCommandExpanded, (btn) -> {
             isCommandExpanded = !isCommandExpanded;
             rebuildContent();
         });
-        categoryStartIndices[0] = 0; 
-        
+        categoryStartIndices[0] = 0;         
         if (isCommandExpanded) {
-            
             addSubCategoryHeader("gd656killicon.client.gui.help.command.category.bonus", isCommandBonusExpanded, (btn) -> {
                 isCommandBonusExpanded = !isCommandBonusExpanded;
                 rebuildContent();
@@ -90,7 +78,6 @@ public class HelpTab extends ConfigTabContent {
                 addIndentedHelpEntry("gd656killicon.client.gui.help.command.bonus.edit.title", "gd656killicon.client.gui.help.command.bonus.edit.desc", contentWidth);
             }
 
-            
             addSubCategoryHeader("gd656killicon.client.gui.help.command.category.reset", isCommandResetExpanded, (btn) -> {
                 isCommandResetExpanded = !isCommandResetExpanded;
                 rebuildContent();
@@ -100,7 +87,6 @@ public class HelpTab extends ConfigTabContent {
                 addIndentedHelpEntry("gd656killicon.client.gui.help.command.reset.bonus.title", "gd656killicon.client.gui.help.command.reset.bonus.desc", contentWidth);
             }
 
-            
             addSubCategoryHeader("gd656killicon.client.gui.help.command.category.config", isCommandConfigExpanded, (btn) -> {
                 isCommandConfigExpanded = !isCommandConfigExpanded;
                 rebuildContent();
@@ -111,7 +97,6 @@ public class HelpTab extends ConfigTabContent {
                 addIndentedHelpEntry("gd656killicon.client.gui.help.command.config.displayname.title", "gd656killicon.client.gui.help.command.config.displayname.desc", contentWidth);
             }
 
-            
             addSubCategoryHeader("gd656killicon.client.gui.help.command.category.statistics", isCommandStatisticsExpanded, (btn) -> {
                 isCommandStatisticsExpanded = !isCommandStatisticsExpanded;
                 rebuildContent();
@@ -123,7 +108,6 @@ public class HelpTab extends ConfigTabContent {
                 addIndentedHelpEntry("gd656killicon.client.gui.help.command.statistics.reset.title", "gd656killicon.client.gui.help.command.statistics.reset.desc", contentWidth);
             }
 
-            
             addSubCategoryHeader("gd656killicon.client.gui.help.command.category.debug", isCommandDebugExpanded, (btn) -> {
                 isCommandDebugExpanded = !isCommandDebugExpanded;
                 rebuildContent();
@@ -133,7 +117,6 @@ public class HelpTab extends ConfigTabContent {
             }
         }
 
-        
         int bonusIndex = contentRenderers.size();
         addCategoryHeader(1, "gd656killicon.client.gui.help.category.bonus", isBonusExpanded, (btn) -> {
             isBonusExpanded = !isBonusExpanded;
@@ -142,18 +125,12 @@ public class HelpTab extends ConfigTabContent {
         categoryStartIndices[1] = bonusIndex;
 
         if (isBonusExpanded) {
-            
-            
-            
             List<String> bonusNames = new ArrayList<>(BonusType.getAllNames());
             bonusNames.sort(Comparator.comparingInt(BonusType::getTypeByName));
             
             for (String bonusName : bonusNames) {
-                 
-                 
                  String nameKey = "gd656killicon.bonus." + bonusName + ".name";
                  String descKey = "gd656killicon.bonus." + bonusName + ".desc";
-                 
                  if (!I18n.exists(descKey)) {
                      descKey = "gd656killicon.client.gui.help.bonus.default_desc"; 
                  }
@@ -162,7 +139,6 @@ public class HelpTab extends ConfigTabContent {
             }
         }
 
-        
         int presetIndex = contentRenderers.size();
         addCategoryHeader(2, "gd656killicon.client.gui.help.category.preset", isPresetExpanded, (btn) -> {
             isPresetExpanded = !isPresetExpanded;
@@ -179,7 +155,6 @@ public class HelpTab extends ConfigTabContent {
             addHelpEntry("gd656killicon.client.gui.help.preset.structure", "gd656killicon.client.gui.help.preset.structure.desc", contentWidth);
         }
         
-        
         String area3Text = I18n.get("gd656killicon.client.gui.help.area3.desc");
         if (area3TextRenderer == null) {
             area3TextRenderer = new GDTextRenderer(area3Text, area3X1, area3Y1, area3X2, area3Y2, 1.0f, GuiConstants.COLOR_WHITE, true);
@@ -187,19 +162,14 @@ public class HelpTab extends ConfigTabContent {
             area3TextRenderer.setText(area3Text);
         }
 
-        
         this.totalContentHeight = 0;
         for (int h : rowHeights) {
-            this.totalContentHeight += h + 1; 
-        }
+            this.totalContentHeight += h + 1;         }
     }
 
     private void addCategoryHeader(int index, String titleKey, boolean expanded, Consumer<Integer> onClick) {
-        
         GDRowRenderer header = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_GOLD, 0.75f, true);
-        
         header.addColumn(I18n.get(titleKey), -1, GuiConstants.COLOR_WHITE, true, false, onClick);
-        
         header.addColumn(expanded ? "▼" : "▶", 20, GuiConstants.COLOR_WHITE, true, true, onClick);
         
         contentRenderers.add(header);
@@ -207,16 +177,11 @@ public class HelpTab extends ConfigTabContent {
     }
 
     private void addSubCategoryHeader(String titleKey, boolean expanded, Consumer<Integer> onClick) {
-        
-        
         GDRowRenderer header = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, true);
-        
         
         String title = "  " + I18n.get(titleKey);
         
-        
         header.addColumn(title, -1, GuiConstants.COLOR_WHITE, true, false, onClick);
-        
         header.addColumn(expanded ? "▼" : "▶", 20, GuiConstants.COLOR_GRAY, true, true, onClick);
         
         contentRenderers.add(header);
@@ -226,7 +191,6 @@ public class HelpTab extends ConfigTabContent {
     private void addIndentedHelpEntry(String titleKey, String descKey, int contentWidth) {
         String title = I18n.exists(titleKey) ? I18n.get(titleKey) : titleKey;
         String desc = I18n.exists(descKey) ? I18n.get(descKey) : descKey;
-        
         
         title = "    " + title;
         
@@ -238,7 +202,6 @@ public class HelpTab extends ConfigTabContent {
     }
 
     private void addHelpEntry(String titleKey, String descKey, int contentWidth) {
-        
         String title = I18n.exists(titleKey) ? I18n.get(titleKey) : titleKey;
         String desc = I18n.exists(descKey) ? I18n.get(descKey) : descKey;
         
@@ -267,12 +230,9 @@ public class HelpTab extends ConfigTabContent {
     protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateAreaCoordinates(screenWidth, screenHeight);
         
-        
         renderArea3(guiGraphics, mouseX, mouseY, partialTick);
 
-        
         renderArea2(guiGraphics, mouseX, mouseY, partialTick, screenHeight);
-        
         
         long now = System.nanoTime();
         if (lastFrameTime == 0) lastFrameTime = now;
@@ -280,14 +240,12 @@ public class HelpTab extends ConfigTabContent {
         lastFrameTime = now;
         if (dt > 0.1f) dt = 0.1f;
         
-        
         int currentContentWidth = area2X2 - area2X1;
         if (currentContentWidth != lastContentWidth && currentContentWidth > 0) {
             lastContentWidth = currentContentWidth;
             recalculateHeights(currentContentWidth);
         }
 
-        
         if (isDragging) {
             double diff = mouseY - lastMouseY;
             targetScrollY -= diff;
@@ -316,7 +274,6 @@ public class HelpTab extends ConfigTabContent {
         this.area3X1 = GuiConstants.DEFAULT_PADDING;
         this.area3Y1 = this.area1Bottom + GuiConstants.DEFAULT_PADDING;
         this.area3X2 = area1Right;
-        
         this.area3Y2 = screenHeight - GuiConstants.REGION_4_HEIGHT - 2 * GuiConstants.DEFAULT_PADDING;
         
         if (area3TextRenderer != null) {
@@ -329,7 +286,6 @@ public class HelpTab extends ConfigTabContent {
 
     private void renderArea3(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (area3TextRenderer != null) {
-            
             area3TextRenderer.render(guiGraphics, partialTick);
         }
     }
@@ -359,8 +315,6 @@ public class HelpTab extends ConfigTabContent {
 
         int currentY = area2Y1;
         
-        
-        
         if (contentRenderers.isEmpty()) {
             rebuildContent();
         }
@@ -370,8 +324,6 @@ public class HelpTab extends ConfigTabContent {
             int height = rowHeights.get(i);
             
             renderer.setBounds(x1, currentY, x2, currentY + height);
-            
-            
             
             float actualTop = currentY - (float)scrollY;
             float actualBottom = currentY + height - (float)scrollY;
@@ -389,11 +341,6 @@ public class HelpTab extends ConfigTabContent {
 
     private void expandAndScrollToCategory(int index) {
         
-        
-        
-        
-        
-        
         if (index == 0) isCommandExpanded = true;
         else if (index == 1) isBonusExpanded = true;
         else if (index == 2) isPresetExpanded = true;
@@ -408,27 +355,22 @@ public class HelpTab extends ConfigTabContent {
         int targetIndex = categoryStartIndices[index];
         if (targetIndex >= rowHeights.size()) return;
 
-        
         double targetY = 0;
         for (int i = 0; i < targetIndex; i++) {
             targetY += rowHeights.get(i) + 1;
         }
         
         this.targetScrollY = targetY;
-        
         double maxScroll = Math.max(0, totalContentHeight - (area2Y2 - area2Y1));
         this.targetScrollY = Math.max(0, Math.min(maxScroll, this.targetScrollY));
     }
     
     @Override
     protected void updateScroll(float dt, int screenHeight) {
-        
         this.totalContentHeight = 0;
         for (int h : rowHeights) {
-            this.totalContentHeight += h + 1; 
-        }
+            this.totalContentHeight += h + 1;         }
 
-        
         int viewHeight = area2Y2 - area2Y1;
         double maxScroll = Math.max(0, totalContentHeight - viewHeight);
         targetScrollY = Math.max(0, Math.min(maxScroll, targetScrollY));
@@ -436,7 +378,6 @@ public class HelpTab extends ConfigTabContent {
         double diff = targetScrollY - scrollY;
         if (Math.abs(diff) < 0.1) scrollY = targetScrollY;
         else scrollY += diff * SCROLL_SMOOTHING * dt;
-        
         
         if (area3TextRenderer != null) {
             float maxScroll3 = area3TextRenderer.getMaxScrollY();
@@ -467,13 +408,11 @@ public class HelpTab extends ConfigTabContent {
     
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        
         if (mouseX >= area3X1 && mouseX <= area3X2 && mouseY >= area3Y1 && mouseY <= area3Y2) {
              isDragging3 = true;
              lastMouseY3 = mouseY;
              return true;
         }
-        
         
         if (mouseX >= area2X1 && mouseX <= area2X2 && mouseY >= area2Y1 && mouseY <= area2Y2) {
             double adjustedY = mouseY + scrollY;
@@ -481,7 +420,6 @@ public class HelpTab extends ConfigTabContent {
                 if (renderer.mouseClicked(mouseX, adjustedY, button)) return true;
             }
 
-            
             isDragging = true;
             lastMouseY = mouseY;
             return true;

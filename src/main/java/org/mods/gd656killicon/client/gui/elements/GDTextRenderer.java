@@ -33,16 +33,11 @@ public class GDTextRenderer {
         }
     }
 
-    
     private float scrollOffset = 0;
     private boolean scrollingForward = true;
     private long lastTime;
-    private static final float SCROLL_SPEED = 30.0f; 
-    private static final long PAUSE_TIME_MS = 1000;  
-    private boolean centered = false; 
-    private Integer overrideColor = null;
+    private static final float SCROLL_SPEED = 30.0f;     private static final long PAUSE_TIME_MS = 1000;      private boolean centered = false;     private Integer overrideColor = null;
 
-    
     private float scrollY = 0;
 
     public void setOverrideColor(Integer color) {
@@ -91,7 +86,6 @@ public class GDTextRenderer {
     }
 
     public void render(GuiGraphics guiGraphics, float partialTick, boolean useScissor) {
-        
         long now = System.currentTimeMillis();
         float dt = (now - lastTime) / 1000.0f;
         lastTime = now;
@@ -130,7 +124,6 @@ public class GDTextRenderer {
     }
 
     private void renderWrappedText(GuiGraphics guiGraphics, float maxWidth) {
-        
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(0, -scrollY, 0);
         drawWrappedInternal(guiGraphics, maxWidth);
@@ -148,7 +141,6 @@ public class GDTextRenderer {
     public float getMaxScrollY() {
         if (!autoWrap) return 0;
         int contentHeight = getFinalHeight();
-        
         float containerHeight = this.height / fontSize;
         return Math.max(0, contentHeight - containerHeight);
     }
@@ -180,8 +172,7 @@ public class GDTextRenderer {
                             minecraft.font.plainSubstrByWidth(remaining, (int)(maxWidth - currentX)).length() : 
                             remaining.length();
                 
-                if (count == 0 && currentX > 0) { 
-                    currentX = 0;
+                if (count == 0 && currentX > 0) {                     currentX = 0;
                     yOffset += 9;
                     continue;
                 }
@@ -202,9 +193,6 @@ public class GDTextRenderer {
 
     private List<String> wrapText(String text, float maxWidth) {
         List<String> lines = new ArrayList<>();
-        
-        
-        
         String processedText = text.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n");
         String[] paragraphs = processedText.split("\n", -1);
 
@@ -240,16 +228,13 @@ public class GDTextRenderer {
             for (ColoredText ct : coloredTexts) textWidth += minecraft.font.width(ct.text);
         }
         
-        
-        if (textWidth <= maxWidth + 1) { 
-            drawInternal(guiGraphics, 0, 0, maxWidth);
+        if (textWidth <= maxWidth + 1) {             drawInternal(guiGraphics, 0, 0, maxWidth);
             scrollOffset = 0;
             pauseStartTime = -1;
             scrollingForward = true;
             return;
         }
 
-        
         float maxScroll = textWidth - maxWidth;
         
         if (pauseStartTime != -1) {
@@ -275,11 +260,8 @@ public class GDTextRenderer {
             }
         }
 
-        
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(-scrollOffset, 0, 0);
-        
-        
         
         drawInternal(guiGraphics, 0, 0, textWidth); 
         
@@ -321,7 +303,6 @@ public class GDTextRenderer {
 
     public int getFinalHeight() {
         if (!autoWrap) return (int)(9 * fontSize);
-        
         
         float scale = fontSize;
         float scaledWidth = width / scale;

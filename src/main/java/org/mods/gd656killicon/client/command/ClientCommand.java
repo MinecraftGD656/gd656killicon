@@ -19,7 +19,6 @@ import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 public class ClientCommand {
 
-    
     public static final SuggestionProvider<CommandSourceStack> PRESET_SUGGESTIONS = (context, builder) -> {
         ConfigManager.loadConfig();
         return SharedSuggestionProvider.suggest(ConfigManager.getPresetIds(), builder);
@@ -30,7 +29,6 @@ public class ClientCommand {
         try {
             presetIdStr = normalizePresetIdForLookup(StringArgumentType.getString(context, "presetId"));
         } catch (IllegalArgumentException e) {
-            
             presetIdStr = ConfigManager.getCurrentPresetId();
         }
         return SharedSuggestionProvider.suggest(
@@ -63,12 +61,10 @@ public class ClientCommand {
         return SharedSuggestionProvider.suggest(ConfigManager.getConfigKeys(presetId, elementId), builder);
     };
 
-    
     public static int reload(CommandContext<CommandSourceStack> context) {
         ConfigManager.loadConfig();
         ExternalTextureManager.reloadAsync();
         ExternalSoundManager.reloadAsync();
-        
         return 1;
     }
 
@@ -92,7 +88,6 @@ public class ClientCommand {
             ClientMessageLogger.chatError("gd656killicon.client.command.invalid_id_format");
             return 0;
         }
-        
         
         ConfigManager.resetPresetConfig(presetId);
         ClientMessageLogger.chatSuccess("gd656killicon.client.command.preset_reset_success", presetId);
@@ -292,13 +287,8 @@ public class ClientCommand {
     }
 
     public static void register(RegisterClientCommandsEvent event) {
-        
         event.getDispatcher().register(Commands.literal("gd656killicon")
-            .then(Commands.literal("client")                                                                                                                  
-                .then(Commands.literal("info").executes(ClientCommand::info))                                                                                 
-                .then(Commands.literal("config")                                                                                                              
-                    .then(Commands.literal("reload").executes(ClientCommand::reload))                                                                         
-                    .then(Commands.literal("global")
+            .then(Commands.literal("client")                                                                                                                                  .then(Commands.literal("info").executes(ClientCommand::info))                                                                                                 .then(Commands.literal("config")                                                                                                                                  .then(Commands.literal("reload").executes(ClientCommand::reload))                                                                                             .then(Commands.literal("global")
                         .then(Commands.argument("key", StringArgumentType.word())
                             .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"current_preset", "enable_sound", "sound_volume", "show_bonus_message"}, builder))
                             .then(Commands.argument("value", StringArgumentType.string())
@@ -306,8 +296,7 @@ public class ClientCommand {
                             )
                         )
                     )
-                    .then(Commands.literal("reset").executes(ClientCommand::reset)                                                                           
-                        .then(Commands.literal("element")
+                    .then(Commands.literal("reset").executes(ClientCommand::reset)                                                                                                   .then(Commands.literal("element")
                             .then(Commands.argument("presetId", StringArgumentType.word())
                                 .suggests(PRESET_SUGGESTIONS)
                                 .then(Commands.literal("config").executes(ClientCommand::resetPresetConfig))
@@ -316,54 +305,36 @@ public class ClientCommand {
                             )
                         )
                     )
-                    .then(Commands.literal("preset")                                                                                                          
-                        .then(Commands.literal("choose")                                                                                                         
-                            .then(Commands.argument("id", StringArgumentType.word())                                                                          
-                                .suggests(PRESET_SUGGESTIONS)
+                    .then(Commands.literal("preset")                                                                                                                                  .then(Commands.literal("choose")                                                                                                                                     .then(Commands.argument("id", StringArgumentType.word())                                                                                                          .suggests(PRESET_SUGGESTIONS)
                                 .executes(ClientCommand::setPreset)
                             )
                         )
-                        .then(Commands.literal("create")                                                                                                      
-                            .then(Commands.argument("id", StringArgumentType.word())                                                                          
-                                .executes(ClientCommand::createPreset)
+                        .then(Commands.literal("create")                                                                                                                                  .then(Commands.argument("id", StringArgumentType.word())                                                                                                          .executes(ClientCommand::createPreset)
                             )
                         )
-                        .then(Commands.literal("displayname")                                                                                                 
-                            .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.literal("displayname")                                                                                                                             .then(Commands.argument("id", StringArgumentType.word())
                                 .suggests(PRESET_SUGGESTIONS)
                                 .then(Commands.argument("displayName", StringArgumentType.string())
                                     .executes(ClientCommand::setPresetDisplayName)
                                 )
                             )
                         )
-                        .then(Commands.literal("element")                                                                                                     
-                                .then(Commands.literal("add")                                                                                                     
-                                    .then(Commands.argument("presetId", StringArgumentType.word())                                                            
-                                        .suggests(PRESET_SUGGESTIONS)
-                                        .then(Commands.argument("elementId", StringArgumentType.string())                                                             
-                                            .suggests(ADD_ELEMENT_SUGGESTIONS)
+                        .then(Commands.literal("element")                                                                                                                                     .then(Commands.literal("add")                                                                                                                                         .then(Commands.argument("presetId", StringArgumentType.word())                                                                                                    .suggests(PRESET_SUGGESTIONS)
+                                        .then(Commands.argument("elementId", StringArgumentType.string())                                                                                                         .suggests(ADD_ELEMENT_SUGGESTIONS)
                                             .executes(ClientCommand::addElement)
                                         )
                                     )
                                 )
-                            .then(Commands.literal("del")                                                                                                      
-                                .then(Commands.argument("presetId", StringArgumentType.word())                                                              
-                                    .suggests(PRESET_SUGGESTIONS)
-                                    .then(Commands.argument("elementId", StringArgumentType.string())                                                              
-                                        .suggests(ELEMENT_SUGGESTIONS)
+                            .then(Commands.literal("del")                                                                                                                                      .then(Commands.argument("presetId", StringArgumentType.word())                                                                                                  .suggests(PRESET_SUGGESTIONS)
+                                    .then(Commands.argument("elementId", StringArgumentType.string())                                                                                                      .suggests(ELEMENT_SUGGESTIONS)
                                         .executes(ClientCommand::delElement)
                                     )
                                 )
                             )
-                            .then(Commands.literal("edit")                                                                                                      
-                                .then(Commands.argument("presetId", StringArgumentType.word())                                                                  
-                                    .suggests(PRESET_SUGGESTIONS)
-                                    .then(Commands.argument("elementId", StringArgumentType.string())                                                           
-                                        .suggests(ELEMENT_SUGGESTIONS)
-                                        .then(Commands.argument("key", StringArgumentType.word())                                                               
-                                            .suggests(KEY_SUGGESTIONS)
-                                            .then(Commands.argument("value", StringArgumentType.string())                                                       
-                                                .executes(ClientCommand::editConfig)
+                            .then(Commands.literal("edit")                                                                                                                                      .then(Commands.argument("presetId", StringArgumentType.word())                                                                                                      .suggests(PRESET_SUGGESTIONS)
+                                    .then(Commands.argument("elementId", StringArgumentType.string())                                                                                                   .suggests(ELEMENT_SUGGESTIONS)
+                                        .then(Commands.argument("key", StringArgumentType.word())                                                                                                           .suggests(KEY_SUGGESTIONS)
+                                            .then(Commands.argument("value", StringArgumentType.string())                                                                                                       .executes(ClientCommand::editConfig)
                                             )
                                         )
                                     )

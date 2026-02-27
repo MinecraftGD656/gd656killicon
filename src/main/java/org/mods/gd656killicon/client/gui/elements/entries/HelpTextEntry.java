@@ -25,15 +25,10 @@ public class HelpTextEntry extends GDRowRenderer {
         this.title = title;
         this.description = description;
 
-        
-        
         this.addColumn(title, 120, GuiConstants.COLOR_GOLD, false, false, null);
 
-        
-        
         this.addCustomColumn(-1, null, (guiGraphics, x, y, width, height) -> {
             if (descriptionRenderer == null) {
-                
                 descriptionRenderer = new GDTextRenderer(description, x + 4, y + 4, x + width - 4, y + height - 4, 1.0f, GuiConstants.COLOR_WHITE, true);
             } else {
                 descriptionRenderer.setX1(x + 4);
@@ -41,8 +36,7 @@ public class HelpTextEntry extends GDRowRenderer {
                 descriptionRenderer.setX2(x + width - 4);
                 descriptionRenderer.setY2(y + height - 4);
             }
-            descriptionRenderer.render(guiGraphics, 0, false); 
-        });
+            descriptionRenderer.render(guiGraphics, 0, false);         });
     }
 
     public HelpTextEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, List<GDTextRenderer.ColoredText> titleParts, String description) {
@@ -70,20 +64,15 @@ public class HelpTextEntry extends GDRowRenderer {
      * 基于描述文本的长度和宽度进行计算。
      */
     public int getRequiredHeight(int width) {
-        
-        int descWidth = width - 120 - 8; 
-        if (descWidth <= 0) return GuiConstants.ROW_HEADER_HEIGHT;
+        int descWidth = width - 120 - 8;         if (descWidth <= 0) return GuiConstants.ROW_HEADER_HEIGHT;
 
         if (descriptionRenderer == null) {
-            
             descriptionRenderer = new GDTextRenderer(description, 0, 0, descWidth, 100, 1.0f, GuiConstants.COLOR_WHITE, true);
         } else {
-            
             descriptionRenderer.setX1(0);
             descriptionRenderer.setX2(descWidth);
         }
         
         int textHeight = descriptionRenderer.getFinalHeight();
-        return Math.max(GuiConstants.ROW_HEADER_HEIGHT, textHeight + 8); 
-    }
+        return Math.max(GuiConstants.ROW_HEADER_HEIGHT, textHeight + 8);     }
 }

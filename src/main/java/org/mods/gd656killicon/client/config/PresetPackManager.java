@@ -41,14 +41,12 @@ public class PresetPackManager {
 
             Path exportPath = EXPORT_DIR.resolve(fileName);
             
-            
             ElementPreset preset = ElementConfigManager.getActivePresets().get(presetId);
             if (preset == null) {
                 ClientMessageLogger.chatError("gd656killicon.client.config.export.preset_not_found", presetId);
                 return false;
             }
 
-            
             JsonObject presetJson = new JsonObject();
             presetJson.addProperty("original_id", presetId);
             presetJson.addProperty("display_name", preset.getDisplayName());
@@ -58,15 +56,12 @@ public class PresetPackManager {
             }
             presetJson.add("elements", elements);
 
-            
             try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(exportPath))) {
-                
                 ZipEntry configEntry = new ZipEntry("preset.json");
                 zos.putNextEntry(configEntry);
                 zos.write(GSON.toJson(presetJson).getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 zos.closeEntry();
 
-                
                 Path presetAssetsDir = ASSETS_DIR.resolve(presetId);
                 if (Files.exists(presetAssetsDir)) {
                     Files.walkFileTree(presetAssetsDir, new SimpleFileVisitor<Path>() {
@@ -99,21 +94,7 @@ public class PresetPackManager {
                 return "invalid_format";
             }
             
-            // Note: We don't check ID here because the ID is generated/assigned upon import, 
-            // but the prompt says "check duplicate ID".
-            // However, the ID is not strictly inside the gdpack (the gdpack contains data, not the ID itself).
-            // Wait, the user said "If duplicate ID... default random".
-            // This implies the ID *might* be in the pack, or we assume the filename or something is the ID?
-            // "Checks if there is a duplicate ID".
-            // If the preset inside doesn't have an ID (it's just data), then we are essentially "creating" a new preset.
-            // But if the user wants to "restore" a preset, maybe they expect the same ID.
-            // Let's assume we generate a new ID by default, or ask the user.
-            // The prompt says: "Automatic check... if duplicate... prompt user".
-            // This implies we try to use *some* ID. Which ID?
-            // Maybe the filename? Or maybe we should store the ID in preset.json during export.
             
-            // Let's look at export: I didn't store the ID in preset.json.
-            // I should store the ID in preset.json to support this "duplicate check".
             
             return "valid";
         } catch (Exception e) {
@@ -121,7 +102,6 @@ public class PresetPackManager {
         }
     }
     
-    // Helper to read ID from zip without full import
     public static String getPresetIdFromPack(File file) {
         try (ZipFile zipFile = new ZipFile(file, StandardCharsets.UTF_8)) {
             ZipEntry configEntry = zipFile.getEntry("preset.json");
@@ -134,14 +114,12 @@ public class PresetPackManager {
                 }
             }
         } catch (Exception e) {
-            // ignore
         }
         return null;
     }
 
     public static boolean importPreset(File file, String targetId) {
         try (ZipFile zipFile = new ZipFile(file, StandardCharsets.UTF_8)) {
-            // 1. Read config
             ZipEntry configEntry = zipFile.getEntry("preset.json");
             if (configEntry == null) throw new IOException("Missing preset.json");
 
@@ -150,7 +128,6 @@ public class PresetPackManager {
                 presetJson = GSON.fromJson(reader, JsonObject.class);
             }
             
-            // 2. Create Preset Object
             ElementPreset preset = new ElementPreset();
             if (presetJson.has("display_name")) {
                 preset.setDisplayName(presetJson.get("display_name").getAsString());
@@ -162,12 +139,9 @@ public class PresetPackManager {
                 }
             }
             
-            // 3. Register Preset
             ElementConfigManager.getActivePresets().put(targetId, preset);
-            ElementConfigManager.saveConfig(); // Save immediately
-            ElementConfigManager.ensurePresetAssets(targetId);
+            ElementConfigManager.saveConfig();             ElementConfigManager.ensurePresetAssets(targetId);
             
-            // 4. Extract Assets
             Path targetAssetsDir = ASSETS_DIR.resolve(targetId);
             if (!Files.exists(targetAssetsDir)) {
                 Files.createDirectories(targetAssetsDir);
@@ -192,11 +166,6 @@ public class PresetPackManager {
             
             ClientMessageLogger.chatSuccess("gd656killicon.client.config.import.success", targetId);
             
-            // Reload textures/sounds
-            // We need to call reload methods, but accessing them might require reflection or public methods
-            // org.mods.gd656killicon.client.textures.ExternalTextureManager.reloadAsync();
-            // org.mods.gd656killicon.client.sounds.ExternalSoundManager.reloadAsync();
-            // I'll add these calls in the calling code or here if classes are accessible.
             
             return true;
         } catch (Exception e) {

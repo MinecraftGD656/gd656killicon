@@ -42,33 +42,25 @@ public class FloatConfigEntry extends GDRowRenderer {
         this.textInputDialog = textInputDialog;
         this.configName = configName;
 
-        
         this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
 
-        
         this.addColoredColumn(parseColoredText(this.value), 60, false, false, (btn) -> {
             if (this.textInputDialog != null) {
-                
                 String initialText = String.format(Locale.ROOT, "%.2f", this.value);
                 this.textInputDialog.show(initialText, this.configName, (newValue) -> {
                     try {
                         float f = Float.parseFloat(newValue);
-                        
-                        
-                        
                         this.value = f;
                         updateState();
                         if (this.onValueChange != null) {
                             this.onValueChange.accept(this.value);
                         }
                     } catch (NumberFormatException ignored) {
-                        
                     }
                 }, this::isValidFloat);
             }
         });
 
-        
         this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
             if (Math.abs(this.value - this.defaultValue) < 0.0001f) return;
 
@@ -80,17 +72,6 @@ public class FloatConfigEntry extends GDRowRenderer {
         });
     }
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     public String getKey() {
         return key;
     }
@@ -98,15 +79,7 @@ public class FloatConfigEntry extends GDRowRenderer {
     private boolean isValidFloat(String text) {
         if (text == null || text.isEmpty()) return false;
         
-        
         if (text.equals("-")) return false; 
-
-        
-        
-        
-        
-        
-        
         
         
         return text.matches("^-?\\d+(\\.\\d{0,2})?$") || text.matches("^-?\\.\\d{1,2}$");
@@ -138,25 +111,18 @@ public class FloatConfigEntry extends GDRowRenderer {
     private List<GDTextRenderer.ColoredText> parseColoredText(float val) {
         List<GDTextRenderer.ColoredText> list = new ArrayList<>();
         
-        
         String text = String.format(Locale.ROOT, "%.2f", val);
-        
         
         int dotIndex = text.indexOf('.');
         
         if (dotIndex != -1) {
-            // Integer part: White
             String intPart = text.substring(0, dotIndex);
-            list.add(new GDTextRenderer.ColoredText(" " + intPart, GuiConstants.COLOR_WHITE)); // Add space padding like StringConfigEntry
-            
-            // Dot: White
+            list.add(new GDTextRenderer.ColoredText(" " + intPart, GuiConstants.COLOR_WHITE));             
             list.add(new GDTextRenderer.ColoredText(".", GuiConstants.COLOR_WHITE));
             
-            // Decimal part: Gray
             String decPart = text.substring(dotIndex + 1);
             list.add(new GDTextRenderer.ColoredText(decPart, GuiConstants.COLOR_GRAY));
         } else {
-            // Should not happen with %.2f, but fallback
             list.add(new GDTextRenderer.ColoredText(" " + text, GuiConstants.COLOR_WHITE));
         }
 

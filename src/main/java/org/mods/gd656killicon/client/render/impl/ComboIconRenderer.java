@@ -22,9 +22,6 @@ import org.mods.gd656killicon.common.KillType;
  */
 public class ComboIconRenderer implements IHudRenderer {
 
-    
-    
-    
 
     private static final long DEFAULT_DISPLAY_DURATION = 1500L;
     private static final long ANIMATION_DURATION = 300L;
@@ -33,17 +30,10 @@ public class ComboIconRenderer implements IHudRenderer {
     private static final int DEFAULT_EXPLOSION_COLOR = 0xF77F00;
     private static final int DEFAULT_CRIT_COLOR = 0x9CCC65;
 
-    
-    
-    
 
     private static volatile long serverComboWindowMs = -1L;
 
-    
-    
-    
 
-    
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
@@ -59,7 +49,6 @@ public class ComboIconRenderer implements IHudRenderer {
     private float ringExplosionThickness = 5.4f;
     private JsonObject currentConfig;
 
-    
     private long startTime = -1;
     private boolean isVisible = false;
     private long effectiveDisplayDuration = DEFAULT_DISPLAY_DURATION;
@@ -67,9 +56,6 @@ public class ComboIconRenderer implements IHudRenderer {
     private int currentKillType = KillType.NORMAL;
     private final IconRingEffect ringEffect = new IconRingEffect();
 
-    
-    
-    
 
     /**
      * Default constructor.
@@ -93,9 +79,6 @@ public class ComboIconRenderer implements IHudRenderer {
         return serverComboWindowMs;
     }
 
-    
-    
-    
 
     @Override
     public void trigger(TriggerContext context) {
@@ -196,9 +179,6 @@ public class ComboIconRenderer implements IHudRenderer {
         }
     }
 
-    
-    
-    
 
     /**
      * Loads configuration values from the JsonObject.

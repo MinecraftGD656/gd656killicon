@@ -180,7 +180,6 @@ public class PlayerData {
         if (data == null) {
             return new PlayerData(uuid);
         }
-        
         data.uuid = uuid;
         return data;
     }

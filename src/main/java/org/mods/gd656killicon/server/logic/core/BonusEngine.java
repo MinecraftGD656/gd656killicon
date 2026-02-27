@@ -74,7 +74,6 @@ public class BonusEngine {
         synchronized (list) {
             if (list.isEmpty()) return;
 
-            
             Map<String, Entry> merged = new LinkedHashMap<>();
             for (Entry e : list) {
                 String key = (e.type == BonusType.KILL_COMBO) ? "COMBO" : (e.type + "|" + e.extra);
@@ -87,7 +86,6 @@ public class BonusEngine {
                 ));
             }
 
-            
             List<Entry> ordered = new ArrayList<>(merged.values());
             ordered.sort((a, b) -> {
                 boolean aPriority = isPriorityKillBonus(a.type);

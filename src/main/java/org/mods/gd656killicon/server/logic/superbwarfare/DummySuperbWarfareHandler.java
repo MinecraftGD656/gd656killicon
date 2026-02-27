@@ -5,12 +5,10 @@ import java.util.UUID;
 public class DummySuperbWarfareHandler implements ISuperbWarfareHandler {
     @Override
     public void init() {
-        
     }
 
     @Override
     public void tick() {
-        
     }
 
     @Override

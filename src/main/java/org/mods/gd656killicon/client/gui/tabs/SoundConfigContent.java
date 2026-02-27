@@ -86,10 +86,8 @@ public class SoundConfigContent extends ConfigTabContent {
 
     @Override
     protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
-        
         if (gridWidget != null) {
             gridWidget.render(guiGraphics, mouseX, mouseY, partialTick, null);
-            
             
             if (selectedSoundName != null) {
                 renderWaveform(guiGraphics, gridWidget.getX(), gridWidget.getY(), gridWidget.getWidth(), gridWidget.getHeight());
@@ -100,12 +98,10 @@ public class SoundConfigContent extends ConfigTabContent {
     }
 
     private void renderWaveform(GuiGraphics guiGraphics, int x, int y, int width, int height) {
-        
         if (!selectedSoundName.equals(cachedSoundDataName)) {
             cachedSoundData = ExternalSoundManager.getSoundData(selectedSoundName);
             cachedSoundDataName = selectedSoundName;
             if (cachedSoundData == null) {
-                
                 String baseName = selectedSoundName.replaceFirst("[.][^.]+$", "");
                 cachedSoundData = ExternalSoundManager.getSoundData(baseName);
             }
@@ -115,16 +111,11 @@ public class SoundConfigContent extends ConfigTabContent {
             return;
         }
 
-        
         String baseName = selectedSoundName.replaceFirst("[.][^.]+$", "");
         boolean isPlaying = ExternalSoundManager.isSoundPlaying(baseName) || ExternalSoundManager.isSoundPlaying(selectedSoundName);
-        
-        
 
-        int samples = cachedSoundData.pcmData.length / 2; 
-        if (samples == 0) return;
+        int samples = cachedSoundData.pcmData.length / 2;         if (samples == 0) return;
 
-        
         float progress = 0.0f;
         if (ExternalSoundManager.isSoundPlaying(baseName) || ExternalSoundManager.isSoundPlaying(selectedSoundName)) {
             progress = ExternalSoundManager.getSoundProgress(baseName);
@@ -139,11 +130,8 @@ public class SoundConfigContent extends ConfigTabContent {
         int colorGold = GuiConstants.COLOR_GOLD;
         int colorPlayed = GuiConstants.COLOR_GOLD_ORANGE;
         
-        
         guiGraphics.fill(x, centerY, x + width, centerY + 1, (colorGold & 0x00FFFFFF) | 0x40000000);
 
-        
-        
         
         double samplesPerPixel = (double) samples / width;
         
@@ -171,15 +159,12 @@ public class SoundConfigContent extends ConfigTabContent {
                 int hMax = (int) (normMax * (height / 2 - 4));
                 int hMin = (int) (normMin * (height / 2 - 4));
                 
-                if (hMax == hMin) hMax++; 
-                
+                if (hMax == hMin) hMax++;                 
                 int y1_line = centerY - hMax;
                 int y2_line = centerY - hMin;
                 
-                
                 float currentProgressX = (float) px / width;
                 int color = currentProgressX <= progress ? colorPlayed : colorGold;
-                
                 
                 guiGraphics.fill(x + px, y1_line, x + px + 1, y2_line, color);
             }
@@ -315,9 +300,7 @@ public class SoundConfigContent extends ConfigTabContent {
         }
         boolean replaced = ExternalSoundManager.replaceSoundWithBackup(presetId, selectedSoundName, targetPath);
         if (replaced) {
-            
             updateSoundRows();
-            
             cachedSoundDataName = null;
             
             promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.sound_replace_success"), PromptDialog.PromptType.SUCCESS, null);
@@ -342,14 +325,12 @@ public class SoundConfigContent extends ConfigTabContent {
             boolean isModified = ExternalSoundManager.isSoundModified(presetId, soundName);
             String baseName = soundName.replaceFirst("[.][^.]+$", "");
             
-            
             int bgColor = GuiConstants.COLOR_BLACK;
             if (soundName.equals(selectedSoundName)) {
                 bgColor = GuiConstants.COLOR_DARK_GOLD_ORANGE;
             }
             
             GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, bgColor, 0, false);
-            
             
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             String indexLabel = String.format("%02d", i + 1);
@@ -358,9 +339,7 @@ public class SoundConfigContent extends ConfigTabContent {
             
             row.addColoredColumn(texts, -1, false, false, (idx) -> {
                 selectedSoundName = soundName;
-                updateSoundRows(); 
-            });
-            
+                updateSoundRows();             });
             
             String ext = ExternalSoundManager.getSoundExtensionForPreset(presetId, soundName);
             row.addColumn(ext, 36, isModified ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY, false, true, (idx) -> {
@@ -369,20 +348,11 @@ public class SoundConfigContent extends ConfigTabContent {
             });
             
             
-            
-            
-            
-            
-            
-            
-            
-            
             row.addColumn("▶", 20, GuiConstants.COLOR_WHITE, true, true, (idx) -> {
                 selectedSoundName = soundName;
                 ExternalSoundManager.playSound(baseName);
                 updateSoundRows();
             });
-            
             
             if (isModified) {
                 row.addColumn("↺", 20, GuiConstants.COLOR_GOLD, true, true, (idx) -> {
@@ -393,7 +363,6 @@ public class SoundConfigContent extends ConfigTabContent {
                     }
                 });
             } else {
-                 
                  row.addColumn("↺", 20, GuiConstants.COLOR_GRAY, true, true, null);
             }
             

@@ -13,9 +13,6 @@ public class GlobalConfigTab extends ConfigTabContent {
     public GlobalConfigTab(Minecraft minecraft) {
         super(minecraft, "gd656killicon.client.gui.config.tab.global");
         
-        
-        
-        
         this.configRows.add(new BooleanConfigEntry(
             0, 0, 0, 0, 
             GuiConstants.COLOR_BG, 
@@ -52,9 +49,6 @@ public class GlobalConfigTab extends ConfigTabContent {
             }
         ));
 
-        
-        
-        
         this.configRows.add(new BooleanConfigEntry(
             0, 0, 0, 0, 
             GuiConstants.COLOR_BG, 
@@ -67,8 +61,6 @@ public class GlobalConfigTab extends ConfigTabContent {
             ClientConfigManager::setShowBonusMessage
         ));
 
-        
-        
         this.configRows.add(new BooleanConfigEntry(
             0, 0, 0, 0, 
             GuiConstants.COLOR_BG, 
@@ -81,8 +73,6 @@ public class GlobalConfigTab extends ConfigTabContent {
             ClientConfigManager::setEnableAceLag
         ));
 
-        
-        
         this.configRows.add(new IntegerConfigEntry(
             0, 0, 0, 0,
             GuiConstants.COLOR_BG,

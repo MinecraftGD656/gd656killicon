@@ -26,11 +26,9 @@ import javax.imageio.ImageIO;
 
 public class CardBarRenderer implements IHudRenderer {
     
-    
     private static final Map<ResourceLocation, Float> ASPECT_RATIO_CACHE = new ConcurrentHashMap<>();
     private static final float DEFAULT_ASPECT_RATIO = 1.0f;
-    private static final int BASE_LOGICAL_HEIGHT = 40; 
-    
+    private static final int BASE_LOGICAL_HEIGHT = 40;     
     private long flashStartTime = -1;
     private final WaveEffectSystem waveSystem = new WaveEffectSystem();
     private final IconRingEffect ringEffect = new IconRingEffect();
@@ -48,7 +46,6 @@ public class CardBarRenderer implements IHudRenderer {
         }
         this.currentConfig = config;
 
-        
         float scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
         int xOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
         int yOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
@@ -58,7 +55,6 @@ public class CardBarRenderer implements IHudRenderer {
         
         Minecraft mc = Minecraft.getInstance();
 
-        
         if (dynamicCardStyle && mc.player != null) {
             Team pt = mc.player.getTeam();
             if (pt != null) {
@@ -72,14 +68,12 @@ public class CardBarRenderer implements IHudRenderer {
             }
         }
         
-        
         boolean showLight = config.has("show_light") && config.get("show_light").getAsBoolean();
         float lightWidth = config.has("light_width") ? config.get("light_width").getAsFloat() : 300.0f;
         float lightHeight = config.has("light_height") ? config.get("light_height").getAsFloat() : 20.0f;
         String lightColorCt = config.has("color_light_ct") ? config.get("color_light_ct").getAsString() : "9cc1eb";
         String lightColorT = config.has("color_light_t") ? config.get("color_light_t").getAsString() : "d9ac5b";
 
-        
         boolean isT = "t".equalsIgnoreCase(team);
         String textureKey = isT ? "bar_t" : "bar_ct";
         String textureName = ElementTextureDefinition.getSelectedTextureFileName(
@@ -100,7 +94,6 @@ public class CardBarRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        
         float centerX = screenWidth / 2.0f + xOffset;
         float centerY = screenHeight - yOffset;
         renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration);
@@ -307,7 +300,6 @@ public class CardBarRenderer implements IHudRenderer {
                 }
             }
         } catch (Exception ignored) {
-            
         }
         
         ASPECT_RATIO_CACHE.put(texture, DEFAULT_ASPECT_RATIO);
@@ -330,33 +322,21 @@ public class CardBarRenderer implements IHudRenderer {
         buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLE_STRIP, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
         
         
-        
-        
-        
-        
         int segments = 50;
-        float coreRatio = 0.5f; 
-        
+        float coreRatio = 0.5f;         
         for (int i = 0; i <= segments; i++) {
-            float t = (float) i / segments; 
-            float x = (t - 0.5f) * 2.0f * halfWidth; 
-            float dist = Math.abs(x) / halfWidth; 
-            
+            float t = (float) i / segments;             float x = (t - 0.5f) * 2.0f * halfWidth;             float dist = Math.abs(x) / halfWidth;             
             float alphaVal;
             if (dist <= coreRatio) {
                 alphaVal = 1.0f;
             } else {
-                
                 float decayProgress = (dist - coreRatio) / (1.0f - coreRatio);
-                
                 alphaVal = (float) Math.pow(1.0f - decayProgress, 2.0);
             }
             
             int a = (int) (alphaVal * 255 * alphaMultiplier);
             
-            
             buffer.vertex(guiGraphics.pose().last().pose(), x, -halfHeight, 0).color(r, g, b, a).endVertex();
-            
             buffer.vertex(guiGraphics.pose().last().pose(), x, halfHeight, 0).color(r, g, b, a).endVertex();
         }
         
@@ -395,22 +375,9 @@ public class CardBarRenderer implements IHudRenderer {
         }
         this.flashStartTime = System.currentTimeMillis();
         
-        
-        
-        
-        
-        
-        
         if (config != null) {
             String lightColorCt = config.has("color_light_ct") ? config.get("color_light_ct").getAsString() : "9cc1eb";
             String lightColorT = config.has("color_light_t") ? config.get("color_light_t").getAsString() : "d9ac5b";
-            
-            
-            
-            
-            
-            
-            
             
             Minecraft mc = Minecraft.getInstance();
             String team = config.has("team") ? config.get("team").getAsString() : "ct";
@@ -430,8 +397,6 @@ public class CardBarRenderer implements IHudRenderer {
             boolean isT = "t".equalsIgnoreCase(team);
             int color = parseColor(isT ? lightColorT : lightColorCt);
             
-            
-            
             int r = (color >> 16) & 0xFF;
             int g = (color >> 8) & 0xFF;
             int b = color & 0xFF;
@@ -444,13 +409,11 @@ public class CardBarRenderer implements IHudRenderer {
         }
         
         int combo = context.comboCount();
-        
         int waveCount = Math.min(combo, 5);
         if (combo >= 6) {
             waveCount = 1;
         }
 
-        
         if (waveCount > 0) {
             waveSystem.trigger(waveCount);
         }
@@ -459,8 +422,7 @@ public class CardBarRenderer implements IHudRenderer {
     private static class WaveEffectSystem {
         private static class Wave {
             long startTime;
-            int direction; 
-            
+            int direction;             
             Wave(long startTime, int direction) {
                 this.startTime = startTime;
                 this.direction = direction;
@@ -471,10 +433,7 @@ public class CardBarRenderer implements IHudRenderer {
         private final Queue<Long> pendingSpawns = new LinkedList<>();
         private long lastSpawnTime = 0;
         
-        
-        private static final float WAVE_RADIUS_RATIO = 0.15f; 
-        private static final float MAX_STRETCH_PIXELS = 25.0f; 
-        
+        private static final float WAVE_RADIUS_RATIO = 0.15f;         private static final float MAX_STRETCH_PIXELS = 25.0f;         
         public void trigger(int pairCount) {
             long now = System.currentTimeMillis();
             for (int i = 0; i < pairCount; i++) {
@@ -486,13 +445,10 @@ public class CardBarRenderer implements IHudRenderer {
             long now = System.currentTimeMillis();
             long interval = (long) ((animationDuration * 1000) / 2.0f);
             
-            
             if (!pendingSpawns.isEmpty()) {
                 if (now - lastSpawnTime >= interval) {
                     pendingSpawns.poll(); 
-                    waves.add(new Wave(now, -1)); 
-                    waves.add(new Wave(now, 1));  
-                    lastSpawnTime = now;
+                    waves.add(new Wave(now, -1));                     waves.add(new Wave(now, 1));                      lastSpawnTime = now;
                 }
             } else {
                 if (now - lastSpawnTime > interval * 2) {
@@ -500,9 +456,7 @@ public class CardBarRenderer implements IHudRenderer {
                 }
             }
             
-            
-            long waveLifeTime = (long) (animationDuration * 1000 * 4.0f); 
-            Iterator<Wave> it = waves.iterator();
+            long waveLifeTime = (long) (animationDuration * 1000 * 4.0f);             Iterator<Wave> it = waves.iterator();
             while (it.hasNext()) {
                 if (now - it.next().startTime > waveLifeTime) {
                     it.remove();
@@ -510,7 +464,6 @@ public class CardBarRenderer implements IHudRenderer {
             }
             
             if (waves.isEmpty()) return;
-            
             
             renderWaves(guiGraphics, width, colorHex, animationDuration, flashAlpha, now, waveLifeTime);
         }
@@ -533,7 +486,6 @@ public class CardBarRenderer implements IHudRenderer {
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
             RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
-            
             RenderSystem.disableDepthTest(); 
             
             buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
@@ -541,8 +493,6 @@ public class CardBarRenderer implements IHudRenderer {
             for (float x = -halfWidth; x <= halfWidth; x += 1.0f) {
                 float distFromCenter = Math.abs(x);
                 float maxDistRatio = distFromCenter / halfWidth; 
-                
-                
                 
                 
                 float totalInfluence = 0.0f;
@@ -562,7 +512,6 @@ public class CardBarRenderer implements IHudRenderer {
                 float fadeMask = 1.0f - (maxDistRatio * 0.99f); 
                 float baseAlpha = totalInfluence;
                 
-                
                 boolean isSpecial = (Math.abs(x) % 20) < 1.0f;
                 float alphaMultiplier = isSpecial ? 1.5f : 1.0f;
                 float lengthMultiplier = isSpecial ? 1.5f : 1.0f;
@@ -570,32 +519,23 @@ public class CardBarRenderer implements IHudRenderer {
                 float finalAlpha = baseAlpha * fadeMask * alphaMultiplier;
                 finalAlpha = Math.min(finalAlpha, 1.0f);
                 
-                
-                float randomLen = (float) (Math.sin(x * 123.456f) * 2.5 + 2.5); 
-                
+                float randomLen = (float) (Math.sin(x * 123.456f) * 2.5 + 2.5);                 
                 float stretch = totalInfluence * MAX_STRETCH_PIXELS * fadeMask * lengthMultiplier + randomLen;
                 
                 if (finalAlpha < 0.01f) continue;
                 
                 int aBottom = (int) (finalAlpha * 255);
-                int aTop = 0; 
-                
+                int aTop = 0;                 
                 float yBottom = 0.5f;
                 float yTop = -0.5f - stretch;
                 
                 float xLeft = x;
                 float xRight = x + 1.0f;
                 
-                
-                
                 buffer.vertex(guiGraphics.pose().last().pose(), xRight, yBottom, 0).color(r, g, b, aBottom).endVertex();
-                
                 buffer.vertex(guiGraphics.pose().last().pose(), xRight, yTop, 0).color(r, g, b, aTop).endVertex();
-                
                 buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yTop, 0).color(r, g, b, aTop).endVertex();
-                
                 buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yBottom, 0).color(r, g, b, aBottom).endVertex();
-                
                 
                 if (flashAlpha > 0.01f) {
                     int faBottom = (int) (finalAlpha * flashAlpha * 255);
@@ -610,9 +550,7 @@ public class CardBarRenderer implements IHudRenderer {
             }
             
             tesselator.end();
-            RenderSystem.enableDepthTest(); 
-            
-        }
+            RenderSystem.enableDepthTest();         }
 
         private int parseColor(String hex) {
             try {

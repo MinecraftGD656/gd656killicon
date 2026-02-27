@@ -25,7 +25,6 @@ public class KillDistancePacket implements IPacket {
     @Override
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
-            
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordKillDistance(this.distance);
         });
         context.get().setPacketHandled(true);

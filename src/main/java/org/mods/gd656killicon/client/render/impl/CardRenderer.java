@@ -22,7 +22,6 @@ import java.util.List;
 
 public class CardRenderer implements IHudRenderer {
 
-    
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
@@ -35,17 +34,14 @@ public class CardRenderer implements IHudRenderer {
     private int maxStackCount = 5;
     private JsonObject currentConfig;
 
-    
     private static final int CARD_SIZE = 256;
     private static final float MOVE_DISTANCE_MULTIPLIER = 0.9f;
 
-    
     private final List<CardInstance> activeCards = new ArrayList<>();
     private PendingTrigger pendingTrigger;
 
     @Override
     public void render(GuiGraphics guiGraphics, float partialTick) {
-        
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "card");
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
             activeCards.clear();
@@ -58,7 +54,6 @@ public class CardRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        
         float standardX = screenWidth / 2.0f + configXOffset;
         float standardY = screenHeight - configYOffset;
 
@@ -93,15 +88,10 @@ public class CardRenderer implements IHudRenderer {
         long animDurMs = (long) (animationDuration * 1000);
         Minecraft mc = Minecraft.getInstance();
 
-        
         Iterator<CardInstance> it = activeCards.iterator();
         while (it.hasNext()) {
             CardInstance card = it.next();
 
-            
-            
-            
-            
             
             long age = currentTime - card.spawnTime;
             
@@ -117,13 +107,8 @@ public class CardRenderer implements IHudRenderer {
                 }
             }
             
-            
             if (card.isPendingRemoval) {
                 long transitionElapsed = currentTime - card.lastLayoutUpdateTime;
-                
-                
-                
-                
                 if (transitionElapsed >= animDurMs) {
                     it.remove();
                     continue;
@@ -142,14 +127,11 @@ public class CardRenderer implements IHudRenderer {
             updateLayout(currentTime);
         }
 
-        
         if (!activeCards.isEmpty()) {
             CardInstance newest = activeCards.get(activeCards.size() - 1);
-            
             if (newest.state == CardState.DISPLAYING) {
                 long newestAge = currentTime - newest.spawnTime;
                 if (newestAge > displayDuration) {
-                    
                     long exitTime = currentTime;
                     for (CardInstance card : activeCards) {
                         if (card.state != CardState.EXITING) {
@@ -160,8 +142,6 @@ public class CardRenderer implements IHudRenderer {
             }
         }
 
-        
-        
         for (CardInstance card : activeCards) {
             renderCard(guiGraphics, card, currentTime, standardX, standardY, animDurMs, mc);
         }
@@ -172,8 +152,6 @@ public class CardRenderer implements IHudRenderer {
         float maxDist = CARD_SIZE * configScale * MOVE_DISTANCE_MULTIPLIER;
         
         
-        
-        
         float currentDist = 0;
         if (card.state == CardState.ENTERING) {
             float progress = (float) elapsed / animDurMs;
@@ -181,37 +159,23 @@ public class CardRenderer implements IHudRenderer {
             float moveProgress = calculateSegmentedEaseOut(progress);
             currentDist = moveProgress * maxDist;
         } else if (card.state == CardState.EXITING) {
-            
-            
-            
             long exitElapsed = currentTime - card.exitStartTime;
             float progress = (float) exitElapsed / animDurMs;
             progress = Mth.clamp(progress, 0.0f, 1.0f);
             float moveProgress = calculateSegmentedEaseIn(progress);
-            
             currentDist = Mth.lerp(moveProgress, maxDist, 0);
         } else {
             currentDist = maxDist;
         }
         
-        
         float currentAngle = card.targetAngle;
         if (currentTime - card.lastLayoutUpdateTime < animDurMs) {
              float layoutProgress = (float) (currentTime - card.lastLayoutUpdateTime) / animDurMs;
              layoutProgress = Mth.clamp(layoutProgress, 0.0f, 1.0f);
-             
              float angleEase = calculateSegmentedEaseOut(layoutProgress); 
              currentAngle = Mth.lerp(angleEase, card.startAngle, card.targetAngle);
         }
         card.currentAngle = currentAngle; 
-
-        
-        
-        
-        
-        
-        
-        
         
         double rad = Math.toRadians(currentAngle);
         float offsetX = (float) Math.sin(rad) * currentDist;
@@ -219,7 +183,6 @@ public class CardRenderer implements IHudRenderer {
         
         float renderX = standardX + offsetX;
         float renderY = standardY + offsetY;
-        
         
         float alpha = 1.0f;
         if (card.state == CardState.ENTERING) {
@@ -236,13 +199,7 @@ public class CardRenderer implements IHudRenderer {
             }
         }
         
-        
-        
-        
-        
 
-        
-        
         
         float lightAlpha = 0.0f;
         float lightScale = 1.0f;
@@ -261,7 +218,6 @@ public class CardRenderer implements IHudRenderer {
                 lightScale = Mth.lerp(scaleP, 1.0f, 0.6f);
             }
         }
-        
         
         String currentTeam = this.team;
         if (this.dynamicCardStyle && mc.player != null) {
@@ -302,7 +258,6 @@ public class CardRenderer implements IHudRenderer {
         poseStack.pushPose();
         poseStack.translate(0, 0, activeCards.indexOf(card));
 
-        
         if (lightTexture != null && lightAlpha > 0.01f) {
             float lightWidthRatio = resolveFrameRatio(lightTextureKey, "texture_frame_width_ratio");
             float lightHeightRatio = resolveFrameRatio(lightTextureKey, "texture_frame_height_ratio");
@@ -310,15 +265,9 @@ public class CardRenderer implements IHudRenderer {
             float lightH = CARD_SIZE * configScale * lightHeightRatio; 
             
             poseStack.pushPose();
-            
-            
             poseStack.translate(renderX, renderY, 0); 
-            
             poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(currentAngle));
-            
-            
             poseStack.translate(0, CARD_SIZE * configScale / 2.0f, 0);
-            
             
             poseStack.scale(lightScale, lightScale, 1.0f);
             
@@ -326,15 +275,10 @@ public class CardRenderer implements IHudRenderer {
             RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, lightAlpha * alpha); 
             
-            
-            
-            
-            
             guiGraphics.blit(lightTexture, (int)(-lightW / 2), (int)(-lightH), (int)lightW, (int)lightH, 0, 0, (int)lightW, (int)lightH, (int)lightW, (int)lightH);
             poseStack.popPose();
         }
 
-        
         poseStack.pushPose();
         poseStack.translate(renderX, renderY, 0);
         poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(currentAngle));
@@ -349,7 +293,6 @@ public class CardRenderer implements IHudRenderer {
         int drawWidth = Math.round(CARD_SIZE * cardWidthRatio);
         int drawHeight = Math.round(CARD_SIZE * cardHeightRatio);
         guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
-        
         
         float flashAlpha = 0.0f;
         long flashHold = animDurMs / 2;
@@ -374,7 +317,6 @@ public class CardRenderer implements IHudRenderer {
             RenderSystem.defaultBlendFunc();
         }
         
-        
         if (card.comboCount > 0) {
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             String text = String.valueOf(card.comboCount);
@@ -391,19 +333,14 @@ public class CardRenderer implements IHudRenderer {
             poseStack.popPose();
         }
 
-        poseStack.popPose(); 
-        poseStack.popPose(); 
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        poseStack.popPose();         poseStack.popPose();         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     private float calculateSegmentedEaseOut(float t) {
         if (t < 0.5f) {
-            
             return t * 1.8f;
         } else {
-            
             float t2 = (t - 0.5f) * 2.0f;
-            
             return 0.9f + (1.0f - (float)Math.pow(1.0f - t2, 3)) * 0.1f;
         }
     }
@@ -469,11 +406,9 @@ public class CardRenderer implements IHudRenderer {
         }
     }
     
-    
 
     @Override
     public void trigger(TriggerContext context) {
-        
         if (context.type() == KillType.ASSIST || 
             context.type() == KillType.DESTROY_VEHICLE) {
             return;
@@ -490,8 +425,6 @@ public class CardRenderer implements IHudRenderer {
             return;
         }
 
-        
-        
         if (!activeCards.isEmpty()) {
             CardInstance newest = activeCards.get(activeCards.size() - 1);
             if (newest.state == CardState.EXITING) {
@@ -516,49 +449,36 @@ public class CardRenderer implements IHudRenderer {
         if (count == 0) return;
         
         CardInstance newest = activeCards.get(count - 1);
-        
         boolean isStackingMode = newest.comboCount >= this.maxStackCount;
 
         if (isStackingMode) {
-            
             for (int i = 0; i < count; i++) {
                 CardInstance card = activeCards.get(i);
                 
-                
                 if (card.targetAngle != 0f) {
-                    card.startAngle = card.currentAngle; 
-                    card.targetAngle = 0f;
+                    card.startAngle = card.currentAngle;                     card.targetAngle = 0f;
                     card.lastLayoutUpdateTime = now;
                 }
-                
-                
-                
                 
                 if (i < count - 1) {
                     if (!card.isPendingRemoval) {
                         card.isPendingRemoval = true;
-                        
                         card.lastLayoutUpdateTime = now; 
                     }
                 }
             }
         } else {
-            
             float centerIndex = (count - 1) / 2.0f;
             for (int i = 0; i < count; i++) {
                 CardInstance card = activeCards.get(i);
                 float newTarget = (i - centerIndex) * 10.0f;
                 
-                
                 if (Math.abs(card.targetAngle - newTarget) > 0.01f || (i == count - 1 && card.state == CardState.ENTERING)) {
                     if (i == count - 1) {
-                        
                         card.targetAngle = newTarget;
                         card.currentAngle = newTarget; 
                         card.startAngle = newTarget;
-                        
                     } else {
-                        
                         card.startAngle = card.currentAngle;
                         card.targetAngle = newTarget;
                         card.lastLayoutUpdateTime = now;
@@ -567,7 +487,6 @@ public class CardRenderer implements IHudRenderer {
             }
         }
     }
-    
     
     public static void updateServerComboWindowSeconds(double seconds) {
         ComboIconRenderer.updateServerComboWindowSeconds(seconds);
@@ -591,7 +510,6 @@ public class CardRenderer implements IHudRenderer {
         final long spawnTime;
         CardState state = CardState.ENTERING;
         long exitStartTime = -1;
-        
         
         float currentAngle = 0f;
         float startAngle = 0f;

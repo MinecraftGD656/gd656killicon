@@ -29,12 +29,7 @@ public class ColorPickerDialog {
     private String title = "选择颜色";
     private String initialHex = "#FFFFFF";
     
-    
-    private float h = 0.0f; 
-    private float s = 0.0f; 
-    private float v = 1.0f; 
-    private int currentRGB = 0xFFFFFFFF;
-    
+    private float h = 0.0f;     private float s = 0.0f;     private float v = 1.0f;     private int currentRGB = 0xFFFFFFFF;
     
     private static final int PANEL_WIDTH = 140;
     private static final int BUTTON_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
@@ -42,14 +37,9 @@ public class ColorPickerDialog {
     private static final int HUE_BAR_WIDTH = GuiConstants.ROW_HEADER_HEIGHT;
     private static final int PAD = GuiConstants.DEFAULT_PADDING;
     
-    
-    private static final int SV_BOX_SIZE = PANEL_WIDTH - HUE_BAR_WIDTH - PAD; 
-    private static final int PANEL_HEIGHT = SV_BOX_SIZE + PAD + PREVIEW_HEIGHT + PAD + BUTTON_HEIGHT; 
-    
-    
+    private static final int SV_BOX_SIZE = PANEL_WIDTH - HUE_BAR_WIDTH - PAD;     private static final int PANEL_HEIGHT = SV_BOX_SIZE + PAD + PREVIEW_HEIGHT + PAD + BUTTON_HEIGHT;     
     private boolean isDraggingSV = false;
     private boolean isDraggingHue = false;
-    
     
     private float svHoverProgress = 0.0f;
     private float hueHoverProgress = 0.0f;
@@ -77,13 +67,11 @@ public class ColorPickerDialog {
         
         parseHex(initialHex);
         
-        
         int w1 = (PANEL_WIDTH - 1) / 2;
         int w2 = PANEL_WIDTH - 1 - w1;
         
         this.confirmButton = new GDButton(0, 0, w2, BUTTON_HEIGHT, Component.literal(I18n.get("gd656killicon.client.gui.config.confirm")), (btn) -> confirm());
         this.cancelButton = new GDButton(0, 0, w1, BUTTON_HEIGHT, Component.literal(I18n.get("gd656killicon.client.gui.config.cancel")), (btn) -> cancel());
-        
         
         this.previewTextRenderer = new GDTextRenderer("\u00A7l" + formatHex(currentRGB), 0, 0, 0, 0, 1.0f, 0xFFFFFFFF, false);
         this.previewTextRenderer.setCentered(true);
@@ -99,7 +87,6 @@ public class ColorPickerDialog {
     private void parseHex(String hex) {
         try {
             if (hex.startsWith("#")) hex = hex.substring(1);
-            
             if (hex.length() == 3) {
                 StringBuilder sb = new StringBuilder();
                 for (char c : hex.toCharArray()) sb.append(c).append(c);
@@ -117,7 +104,6 @@ public class ColorPickerDialog {
             this.v = hsv[2];
             updateCurrentRGB();
         } catch (Exception e) {
-            
             this.h = 0.0f;
             this.s = 0.0f;
             this.v = 1.0f;
@@ -129,7 +115,6 @@ public class ColorPickerDialog {
         this.currentRGB = Color.HSBtoRGB(h, s, v);
         if (previewTextRenderer != null) {
             previewTextRenderer.setText("\u00A7l" + formatHex(currentRGB));
-            
             int textColor = (v > 0.5f) ? 0xFF000000 : 0xFFFFFFFF;
             previewTextRenderer.setColor(textColor);
         }
@@ -166,14 +151,11 @@ public class ColorPickerDialog {
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
         
-        
         int dimColor = 0x88444444;
         guiGraphics.fill(0, 0, screenWidth, screenHeight, dimColor);
         
-        
         int centerX = (screenWidth - PANEL_WIDTH) / 2;
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
-        
         
         int fontHeight = minecraft.font.lineHeight;
         int titleY = centerY - fontHeight - PAD + 6;
@@ -184,9 +166,7 @@ public class ColorPickerDialog {
         int containerRight = centerX + PANEL_WIDTH + PAD;
         int containerBottom = buttonsY + BUTTON_HEIGHT + PAD;
         
-        
         guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_BG);
-        
         
         if (titleRenderer != null) {
             titleRenderer.setX1(centerX);
@@ -196,27 +176,21 @@ public class ColorPickerDialog {
             titleRenderer.render(guiGraphics, partialTick);
         }
         
-        
-        
         int btnLeftX = centerX;
         int btnRightX = centerX + (PANEL_WIDTH - 1) / 2 + 1;
-        
         
         int previewY = buttonsY - PAD - PREVIEW_HEIGHT;
         int previewX = centerX;
         int previewW = PANEL_WIDTH;
         
-        
         int hueX = centerX + PANEL_WIDTH - HUE_BAR_WIDTH;
         int hueY = previewY - PAD - SV_BOX_SIZE;
         int hueH = SV_BOX_SIZE;
-        
         
         int svX = centerX;
         int svY = hueY;
         int svW = SV_BOX_SIZE;
         int svH = SV_BOX_SIZE;
-        
         
         long currentTime = System.currentTimeMillis();
         float dt = (currentTime - lastFrameTime) / 1000.0f;
@@ -232,47 +206,35 @@ public class ColorPickerDialog {
         else hueHoverProgress = Math.max(0.0f, hueHoverProgress - dt * 2.0f);
         
         
-        
-        
         renderSVBox(guiGraphics, svX, svY, svW, svH);
         renderHoverTrail(guiGraphics, svX, svY, svW, svH, svHoverProgress);
-        
         
         renderHueBar(guiGraphics, hueX, hueY, HUE_BAR_WIDTH, hueH);
         renderHoverTrail(guiGraphics, hueX, hueY, HUE_BAR_WIDTH, hueH, hueHoverProgress);
         
-        
-        
         int selX = svX + (int)(s * svW);
         int selY = svY + (int)((1.0f - v) * svH);
-        
         selX = Math.max(svX, Math.min(svX + svW, selX));
         selY = Math.max(svY, Math.min(svY + svH, selY));
 
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, 0, 1); 
-        guiGraphics.fill(selX - 2, selY - 2, selX + 2, selY + 2, 0xFFFFFFFF);
+        guiGraphics.pose().translate(0, 0, 1);         guiGraphics.fill(selX - 2, selY - 2, selX + 2, selY + 2, 0xFFFFFFFF);
         guiGraphics.fill(selX - 1, selY - 1, selX + 1, selY + 1, 0xFF000000);
         guiGraphics.pose().popPose();
-        
         
         int hueSelY = hueY + (int)(h * hueH);
         hueSelY = Math.max(hueY, Math.min(hueY + hueH, hueSelY));
         guiGraphics.fill(hueX - 1, hueSelY - 1, hueX + HUE_BAR_WIDTH + 1, hueSelY + 1, 0xFFFFFFFF);
         guiGraphics.fill(hueX, hueSelY, hueX + HUE_BAR_WIDTH, hueSelY, 0xFF000000);
         
-        
         guiGraphics.fill(previewX, previewY, previewX + previewW, previewY + PREVIEW_HEIGHT, 0xFF000000 | currentRGB);
-        
         
         if (previewTextRenderer != null) {
             previewTextRenderer.setX1(previewX);
-            previewTextRenderer.setY1(previewY + (PREVIEW_HEIGHT - 9) / 2 + 1); 
-            previewTextRenderer.setX2(previewX + previewW);
+            previewTextRenderer.setY1(previewY + (PREVIEW_HEIGHT - 9) / 2 + 1);             previewTextRenderer.setX2(previewX + previewW);
             previewTextRenderer.setY2(previewY + PREVIEW_HEIGHT);
             previewTextRenderer.render(guiGraphics, partialTick);
         }
-        
         
         if (cancelButton != null) {
             cancelButton.setX(centerX);
@@ -281,11 +243,9 @@ public class ColorPickerDialog {
         }
         
         if (confirmButton != null) {
-            confirmButton.setX(btnRightX); 
-            confirmButton.setY(buttonsY);
+            confirmButton.setX(btnRightX);             confirmButton.setY(buttonsY);
             confirmButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
-        
         
         if (isDraggingSV) {
             float newS = (float)(mouseX - svX) / svW;
@@ -320,15 +280,11 @@ public class ColorPickerDialog {
         
         bufferbuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         
-        
         bufferbuilder.vertex(matrix, x, y + h, 0).color(0, 0, 0, 255).endVertex();
-        
         
         bufferbuilder.vertex(matrix, x + w, y + h, 0).color(0, 0, 0, 255).endVertex();
         
-        
         bufferbuilder.vertex(matrix, x + w, y, 0).color(r, g, b, 255).endVertex();
-        
         
         bufferbuilder.vertex(matrix, x, y, 0).color(255, 255, 255, 255).endVertex();
         
@@ -338,8 +294,6 @@ public class ColorPickerDialog {
     
     private void renderHueBar(GuiGraphics guiGraphics, int x, int y, int w, int h) {
         int step = 1;
-        
-        
         for (int i = 0; i < h; i += step) {
             float hue = (float)i / h;
             int color = Color.HSBtoRGB(hue, 1.0f, 1.0f);
@@ -356,13 +310,11 @@ public class ColorPickerDialog {
         
         float drawn = 0;
         
-        
         if (currentLength > 0) {
             float segLen = Math.min(w, currentLength);
             guiGraphics.fill(x, y + h - 1, x + (int)segLen, y + h, color);
             drawn += w;
         }
-        
         
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
@@ -371,14 +323,12 @@ public class ColorPickerDialog {
             drawn += h;
         }
         
-        
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
             float segLen = Math.min(w, rem);
             guiGraphics.fill(x + w - (int)segLen, y, x + w, y + 1, color);
             drawn += w;
         }
-        
         
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
@@ -394,12 +344,8 @@ public class ColorPickerDialog {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!visible) return false;
         
-        
         if (confirmButton != null && confirmButton.mouseClicked(mouseX, mouseY, button)) return true;
         if (cancelButton != null && cancelButton.mouseClicked(mouseX, mouseY, button)) return true;
-        
-        
-        
         
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
@@ -422,8 +368,7 @@ public class ColorPickerDialog {
             return true;
         }
         
-        return true; 
-    }
+        return true;     }
     
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         isDraggingSV = false;

@@ -21,7 +21,6 @@ public class GDButton {
     private float hoverProgress = 0.0f;
     private long lastTime;
     
-    
     private GDTextRenderer textRenderer;
 
     public GDButton(int x, int y, int width, int height, Component message, Consumer<GDButton> onPress) {
@@ -34,10 +33,7 @@ public class GDButton {
         this.minecraft = Minecraft.getInstance();
         this.lastTime = System.currentTimeMillis();
         
-        
-        
         int textY = y + (height - 9) / 2;
-        
         this.textRenderer = new GDTextRenderer(message.getString(), x, textY, x + width, textY + 9, 1.0f, textColor, false);
         this.textRenderer.setCentered(true);
     }
@@ -49,31 +45,22 @@ public class GDButton {
 
         boolean hovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
 
-        
         if (hovered) {
             hoverProgress = Math.min(1.0f, hoverProgress + dt);
         } else {
             hoverProgress = Math.max(0.0f, hoverProgress - dt);
         }
 
-        
         guiGraphics.fill(x, y, x + width, y + height, GuiConstants.COLOR_BG);
 
-        
-        
         textRenderer.render(guiGraphics, partialTick);
 
-        
         if (hoverProgress > 0.001f) {
-            float ease = 1.0f - (float) Math.pow(1.0f - hoverProgress, 3); 
-            float floatBarWidth = width * ease;
+            float ease = 1.0f - (float) Math.pow(1.0f - hoverProgress, 3);             float floatBarWidth = width * ease;
             
             guiGraphics.pose().pushPose();
-            
             guiGraphics.pose().translate(x, y + height - 1.0f, 0);
-            
             guiGraphics.pose().scale(floatBarWidth, 1.0f, 1.0f);
-            
             guiGraphics.fill(0, 0, 1, 1, GuiConstants.COLOR_GOLD);
             guiGraphics.pose().popPose();
         }

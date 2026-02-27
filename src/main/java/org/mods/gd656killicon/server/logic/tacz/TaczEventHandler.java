@@ -81,15 +81,12 @@ public class TaczEventHandler implements ITaczHandler {
         if (victim == null) return;
         UUID victimId = victim.getUUID();
 
-        
         gunKillVictims.add(victimId);
 
-        
         if (event.isHeadShot()) {
             headshotVictims.add(victimId);
         }
 
-        
         checkLastBullet(event);
     }
 
@@ -164,13 +161,10 @@ public class TaczEventHandler implements ITaczHandler {
 
         int currentAmmo = iGun.getCurrentAmmoCount(stack);
         
-        
         if (currentAmmo > 0) return;
 
-        
         if (iGun.hasBulletInBarrel(stack)) return;
 
-        
         TimelessAPI.getCommonGunIndex(event.getGunId()).ifPresent(index -> {
             int maxAmmo = index.getGunData().getAmmoAmount();
             if (maxAmmo >= 2 && event.getKilledEntity() != null) {

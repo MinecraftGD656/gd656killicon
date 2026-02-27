@@ -33,20 +33,14 @@ public class StringConfigEntry extends GDRowRenderer {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
         this.key = configId;
         this.setActiveCondition(activeCondition);
-        this.setSeparateFirstColumn(true); 
-        this.setHoverInfo(configName, "   " + description); 
-        this.value = initialValue;
+        this.setSeparateFirstColumn(true);         this.setHoverInfo(configName, "   " + description);         this.value = initialValue;
         this.defaultValue = defaultValue;
         this.onValueChange = onValueChange;
         this.textInputDialog = textInputDialog;
         this.configName = configName;
 
-        
         this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
 
-        
-        
-        
         this.addColoredColumn(parseColoredText(this.value), 120, false, false, (btn) -> {
             if (this.textInputDialog != null) {
                 this.textInputDialog.show(this.value, this.configName, (newValue) -> {
@@ -59,11 +53,8 @@ public class StringConfigEntry extends GDRowRenderer {
             }
         });
 
-        
         this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
             if (this.value != null && this.value.equals(this.defaultValue)) return; 
-
-            
             this.value = this.defaultValue;
             updateState();
             if (this.onValueChange != null) {
@@ -82,15 +73,12 @@ public class StringConfigEntry extends GDRowRenderer {
     }
 
     private void updateState() {
-        
         Column controlCol = getColumn(1);
         if (controlCol != null) {
             controlCol.coloredTexts = parseColoredText(this.value);
-            
             controlCol.textRenderer = null;
         }
 
-        
         Column resetCol = getColumn(2);
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();
@@ -109,12 +97,8 @@ public class StringConfigEntry extends GDRowRenderer {
 
     private List<GDTextRenderer.ColoredText> parseColoredText(String text) {
         List<GDTextRenderer.ColoredText> list = new ArrayList<>();
-        
         String processingText = " " + (text == null ? "" : text);
 
-        
-        
-        
         Pattern pattern = Pattern.compile("(<.*?>)|(/.*?\\\\)");
         Matcher matcher = pattern.matcher(processingText);
 
@@ -126,10 +110,8 @@ public class StringConfigEntry extends GDRowRenderer {
             
             String match = matcher.group();
             if (matcher.group(1) != null) {
-                
                 list.add(new GDTextRenderer.ColoredText(match, GuiConstants.COLOR_GOLD));
             } else if (matcher.group(2) != null) {
-                
                 list.add(new GDTextRenderer.ColoredText(match, GuiConstants.COLOR_GOLD_ORANGE));
             }
             

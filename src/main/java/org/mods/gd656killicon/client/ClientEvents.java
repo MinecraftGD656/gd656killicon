@@ -13,7 +13,6 @@ import org.mods.gd656killicon.network.packet.KillIconPacket;
 
 @Mod.EventBusSubscriber(modid = Gd656killicon.MODID, value = Dist.CLIENT)
 public class ClientEvents {
-    
     private static boolean wasInGame = false;
 
     @SubscribeEvent
@@ -41,24 +40,6 @@ public class ClientEvents {
 
     @SubscribeEvent
     public static void onClientPlayerLogout(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer.getInstance().onPlayerLogout();
     }
 

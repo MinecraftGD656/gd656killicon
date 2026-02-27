@@ -30,7 +30,6 @@ public class GDRowRenderer {
     private String hoverDescription;
     private Consumer<Boolean> onHover;
 
-    
     private Integer clipX1, clipY1, clipX2, clipY2;
     private Supplier<Boolean> activeCondition = () -> true;
 
@@ -56,8 +55,7 @@ public class GDRowRenderer {
         public boolean isCentered;
         public GDTextRenderer textRenderer;
         public Consumer<Integer> onClick;
-        public float hoverProgress = 0.0f; 
-        public List<Column> hoverReplacementColumns;
+        public float hoverProgress = 0.0f;         public List<Column> hoverReplacementColumns;
         public CellRenderer customRenderer;
 
         public Column() {}
@@ -96,7 +94,6 @@ public class GDRowRenderer {
         col.isDarker = isDarker;
         col.isCentered = isCentered;
         col.onClick = onClick;
-        
         
         if (col.textRenderer != null) {
             col.textRenderer.setColor(color);
@@ -245,7 +242,6 @@ public class GDRowRenderer {
         int rowHeight = y2 - y1;
         int totalWidth = x2 - x1;
 
-        
         int fixedW = 0; int flexC = 0;
         for (int i = 0; i < currentColumnIndex; i++) {
             if (columns.get(i).width == -1) flexC++;
@@ -253,14 +249,11 @@ public class GDRowRenderer {
         }
         int flexW = flexC > 0 ? Math.max(0, (totalWidth - fixedW) / flexC) : 0;
 
-        
         int alphaBits = (int)(bgAlpha * 255) << 24;
         int baseR = (bgColor >> 16) & 0xFF;
         int baseG = (bgColor >> 8) & 0xFF;
         int baseB = bgColor & 0xFF;
 
-        
-        
         boolean doGap = (!isHeader && currentColumnIndex > 1 && columns.get(0).width == rowHeight) || separateFirstColumn;
         
         if (doGap && currentColumnIndex > 0) {
@@ -271,16 +264,13 @@ public class GDRowRenderer {
             guiGraphics.fill(x1, y1, x2, y2, alphaBits | (baseR << 16) | (baseG << 8) | baseB);
         }
 
-        
         int currentX = x1;
         for (int i = 0; i < currentColumnIndex; i++) {
             Column col = columns.get(i);
             int colW = (col.width == -1) ? flexW : col.width;
             if (colW <= 0) continue;
 
-            
             boolean isHovered = mouseX >= currentX && mouseX < currentX + colW && mouseY >= y1 && mouseY < y2;
-            
             
             if (isHovered && col.hoverReplacementColumns != null && !col.hoverReplacementColumns.isEmpty()) {
                 renderReplacementColumns(guiGraphics, col.hoverReplacementColumns, currentX, y1, colW, rowHeight, mouseX, mouseY, partialTick, dt);
@@ -292,7 +282,6 @@ public class GDRowRenderer {
             if (isHovered) col.hoverProgress = Math.min(1.0f, col.hoverProgress + dt * animSpeed);
             else col.hoverProgress = Math.max(0.0f, col.hoverProgress - dt * animSpeed);
 
-            
             float translateX = guiGraphics.pose().last().pose().m30();
             float translateY = guiGraphics.pose().last().pose().m31();
             
@@ -301,7 +290,6 @@ public class GDRowRenderer {
             int sY1 = (int)Math.round(y1 + translateY);
             int sY2 = (int)Math.round(y2 + translateY);
 
-            
             if (clipX1 != null) sX1 = Math.max(sX1, clipX1);
             if (clipY1 != null) sY1 = Math.max(sY1, clipY1);
             if (clipX2 != null) sX2 = Math.min(sX2, clipX2);
@@ -310,7 +298,6 @@ public class GDRowRenderer {
             if (sX2 > sX1 && sY2 > sY1) {
                 guiGraphics.enableScissor(sX1, sY1, sX2, sY2);
 
-                
                 int drawX = currentX;
                 int drawW = colW;
                 if (doGap && i == 1) {
@@ -318,27 +305,19 @@ public class GDRowRenderer {
                     drawW -= 1;
                 }
 
-                
                 if (col.isDarker || col.hoverProgress > 0) {
                     float darken = 0.0f;
-                    if (col.isDarker) darken += 0.25f; 
-                    
-                    
+                    if (col.isDarker) darken += 0.25f;                     
                     if (col.hoverProgress > 0 && (isHeader || col.onClick != null)) {
-                         darken += col.hoverProgress * 0.2f; 
-                    }
+                         darken += col.hoverProgress * 0.2f;                     }
 
                     int overlayAlpha = (int)(255 * darken);
-                    int overlayColor = (overlayAlpha << 24) | 0x000000; 
-                    
-                    guiGraphics.fill(drawX, y1, drawX + drawW, y2, overlayColor);
+                    int overlayColor = (overlayAlpha << 24) | 0x000000;                     guiGraphics.fill(drawX, y1, drawX + drawW, y2, overlayColor);
                 }
 
-                
                 if ((isHeader || col.onClick != null) && col.hoverProgress > 0.001f) {
                     float t = col.hoverProgress;
-                    float ease = 1.0f - (float) Math.pow(1.0f - t, 3); 
-                    float barWidth = drawW * ease;
+                    float ease = 1.0f - (float) Math.pow(1.0f - t, 3);                     float barWidth = drawW * ease;
 
                     guiGraphics.pose().pushPose();
                     guiGraphics.pose().translate(drawX, y2 - 1.0f, 0);
@@ -347,7 +326,6 @@ public class GDRowRenderer {
                     guiGraphics.pose().popPose();
                 }
 
-                
                 renderContent(guiGraphics, col, drawX, drawW, rowHeight, partialTick, dt, i);
 
                 guiGraphics.disableScissor();
@@ -363,9 +341,7 @@ public class GDRowRenderer {
 
         for (int i = 0; i < count; i++) {
             Column subCol = subColumns.get(i);
-            
             int thisW = (i == count - 1) ? (x + w - currentX) : subW;
-            
             
             boolean subHovered = mouseX >= currentX && mouseX < currentX + thisW && mouseY >= y && mouseY < y + h;
             if (subHovered) {
@@ -374,7 +350,6 @@ public class GDRowRenderer {
                 subCol.hoverProgress = Math.max(0.0f, subCol.hoverProgress - dt * 8.0f);
             }
 
-            
             float translateX = guiGraphics.pose().last().pose().m30();
             float translateY = guiGraphics.pose().last().pose().m31();
             
@@ -391,12 +366,10 @@ public class GDRowRenderer {
             if (sX2 > sX1 && sY2 > sY1) {
                 guiGraphics.enableScissor(sX1, sY1, sX2, sY2);
                 
-                
                 int alphaBits = (int)(bgAlpha * 255) << 24;
                 int bgCol = (bgColor & 0xFFFFFF) | alphaBits;
                 guiGraphics.fill(currentX, y, currentX + thisW, y + h, bgCol);
 
-                
                 if (subHovered || subCol.isDarker) {
                     float darken = subCol.isDarker ? 0.25f : 0.0f;
                     if (subHovered) darken += 0.2f;
@@ -404,14 +377,11 @@ public class GDRowRenderer {
                     guiGraphics.fill(currentX, y, currentX + thisW, y + h, (overlayAlpha << 24));
                 }
                 
-                
                 renderContent(guiGraphics, subCol, currentX, thisW, h, pt, dt, -1);
-                
                 
                 if (subCol.onClick != null && subCol.hoverProgress > 0.001f) {
                     float t = subCol.hoverProgress;
-                    float ease = 1.0f - (float) Math.pow(1.0f - t, 3); 
-                    float barWidth = thisW * ease;
+                    float ease = 1.0f - (float) Math.pow(1.0f - t, 3);                     float barWidth = thisW * ease;
 
                     guiGraphics.pose().pushPose();
                     guiGraphics.pose().translate(currentX, y + h - 1.0f, 0);
@@ -422,7 +392,6 @@ public class GDRowRenderer {
 
                 guiGraphics.disableScissor();
             }
-            
             
             if (i < count - 1) {
                 guiGraphics.fill(currentX + thisW - 1, y, currentX + thisW, y + h, 0x40000000);
@@ -462,7 +431,6 @@ public class GDRowRenderer {
             }
             col.textRenderer.setCentered(col.isCentered);
             
-            
             boolean isActive = activeCondition.get();
             if (!isActive) {
                 col.textRenderer.setOverrideColor(GuiConstants.COLOR_GRAY);
@@ -495,7 +463,6 @@ public class GDRowRenderer {
             if (mouseX >= currentX && mouseX < currentX + colW) {
                 Column col = columns.get(i);
                 
-                
                 if (col.hoverReplacementColumns != null && !col.hoverReplacementColumns.isEmpty()) {
                     int subCount = col.hoverReplacementColumns.size();
                     int subW = colW / subCount;
@@ -515,9 +482,7 @@ public class GDRowRenderer {
                 
                 if (col.onClick != null) {
                     col.onClick.accept(button);
-                    return true; 
-                }
-                
+                    return true;                 }
                 return false;
             }
             currentX += colW;

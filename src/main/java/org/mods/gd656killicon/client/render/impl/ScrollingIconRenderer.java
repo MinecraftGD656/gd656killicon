@@ -28,9 +28,6 @@ import java.util.List;
  */
 public class ScrollingIconRenderer implements IHudRenderer {
 
-    
-    
-    
 
     private static final long DEFAULT_DISPLAY_DURATION = 3000L;
     private static final long DEFAULT_ANIMATION_DURATION = 300L;
@@ -46,11 +43,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private static final int DEFAULT_EXPLOSION_COLOR = 0xF77F00;
     private static final int DEFAULT_CRIT_COLOR = 0x9CCC65;
 
-    
-    
-    
 
-    
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
@@ -72,7 +65,6 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private float ringExplosionRadius = 42.0f;
     private float ringExplosionThickness = 5.4f;
 
-    
     private boolean isVisible = false;
     private final List<ScrollingIcon> activeIcons = new ArrayList<>();
     private final List<ScrollingIcon> pendingIcons = new ArrayList<>();
@@ -81,20 +73,13 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private float lastCustomCenterX = 0f;
     private JsonObject currentConfig;
 
-    
-    
-    
 
     public ScrollingIconRenderer() {
     }
 
-    
-    
-    
 
     @Override
     public void trigger(TriggerContext context) {
-        
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "scrolling");
         if (config == null) {
             return;
@@ -114,7 +99,6 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
 
         this.isVisible = true;
-        
         ScrollingIcon icon = new ScrollingIcon(context.type(), 0, displayDuration);
         
         pendingIcons.add(icon);
@@ -139,14 +123,10 @@ public class ScrollingIconRenderer implements IHudRenderer {
             return;
         }
 
-        
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        
-        
-        
         int centerY = screenHeight - configYOffset;
 
         boolean removedAny = false;
@@ -294,9 +274,6 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
     }
 
-    
-    
-    
 
     private void loadConfig(JsonObject config) {
         try {
@@ -630,9 +607,6 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
     }
 
-    
-    
-    
 
     /**
      * Represents a single icon in the scrolling queue.

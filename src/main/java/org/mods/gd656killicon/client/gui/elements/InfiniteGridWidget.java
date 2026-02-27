@@ -20,12 +20,9 @@ public class InfiniteGridWidget {
     private boolean isDragging = false;
     private double lastMouseX, lastMouseY;
     
-    
-    private static final int GRID_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x40 << 24); 
-    private static final int CROSS_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x90 << 24);
+    private static final int GRID_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x40 << 24);     private static final int CROSS_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x90 << 24);
     private static final int TEXT_COLOR = GuiConstants.COLOR_GRAY;
-    private static final int BORDER_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x80 << 24); 
-    private static final int ICON_SIZE = 64;
+    private static final int BORDER_COLOR = (GuiConstants.COLOR_GRAY & 0x00FFFFFF) | (0x80 << 24);     private static final int ICON_SIZE = 64;
 
     public static final class ScrollingIcon {
         private final int killType;
@@ -48,7 +45,6 @@ public class InfiniteGridWidget {
         this.y = y;
         this.width = width;
         this.height = height;
-        
         
         this.viewX = x + width / 2.0;
         this.viewY = y + height / 2.0;
@@ -94,18 +90,12 @@ public class InfiniteGridWidget {
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, List<ScrollingIcon> icons) {
-        
         guiGraphics.fill(x, y, x + width, y + 1, BORDER_COLOR);
         guiGraphics.fill(x, y + height - 1, x + width, y + height, BORDER_COLOR);
         guiGraphics.fill(x, y, x + 1, y + height, BORDER_COLOR);
         guiGraphics.fill(x + width - 1, y, x + width, y + height, BORDER_COLOR);
         
-        
         guiGraphics.enableScissor(x + 1, y + 1, x + width - 1, y + height - 1);
-        
-        
-        
-        
         
         
         int startCol = (int) Math.floor((x - viewX) / gridSize);
@@ -151,7 +141,6 @@ public class InfiniteGridWidget {
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         }
 
-        
         guiGraphics.pose().pushPose();
         float scale = 0.5f;
         guiGraphics.pose().translate(subPixelX, subPixelY, 0);
@@ -164,14 +153,9 @@ public class InfiniteGridWidget {
                 int px = (int)(baseViewX + i * gridSize);
                 int py = (int)(baseViewY + j * gridSize);
                 
-                
                 if (px >= x && px <= x + width && py >= y && py <= y + height) {
                     String coordText = (i * gridSize) + "," + (j * gridSize);
                     int textWidth = mc.font.width(coordText);
-                    
-                    
-                    
-                    
                     
                     
                     float drawX = (px + 2) / scale;

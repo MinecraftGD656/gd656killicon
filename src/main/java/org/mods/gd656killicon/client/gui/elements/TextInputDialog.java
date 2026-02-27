@@ -14,7 +14,6 @@ public class TextInputDialog {
     private Consumer<String> onConfirm;
     private Runnable onCancel;
     
-    
     private Consumer<String> currentConfirmAction;
     private java.util.function.Predicate<String> currentValidator;
     
@@ -22,13 +21,9 @@ public class TextInputDialog {
     private String title = "";
     private String text = "";
     private int cursorPosition = 0;
-    private int displayOffset = 0; 
-    private GDTextRenderer titleRenderer;
+    private int displayOffset = 0;     private GDTextRenderer titleRenderer;
     
-    
-    private float hoverProgress = 0.0f; 
-    private long lastFrameTime;
-    
+    private float hoverProgress = 0.0f;     private long lastFrameTime;
     
     private static final int INPUT_WIDTH = 140;
     private static final int INPUT_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
@@ -40,9 +35,7 @@ public class TextInputDialog {
     
     public TextInputDialog(Minecraft minecraft, Consumer<String> onConfirm, Runnable onCancel) {
         this.minecraft = minecraft;
-        this.onConfirm = onConfirm; 
-        this.onCancel = onCancel;   
-    }
+        this.onConfirm = onConfirm;         this.onCancel = onCancel;       }
     
     public void show(String initialText, String title, Consumer<String> onConfirmAction) {
         show(initialText, title, onConfirmAction, null);
@@ -67,7 +60,6 @@ public class TextInputDialog {
             this.titleRenderer.setColor(GuiConstants.COLOR_GOLD);
         }
 
-        
         int w1 = (INPUT_WIDTH - 1) / 2;
         int w2 = INPUT_WIDTH - 1 - w1;
         
@@ -84,7 +76,6 @@ public class TextInputDialog {
         if (cancelButton != null && cancelButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        
         
         return true;
     }
@@ -125,30 +116,22 @@ public class TextInputDialog {
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
         
-        
         int dimColor = 0x88444444;
         guiGraphics.fill(0, 0, screenWidth, screenHeight, dimColor);
-        
         
         int inputX = (screenWidth - INPUT_WIDTH) / 2;
         int inputY = (screenHeight - INPUT_HEIGHT) / 2;
         
-        
         int fontHeight = minecraft.font.lineHeight;
-        
         int titleY = inputY - fontHeight - GuiConstants.DEFAULT_PADDING + 6; 
         int buttonsY = inputY + INPUT_HEIGHT + 1; 
-        
-        
         
         int containerTop = titleY - GuiConstants.DEFAULT_PADDING;
         int containerLeft = inputX - GuiConstants.DEFAULT_PADDING;
         int containerRight = inputX + INPUT_WIDTH + GuiConstants.DEFAULT_PADDING;
         int containerBottom = buttonsY + BUTTON_HEIGHT + GuiConstants.DEFAULT_PADDING;
         
-        
         guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_BG); 
-        
         
         if (titleRenderer != null) {
             titleRenderer.setX1(inputX);
@@ -158,10 +141,8 @@ public class TextInputDialog {
             titleRenderer.render(guiGraphics, partialTick);
         }
         
-        
         int inputBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int)(255 * 0.45f) << 24;
         guiGraphics.fill(inputX, inputY, inputX + INPUT_WIDTH, inputY + INPUT_HEIGHT, inputBgColor);
-        
         
         boolean isHovered = mouseX >= inputX && mouseX <= inputX + INPUT_WIDTH && 
                             mouseY >= inputY && mouseY <= inputY + INPUT_HEIGHT;
@@ -176,21 +157,16 @@ public class TextInputDialog {
             hoverProgress = Math.max(0.0f, hoverProgress - dt * 2.0f);
         }
         
-        
         renderHoverTrail(guiGraphics, inputX, inputY, INPUT_WIDTH, INPUT_HEIGHT);
-        
         
         boolean isValid = currentValidator == null || currentValidator.test(text);
         renderInputText(guiGraphics, inputX, inputY, INPUT_WIDTH, INPUT_HEIGHT, isValid);
         
-        
         int btnY = inputY + INPUT_HEIGHT + 1;
-        
         
         if (cancelButton != null) {
             cancelButton.setX(inputX);
             cancelButton.setY(btnY);
-            
             cancelButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         
@@ -199,7 +175,6 @@ public class TextInputDialog {
             confirmButton.setX(inputX + w1 + 1);
             confirmButton.setY(btnY);
             
-            
             confirmButton.active = isValid;
             if (!isValid) {
                  confirmButton.setTextColor(GuiConstants.COLOR_GRAY);
@@ -207,7 +182,6 @@ public class TextInputDialog {
                  confirmButton.setTextColor(GuiConstants.COLOR_WHITE);
             }
 
-            
             confirmButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         
@@ -218,25 +192,17 @@ public class TextInputDialog {
         if (hoverProgress <= 0.001f) return;
         
         int color = GuiConstants.COLOR_GOLD;
-        
         float totalLength = w + h + w + h;
         float currentLength = totalLength * easeOut(hoverProgress);
         
         
-        
-        
-        
-        
-        
         float drawn = 0;
-        
         
         if (currentLength > 0) {
             float segLen = Math.min(w, currentLength);
             guiGraphics.fill(x, y + h - 1, x + (int)segLen, y + h, color);
             drawn += w;
         }
-        
         
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
@@ -245,14 +211,12 @@ public class TextInputDialog {
             drawn += h;
         }
         
-        
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
             float segLen = Math.min(w, rem);
             guiGraphics.fill(x + w - (int)segLen, y, x + w, y + 1, color);
             drawn += w;
         }
-        
         
         if (currentLength > drawn) {
             float rem = currentLength - drawn;
@@ -262,13 +226,10 @@ public class TextInputDialog {
     }
     
     private float easeOut(float t) {
-        
         return 1.0f - (float)Math.pow(1.0f - t, 3);
     }
     
     private void renderInputText(GuiGraphics guiGraphics, int x, int y, int w, int h, boolean isValid) {
-        
-        
         double scale = minecraft.getWindow().getGuiScale();
         int sx = (int)(x * scale);
         int sy = (int)(minecraft.getWindow().getHeight() - (y + h) * scale);
@@ -277,17 +238,10 @@ public class TextInputDialog {
         
         guiGraphics.enableScissor(x, y, x + w, y + h);
         
-        
         int textWidth = minecraft.font.width(text);
-        int boxInnerWidth = w - 4; 
-        
-        
-        
+        int boxInnerWidth = w - 4;         
         String textBeforeCursor = text.substring(0, cursorPosition);
         int cursorXRel = minecraft.font.width(textBeforeCursor);
-        
-        
-        
         
         
         if (cursorXRel < displayOffset) {
@@ -295,7 +249,6 @@ public class TextInputDialog {
         } else if (cursorXRel > displayOffset + boxInnerWidth) {
             displayOffset = cursorXRel - boxInnerWidth;
         }
-        
         
         if (textWidth < boxInnerWidth) {
             displayOffset = 0;
@@ -307,11 +260,9 @@ public class TextInputDialog {
         int textColor = isValid ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_RED;
         guiGraphics.drawString(minecraft.font, text, drawX, drawY, textColor, true);
         
-        
         if (System.currentTimeMillis() / 500 % 2 == 0) {
             int cx = drawX + cursorXRel;
-            if (cx >= x && cx <= x + w) { 
-                guiGraphics.fill(cx, drawY - 1, cx + 1, drawY + minecraft.font.lineHeight + 1, GuiConstants.COLOR_WHITE);
+            if (cx >= x && cx <= x + w) {                 guiGraphics.fill(cx, drawY - 1, cx + 1, drawY + minecraft.font.lineHeight + 1, GuiConstants.COLOR_WHITE);
             }
         }
         
@@ -326,8 +277,7 @@ public class TextInputDialog {
             cursorPosition++;
             return true;
         }
-        return false; 
-    }
+        return false;     }
     
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!visible) return false;
@@ -377,6 +327,5 @@ public class TextInputDialog {
             return true;
         }
         
-        return true; 
-    }
+        return true;     }
 }
