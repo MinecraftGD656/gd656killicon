@@ -39,6 +39,6 @@ public class GuiConstants {
     public static final int ROW_HEADER_HEIGHT = 17;     
     public static final int FLEX_COLUMN_MIN_WIDTH = 60; 
     
-    public static final String MOD_VERSION = "Forge-1.1.0.016Beta";
-    public static final String MOD_ONLINE_VERSION = "https://modrinth.com/mod/gd656killicon/version/1.1.0.016-1.20.1-forge";
+    public static final String MOD_VERSION = "Forge-1.1.0.017Beta";
+    public static final String MOD_ONLINE_VERSION = "https://modrinth.com/mod/gd656killicon/version/1.1.0.017-1.20.1-forge";
 }

@@ -495,8 +495,7 @@ public class PresetConfigTab extends ConfigTabContent {
             targetTranslation = 0;
             if (!rightPanelVisible && panelMouseX > panelWidth) {
                 state = PanelState.HIDDEN;
-                isEditMode = false;
-                isExportMode = false;
+                resetLeftPanelModesIfNeeded();
             }
         }
         
@@ -982,6 +981,15 @@ public class PresetConfigTab extends ConfigTabContent {
         }
     }
 
+    private void resetLeftPanelModesIfNeeded() {
+        if (!isEditMode && !isExportMode) {
+            return;
+        }
+        isEditMode = false;
+        isExportMode = false;
+        rebuildPresetList();
+    }
+
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (promptDialog.isVisible()) {
@@ -1040,14 +1048,12 @@ public class PresetConfigTab extends ConfigTabContent {
             if (mouseX <= TRIGGER_ZONE_WIDTH) {
                 state = PanelState.HIDDEN;
                 leftRequireExitBeforeAutoOpen = true;
-                isEditMode = false;
-                isExportMode = false;
+                resetLeftPanelModesIfNeeded();
                 return true;
             }
             if (mouseX > panelWidth) {
                 state = PanelState.HIDDEN;
-                isEditMode = false;
-                isExportMode = false;
+                resetLeftPanelModesIfNeeded();
                 return true;
             }
             if (resetButton != null && resetButton.mouseClicked(mouseX, mouseY, button)) {
