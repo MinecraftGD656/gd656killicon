@@ -93,10 +93,39 @@ public class ElementTextureDefinition {
         if (config == null) {
             return defaultFileName;
         }
-        String key = getTextureStyleKey(textureKey);
-        if (config.has(key)) {
-            String fileName = config.get(key).getAsString();
-            if (ExternalTextureManager.isValidTextureName(fileName)) {
+        String modeKey = getTextureModeKey(textureKey);
+        String mode = config.has(modeKey) ? config.get(modeKey).getAsString() : "official";
+        if ("vanilla".equalsIgnoreCase(mode)) {
+            String vanillaKey = getVanillaTextureKey(textureKey);
+            if (config.has(vanillaKey)) {
+                String path = config.get(vanillaKey).getAsString();
+                if (ExternalTextureManager.isVanillaTexturePath(path)) {
+                    return path;
+                }
+            }
+            return defaultFileName;
+        }
+        if ("custom".equalsIgnoreCase(mode)) {
+            String key = getCustomTextureKey(textureKey);
+            if (config.has(key)) {
+                String fileName = config.get(key).getAsString();
+                if (ExternalTextureManager.isCustomTextureName(fileName)) {
+                    return fileName;
+                }
+            }
+            String fallbackKey = getOfficialTextureKey(textureKey);
+            if (config.has(fallbackKey)) {
+                String fileName = config.get(fallbackKey).getAsString();
+                if (ExternalTextureManager.isCustomTextureName(fileName)) {
+                    return fileName;
+                }
+            }
+            return defaultFileName;
+        }
+        String officialKey = getOfficialTextureKey(textureKey);
+        if (config.has(officialKey)) {
+            String fileName = config.get(officialKey).getAsString();
+            if (ExternalTextureManager.isOfficialTextureName(fileName)) {
                 return fileName;
             }
         }
@@ -105,6 +134,22 @@ public class ElementTextureDefinition {
 
     public static String getTextureStyleKey(String textureKey) {
         return "texture_style_" + textureKey;
+    }
+
+    public static String getOfficialTextureKey(String textureKey) {
+        return "texture_style_" + textureKey;
+    }
+
+    public static String getCustomTextureKey(String textureKey) {
+        return "custom_texture_" + textureKey;
+    }
+
+    public static String getTextureModeKey(String textureKey) {
+        return "texture_mode_" + textureKey;
+    }
+
+    public static String getVanillaTextureKey(String textureKey) {
+        return "vanilla_texture_" + textureKey;
     }
 
     private static String resolveScrollingFileName(String presetId, String textureKey) {

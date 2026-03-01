@@ -343,7 +343,7 @@ public class DefaultConfigRegistry {
         scrolling.addProperty("ring_effect_explosion_radius", 42.0f);
         scrolling.addProperty("ring_effect_explosion_thickness", 5.4f);
         injectTextureAnimationConfigs("kill_icon/scrolling", scrolling);
-        injectTextureStyleConfigs("00001", "kill_icon/scrolling", scrolling);
+        injectTextureSelectionConfigs("00001", "kill_icon/scrolling", scrolling);
         registerGlobal("kill_icon/scrolling", scrolling);
 
         JsonObject combo = new JsonObject();
@@ -364,7 +364,7 @@ public class DefaultConfigRegistry {
         combo.addProperty("ring_effect_explosion_radius", 42.0f);
         combo.addProperty("ring_effect_explosion_thickness", 5.4f);
         injectTextureAnimationConfigs("kill_icon/combo", combo);
-        injectTextureStyleConfigs("00001", "kill_icon/combo", combo);
+        injectTextureSelectionConfigs("00001", "kill_icon/combo", combo);
         registerGlobal("kill_icon/combo", combo);
 
         JsonObject cardBar = new JsonObject();
@@ -381,7 +381,7 @@ public class DefaultConfigRegistry {
         cardBar.addProperty("dynamic_card_style", true);
         cardBar.addProperty("animation_duration", 0.2f);
         injectTextureAnimationConfigs("kill_icon/card_bar", cardBar);
-        injectTextureStyleConfigs("00001", "kill_icon/card_bar", cardBar);
+        injectTextureSelectionConfigs("00001", "kill_icon/card_bar", cardBar);
         registerGlobal("kill_icon/card_bar", cardBar);
 
         JsonObject card = new JsonObject();
@@ -397,7 +397,7 @@ public class DefaultConfigRegistry {
         card.addProperty("text_scale", 10.0f);
         card.addProperty("max_stack_count", 6);
         injectTextureAnimationConfigs("kill_icon/card", card);
-        injectTextureStyleConfigs("00001", "kill_icon/card", card);
+        injectTextureSelectionConfigs("00001", "kill_icon/card", card);
         card.addProperty("anim_light_ct_texture_frame_width_ratio", 1);
         card.addProperty("anim_light_ct_texture_frame_height_ratio", 5);
         card.addProperty("anim_light_t_texture_frame_width_ratio", 1);
@@ -420,7 +420,7 @@ public class DefaultConfigRegistry {
         bf1.addProperty("animation_duration", 0.2f);
         bf1.addProperty("display_duration", 4.5f);
         injectTextureAnimationConfigs("kill_icon/battlefield1", bf1);
-        injectTextureStyleConfigs("00001", "kill_icon/battlefield1", bf1);
+        injectTextureSelectionConfigs("00001", "kill_icon/battlefield1", bf1);
         registerGlobal("kill_icon/battlefield1", bf1);
 
 
@@ -605,7 +605,7 @@ public class DefaultConfigRegistry {
         scrolling00007.addProperty("anim_destroy_vehicle_texture_frame_height_ratio", 1);
         scrolling00007.addProperty("anim_assist_texture_frame_width_ratio", 1);
         scrolling00007.addProperty("anim_assist_texture_frame_height_ratio", 1);
-        injectTextureStyleConfigs("00007", "kill_icon/scrolling", scrolling00007);
+        injectTextureSelectionConfigs("00007", "kill_icon/scrolling", scrolling00007);
         registerOverride("00007", "kill_icon/scrolling", scrolling00007);
 
         JsonObject score00008 = score00007.deepCopy();
@@ -717,7 +717,7 @@ public class DefaultConfigRegistry {
         scrolling00008.addProperty("ring_effect_explosion_color", "#FFFFFF");
         scrolling00008.addProperty("ring_effect_explosion_radius", 42.0f);
         scrolling00008.addProperty("ring_effect_explosion_thickness", 5.4f);
-        injectTextureStyleConfigs("00008", "kill_icon/scrolling", scrolling00008);
+        injectTextureSelectionConfigs("00008", "kill_icon/scrolling", scrolling00008);
         registerOverride("00008", "kill_icon/scrolling", scrolling00008);
     }
 
@@ -746,18 +746,75 @@ public class DefaultConfigRegistry {
         }
     }
 
-    private static void injectTextureStyleConfigs(String presetId, String elementId, JsonObject config) {
+    private static void injectTextureSelectionConfigs(String presetId, String elementId, JsonObject config) {
         if (!ElementTextureDefinition.hasTextures(elementId)) return;
 
         for (String texture : ElementTextureDefinition.getTextures(elementId)) {
-            String key = ElementTextureDefinition.getTextureStyleKey(texture);
+            String officialKey = ElementTextureDefinition.getOfficialTextureKey(texture);
+            String customKey = ElementTextureDefinition.getCustomTextureKey(texture);
+            String modeKey = ElementTextureDefinition.getTextureModeKey(texture);
+            String vanillaKey = ElementTextureDefinition.getVanillaTextureKey(texture);
             String fileName = "kill_icon/scrolling".equals(elementId)
                 ? resolveScrollingStyleFileName(presetId, texture)
                 : ElementTextureDefinition.getTextureFileName(presetId, elementId, texture);
             if (fileName != null) {
-                config.addProperty(key, fileName);
+                config.addProperty(officialKey, fileName);
+            }
+            config.addProperty(customKey, "");
+            config.addProperty(modeKey, "official");
+            String vanillaDefault = resolveVanillaDefaultTexture(elementId, texture);
+            if (vanillaDefault != null) {
+                config.addProperty(vanillaKey, vanillaDefault);
             }
         }
+    }
+
+    private static String resolveVanillaDefaultTexture(String elementId, String textureKey) {
+        if ("kill_icon/scrolling".equals(elementId)) {
+            return switch (textureKey) {
+                case "default" -> "minecraft:item/ender_pearl";
+                case "headshot" -> "minecraft:item/ender_eye";
+                case "explosion" -> "minecraft:item/fire_charge";
+                case "crit" -> "minecraft:item/magma_cream";
+                case "destroy_vehicle" -> "minecraft:item/blaze_powder";
+                case "assist" -> "minecraft:item/slime_ball";
+                default -> "minecraft:item/ender_pearl";
+            };
+        }
+        if ("kill_icon/battlefield1".equals(elementId)) {
+            return switch (textureKey) {
+                case "default" -> "minecraft:item/ender_pearl";
+                case "headshot" -> "minecraft:item/ender_eye";
+                case "explosion" -> "minecraft:item/fire_charge";
+                case "crit" -> "minecraft:item/magma_cream";
+                case "destroy_vehicle" -> "minecraft:item/blaze_powder";
+                default -> "minecraft:item/ender_pearl";
+            };
+        }
+        if ("kill_icon/combo".equals(elementId)) {
+            return switch (textureKey) {
+                case "combo_1" -> "minecraft:item/coal";
+                case "combo_2" -> "minecraft:item/copper_ingot";
+                case "combo_3" -> "minecraft:item/iron_ingot";
+                case "combo_4" -> "minecraft:item/gold_ingot";
+                case "combo_5" -> "minecraft:item/diamond";
+                case "combo_6" -> "minecraft:item/netherite_ingot";
+                default -> "minecraft:item/coal";
+            };
+        }
+        if ("kill_icon/card".equals(elementId)) {
+            if (textureKey != null && textureKey.contains("assist")) {
+                return "minecraft:item/slime_ball";
+            }
+            return "minecraft:item/netherite_ingot";
+        }
+        if ("kill_icon/card_bar".equals(elementId)) {
+            if (textureKey != null && textureKey.contains("assist")) {
+                return "minecraft:item/slime_ball";
+            }
+            return "minecraft:item/netherite_ingot";
+        }
+        return null;
     }
 
     private static String resolveScrollingStyleFileName(String presetId, String textureKey) {

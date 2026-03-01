@@ -15,20 +15,21 @@ public class ConfigManager {
     public static void startEditing() {
         ClientConfigManager.startEditing();
         ElementConfigManager.startEditing();
+        ExternalSoundManager.startEditing();
     }
 
     public static void saveChanges() {
         ClientConfigManager.saveChanges();
         ElementConfigManager.saveChanges();
         ExternalTextureManager.confirmPendingTextureReplacements();
-        ExternalSoundManager.confirmPendingSoundReplacements();
+        ExternalSoundManager.saveChanges();
     }
 
     public static void discardChanges() {
         ClientConfigManager.discardChanges();
         ElementConfigManager.discardChanges();
         ExternalTextureManager.revertPendingTextureReplacements();
-        ExternalSoundManager.revertPendingSoundReplacements();
+        ExternalSoundManager.discardChanges();
     }
 
     public static boolean hasUnsavedChanges() {

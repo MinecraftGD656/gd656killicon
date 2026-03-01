@@ -3,6 +3,7 @@ package org.mods.gd656killicon.client.gui.elements.entries;
 import net.minecraft.client.gui.GuiGraphics;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
+import org.mods.gd656killicon.client.gui.elements.ChoiceListDialog;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -32,12 +33,14 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
     private final String defaultValue;
     private final Consumer<String> onValueChange;
     private final String key;
+    private final ChoiceListDialog choiceListDialog;
+    private final String configName;
 
-    public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange) {
-        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, () -> true);
+    public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog) {
+        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, () -> true);
     }
 
-    public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, Supplier<Boolean> activeCondition) {
+    public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog, Supplier<Boolean> activeCondition) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
         this.key = configId;
         this.setActiveCondition(activeCondition);
@@ -46,12 +49,14 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
         this.choices = choices;
         this.defaultValue = defaultValue;
         this.onValueChange = onValueChange;
+        this.choiceListDialog = choiceListDialog;
+        this.configName = configName;
         this.index = resolveIndex(initialValue, defaultValue);
 
         this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
 
         this.addColumn(getValueText(), 60, GuiConstants.COLOR_GOLD, false, true, (btn) -> {
-            advanceChoice();
+            openDialog();
         });
 
         this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
@@ -97,14 +102,6 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
         return choices.get(index).label();
     }
 
-    private void advanceChoice() {
-        this.index = (this.index + 1) % choices.size();
-        updateState();
-        if (this.onValueChange != null) {
-            this.onValueChange.accept(getCurrentValue());
-        }
-    }
-
     private void updateState() {
         Column controlCol = getColumn(1);
         if (controlCol != null) {
@@ -120,11 +117,25 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
         if (resetCol != null) {
             resetCol.color = getResetButtonColor();
             resetCol.text = "↺";
-            
             if (resetCol.textRenderer != null) {
                 resetCol.textRenderer.setColor(resetCol.color);
                 resetCol.textRenderer.setText(resetCol.text);
             }
+        }
+    }
+
+    private void openDialog() {
+        if (choiceListDialog != null) {
+            choiceListDialog.show(getCurrentValue(), this.configName, this.choices, (newValue) -> {
+                if (newValue != null && newValue.equals(getCurrentValue())) {
+                    return;
+                }
+                this.index = resolveIndex(newValue, this.defaultValue);
+                updateState();
+                if (this.onValueChange != null) {
+                    this.onValueChange.accept(getCurrentValue());
+                }
+            }, null);
         }
     }
 

@@ -82,9 +82,9 @@ public class Battlefield1Renderer implements IHudRenderer {
         this.killType = context.type();
         Minecraft mc = Minecraft.getInstance();
 
-        String soundToPlay = SOUND_NAME;
+        String soundSlot = ExternalSoundManager.SLOT_BF1_DEFAULT;
         if (this.killType == KillType.HEADSHOT) {
-            soundToPlay = HEADSHOT_SOUND_NAME;
+            soundSlot = ExternalSoundManager.SLOT_BF1_HEADSHOT;
         }
         String textureKey = getTextureKey(this.killType);
         this.currentIconPath = ElementTextureDefinition.getSelectedTextureFileName(
@@ -94,7 +94,7 @@ public class Battlefield1Renderer implements IHudRenderer {
             currentConfig
         );
 
-        ExternalSoundManager.playSound(soundToPlay);
+        ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), soundSlot);
 
         if (this.killType == KillType.DESTROY_VEHICLE) {
             if (context.extraData() != null && context.extraData().contains("|")) {
@@ -482,7 +482,7 @@ public class Battlefield1Renderer implements IHudRenderer {
         if (!currentConfig.has(key)) {
             return 1.0f;
         }
-        int value = currentConfig.get(key).getAsInt();
+        float value = currentConfig.get(key).getAsFloat();
         return value > 0 ? value : 1.0f;
     }
 

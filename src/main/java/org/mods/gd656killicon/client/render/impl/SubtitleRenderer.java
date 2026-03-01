@@ -27,10 +27,11 @@ public class SubtitleRenderer implements IHudRenderer {
 
     private static final long FADE_IN_DURATION = 200L;     private static final long FADE_OUT_DURATION = 300L;     private static final int DEFAULT_PLACEHOLDER_COLOR = 0xFF008B8B;
     private static final int DEFAULT_EMPHASIS_COLOR = 0xFFFFFFFF;
-    private static final long SCORE_WAIT_WINDOW_MS = 2000L;
     private static final long SCORE_CACHE_WINDOW_MS = 10000L;
     private static final int PREVIEW_SCORE_VICTIM_ID = -9999;
     private static final Map<Integer, ScoreEntry> RECENT_SCORES = new ConcurrentHashMap<>();
+    private static final java.util.Deque<ScoreEntry> RECENT_SCORE_QUEUE = new java.util.ArrayDeque<>();
+    private static final int SCORE_QUEUE_MAX = 50;
 
     
     private int configXOffset = 0;
@@ -478,22 +479,47 @@ public class SubtitleRenderer implements IHudRenderer {
 
     public static void recordBonusScore(int bonusType, float score, int victimId) {
         if (victimId == -1) return;
-        RECENT_SCORES.put(victimId, new ScoreEntry(score, System.currentTimeMillis()));
+        long now = System.currentTimeMillis();
+        ScoreEntry entry = new ScoreEntry(victimId, score, now);
+        RECENT_SCORES.put(victimId, entry);
+        RECENT_SCORE_QUEUE.addLast(entry);
+        while (RECENT_SCORE_QUEUE.size() > SCORE_QUEUE_MAX) {
+            RECENT_SCORE_QUEUE.removeFirst();
+        }
+        while (!RECENT_SCORE_QUEUE.isEmpty() && now - RECENT_SCORE_QUEUE.peekFirst().timestamp > SCORE_CACHE_WINDOW_MS) {
+            RECENT_SCORE_QUEUE.removeFirst();
+        }
     }
 
     private static String resolveScoreString(int victimId, long referenceTime) {
         if (victimId == PREVIEW_SCORE_VICTIM_ID) return "20";
-        if (victimId == -1) return "0";
         long now = System.currentTimeMillis();
-        ScoreEntry entry = RECENT_SCORES.get(victimId);
-        if (entry != null) {
-            if (now - entry.timestamp <= SCORE_CACHE_WINDOW_MS) {
-                return formatScore(entry.score);
+        if (victimId != -1) {
+            ScoreEntry entry = RECENT_SCORES.get(victimId);
+            if (entry != null) {
+                if (now - entry.timestamp <= SCORE_CACHE_WINDOW_MS) {
+                    return formatScore(entry.score);
+                }
+                RECENT_SCORES.remove(victimId);
             }
-            RECENT_SCORES.remove(victimId);
         }
-        if (referenceTime > 0 && now - referenceTime < SCORE_WAIT_WINDOW_MS) {
-            return "";
+        ScoreEntry closest = null;
+        long closestDelta = Long.MAX_VALUE;
+        Iterator<ScoreEntry> iterator = RECENT_SCORE_QUEUE.iterator();
+        while (iterator.hasNext()) {
+            ScoreEntry entry = iterator.next();
+            if (now - entry.timestamp > SCORE_CACHE_WINDOW_MS) {
+                iterator.remove();
+                continue;
+            }
+            long delta = Math.abs(entry.timestamp - referenceTime);
+            if (delta < closestDelta) {
+                closestDelta = delta;
+                closest = entry;
+            }
+        }
+        if (closest != null) {
+            return formatScore(closest.score);
         }
         return "0";
     }
@@ -505,7 +531,7 @@ public class SubtitleRenderer implements IHudRenderer {
         return String.valueOf(Math.round(score));
     }
 
-    private record ScoreEntry(float score, long timestamp) {}
+    private record ScoreEntry(int victimId, float score, long timestamp) {}
 
 
     /**

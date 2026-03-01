@@ -1,5 +1,7 @@
 package org.mods.gd656killicon.client.sounds;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
@@ -22,8 +24,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -36,6 +41,9 @@ import static org.lwjgl.stb.STBVorbis.*;
 public class ExternalSoundManager {
     private static final Path CONFIG_ASSETS_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
     private static final Path COMMON_SOUNDS_DIR = CONFIG_ASSETS_DIR.resolve("common").resolve("sounds");
+    private static final String SOUND_SELECTION_FILE = "sound_selection.json";
+    private static final String CUSTOM_SOUND_LABELS_FILE = "custom_sound_labels.json";
+    private static final String CUSTOM_SOUND_PREFIX = "custom_";
     private static final Map<String, SoundData> SOUND_CACHE = new HashMap<>();
     private static final Map<String, Long> SOUND_LAST_PLAY_TIMES = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> BLOCKING_STATUS = new ConcurrentHashMap<>();
@@ -69,10 +77,101 @@ public class ExternalSoundManager {
     private static final Set<String> DEFAULT_SOUND_SET = new HashSet<>(Arrays.asList(DEFAULT_SOUNDS));
     private static final Map<String, Map<String, SoundBackup>> PENDING_SOUND_BACKUPS = new HashMap<>();
     private static final Map<String, byte[]> DEFAULT_SOUND_BYTES = new HashMap<>();
+    private static final Map<String, Map<String, String>> SOUND_SELECTIONS = new HashMap<>();
+    private static final Map<String, Map<String, String>> SOUND_LABELS = new HashMap<>();
+    private static final Map<String, Set<String>> PENDING_CUSTOM_SOUNDS = new HashMap<>();
+    private static final Set<String> PENDING_SOUND_RESETS = new HashSet<>();
+    private static Map<String, Map<String, String>> TEMP_SOUND_SELECTIONS = null;
+    private static Map<String, Map<String, String>> TEMP_SOUND_LABELS = null;
+    private static boolean isEditing = false;
+
+    public static final String SLOT_COMMON_SCORE = "common_score";
+    public static final String SLOT_COMMON_HIT = "common_hit";
+    public static final String SLOT_SCROLLING_DEFAULT = "scrolling_default";
+    public static final String SLOT_SCROLLING_HEADSHOT = "scrolling_headshot";
+    public static final String SLOT_SCROLLING_EXPLOSION = "scrolling_explosion";
+    public static final String SLOT_SCROLLING_CRIT = "scrolling_crit";
+    public static final String SLOT_SCROLLING_ASSIST = "scrolling_assist";
+    public static final String SLOT_SCROLLING_VEHICLE = "scrolling_vehicle";
+    public static final String SLOT_BF1_DEFAULT = "bf1_default";
+    public static final String SLOT_BF1_HEADSHOT = "bf1_headshot";
+    public static final String SLOT_CARD_DEFAULT = "card_default";
+    public static final String SLOT_CARD_HEADSHOT = "card_headshot";
+    public static final String SLOT_CARD_EXPLOSION = "card_explosion";
+    public static final String SLOT_CARD_CRIT = "card_crit";
+    public static final String SLOT_CARD_ARMOR_HEADSHOT = "card_armor_headshot";
+    public static final String SLOT_COMBO_1 = "combo_1";
+    public static final String SLOT_COMBO_2 = "combo_2";
+    public static final String SLOT_COMBO_3 = "combo_3";
+    public static final String SLOT_COMBO_4 = "combo_4";
+    public static final String SLOT_COMBO_5 = "combo_5";
+    public static final String SLOT_COMBO_6 = "combo_6";
+    private static final List<String> SOUND_SLOT_IDS = Arrays.asList(
+        SLOT_COMMON_SCORE,
+        SLOT_COMMON_HIT,
+        SLOT_SCROLLING_DEFAULT,
+        SLOT_SCROLLING_HEADSHOT,
+        SLOT_SCROLLING_EXPLOSION,
+        SLOT_SCROLLING_CRIT,
+        SLOT_SCROLLING_ASSIST,
+        SLOT_SCROLLING_VEHICLE,
+        SLOT_BF1_DEFAULT,
+        SLOT_BF1_HEADSHOT,
+        SLOT_CARD_DEFAULT,
+        SLOT_CARD_HEADSHOT,
+        SLOT_CARD_EXPLOSION,
+        SLOT_CARD_CRIT,
+        SLOT_CARD_ARMOR_HEADSHOT,
+        SLOT_COMBO_1,
+        SLOT_COMBO_2,
+        SLOT_COMBO_3,
+        SLOT_COMBO_4,
+        SLOT_COMBO_5,
+        SLOT_COMBO_6
+    );
 
     public static void init() {
         ensureAllPresetsSoundFiles(false);
+        loadSoundSelections();
+        loadSoundLabels();
         reload();
+    }
+
+    public static void startEditing() {
+        if (isEditing) {
+            return;
+        }
+        TEMP_SOUND_SELECTIONS = deepCopyStringMap(SOUND_SELECTIONS);
+        TEMP_SOUND_LABELS = deepCopyStringMap(SOUND_LABELS);
+        isEditing = true;
+    }
+
+    public static void saveChanges() {
+        if (isEditing) {
+            SOUND_SELECTIONS.clear();
+            SOUND_SELECTIONS.putAll(TEMP_SOUND_SELECTIONS);
+            SOUND_LABELS.clear();
+            SOUND_LABELS.putAll(TEMP_SOUND_LABELS);
+            TEMP_SOUND_SELECTIONS = null;
+            TEMP_SOUND_LABELS = null;
+            isEditing = false;
+        }
+        applyPendingSoundResets();
+        saveSoundSelections();
+        saveSoundLabels();
+        confirmPendingSoundReplacements();
+        clearPendingCustomSounds();
+    }
+
+    public static void discardChanges() {
+        if (isEditing) {
+            TEMP_SOUND_SELECTIONS = null;
+            TEMP_SOUND_LABELS = null;
+            isEditing = false;
+        }
+        PENDING_SOUND_RESETS.clear();
+        revertPendingSoundReplacements();
+        revertPendingCustomSounds();
     }
 
     public static void reload() {
@@ -145,6 +244,205 @@ public class ExternalSoundManager {
 
     public static java.util.List<String> getDefaultSoundNames() {
         return Arrays.asList(DEFAULT_SOUNDS);
+    }
+
+    public static List<String> getOfficialSoundFileNames() {
+        return Arrays.asList(DEFAULT_SOUNDS);
+    }
+
+    public static List<String> getCustomSoundBaseNames(String presetId) {
+        if (presetId == null) {
+            return Collections.emptyList();
+        }
+        if (PENDING_SOUND_RESETS.contains(presetId)) {
+            return Collections.emptyList();
+        }
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        if (!Files.exists(presetDir)) {
+            return Collections.emptyList();
+        }
+        List<String> result = new ArrayList<>();
+        try {
+            Files.list(presetDir).forEach(path -> {
+                String name = path.getFileName().toString();
+                if (name.startsWith(CUSTOM_SOUND_PREFIX) && (name.endsWith(".ogg") || name.endsWith(".wav"))) {
+                    result.add(resolveBaseName(name));
+                }
+            });
+        } catch (IOException ignored) {
+        }
+        Collections.sort(result);
+        return result;
+    }
+
+    public static Map<String, String> getCustomSoundLabels(String presetId) {
+        ensureSoundLabelsLoaded(presetId);
+        return getActiveSoundLabels().getOrDefault(presetId, new HashMap<>());
+    }
+
+    public static String getSoundDisplayName(String presetId, String baseName) {
+        if (baseName == null) {
+            return "";
+        }
+        if (baseName.startsWith(CUSTOM_SOUND_PREFIX)) {
+            Map<String, String> labels = getCustomSoundLabels(presetId);
+            return labels.getOrDefault(baseName, baseName);
+        }
+        for (String soundName : DEFAULT_SOUNDS) {
+            if (resolveBaseName(soundName).equals(baseName)) {
+                return soundName;
+            }
+        }
+        return baseName + ".ogg";
+    }
+
+    public static String getSelectedSoundBaseName(String presetId, String slotId) {
+        ensureSoundSelectionsLoaded(presetId);
+        String selected = getActiveSoundSelections().getOrDefault(presetId, new HashMap<>()).get(slotId);
+        if (selected == null || selected.isEmpty()) {
+            return getDefaultSoundBaseName(presetId, slotId);
+        }
+        return selected;
+    }
+
+    public static boolean isSoundSelectionModified(String presetId, String slotId) {
+        String selected = getSelectedSoundBaseName(presetId, slotId);
+        String def = getDefaultSoundBaseName(presetId, slotId);
+        return def != null && !def.equals(selected);
+    }
+
+    public static void setSoundSelection(String presetId, String slotId, String baseName) {
+        if (presetId == null || slotId == null || baseName == null) {
+            return;
+        }
+        ensureSoundSelectionsLoaded(presetId);
+        Map<String, String> selections = getActiveSoundSelections().computeIfAbsent(presetId, k -> new HashMap<>());
+        selections.put(slotId, baseName);
+        refreshSoundCache(presetId, baseName);
+        if (!isEditing) {
+            saveSoundSelections();
+        }
+    }
+
+    public static void resetSoundSelectionToDefault(String presetId, String slotId) {
+        String def = getDefaultSoundBaseName(presetId, slotId);
+        if (def != null) {
+            setSoundSelection(presetId, slotId, def);
+        }
+    }
+
+    public static void markPendingSoundReset(String presetId) {
+        if (presetId == null) {
+            return;
+        }
+        ensureSoundSelectionsLoaded(presetId);
+        ensureSoundLabelsLoaded(presetId);
+        PENDING_SOUND_RESETS.add(presetId);
+        for (String soundName : DEFAULT_SOUNDS) {
+            resetSoundWithBackup(presetId, soundName);
+        }
+        Map<String, Map<String, String>> selections = getActiveSoundSelections();
+        Map<String, String> defaults = new HashMap<>();
+        for (String slotId : SOUND_SLOT_IDS) {
+            String def = getDefaultSoundBaseName(presetId, slotId);
+            if (def != null) {
+                defaults.put(slotId, def);
+            }
+        }
+        selections.put(presetId, defaults);
+        getActiveSoundLabels().remove(presetId);
+    }
+
+    public static void playConfiguredSound(String presetId, String slotId) {
+        playConfiguredSound(presetId, slotId, false);
+    }
+
+    public static void playConfiguredSound(String presetId, String slotId, boolean blocking) {
+        String baseName = getSelectedSoundBaseName(presetId, slotId);
+        if (baseName == null || baseName.isEmpty()) {
+            return;
+        }
+        playSound(baseName, blocking);
+    }
+
+    public static String createCustomSoundFromFile(String presetId, Path sourcePath, String originalName) {
+        if (presetId == null || sourcePath == null) {
+            return null;
+        }
+        String lower = sourcePath.toString().toLowerCase();
+        String sourceExt = lower.endsWith(".ogg") ? ".ogg" : (lower.endsWith(".wav") ? ".wav" : null);
+        if (sourceExt == null) {
+            return null;
+        }
+        ensureSoundFilesForPreset(presetId, false);
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        int index = 1;
+        String baseName;
+        Path targetPath;
+        do {
+            baseName = CUSTOM_SOUND_PREFIX + index;
+            targetPath = presetDir.resolve(baseName + sourceExt);
+            index++;
+        } while (Files.exists(targetPath));
+        try {
+            if (!Files.exists(targetPath.getParent())) {
+                Files.createDirectories(targetPath.getParent());
+            }
+            Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            if (isEditing) {
+                markPendingCustomSound(presetId, targetPath.getFileName().toString());
+            }
+            updateCustomSoundLabel(presetId, baseName, originalName);
+            refreshSoundCache(presetId, baseName);
+            return baseName;
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.sound.replace_fail", presetId, sourcePath.toString(), e.getMessage());
+            return null;
+        }
+    }
+
+    public static void deleteCustomSound(String presetId, String baseName) {
+        if (presetId == null || baseName == null) {
+            return;
+        }
+        ensureSoundSelectionsLoaded(presetId);
+        String fileNameOgg = baseName + ".ogg";
+        String fileNameWav = baseName + ".wav";
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        Path oggPath = presetDir.resolve(fileNameOgg);
+        Path wavPath = presetDir.resolve(fileNameWav);
+        Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
+        Set<String> pending = PENDING_CUSTOM_SOUNDS.get(presetId);
+        try {
+            if (pending == null || (!pending.contains(fileNameOgg) && !pending.contains(fileNameWav))) {
+                backupFileIfNeeded(presetBackups, oggPath);
+                backupFileIfNeeded(presetBackups, wavPath);
+            }
+            Files.deleteIfExists(oggPath);
+            Files.deleteIfExists(wavPath);
+            removeCustomSoundLabel(presetId, baseName);
+            refreshSoundCache(presetId, baseName);
+            if (pending != null && (pending.contains(fileNameOgg) || pending.contains(fileNameWav))) {
+                pending.add(fileNameOgg);
+                pending.add(fileNameWav);
+            } else if (pending != null) {
+                pending.remove(fileNameOgg);
+                pending.remove(fileNameWav);
+            }
+            Map<String, String> selections = getActiveSoundSelections().get(presetId);
+            if (selections != null) {
+                for (Map.Entry<String, String> entry : new HashMap<>(selections).entrySet()) {
+                    if (baseName.equals(entry.getValue())) {
+                        String def = getDefaultSoundBaseName(presetId, entry.getKey());
+                        if (def != null) {
+                            selections.put(entry.getKey(), def);
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.sound.revert_fail", presetId, baseName, e.getMessage());
+        }
     }
 
     public static String getSoundExtensionForPreset(String presetId, String soundName) {
@@ -301,6 +599,18 @@ public class ExternalSoundManager {
     }
 
     public static boolean hasPendingSoundChanges() {
+        if (hasPendingSoundSelectionChanges()) {
+            return true;
+        }
+        if (hasPendingSoundLabelChanges()) {
+            return true;
+        }
+        if (!PENDING_CUSTOM_SOUNDS.isEmpty()) {
+            return true;
+        }
+        if (!PENDING_SOUND_RESETS.isEmpty()) {
+            return true;
+        }
         for (Map<String, SoundBackup> presetBackups : PENDING_SOUND_BACKUPS.values()) {
             if (presetBackups != null && !presetBackups.isEmpty()) {
                 return true;
@@ -701,6 +1011,265 @@ public class ExternalSoundManager {
             DEFAULT_SOUND_BYTES.put(soundName, bytes);
         }
         return bytes;
+    }
+
+    private static void ensureSoundSelectionsLoaded(String presetId) {
+        if (presetId == null) {
+            return;
+        }
+        if (getActiveSoundSelections().containsKey(presetId)) {
+            return;
+        }
+        Map<String, String> selections = new HashMap<>();
+        Path path = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds").resolve(SOUND_SELECTION_FILE);
+        if (Files.exists(path)) {
+            try {
+                String content = Files.readString(path);
+                JsonObject obj = JsonParser.parseString(content).getAsJsonObject();
+                for (String key : obj.keySet()) {
+                    selections.put(key, obj.get(key).getAsString());
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        getActiveSoundSelections().put(presetId, selections);
+    }
+
+    private static void ensureSoundLabelsLoaded(String presetId) {
+        if (presetId == null) {
+            return;
+        }
+        if (getActiveSoundLabels().containsKey(presetId)) {
+            return;
+        }
+        Map<String, String> labels = new HashMap<>();
+        Path path = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds").resolve(CUSTOM_SOUND_LABELS_FILE);
+        if (Files.exists(path)) {
+            try {
+                String content = Files.readString(path);
+                JsonObject obj = JsonParser.parseString(content).getAsJsonObject();
+                for (String key : obj.keySet()) {
+                    labels.put(key, obj.get(key).getAsString());
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        getActiveSoundLabels().put(presetId, labels);
+    }
+
+    private static Map<String, Map<String, String>> getActiveSoundSelections() {
+        return isEditing && TEMP_SOUND_SELECTIONS != null ? TEMP_SOUND_SELECTIONS : SOUND_SELECTIONS;
+    }
+
+    private static Map<String, Map<String, String>> getActiveSoundLabels() {
+        return isEditing && TEMP_SOUND_LABELS != null ? TEMP_SOUND_LABELS : SOUND_LABELS;
+    }
+
+    private static void saveSoundSelections() {
+        for (Map.Entry<String, Map<String, String>> entry : SOUND_SELECTIONS.entrySet()) {
+            String presetId = entry.getKey();
+            Map<String, String> selections = entry.getValue();
+            Path path = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds").resolve(SOUND_SELECTION_FILE);
+            JsonObject obj = new JsonObject();
+            for (Map.Entry<String, String> sel : selections.entrySet()) {
+                obj.addProperty(sel.getKey(), sel.getValue());
+            }
+            try {
+                Files.createDirectories(path.getParent());
+                Files.writeString(path, obj.toString());
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    private static void saveSoundLabels() {
+        for (Map.Entry<String, Map<String, String>> entry : SOUND_LABELS.entrySet()) {
+            String presetId = entry.getKey();
+            Map<String, String> labels = entry.getValue();
+            Path path = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds").resolve(CUSTOM_SOUND_LABELS_FILE);
+            JsonObject obj = new JsonObject();
+            for (Map.Entry<String, String> label : labels.entrySet()) {
+                obj.addProperty(label.getKey(), label.getValue());
+            }
+            try {
+                Files.createDirectories(path.getParent());
+                Files.writeString(path, obj.toString());
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    private static void applyPendingSoundResets() {
+        if (PENDING_SOUND_RESETS.isEmpty()) {
+            return;
+        }
+        Set<String> pending = new HashSet<>(PENDING_SOUND_RESETS);
+        PENDING_SOUND_RESETS.clear();
+        for (String presetId : pending) {
+            Map<String, String> defaults = new HashMap<>();
+            for (String slotId : SOUND_SLOT_IDS) {
+                String def = getDefaultSoundBaseName(presetId, slotId);
+                if (def != null) {
+                    defaults.put(slotId, def);
+                }
+            }
+            SOUND_SELECTIONS.put(presetId, defaults);
+            SOUND_LABELS.remove(presetId);
+            try {
+                Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+                if (Files.exists(presetDir)) {
+                    try (java.util.stream.Stream<Path> paths = Files.list(presetDir)) {
+                        paths.forEach(path -> {
+                            String name = path.getFileName().toString();
+                            if (name.startsWith(CUSTOM_SOUND_PREFIX) && (name.endsWith(".ogg") || name.endsWith(".wav"))) {
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (IOException ignored) {
+                                }
+                            }
+                        });
+                    }
+                }
+                Files.deleteIfExists(presetDir.resolve(CUSTOM_SOUND_LABELS_FILE));
+                ensureSoundFilesForPreset(presetId, true);
+            } catch (IOException ignored) {
+            }
+            clearPendingSoundReplacementsForPreset(presetId);
+            PENDING_CUSTOM_SOUNDS.remove(presetId);
+            if (presetId.equals(ConfigManager.getCurrentPresetId())) {
+                reloadAsync();
+            }
+        }
+    }
+
+    private static void loadSoundSelections() {
+        SOUND_SELECTIONS.clear();
+    }
+
+    private static void loadSoundLabels() {
+        SOUND_LABELS.clear();
+    }
+
+    private static Map<String, Map<String, String>> deepCopyStringMap(Map<String, Map<String, String>> source) {
+        Map<String, Map<String, String>> result = new HashMap<>();
+        for (Map.Entry<String, Map<String, String>> entry : source.entrySet()) {
+            result.put(entry.getKey(), new HashMap<>(entry.getValue()));
+        }
+        return result;
+    }
+
+    private static boolean hasPendingSoundSelectionChanges() {
+        if (!isEditing || TEMP_SOUND_SELECTIONS == null) {
+            return false;
+        }
+        if (TEMP_SOUND_SELECTIONS.size() != SOUND_SELECTIONS.size()) {
+            return true;
+        }
+        for (Map.Entry<String, Map<String, String>> entry : SOUND_SELECTIONS.entrySet()) {
+            Map<String, String> temp = TEMP_SOUND_SELECTIONS.get(entry.getKey());
+            if (temp == null || !temp.equals(entry.getValue())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasPendingSoundLabelChanges() {
+        if (!isEditing || TEMP_SOUND_LABELS == null) {
+            return false;
+        }
+        if (TEMP_SOUND_LABELS.size() != SOUND_LABELS.size()) {
+            return true;
+        }
+        for (Map.Entry<String, Map<String, String>> entry : SOUND_LABELS.entrySet()) {
+            Map<String, String> temp = TEMP_SOUND_LABELS.get(entry.getKey());
+            if (temp == null || !temp.equals(entry.getValue())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void updateCustomSoundLabel(String presetId, String baseName, String originalName) {
+        if (presetId == null || baseName == null) {
+            return;
+        }
+        ensureSoundLabelsLoaded(presetId);
+        String label = originalName == null ? baseName : originalName;
+        getActiveSoundLabels().computeIfAbsent(presetId, k -> new HashMap<>()).put(baseName, label);
+        if (!isEditing) {
+            saveSoundLabels();
+        }
+    }
+
+    private static void removeCustomSoundLabel(String presetId, String baseName) {
+        if (presetId == null || baseName == null) {
+            return;
+        }
+        ensureSoundLabelsLoaded(presetId);
+        Map<String, String> labels = getActiveSoundLabels().get(presetId);
+        if (labels != null) {
+            labels.remove(baseName);
+            if (!isEditing) {
+                saveSoundLabels();
+            }
+        }
+    }
+
+    private static void markPendingCustomSound(String presetId, String fileName) {
+        if (presetId == null || fileName == null) {
+            return;
+        }
+        PENDING_CUSTOM_SOUNDS.computeIfAbsent(presetId, k -> new HashSet<>()).add(fileName);
+    }
+
+    private static void clearPendingCustomSounds() {
+        PENDING_CUSTOM_SOUNDS.clear();
+    }
+
+    private static void revertPendingCustomSounds() {
+        for (Map.Entry<String, Set<String>> entry : PENDING_CUSTOM_SOUNDS.entrySet()) {
+            String presetId = entry.getKey();
+            for (String fileName : entry.getValue()) {
+                Path path = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds").resolve(fileName);
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
+            }
+        }
+        PENDING_CUSTOM_SOUNDS.clear();
+    }
+
+    public static String getDefaultSoundBaseName(String presetId, String slotId) {
+        if (slotId == null) {
+            return null;
+        }
+        boolean isBf5 = "00007".equals(presetId);
+        return switch (slotId) {
+            case SLOT_COMMON_SCORE -> "addscore_df";
+            case SLOT_COMMON_HIT -> "hitsound_df";
+            case SLOT_SCROLLING_DEFAULT -> isBf5 ? "killsound_bf5" : "killsound_df";
+            case SLOT_SCROLLING_HEADSHOT -> isBf5 ? "headshotkillsound_bf5" : "headshotkillsound_df";
+            case SLOT_SCROLLING_EXPLOSION -> isBf5 ? "headshotkillsound_bf5" : "explosionkillsound_df";
+            case SLOT_SCROLLING_CRIT -> isBf5 ? "killsound_bf5" : "critkillsound_df";
+            case SLOT_SCROLLING_ASSIST -> "defaulticonsound_df";
+            case SLOT_SCROLLING_VEHICLE -> isBf5 ? "vehiclekillsound_bf5" : "explosionkillsound_df";
+            case SLOT_BF1_DEFAULT -> "killsound_bf1";
+            case SLOT_BF1_HEADSHOT -> "headshotkillsound_bf1";
+            case SLOT_CARD_DEFAULT -> "cardkillsound_default_cs";
+            case SLOT_CARD_HEADSHOT -> "cardkillsound_headshot_cs";
+            case SLOT_CARD_EXPLOSION -> "cardkillsound_explosion_cs";
+            case SLOT_CARD_CRIT -> "cardkillsound_crit_cs";
+            case SLOT_CARD_ARMOR_HEADSHOT -> "cardkillsound_armorheadshot_cs";
+            case SLOT_COMBO_1 -> "combokillsound_1_cf";
+            case SLOT_COMBO_2 -> "combokillsound_2_cf";
+            case SLOT_COMBO_3 -> "combokillsound_3_cf";
+            case SLOT_COMBO_4 -> "combokillsound_4_cf";
+            case SLOT_COMBO_5 -> "combokillsound_5_cf";
+            case SLOT_COMBO_6 -> "combokillsound_6_cf";
+            default -> null;
+        };
     }
 
     private static void refreshSoundCache(String presetId, String baseName) {

@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import net.minecraftforge.fml.loading.FMLPaths;
+import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 import java.io.File;
@@ -22,6 +23,12 @@ public class ClientConfigManager {
     private static final int DEFAULT_SOUND_VOLUME = 100;
     private static final boolean DEFAULT_ENABLE_ACE_LAG = false;
     private static final int DEFAULT_ACE_LAG_INTENSITY = 5;
+    private static final boolean DEFAULT_DISABLE_TACZ_KILL_SOUND = false;
+    private static final boolean DEFAULT_SHOW_CONFIG_INTRO = true;
+    private static final boolean DEFAULT_SHOW_PRESET_INTRO = true;
+    private static final boolean DEFAULT_SHOW_ELEMENT_INTRO = true;
+    private static final boolean DEFAULT_SHOW_SOUND_INTRO = true;
+    private static final boolean DEFAULT_SHOW_SCOREBOARD_INTRO = true;
     private static final String DEFAULT_LAST_LANGUAGE = "";
 
     private static String currentPresetId = DEFAULT_CURRENT_PRESET;
@@ -30,7 +37,15 @@ public class ClientConfigManager {
     private static int soundVolume = DEFAULT_SOUND_VOLUME;
     private static boolean enableAceLag = DEFAULT_ENABLE_ACE_LAG;
     private static int aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+    private static boolean disableTaczKillSound = DEFAULT_DISABLE_TACZ_KILL_SOUND;
+    private static boolean showConfigIntro = DEFAULT_SHOW_CONFIG_INTRO;
+    private static boolean showPresetIntro = DEFAULT_SHOW_PRESET_INTRO;
+    private static boolean showElementIntro = DEFAULT_SHOW_ELEMENT_INTRO;
+    private static boolean showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
+    private static boolean showSoundSelectIntro = true;
+    private static boolean showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
     private static String lastLanguageCode = DEFAULT_LAST_LANGUAGE;
+    private static String lastModVersion = "";
 
     private static String tempCurrentPresetId = null;
     private static Boolean tempEnableSound = null;
@@ -38,6 +53,7 @@ public class ClientConfigManager {
     private static Integer tempSoundVolume = null;
     private static Boolean tempEnableAceLag = null;
     private static Integer tempAceLagIntensity = null;
+    private static Boolean tempDisableTaczKillSound = null;
     private static boolean isEditing = false;
 
     public static void startEditing() {
@@ -47,6 +63,7 @@ public class ClientConfigManager {
         tempSoundVolume = soundVolume;
         tempEnableAceLag = enableAceLag;
         tempAceLagIntensity = aceLagIntensity;
+        tempDisableTaczKillSound = disableTaczKillSound;
         isEditing = true;
     }
 
@@ -58,6 +75,7 @@ public class ClientConfigManager {
             soundVolume = tempSoundVolume == null ? soundVolume : clampSoundVolume(tempSoundVolume);
             enableAceLag = tempEnableAceLag != null ? tempEnableAceLag : enableAceLag;
             aceLagIntensity = tempAceLagIntensity == null ? aceLagIntensity : clampAceLagIntensity(tempAceLagIntensity);
+            disableTaczKillSound = tempDisableTaczKillSound != null ? tempDisableTaczKillSound : disableTaczKillSound;
             isEditing = false;
             saveGlobalConfig();
             
@@ -67,6 +85,7 @@ public class ClientConfigManager {
             tempSoundVolume = null;
             tempEnableAceLag = null;
             tempAceLagIntensity = null;
+            tempDisableTaczKillSound = null;
         }
     }
 
@@ -79,6 +98,7 @@ public class ClientConfigManager {
             tempSoundVolume = null;
             tempEnableAceLag = null;
             tempAceLagIntensity = null;
+            tempDisableTaczKillSound = null;
         }
     }
 
@@ -90,6 +110,7 @@ public class ClientConfigManager {
         if (tempSoundVolume != null && tempSoundVolume != soundVolume) return true;
         if (tempEnableAceLag != null && !tempEnableAceLag.equals(enableAceLag)) return true;
         if (tempAceLagIntensity != null && tempAceLagIntensity != aceLagIntensity) return true;
+        if (tempDisableTaczKillSound != null && !tempDisableTaczKillSound.equals(disableTaczKillSound)) return true;
         return false;
     }
 
@@ -121,7 +142,15 @@ public class ClientConfigManager {
             soundVolume = json.has("sound_volume") ? clampSoundVolume(json.get("sound_volume").getAsInt()) : DEFAULT_SOUND_VOLUME;
             enableAceLag = json.has("enable_ace_lag") ? json.get("enable_ace_lag").getAsBoolean() : DEFAULT_ENABLE_ACE_LAG;
             aceLagIntensity = json.has("ace_lag_intensity") ? clampAceLagIntensity(json.get("ace_lag_intensity").getAsInt()) : DEFAULT_ACE_LAG_INTENSITY;
+            disableTaczKillSound = json.has("disable_tacz_kill_sound") ? json.get("disable_tacz_kill_sound").getAsBoolean() : DEFAULT_DISABLE_TACZ_KILL_SOUND;
+            showConfigIntro = json.has("show_config_intro") ? json.get("show_config_intro").getAsBoolean() : DEFAULT_SHOW_CONFIG_INTRO;
+            showPresetIntro = json.has("show_preset_intro") ? json.get("show_preset_intro").getAsBoolean() : DEFAULT_SHOW_PRESET_INTRO;
+            showElementIntro = json.has("show_element_intro") ? json.get("show_element_intro").getAsBoolean() : DEFAULT_SHOW_ELEMENT_INTRO;
+            showSoundIntro = json.has("show_sound_intro") ? json.get("show_sound_intro").getAsBoolean() : DEFAULT_SHOW_SOUND_INTRO;
+            showSoundSelectIntro = json.has("show_sound_select_intro") ? json.get("show_sound_select_intro").getAsBoolean() : true;
+            showScoreboardIntro = json.has("show_scoreboard_intro") ? json.get("show_scoreboard_intro").getAsBoolean() : DEFAULT_SHOW_SCOREBOARD_INTRO;
             lastLanguageCode = json.has("last_language") ? json.get("last_language").getAsString() : DEFAULT_LAST_LANGUAGE;
+            lastModVersion = json.has("last_mod_version") ? json.get("last_mod_version").getAsString() : "";
         } catch (Exception e) {
             ClientMessageLogger.error("gd656killicon.client.config.load_fail", e.getMessage());
             e.printStackTrace();
@@ -131,7 +160,15 @@ public class ClientConfigManager {
             soundVolume = DEFAULT_SOUND_VOLUME;
             enableAceLag = DEFAULT_ENABLE_ACE_LAG;
             aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+            disableTaczKillSound = DEFAULT_DISABLE_TACZ_KILL_SOUND;
+            showConfigIntro = DEFAULT_SHOW_CONFIG_INTRO;
+            showPresetIntro = DEFAULT_SHOW_PRESET_INTRO;
+            showElementIntro = DEFAULT_SHOW_ELEMENT_INTRO;
+            showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
+            showSoundSelectIntro = true;
+            showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
             lastLanguageCode = DEFAULT_LAST_LANGUAGE;
+            lastModVersion = "";
         }
     }
 
@@ -143,7 +180,15 @@ public class ClientConfigManager {
         json.addProperty("sound_volume", DEFAULT_SOUND_VOLUME);
         json.addProperty("enable_ace_lag", DEFAULT_ENABLE_ACE_LAG);
         json.addProperty("ace_lag_intensity", DEFAULT_ACE_LAG_INTENSITY);
+        json.addProperty("disable_tacz_kill_sound", DEFAULT_DISABLE_TACZ_KILL_SOUND);
+        json.addProperty("show_config_intro", DEFAULT_SHOW_CONFIG_INTRO);
+        json.addProperty("show_preset_intro", DEFAULT_SHOW_PRESET_INTRO);
+        json.addProperty("show_element_intro", DEFAULT_SHOW_ELEMENT_INTRO);
+        json.addProperty("show_sound_intro", DEFAULT_SHOW_SOUND_INTRO);
+        json.addProperty("show_sound_select_intro", true);
+        json.addProperty("show_scoreboard_intro", DEFAULT_SHOW_SCOREBOARD_INTRO);
         json.addProperty("last_language", DEFAULT_LAST_LANGUAGE);
+        json.addProperty("last_mod_version", GuiConstants.MOD_VERSION);
         
         currentPresetId = DEFAULT_CURRENT_PRESET;
         enableSound = DEFAULT_ENABLE_SOUND;
@@ -151,7 +196,15 @@ public class ClientConfigManager {
         soundVolume = DEFAULT_SOUND_VOLUME;
         enableAceLag = DEFAULT_ENABLE_ACE_LAG;
         aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+        disableTaczKillSound = DEFAULT_DISABLE_TACZ_KILL_SOUND;
+        showConfigIntro = DEFAULT_SHOW_CONFIG_INTRO;
+        showPresetIntro = DEFAULT_SHOW_PRESET_INTRO;
+        showElementIntro = DEFAULT_SHOW_ELEMENT_INTRO;
+        showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
+        showSoundSelectIntro = true;
+        showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
         lastLanguageCode = DEFAULT_LAST_LANGUAGE;
+        lastModVersion = GuiConstants.MOD_VERSION;
 
         try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
             GSON.toJson(json, writer);
@@ -169,7 +222,15 @@ public class ClientConfigManager {
         root.addProperty("sound_volume", soundVolume);
         root.addProperty("enable_ace_lag", enableAceLag);
         root.addProperty("ace_lag_intensity", aceLagIntensity);
+        root.addProperty("disable_tacz_kill_sound", disableTaczKillSound);
+        root.addProperty("show_config_intro", showConfigIntro);
+        root.addProperty("show_preset_intro", showPresetIntro);
+        root.addProperty("show_element_intro", showElementIntro);
+        root.addProperty("show_sound_intro", showSoundIntro);
+        root.addProperty("show_sound_select_intro", showSoundSelectIntro);
+        root.addProperty("show_scoreboard_intro", showScoreboardIntro);
         root.addProperty("last_language", lastLanguageCode);
+        root.addProperty("last_mod_version", lastModVersion);
 
         try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
             GSON.toJson(root, writer);
@@ -277,11 +338,122 @@ public class ClientConfigManager {
         }
     }
 
+    public static boolean isDisableTaczKillSound() {
+        return isEditing && tempDisableTaczKillSound != null ? tempDisableTaczKillSound : disableTaczKillSound;
+    }
+
+    public static void setDisableTaczKillSound(boolean disable) {
+        if (isEditing) {
+            tempDisableTaczKillSound = disable;
+        } else {
+            disableTaczKillSound = disable;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowConfigIntro() {
+        return showConfigIntro;
+    }
+
+    public static void markConfigIntroShown() {
+        if (showConfigIntro) {
+            showConfigIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowPresetIntro() {
+        return showPresetIntro;
+    }
+
+    public static void markPresetIntroShown() {
+        if (showPresetIntro) {
+            showPresetIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowElementIntro() {
+        return showElementIntro;
+    }
+
+    public static void markElementIntroShown() {
+        if (showElementIntro) {
+            showElementIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowSoundIntro() {
+        return showSoundIntro;
+    }
+
+    public static void markSoundIntroShown() {
+        if (showSoundIntro) {
+            showSoundIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowSoundSelectIntro() {
+        return showSoundSelectIntro;
+    }
+
+    public static void markSoundSelectIntroShown() {
+        if (showSoundSelectIntro) {
+            showSoundSelectIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowScoreboardIntro() {
+        return showScoreboardIntro;
+    }
+
+    public static void markScoreboardIntroShown() {
+        if (showScoreboardIntro) {
+            showScoreboardIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static void resetIntroPrompts() {
+        showConfigIntro = true;
+        showPresetIntro = true;
+        showElementIntro = true;
+        showSoundIntro = true;
+        showSoundSelectIntro = true;
+        showScoreboardIntro = true;
+        saveGlobalConfig();
+    }
+
+    public static boolean checkModVersionChangedAndUpdate(String currentVersion) {
+        if (currentVersion == null || currentVersion.isEmpty()) {
+            return false;
+        }
+        if (lastModVersion == null || lastModVersion.isEmpty()) {
+            lastModVersion = currentVersion;
+            saveGlobalConfig();
+            return true;
+        }
+        if (!currentVersion.equals(lastModVersion)) {
+            lastModVersion = currentVersion;
+            saveGlobalConfig();
+            return true;
+        }
+        return false;
+    }
+
+    public static void setRecordedModVersion(String version) {
+        lastModVersion = version == null ? "" : version;
+        saveGlobalConfig();
+    }
+
     private static int clampSoundVolume(int volume) {
         return Math.max(0, Math.min(200, volume));
     }
 
     private static int clampAceLagIntensity(int intensity) {
-        return Math.max(1, Math.min(10, intensity));
+        return Math.max(1, Math.min(100, intensity));
     }
 }

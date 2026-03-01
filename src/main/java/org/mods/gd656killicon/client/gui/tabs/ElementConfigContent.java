@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.ConfirmDialog;
@@ -51,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 
 public class ElementConfigContent extends ConfigTabContent {
     private final String presetId;
@@ -135,6 +137,7 @@ public class ElementConfigContent extends ConfigTabContent {
     
     private GDButton saveButton;
     private ConfirmDialog textureResetDialog;
+    private ConfirmDialog textureBindingDialog;
     
     private boolean isConfirmingReset = false;
     private long resetConfirmTime = 0;
@@ -146,6 +149,7 @@ public class ElementConfigContent extends ConfigTabContent {
         this.builder = builder;
         this.onClose = onClose;
         this.textureResetDialog = new ConfirmDialog(minecraft, null, null);
+        this.textureBindingDialog = new ConfirmDialog(minecraft, null, null);
         
         JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
         this.initialConfig = current != null ? current.deepCopy() : new JsonObject();
@@ -181,7 +185,10 @@ public class ElementConfigContent extends ConfigTabContent {
         if (selectedSecondaryTab == null) return;         
         boolean isGeneral = "general".equals(selectedSecondaryTab.elementId);
         String texturePrefix = "anim_" + selectedSecondaryTab.elementId + "_";
-        String textureStyleKey = ElementTextureDefinition.getTextureStyleKey(selectedSecondaryTab.elementId);
+        String textureStyleKey = ElementTextureDefinition.getOfficialTextureKey(selectedSecondaryTab.elementId);
+        String customTextureKey = ElementTextureDefinition.getCustomTextureKey(selectedSecondaryTab.elementId);
+        String textureModeKey = ElementTextureDefinition.getTextureModeKey(selectedSecondaryTab.elementId);
+        String vanillaTextureKey = ElementTextureDefinition.getVanillaTextureKey(selectedSecondaryTab.elementId);
         
         for (GDRowRenderer row : allConfigRows) {
             String key = getConfigKey(row);
@@ -189,13 +196,16 @@ public class ElementConfigContent extends ConfigTabContent {
             
             boolean isAnimKey = key.startsWith("anim_");
             boolean isTextureStyleKey = key.startsWith("texture_style_");
+            boolean isCustomTextureKey = key.startsWith("custom_texture_");
+            boolean isTextureModeKey = key.startsWith("texture_mode_");
+            boolean isVanillaKey = key.startsWith("vanilla_texture_");
             
             if (isGeneral) {
-                if (!isAnimKey && !isTextureStyleKey) {
+                if (!isAnimKey && !isTextureStyleKey && !isCustomTextureKey && !isTextureModeKey && !isVanillaKey) {
                     this.configRows.add(row);
                 }
             } else {
-                if (key.startsWith(texturePrefix) || key.equals(textureStyleKey)) {
+                if (key.startsWith(texturePrefix) || key.equals(textureStyleKey) || key.equals(customTextureKey) || key.equals(textureModeKey) || key.equals(vanillaTextureKey)) {
                     this.configRows.add(row);
                 }
             }
@@ -268,6 +278,39 @@ public class ElementConfigContent extends ConfigTabContent {
                          return config == null || !config.has("enable_normal_kill") || config.get("enable_normal_kill").getAsBoolean();
                      });
                  }
+            }
+
+            if (key.startsWith("texture_style_")) {
+                String textureKey = key.substring("texture_style_".length());
+                String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
+                Supplier<Boolean> original = row.getActiveCondition();
+                row.setActiveCondition(() -> {
+                    JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                    String mode = config != null && config.has(modeKey) ? config.get(modeKey).getAsString() : "official";
+                    return "official".equalsIgnoreCase(mode) && original.get();
+                });
+            }
+
+            if (key.startsWith("custom_texture_")) {
+                String textureKey = key.substring("custom_texture_".length());
+                String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
+                Supplier<Boolean> original = row.getActiveCondition();
+                row.setActiveCondition(() -> {
+                    JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                    String mode = config != null && config.has(modeKey) ? config.get(modeKey).getAsString() : "official";
+                    return "custom".equalsIgnoreCase(mode) && original.get();
+                });
+            }
+
+            if (key.startsWith("vanilla_texture_")) {
+                String textureKey = key.substring("vanilla_texture_".length());
+                String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
+                Supplier<Boolean> original = row.getActiveCondition();
+                row.setActiveCondition(() -> {
+                    JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                    String mode = config != null && config.has(modeKey) ? config.get(modeKey).getAsString() : "official";
+                    return "vanilla".equalsIgnoreCase(mode) && original.get();
+                });
              }
          }
          
@@ -372,10 +415,26 @@ public class ElementConfigContent extends ConfigTabContent {
     }
 
     @Override
+    public void onTabOpen() {
+        super.onTabOpen();
+        if (ClientConfigManager.shouldShowElementIntro()) {
+            ClientConfigManager.markElementIntroShown();
+            if (elementId != null && !elementId.startsWith("subtitle/")) {
+                promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.element_intro"), PromptDialog.PromptType.INFO, () -> {
+                    promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.element_texture_intro"), PromptDialog.PromptType.INFO, null);
+                });
+            } else {
+                promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.element_intro"), PromptDialog.PromptType.INFO, null);
+            }
+        }
+    }
+
+    @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         boolean resetDialogVisible = textureResetDialog != null && textureResetDialog.isVisible();
+        boolean bindingDialogVisible = textureBindingDialog != null && textureBindingDialog.isVisible();
         boolean promptVisible = promptDialog.isVisible();
-        boolean dialogVisible = resetDialogVisible || promptVisible || textInputDialog.isVisible() || colorPickerDialog.isVisible();
+        boolean dialogVisible = resetDialogVisible || bindingDialogVisible || promptVisible || textInputDialog.isVisible() || colorPickerDialog.isVisible() || choiceListDialog.isVisible();
         int effectiveMouseX = dialogVisible ? -1 : mouseX;
         int effectiveMouseY = dialogVisible ? -1 : mouseY;
         if (gridWidget == null) {
@@ -425,6 +484,9 @@ public class ElementConfigContent extends ConfigTabContent {
         }
         if (resetDialogVisible) {
             textureResetDialog.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
+        if (bindingDialogVisible) {
+            textureBindingDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         }
     }
 
@@ -925,6 +987,9 @@ public class ElementConfigContent extends ConfigTabContent {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
             return textureResetDialog.keyPressed(keyCode, scanCode, modifiers);
         }
+        if (textureBindingDialog != null && textureBindingDialog.isVisible()) {
+            return textureBindingDialog.keyPressed(keyCode, scanCode, modifiers);
+        }
         if (super.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
@@ -1008,6 +1073,9 @@ public class ElementConfigContent extends ConfigTabContent {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
             return textureResetDialog.mouseClicked(mouseX, mouseY, button);
         }
+        if (textureBindingDialog != null && textureBindingDialog.isVisible()) {
+            return textureBindingDialog.mouseClicked(mouseX, mouseY, button);
+        }
         if (promptDialog.isVisible()) {
             return promptDialog.mouseClicked(mouseX, mouseY, button);
         }
@@ -1016,6 +1084,9 @@ public class ElementConfigContent extends ConfigTabContent {
         }
         if (getColorPickerDialog().isVisible()) {
             return getColorPickerDialog().mouseClicked(mouseX, mouseY, button);
+        }
+        if (getChoiceListDialog().isVisible()) {
+            return getChoiceListDialog().mouseClicked(mouseX, mouseY, button);
         }
 
         if (button == 1 && "subtitle/score".equals(elementId) && gridWidget != null && gridWidget.isMouseOver(mouseX, mouseY)) {
@@ -1063,6 +1134,9 @@ public class ElementConfigContent extends ConfigTabContent {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
             return textureResetDialog.mouseScrolled(mouseX, mouseY, delta);
         }
+        if (textureBindingDialog != null && textureBindingDialog.isVisible()) {
+            return textureBindingDialog.mouseScrolled(mouseX, mouseY, delta);
+        }
         if (promptDialog.isVisible()) {
             return promptDialog.mouseScrolled(mouseX, mouseY, delta);
         }
@@ -1076,6 +1150,9 @@ public class ElementConfigContent extends ConfigTabContent {
     public boolean charTyped(char codePoint, int modifiers) {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
             return textureResetDialog.charTyped(codePoint, modifiers);
+        }
+        if (textureBindingDialog != null && textureBindingDialog.isVisible()) {
+            return textureBindingDialog.charTyped(codePoint, modifiers);
         }
         if (promptDialog.isVisible()) {
             return promptDialog.charTyped(codePoint, modifiers);
@@ -1115,22 +1192,32 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         
-        String targetFileName = ElementTextureDefinition.getSelectedTextureFileName(presetId, elementId, selectedSecondaryTab.elementId, ElementConfigManager.getElementConfig(presetId, elementId));
-        if (targetFileName == null) {
-            return;
-        }
+        String textureKey = selectedSecondaryTab.elementId;
+        String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
+        String customKey = ElementTextureDefinition.getCustomTextureKey(textureKey);
 
         if (gifPath != null) {
-            handleGifDrop(gifPath, targetFileName);
+            handleGifDrop(gifPath, textureKey, modeKey, customKey);
         } else if (pngPath != null) {
-            boolean replaced = ExternalTextureManager.replaceTextureWithBackup(presetId, targetFileName, pngPath);
-            if (replaced) {
-                promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_success"), PromptDialog.PromptType.SUCCESS, null);
+            String customFileName = ExternalTextureManager.createCustomTextureFromFile(presetId, pngPath, pngPath.getFileName().toString(), false, null, null, null);
+            if (customFileName != null) {
+                JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+                if (current == null) current = new JsonObject();
+                current.addProperty(modeKey, "custom");
+                current.addProperty(customKey, customFileName);
+                ElementConfigManager.setElementConfig(presetId, elementId, current);
+                rebuildUI();
+                Runnable showSuccess = () -> promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_success"), PromptDialog.PromptType.SUCCESS, null);
+                showTextureBindingPrompt(textureKey, customFileName, false, () -> {
+                    resetTextureAnimationConfigs(textureKey);
+                }, showSuccess, showSuccess);
+            } else {
+                promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_fail"), PromptDialog.PromptType.ERROR, null);
             }
         }
     }
 
-    private void handleGifDrop(Path gifPath, String targetFileName) {
+    private void handleGifDrop(Path gifPath, String textureKey, String modeKey, String customKey) {
         try {
             File tempFile = File.createTempFile("gd656_gif_convert_", ".png");
             tempFile.deleteOnExit();
@@ -1138,16 +1225,20 @@ public class ElementConfigContent extends ConfigTabContent {
             GifToSpriteSheetConverter.ConversionResult result = GifToSpriteSheetConverter.convertGifToSpriteSheet(gifPath, tempFile.toPath());
             
             if (result.success && result.outputPng != null) {
-                boolean replaced = ExternalTextureManager.replaceTextureWithBackup(presetId, targetFileName, result.outputPng.toPath());
-                
-                if (replaced) {
-                    applyGifAnimationToSharedTextures(targetFileName, result);
-                    
+                String customFileName = ExternalTextureManager.createCustomTextureFromFile(presetId, result.outputPng.toPath(), gifPath.getFileName().toString(), true, result.frameCount, result.intervalMs, "vertical");
+                if (customFileName != null) {
+                    JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+                    if (current == null) current = new JsonObject();
+                    current.addProperty(modeKey, "custom");
+                    current.addProperty(customKey, customFileName);
+                    ElementConfigManager.setElementConfig(presetId, elementId, current);
                     rebuildUI();
-                    
-                    promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_import_success"), PromptDialog.PromptType.SUCCESS, null);
+                    Runnable showSuccess = () -> promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_import_success"), PromptDialog.PromptType.SUCCESS, null);
+                    showTextureBindingPrompt(textureKey, customFileName, true, () -> {
+                        applyGifAnimationToSharedTextures(customFileName, result);
+                    }, showSuccess, showSuccess);
                 } else {
-                     promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_fail"), PromptDialog.PromptType.ERROR, null);
+                    promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_fail"), PromptDialog.PromptType.ERROR, null);
                 }
             } else {
                 promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_convert_fail"), PromptDialog.PromptType.ERROR, null);
@@ -1175,6 +1266,113 @@ public class ElementConfigContent extends ConfigTabContent {
         ElementConfigManager.setElementConfig(presetId, elementId, current);
     }
 
+    public void handleTextureBindingChanged(String textureKey, String fileName, boolean gifDerived) {
+        if (textureKey == null || fileName == null) {
+            return;
+        }
+        showTextureBindingPrompt(textureKey, fileName, gifDerived, () -> {
+            if (gifDerived) {
+                applyGifAnimationMetaToSharedTextures(fileName);
+            } else {
+                resetTextureAnimationConfigs(textureKey);
+            }
+        }, null, null);
+    }
+
+    public void rebuildUIFromConfig() {
+        rebuildUI();
+    }
+
+    private void showTextureBindingPrompt(String textureKey, String fileName, boolean gifDerived, Runnable onConfirm, Runnable onCancel, Runnable onComplete) {
+        if (textureBindingDialog == null) {
+            return;
+        }
+        if (fileName == null || fileName.isEmpty()) {
+            return;
+        }
+        getChoiceListDialog().hide();
+        String message = gifDerived
+            ? I18n.get("gd656killicon.client.gui.prompt.texture_binding_gif")
+            : I18n.get("gd656killicon.client.gui.prompt.texture_binding_png");
+        textureBindingDialog.show(message, ConfirmDialog.PromptType.INFO, () -> {
+            runAsyncTask(onConfirm, () -> {
+                rebuildUI();
+                if (onComplete != null) {
+                    onComplete.run();
+                }
+            });
+        }, onCancel);
+    }
+
+    private void resetTextureAnimationConfigs(String textureKey) {
+        if (textureKey == null) {
+            return;
+        }
+        JsonObject defaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+        if (defaults == null) {
+            return;
+        }
+        JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+        JsonObject target = current != null ? current : defaults.deepCopy();
+        String prefix = "anim_" + textureKey + "_";
+        String[] keys = new String[] {
+            prefix + "enable_texture_animation",
+            prefix + "texture_animation_total_frames",
+            prefix + "texture_animation_interval_ms",
+            prefix + "texture_animation_orientation",
+            prefix + "texture_animation_loop",
+            prefix + "texture_animation_play_style",
+            prefix + "texture_frame_width_ratio",
+            prefix + "texture_frame_height_ratio"
+        };
+        for (String key : keys) {
+            if (defaults.has(key)) {
+                target.add(key, defaults.get(key));
+            }
+        }
+        ElementConfigManager.setElementConfig(presetId, elementId, target);
+    }
+
+    private void applyGifAnimationMetaToSharedTextures(String targetFileName) {
+        JsonObject meta = ExternalTextureManager.getCustomMeta(presetId, targetFileName);
+        if (meta == null || !meta.has("gif") || !meta.get("gif").getAsBoolean()) {
+            return;
+        }
+        int frames = meta.has("frames") ? meta.get("frames").getAsInt() : 1;
+        int interval = meta.has("interval") ? meta.get("interval").getAsInt() : 100;
+        String orientation = meta.has("orientation") ? meta.get("orientation").getAsString() : "vertical";
+        JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+        if (current == null) current = new JsonObject();
+        for (String textureKey : ElementTextureDefinition.getTextures(elementId)) {
+            String selectedFile = ElementTextureDefinition.getSelectedTextureFileName(presetId, elementId, textureKey, current);
+            if (targetFileName.equals(selectedFile)) {
+                String prefix = "anim_" + textureKey + "_";
+                current.addProperty(prefix + "enable_texture_animation", true);
+                current.addProperty(prefix + "texture_animation_total_frames", frames);
+                current.addProperty(prefix + "texture_animation_interval_ms", interval);
+                current.addProperty(prefix + "texture_animation_orientation", orientation);
+                current.addProperty(prefix + "texture_animation_loop", true);
+            }
+        }
+        ElementConfigManager.setElementConfig(presetId, elementId, current);
+    }
+
+    private void runAsyncTask(Runnable action, Runnable onComplete) {
+        CompletableFuture.runAsync(() -> {
+            if (action == null) {
+                return;
+            }
+            try {
+                action.run();
+            } catch (Exception ignored) {
+            }
+        }).whenComplete((v, t) -> {
+            if (onComplete != null) {
+                minecraft.execute(onComplete);
+            }
+        });
+    }
+
     private void resetTextureRelatedConfigs(String textureKey) {
         if (textureKey == null) {
             return;
@@ -1186,7 +1384,10 @@ public class ElementConfigContent extends ConfigTabContent {
         JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
         JsonObject target = current != null ? current : defaults.deepCopy();
         String prefix = "anim_" + textureKey + "_";
-        String textureStyleKey = ElementTextureDefinition.getTextureStyleKey(textureKey);
+        String officialKey = ElementTextureDefinition.getOfficialTextureKey(textureKey);
+        String customKey = ElementTextureDefinition.getCustomTextureKey(textureKey);
+        String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
+        String vanillaKey = ElementTextureDefinition.getVanillaTextureKey(textureKey);
         String[] keys = new String[] {
             prefix + "enable_texture_animation",
             prefix + "texture_animation_total_frames",
@@ -1196,7 +1397,10 @@ public class ElementConfigContent extends ConfigTabContent {
             prefix + "texture_animation_play_style",
             prefix + "texture_frame_width_ratio",
             prefix + "texture_frame_height_ratio",
-            textureStyleKey
+            officialKey,
+            customKey,
+            modeKey,
+            vanillaKey
         };
         for (String key : keys) {
             if (defaults.has(key)) {
@@ -1397,13 +1601,13 @@ public class ElementConfigContent extends ConfigTabContent {
                                 affectedKeys = new ArrayList<>();
                                 affectedKeys.add(textureKey);
                             }
-                            if (textureModified && fileName != null) {
-                                ExternalTextureManager.resetTextureWithBackup(presetId, fileName);
-                            }
                             for (String key : affectedKeys) {
                                 resetTextureRelatedConfigs(key);
                             }
                             rebuildUI();
+                            if (textureModified && fileName != null) {
+                                runAsyncTask(() -> ExternalTextureManager.resetTextureWithBackupSilent(presetId, fileName), null);
+                            }
                         });
                     }
                     return true;
@@ -1436,12 +1640,27 @@ public class ElementConfigContent extends ConfigTabContent {
         if (defaults == null) {
             return false;
         }
-        String textureStyleKey = ElementTextureDefinition.getTextureStyleKey(textureKey);
-        if (textureStyleKey == null) {
+        String officialKey = ElementTextureDefinition.getOfficialTextureKey(textureKey);
+        String customKey = ElementTextureDefinition.getCustomTextureKey(textureKey);
+        String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
+        String vanillaKey = ElementTextureDefinition.getVanillaTextureKey(textureKey);
+        String prefix = "anim_" + textureKey + "_";
+        for (String key : defaults.keySet()) {
+            if (key.startsWith(prefix) || key.equals(customKey) || key.equals(officialKey) || key.equals(modeKey) || key.equals(vanillaKey)) {
+                if (isConfigValueModified(defaults, currentConfig, key)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isConfigValueModified(JsonObject defaults, JsonObject currentConfig, String key) {
+        if (key == null) {
             return false;
         }
-        com.google.gson.JsonElement defaultValue = defaults.get(textureStyleKey);
-        com.google.gson.JsonElement currentValue = currentConfig != null ? currentConfig.get(textureStyleKey) : null;
+        com.google.gson.JsonElement defaultValue = defaults.get(key);
+        com.google.gson.JsonElement currentValue = currentConfig != null ? currentConfig.get(key) : null;
         if (defaultValue == null && currentValue == null) {
             return false;
         }

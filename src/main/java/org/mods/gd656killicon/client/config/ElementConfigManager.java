@@ -604,6 +604,10 @@ public class ElementConfigManager {
         }
     }
 
+    public static void setElementConfigImmediate(String presetId, String elementId, JsonObject config) {
+        setElementConfig(presetId, elementId, config);
+    }
+
     public static void updateConfigValue(String presetId, String elementId, String key, String value) {
         ElementPreset preset = getActivePresets().get(presetId);
         if (preset == null) return;

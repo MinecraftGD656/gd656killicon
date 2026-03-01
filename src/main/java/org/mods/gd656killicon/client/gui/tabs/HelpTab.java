@@ -151,6 +151,7 @@ public class HelpTab extends ConfigTabContent {
             addHelpEntry("gd656killicon.client.gui.help.preset.select", "gd656killicon.client.gui.help.preset.select.desc", contentWidth);
             addHelpEntry("gd656killicon.client.gui.help.preset.create", "gd656killicon.client.gui.help.preset.create.desc", contentWidth);
             addHelpEntry("gd656killicon.client.gui.help.preset.edit", "gd656killicon.client.gui.help.preset.edit.desc", contentWidth);
+            addHelpEntry("gd656killicon.client.gui.help.preset.texture_select_mode", "gd656killicon.client.gui.help.preset.texture_select_mode.desc", contentWidth);
             addHelpEntry("gd656killicon.client.gui.help.preset.export", "gd656killicon.client.gui.help.preset.export.desc", contentWidth);
             addHelpEntry("gd656killicon.client.gui.help.preset.structure", "gd656killicon.client.gui.help.preset.structure.desc", contentWidth);
         }

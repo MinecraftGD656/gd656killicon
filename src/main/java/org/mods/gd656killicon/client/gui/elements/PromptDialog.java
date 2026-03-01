@@ -35,15 +35,18 @@ public class PromptDialog {
     private Runnable onConfirm;
     private Runnable onCancel;
     private Runnable currentConfirmAction;
+    private Runnable currentSecondaryAction;
 
     private boolean visible = false;
     private String title = "";
     private String message = "";
     private PromptType type = PromptType.INFO;
+    private int showToken = 0;
 
     private GDTextRenderer titleRenderer;
     private GDTextRenderer messageRenderer;
     private GDButton confirmButton;
+    private GDButton secondaryButton;
 
     private static final int INPUT_WIDTH = 140;
     private static final int INPUT_HEIGHT = GuiConstants.ROW_HEADER_HEIGHT;
@@ -64,8 +67,11 @@ public class PromptDialog {
         this.type = type == null ? PromptType.INFO : type;
         this.title = this.type.getTitle();
         this.visible = true;
+        this.showToken++;
         this.currentConfirmAction = onConfirmAction;
         this.onCancel = onCancelAction;
+        this.currentSecondaryAction = null;
+        this.secondaryButton = null;
 
         if (this.titleRenderer == null) {
             this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, this.type.getColor(), false);
@@ -88,13 +94,66 @@ public class PromptDialog {
         this.confirmButton = new GDButton(0, 0, INPUT_WIDTH, BUTTON_HEIGHT, Component.literal(I18n.get("gd656killicon.client.gui.config.confirm")), (btn) -> confirm());
     }
 
+    public void showWithActions(String message, PromptType type, String primaryLabel, String secondaryLabel, Runnable primaryAction, Runnable secondaryAction) {
+        showWithActionsInternal(message, type, primaryLabel, secondaryLabel, primaryAction, secondaryAction, false);
+    }
+
+    public void showWithActionsCentered(String message, PromptType type, String primaryLabel, String secondaryLabel, Runnable primaryAction, Runnable secondaryAction) {
+        showWithActionsInternal(message, type, primaryLabel, secondaryLabel, primaryAction, secondaryAction, true);
+    }
+
+    private void showWithActionsInternal(String message, PromptType type, String primaryLabel, String secondaryLabel, Runnable primaryAction, Runnable secondaryAction, boolean centered) {
+        this.message = message;
+        this.type = type == null ? PromptType.INFO : type;
+        this.title = this.type.getTitle();
+        this.visible = true;
+        this.showToken++;
+        this.currentConfirmAction = primaryAction;
+        this.currentSecondaryAction = secondaryAction;
+        this.onCancel = null;
+
+        if (this.titleRenderer == null) {
+            this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, this.type.getColor(), false);
+            this.titleRenderer.setCentered(true);
+        } else {
+            this.titleRenderer.setText(title);
+            this.titleRenderer.setColor(this.type.getColor());
+            this.titleRenderer.setCentered(true);
+        }
+
+        if (this.messageRenderer == null) {
+            this.messageRenderer = new GDTextRenderer(message, 0, 0, 0, 0, 1.0f, GuiConstants.COLOR_WHITE, true);
+            this.messageRenderer.setCentered(centered);
+        } else {
+            this.messageRenderer.setText(message);
+            this.messageRenderer.setColor(GuiConstants.COLOR_WHITE);
+            this.messageRenderer.setCentered(centered);
+        }
+
+        this.confirmButton = new GDButton(0, 0, INPUT_WIDTH, BUTTON_HEIGHT, Component.literal(primaryLabel), (btn) -> confirm());
+        this.secondaryButton = new GDButton(0, 0, INPUT_WIDTH, BUTTON_HEIGHT, Component.literal(secondaryLabel), (btn) -> secondary());
+    }
+
     private void confirm() {
+        int token = showToken;
         if (currentConfirmAction != null) {
             currentConfirmAction.run();
         } else if (onConfirm != null) {
             onConfirm.run();
         }
-        this.visible = false;
+        if (showToken == token) {
+            this.visible = false;
+        }
+    }
+
+    private void secondary() {
+        int token = showToken;
+        if (currentSecondaryAction != null) {
+            currentSecondaryAction.run();
+        }
+        if (showToken == token) {
+            this.visible = false;
+        }
     }
 
     private void cancel() {
@@ -110,6 +169,9 @@ public class PromptDialog {
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!visible) return false;
+        if (secondaryButton != null && secondaryButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         if (confirmButton != null && confirmButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
@@ -182,10 +244,22 @@ public class PromptDialog {
         }
 
         int btnY = inputY + messageHeight + 1;
-        if (confirmButton != null) {
+        if (confirmButton != null && secondaryButton == null) {
             confirmButton.setX(inputX);
             confirmButton.setY(btnY);
+            confirmButton.setWidth(INPUT_WIDTH);
             confirmButton.render(guiGraphics, mouseX, mouseY, partialTick);
+        } else if (confirmButton != null && secondaryButton != null) {
+            int btnW = (INPUT_WIDTH - 1) / 2;
+            confirmButton.setX(inputX);
+            confirmButton.setY(btnY);
+            confirmButton.setWidth(btnW);
+            confirmButton.render(guiGraphics, mouseX, mouseY, partialTick);
+
+            secondaryButton.setX(inputX + btnW + 1);
+            secondaryButton.setY(btnY);
+            secondaryButton.setWidth(INPUT_WIDTH - btnW - 1);
+            secondaryButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
 
         guiGraphics.pose().popPose();

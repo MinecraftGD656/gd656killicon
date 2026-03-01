@@ -4,9 +4,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.client.resources.language.I18n;
+import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
+import org.mods.gd656killicon.client.gui.elements.PromptDialog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -117,10 +120,17 @@ public class ScoreboardTab extends ConfigTabContent {
         targetScrollY = 0;
         scrollY = 0;
         sortData();
+        if (ClientConfigManager.shouldShowScoreboardIntro()) {
+            ClientConfigManager.markScoreboardIntroShown();
+            promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.scoreboard_intro"), PromptDialog.PromptType.INFO, null);
+        }
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (promptDialog.isVisible()) {
+            return promptDialog.mouseClicked(mouseX, mouseY, button);
+        }
         if (headerRenderer != null && headerRenderer.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
@@ -236,6 +246,9 @@ public class ScoreboardTab extends ConfigTabContent {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (promptDialog.isVisible()) {
+            return promptDialog.mouseScrolled(mouseX, mouseY, delta);
+        }
         if (mouseX >= area2X1 && mouseX <= area2X2 && mouseY >= area2Y1 && mouseY <= area2Y2) {
             targetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
             return true;

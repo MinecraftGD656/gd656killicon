@@ -465,6 +465,9 @@ public class ConfigScreenHeader {
 
     public void setOverrideContent(ConfigTabContent content) {
         this.overrideContent = content;
+        if (content != null) {
+            content.onTabOpen();
+        }
     }
     
     public void resetAnimation() {

@@ -79,6 +79,11 @@ public class IntegerConfigEntry extends GDRowRenderer {
         return key;
     }
 
+    public void setValue(int value) {
+        this.value = value;
+        updateState();
+    }
+
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         super.render(guiGraphics, mouseX, mouseY, partialTick);

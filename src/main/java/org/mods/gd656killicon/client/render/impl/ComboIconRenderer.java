@@ -237,7 +237,7 @@ public class ComboIconRenderer implements IHudRenderer {
         if (!currentConfig.has(key)) {
             return 1.0f;
         }
-        int value = currentConfig.get(key).getAsInt();
+        float value = currentConfig.get(key).getAsFloat();
         return value > 0 ? value : 1.0f;
     }
 

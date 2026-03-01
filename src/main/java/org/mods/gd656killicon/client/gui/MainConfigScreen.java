@@ -7,6 +7,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.Util;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.gui.elements.GDButton;
@@ -14,6 +15,7 @@ import org.mods.gd656killicon.client.gui.elements.PromptDialog;
 import org.mods.gd656killicon.client.gui.tabs.ConfigTabContent;
 import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import java.net.URI;
 
 public class MainConfigScreen extends Screen {
     private final Screen parent;
@@ -89,12 +91,72 @@ public class MainConfigScreen extends Screen {
         });
 
         String languageCode = minecraft.options.languageCode;
-        if (ClientConfigManager.checkLanguageChangedAndUpdate(languageCode)) {
-            ConfigTabContent activeTab = header.getSelectedTabContent();
-            if (activeTab != null) {
-                activeTab.getPromptDialog().show(I18n.get("gd656killicon.client.gui.prompt.language_changed"), PromptDialog.PromptType.INFO, null);
+        boolean languageChanged = ClientConfigManager.checkLanguageChangedAndUpdate(languageCode);
+        ConfigTabContent activeTab = header.getSelectedTabContent();
+        if (activeTab != null) {
+            PromptDialog dialog = activeTab.getPromptDialog();
+            boolean versionChanged = ClientConfigManager.checkModVersionChangedAndUpdate(GuiConstants.MOD_VERSION);
+            Runnable showVersionPrompt = null;
+            if (versionChanged) {
+                String message = I18n.get("gd656killicon.client.gui.prompt.version_updated", getVersionColorText(GuiConstants.MOD_VERSION));
+                showVersionPrompt = () -> dialog.showWithActionsCentered(
+                    message,
+                    PromptDialog.PromptType.INFO,
+                    I18n.get("gd656killicon.client.gui.prompt.version_confirm"),
+                    I18n.get("gd656killicon.client.gui.prompt.version_view"),
+                    null,
+                    () -> Util.getPlatform().openUri(URI.create(resolveOnlineVersionUrl()))
+                );
+            }
+            Runnable showVersionPromptFinal = showVersionPrompt;
+            if (ClientConfigManager.shouldShowConfigIntro()) {
+                ClientConfigManager.markConfigIntroShown();
+                Runnable showThird = () -> dialog.show(I18n.get("gd656killicon.client.gui.prompt.config_intro_3"), PromptDialog.PromptType.INFO, showVersionPromptFinal);
+                Runnable showSecond = () -> dialog.show(I18n.get("gd656killicon.client.gui.prompt.config_intro_2"), PromptDialog.PromptType.INFO, showThird);
+                Runnable showFirst = () -> dialog.show(I18n.get("gd656killicon.client.gui.prompt.config_intro_1"), PromptDialog.PromptType.INFO, showSecond);
+                if (languageChanged) {
+                    dialog.show(I18n.get("gd656killicon.client.gui.prompt.language_changed"), PromptDialog.PromptType.INFO, showFirst);
+                } else {
+                    showFirst.run();
+                }
+            } else if (languageChanged) {
+                dialog.show(I18n.get("gd656killicon.client.gui.prompt.language_changed"), PromptDialog.PromptType.INFO, showVersionPromptFinal);
+            } else if (showVersionPromptFinal != null) {
+                showVersionPromptFinal.run();
             }
         }
+    }
+
+    private String resolveOnlineVersionUrl() {
+        String url = "";
+        try {
+            java.lang.reflect.Field field = GuiConstants.class.getField("MOD_ONLINE_VERSION");
+            Object value = field.get(null);
+            if (value != null) {
+                url = value.toString();
+            }
+        } catch (Exception ignored) {
+        }
+        if (url.isEmpty()) {
+            url = "https://modrinth.com/mod/gd656killicon/version/1.1.0.015-1.20.1-forge";
+        }
+        return url;
+    }
+
+    private String getVersionColorText(String version) {
+        if (version == null) {
+            return "";
+        }
+        if (version.endsWith("Alpha")) {
+            return "§c" + version;
+        }
+        if (version.endsWith("Beta")) {
+            return "§6" + version;
+        }
+        if (version.endsWith("Release")) {
+            return "§a" + version;
+        }
+        return "§f" + version;
     }
 
     @Override

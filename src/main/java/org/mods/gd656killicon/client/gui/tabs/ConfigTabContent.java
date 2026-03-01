@@ -13,6 +13,7 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.gui.elements.TextInputDialog;
 import org.mods.gd656killicon.client.gui.elements.ColorPickerDialog;
 import org.mods.gd656killicon.client.gui.elements.PromptDialog;
+import org.mods.gd656killicon.client.gui.elements.ChoiceListDialog;
 import java.util.function.Consumer;
 
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ public abstract class ConfigTabContent {
     
     protected TextInputDialog textInputDialog;
     protected ColorPickerDialog colorPickerDialog;
+    protected ChoiceListDialog choiceListDialog;
     protected PromptDialog promptDialog;
 
     protected boolean isDragging = false;
@@ -54,6 +56,7 @@ public abstract class ConfigTabContent {
         title = Component.translatable(titleKey);
         this.textInputDialog = new TextInputDialog(minecraft, null, null);
         this.colorPickerDialog = new ColorPickerDialog(minecraft);
+        this.choiceListDialog = new ChoiceListDialog(minecraft);
         this.promptDialog = new PromptDialog(minecraft, null, null);
     }
 
@@ -62,6 +65,7 @@ public abstract class ConfigTabContent {
         this.title = title;
         this.textInputDialog = new TextInputDialog(minecraft, null, null);
         this.colorPickerDialog = new ColorPickerDialog(minecraft);
+        this.choiceListDialog = new ChoiceListDialog(minecraft);
         this.promptDialog = new PromptDialog(minecraft, null, null);
     }
 
@@ -71,6 +75,10 @@ public abstract class ConfigTabContent {
     
     public ColorPickerDialog getColorPickerDialog() {
         return colorPickerDialog;
+    }
+
+    public ChoiceListDialog getChoiceListDialog() {
+        return choiceListDialog;
     }
 
     public PromptDialog getPromptDialog() {
@@ -97,7 +105,7 @@ public abstract class ConfigTabContent {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateResetButtonState();
 
-        boolean isDialogVisible = textInputDialog.isVisible() || colorPickerDialog.isVisible() || promptDialog.isVisible();
+        boolean isDialogVisible = textInputDialog.isVisible() || colorPickerDialog.isVisible() || choiceListDialog.isVisible() || promptDialog.isVisible();
         int effectiveMouseX = isDialogVisible ? -1 : mouseX;
         int effectiveMouseY = isDialogVisible ? -1 : mouseY;
 
@@ -125,6 +133,9 @@ public abstract class ConfigTabContent {
         }
         if (colorPickerDialog.isVisible()) {
             colorPickerDialog.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
+        if (choiceListDialog.isVisible()) {
+            choiceListDialog.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (promptDialog.isVisible()) {
             promptDialog.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -168,15 +179,6 @@ public abstract class ConfigTabContent {
         int buttonWidth = (totalWidth - 1) / 2;
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
         int x1 = GuiConstants.DEFAULT_PADDING + (int)getSidebarOffset();
-
-        /*
-        if (isResetConfirming && System.currentTimeMillis() - resetConfirmTime > RESET_CONFIRM_TIMEOUT) {
-            isResetConfirming = false;
-            if (resetButton != null) {
-                resetButton.setMessage(Component.translatable("gd656killicon.client.gui.button.reset"));
-            }
-        }
-        */
 
         if (resetButton == null) {
             resetButton = new GDButton(x1, buttonY, buttonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.button.reset"), (btn) -> {
@@ -437,6 +439,9 @@ public abstract class ConfigTabContent {
         if (colorPickerDialog.isVisible()) {
             return colorPickerDialog.mouseClicked(mouseX, mouseY, button);
         }
+        if (choiceListDialog.isVisible()) {
+            return choiceListDialog.mouseClicked(mouseX, mouseY, button);
+        }
 
         if (resetButton != null && resetButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
@@ -478,6 +483,9 @@ public abstract class ConfigTabContent {
         if (colorPickerDialog.isVisible()) {
             return colorPickerDialog.mouseReleased(mouseX, mouseY, button);
         }
+        if (choiceListDialog.isVisible()) {
+            return choiceListDialog.mouseReleased(mouseX, mouseY, button);
+        }
         return false;
     }
 
@@ -494,6 +502,9 @@ public abstract class ConfigTabContent {
         }
         if (colorPickerDialog.isVisible()) {
             return colorPickerDialog.mouseScrolled(mouseX, mouseY, delta);
+        }
+        if (choiceListDialog.isVisible()) {
+            return choiceListDialog.mouseScrolled(mouseX, mouseY, delta);
         }
 
         if (useDefaultScroll) {
@@ -514,6 +525,9 @@ public abstract class ConfigTabContent {
         if (textInputDialog.isVisible()) {
             return textInputDialog.charTyped(codePoint, modifiers);
         }
+        if (choiceListDialog.isVisible()) {
+            return choiceListDialog.charTyped(codePoint, modifiers);
+        }
         return false;
     }
 
@@ -526,6 +540,9 @@ public abstract class ConfigTabContent {
         }
         if (colorPickerDialog.isVisible()) {
             return colorPickerDialog.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (choiceListDialog.isVisible()) {
+            return choiceListDialog.keyPressed(keyCode, scanCode, modifiers);
         }
         return false;
     }

@@ -21,58 +21,52 @@ public class SoundTriggerManager {
         if ("kill_icon".equals(category) && "card".equals(name)) {
             if (killType == KillType.HEADSHOT) {
                 if (hasHelmet) {
-                    ExternalSoundManager.playSound("cardkillsound_armorheadshot_cs");
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_CARD_ARMOR_HEADSHOT);
                 } else {
-                    ExternalSoundManager.playSound("cardkillsound_headshot_cs");
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_CARD_HEADSHOT);
                 }
             } else if (killType == KillType.EXPLOSION) {
-                ExternalSoundManager.playSound("cardkillsound_explosion_cs");
+                ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_CARD_EXPLOSION);
             } else if (killType == KillType.CRIT) {
-                ExternalSoundManager.playSound("cardkillsound_crit_cs");
+                ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_CARD_CRIT);
             } else {
-                ExternalSoundManager.playSound("cardkillsound_default_cs");
+                ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_CARD_DEFAULT);
             }
         } else if ("kill_icon".equals(category) && ("scrolling".equals(name) || "combo".equals(name))) {
             if ("combo".equals(name)) {
                 int count = Mth.clamp(comboCount, 1, 6);
-                ExternalSoundManager.playSound("combokillsound_" + count + "_cf");
+                String slotId = switch (count) {
+                    case 1 -> ExternalSoundManager.SLOT_COMBO_1;
+                    case 2 -> ExternalSoundManager.SLOT_COMBO_2;
+                    case 3 -> ExternalSoundManager.SLOT_COMBO_3;
+                    case 4 -> ExternalSoundManager.SLOT_COMBO_4;
+                    case 5 -> ExternalSoundManager.SLOT_COMBO_5;
+                    default -> ExternalSoundManager.SLOT_COMBO_6;
+                };
+                ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), slotId);
             } else {
-                if ("00007".equals(ConfigManager.getCurrentPresetId())) {
-                    if (killType == KillType.HEADSHOT) {
-                        ExternalSoundManager.playSound("headshotkillsound_bf5");
-                    } else if (killType == KillType.DESTROY_VEHICLE) {
-                        ExternalSoundManager.playSound("vehiclekillsound_bf5");
-                    } else if (killType == KillType.EXPLOSION) {
-                        ExternalSoundManager.playSound("headshotkillsound_bf5");
-                    } else if (killType == KillType.CRIT) {
-                        ExternalSoundManager.playSound("killsound_bf5");
-                    } else if (killType == KillType.ASSIST) {
-                        ExternalSoundManager.playSound("defaulticonsound_df");
-                    } else {
-                        ExternalSoundManager.playSound("killsound_bf5");
-                    }
+                if (killType == KillType.HEADSHOT) {
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_HEADSHOT);
+                } else if (killType == KillType.DESTROY_VEHICLE) {
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_VEHICLE);
+                } else if (killType == KillType.EXPLOSION) {
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_EXPLOSION);
+                } else if (killType == KillType.CRIT) {
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_CRIT);
+                } else if (killType == KillType.ASSIST) {
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_ASSIST);
                 } else {
-                    if (killType == KillType.HEADSHOT) {
-                        ExternalSoundManager.playSound("headshotkillsound_df");
-                    } else if (killType == KillType.EXPLOSION || killType == KillType.DESTROY_VEHICLE) {
-                        ExternalSoundManager.playSound("explosionkillsound_df");
-                    } else if (killType == KillType.CRIT) {
-                        ExternalSoundManager.playSound("critkillsound_df");
-                    } else if (killType == KillType.ASSIST) {
-                        ExternalSoundManager.playSound("defaulticonsound_df");
-                    } else {
-                        ExternalSoundManager.playSound("killsound_df");
-                    }
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_DEFAULT);
                 }
             }
         }
     }
 
     public static void playHitSound() {
-        ExternalSoundManager.playSound("hitsound_df");
+        ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_COMMON_HIT);
     }
 
     public static void playScoreSound() {
-        ExternalSoundManager.playSound("addscore_df", true);
+        ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_COMMON_SCORE, true);
     }
 }
