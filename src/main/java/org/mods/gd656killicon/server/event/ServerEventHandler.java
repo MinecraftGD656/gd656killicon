@@ -3,21 +3,26 @@ package org.mods.gd656killicon.server.event;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -38,6 +43,7 @@ import org.mods.gd656killicon.server.util.ServerLog;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.lang.reflect.Method;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.server.ServerLifecycleHooks;
 
@@ -59,6 +65,7 @@ public class ServerEventHandler {
     private static final Map<UUID, Integer> consecutiveAssists = new ConcurrentHashMap<>();     
     private static final Map<UUID, Vec3> lastSprintPositions = new HashMap<>();
     private static final Map<UUID, Double> sprintDistances = new HashMap<>();
+    private static final Map<UUID, FireAttribution> fireAttribution = new ConcurrentHashMap<>();
 
     private static final List<PendingKill> pendingKills = new ArrayList<>();
     private static ScheduledExecutorService scoreboardRefreshExecutor;
@@ -69,6 +76,7 @@ public class ServerEventHandler {
     private static final int TYPE_CRIT = 3;
     private static final long LOCKED_TARGET_WINDOW_MS = 10000;
     private static final double HOLD_POSITION_MAX_DISTANCE = 1.0;
+    private static final long FIRE_ATTRIBUTION_TIMEOUT_MS = 15000;
 
 
     @SubscribeEvent
@@ -168,6 +176,7 @@ public class ServerEventHandler {
                 records.removeIf(r -> now - r.timestamp > 120000);             }
         });
         damageHistory.values().removeIf(List::isEmpty);
+        fireAttribution.values().removeIf(record -> now - record.timestamp > FIRE_ATTRIBUTION_TIMEOUT_MS);
 
         processPendingKills();
         
@@ -256,6 +265,15 @@ public class ServerEventHandler {
     }
 
     @SubscribeEvent
+    public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getLevel().isClientSide) return;
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!(event.getTarget() instanceof LivingEntity victim)) return;
+        if (!event.getItemStack().is(Items.FLINT_AND_STEEL) && !event.getItemStack().is(Items.FIRE_CHARGE)) return;
+        recordFireAttribution(victim.getUUID(), player.getUUID());
+    }
+
+    @SubscribeEvent
     public static void onDamage(LivingDamageEvent event) {
         if (event.getEntity().level().isClientSide || event.getAmount() <= 0) return;
 
@@ -264,13 +282,15 @@ public class ServerEventHandler {
         UUID victimId = victim.getUUID();
         float amt = event.getAmount();
 
-        if (src.getEntity() instanceof ServerPlayer player && player.getUUID().equals(victimId)) {
+        LivingEntity resolvedAttacker = resolveLivingAttacker(src, victim);
+        if (resolvedAttacker instanceof ServerPlayer player && player.getUUID().equals(victimId)) {
             return;
         }
         
         updateCombatTracking(src, victim, victimId, amt);
 
-        if (src.getEntity() instanceof LivingEntity attacker) {
+        if (resolvedAttacker != null) {
+            LivingEntity attacker = resolvedAttacker;
             float effectiveAmt = Math.min(amt, victim.getHealth());
             int roundedAmt = Math.round(effectiveAmt);
             if (roundedAmt > 0) {
@@ -278,10 +298,11 @@ public class ServerEventHandler {
             }
         }
 
-        if (!(src.getEntity() instanceof ServerPlayer player)) return;
+        if (!(resolvedAttacker instanceof ServerPlayer player)) return;
         
         lastDamage.put(victimId, amt);
-        ServerCore.CRIT.recordCrit(player, victimId);
+        boolean isMeleeCrit = src.is(DamageTypes.PLAYER_ATTACK) && ServerCore.CRIT.isMeleeCrit(player);
+        ServerCore.CRIT.updateCrit(player, victimId, isMeleeCrit);
 
         int type = determineDamageType(player, victimId, src);
         lastDamageType.put(victimId, type);
@@ -328,7 +349,7 @@ public class ServerEventHandler {
                 );
             }
         
-        LivingEntity attacker = resolveLivingAttacker(src);
+        LivingEntity attacker = resolveLivingAttacker(src, victim);
         if (attacker != null) {
             killHistory.computeIfAbsent(victimId, k -> new ConcurrentHashMap<>())
                        .put(attacker.getUUID(), System.currentTimeMillis());
@@ -347,7 +368,7 @@ public class ServerEventHandler {
         boolean hasHelmet = !victim.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty();
         boolean isVictimPlayer = victim instanceof net.minecraft.world.entity.player.Player;
         String victimName = isVictimPlayer ? victim.getScoreboardName() : (victim.hasCustomName() ? victim.getCustomName().getString() : victim.getType().getDescriptionId());
-        ServerPlayer killer = resolvePlayerAttacker(src);
+        ServerPlayer killer = resolvePlayerAttacker(src, victim);
         if (killer != null) {
             handlePlayerKill(killer, victim, src);
             processAssist(victimId, victim.getId(), hasHelmet, victimName, isVictimPlayer, killer.getUUID());
@@ -432,6 +453,9 @@ public class ServerEventHandler {
 
     private static void handlePlayerKill(ServerPlayer player, LivingEntity victim, DamageSource src) {
         UUID victimId = victim.getUUID();
+        if (player.getUUID().equals(victimId)) {
+            return;
+        }
         int type = lastDamageType.getOrDefault(victimId, TYPE_NORMAL);
         
         ServerData.get().addKill(player, 1);
@@ -487,6 +511,7 @@ public class ServerEventHandler {
         lastDamageType.remove(victimId);
         damageHistory.remove(victimId);
         activeCombats.values().forEach(map -> map.remove(victimId));
+        fireAttribution.remove(victimId);
     }
 
     private static void awardAssists(UUID victimId, int victimIdInt) {
@@ -770,7 +795,7 @@ public class ServerEventHandler {
                 playerCombats.values().forEach(cs -> cs.flawless = false);
             }
             
-        LivingEntity attacker = resolveLivingAttacker(src);
+        LivingEntity attacker = resolveLivingAttacker(src, victim);
         if (attacker != null) {
             activeCombats.computeIfAbsent(playerVictim.getUUID(), k -> new ConcurrentHashMap<>())
                          .compute(attacker.getUUID(), (k, v) -> {
@@ -786,7 +811,7 @@ public class ServerEventHandler {
             }
         }
 
-        ServerPlayer player = resolvePlayerAttacker(src);
+        ServerPlayer player = resolvePlayerAttacker(src, victim);
         if (player != null) {
             activeCombats.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
                          .compute(victimId, (k, v) -> {
@@ -806,24 +831,95 @@ public class ServerEventHandler {
         return now - state.firstInteractionTime >= LOCKED_TARGET_WINDOW_MS;
     }
 
-    private static LivingEntity resolveLivingAttacker(DamageSource src) {
+    private static LivingEntity resolveLivingAttacker(DamageSource src, LivingEntity victim) {
         Entity source = src.getEntity();
         if (source instanceof LivingEntity living) {
+            if (living instanceof ServerPlayer player && src.is(DamageTypeTags.IS_FIRE)) {
+                recordFireAttribution(victim.getUUID(), player.getUUID());
+            }
             return living;
         }
         Entity direct = src.getDirectEntity();
         if (direct instanceof Projectile projectile) {
             Entity owner = projectile.getOwner();
             if (owner instanceof LivingEntity living) {
+                if (living instanceof ServerPlayer player && src.is(DamageTypeTags.IS_FIRE)) {
+                    recordFireAttribution(victim.getUUID(), player.getUUID());
+                }
                 return living;
+            }
+        }
+        ServerPlayer firePlayer = resolveFireAttacker(victim, src);
+        if (firePlayer != null) {
+            return firePlayer;
+        }
+        return null;
+    }
+
+    private static ServerPlayer resolvePlayerAttacker(DamageSource src, LivingEntity victim) {
+        LivingEntity attacker = resolveLivingAttacker(src, victim);
+        return attacker instanceof ServerPlayer player ? player : null;
+    }
+
+    private static void recordFireAttribution(UUID victimId, UUID attackerId) {
+        fireAttribution.put(victimId, new FireAttribution(attackerId, System.currentTimeMillis()));
+    }
+
+    private static ServerPlayer resolveFireAttacker(LivingEntity victim, DamageSource src) {
+        if (!src.is(DamageTypeTags.IS_FIRE)) return null;
+        if (src.is(DamageTypes.LAVA)) return null;
+        long now = System.currentTimeMillis();
+        FireAttribution record = fireAttribution.get(victim.getUUID());
+        if (record != null) {
+            if (now - record.timestamp <= FIRE_ATTRIBUTION_TIMEOUT_MS) {
+                var server = ServerLifecycleHooks.getCurrentServer();
+                if (server == null) return null;
+                ServerPlayer player = server.getPlayerList().getPlayer(record.attackerId);
+                if (player != null) return player;
+            } else {
+                fireAttribution.remove(victim.getUUID());
+            }
+        }
+        ServerPlayer molotovOwner = resolveMolotovOwner(victim);
+        if (molotovOwner != null) {
+            recordFireAttribution(victim.getUUID(), molotovOwner.getUUID());
+            return molotovOwner;
+        }
+        return null;
+    }
+
+    private static ServerPlayer resolveMolotovOwner(LivingEntity victim) {
+        double searchRadius = 6.0;
+        AABB area = victim.getBoundingBox().inflate(searchRadius, 2.0, searchRadius);
+        List<Entity> entities = victim.level().getEntities(victim, area, ServerEventHandler::isLrTacticalFireCloud);
+        for (Entity entity : entities) {
+            if (!(entity instanceof AreaEffectCloud cloud)) continue;
+            if (!isIgniteCloud(entity)) continue;
+            double radius = cloud.getRadius();
+            if (radius <= 0.0) continue;
+            double maxDist = radius + 1.0;
+            if (cloud.position().distanceToSqr(victim.position()) > maxDist * maxDist) continue;
+            Entity owner = cloud.getOwner();
+            if (owner instanceof ServerPlayer player) {
+                return player;
             }
         }
         return null;
     }
 
-    private static ServerPlayer resolvePlayerAttacker(DamageSource src) {
-        LivingEntity attacker = resolveLivingAttacker(src);
-        return attacker instanceof ServerPlayer player ? player : null;
+    private static boolean isLrTacticalFireCloud(Entity entity) {
+        net.minecraft.resources.ResourceLocation key = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
+        return key != null && "lrtactical".equals(key.getNamespace()) && "sp_effect_cloud".equals(key.getPath());
+    }
+
+    private static boolean isIgniteCloud(Entity entity) {
+        try {
+            Method method = entity.getClass().getMethod("isIgnite");
+            Object result = method.invoke(entity);
+            return result instanceof Boolean b && b;
+        } catch (Exception ignored) {
+            return true;
+        }
     }
 
     private static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance) {
@@ -861,6 +957,7 @@ public class ServerEventHandler {
 
     private record DamageRecord(UUID attackerId, int amount, long timestamp) {}
     private record TeamKillRecord(UUID victimId, long timestamp) {}
+    private record FireAttribution(UUID attackerId, long timestamp) {}
 
     private static class CombatState {
         boolean flawless = true;

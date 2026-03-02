@@ -1,5 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656killicon.client.render.HudElementManager;
@@ -156,11 +157,16 @@ public class KillIconPacket implements IPacket {
             )
         );
 
-        if (packet.shouldRecordStats && displayName != null && !displayName.isEmpty()) {
+        if (packet.shouldRecordStats && displayName != null && !displayName.isEmpty() && !isLocalPlayerVictim(packet)) {
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordGeneralKillStats(displayName, packet.isVictimPlayer);
         }
 
         org.mods.gd656killicon.client.util.AceLagSimulator.onKillEvent();
+    }
+
+    private static boolean isLocalPlayerVictim(KillIconPacket packet) {
+        var player = Minecraft.getInstance().player;
+        return player != null && player.getId() == packet.victimId;
     }
 
     private static final class PendingTrigger {

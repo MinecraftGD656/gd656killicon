@@ -21,10 +21,16 @@ public class CritTracker {
     /**
      * Records a potential critical hit if it matches vanilla criteria.
      */
-    public void recordCrit(ServerPlayer attacker, UUID victim) {
-        if (!isVanillaCrit(attacker)) return;
-        records.put(victim, new Record(attacker.getUUID(), System.currentTimeMillis()));
-        trim();
+    public void updateCrit(ServerPlayer attacker, UUID victim, boolean isCrit) {
+        if (isCrit) {
+            records.put(victim, new Record(attacker.getUUID(), System.currentTimeMillis()));
+            trim();
+        } else {
+            Record r = records.get(victim);
+            if (r != null && r.attacker.equals(attacker.getUUID())) {
+                records.remove(victim);
+            }
+        }
     }
 
     /**
@@ -40,6 +46,10 @@ public class CritTracker {
 
     public boolean isRecentCrit(UUID attacker, UUID victim) {
         return check(attacker, victim);
+    }
+
+    public boolean isMeleeCrit(ServerPlayer player) {
+        return isVanillaCrit(player);
     }
 
     private boolean check(UUID attacker, UUID victim) {
