@@ -56,6 +56,10 @@ public class ExternalTextureManager {
         "killicon_combo_4.png",
         "killicon_combo_5.png",
         "killicon_combo_6.png",
+        "killicon_valorant_icon.png",
+        "killicon_valorant_bar.png",
+        "killicon_valorant_gaia_icon.png",
+        "killicon_valorant_gaia_bar.png",
         "killicon_card_bar_ct.png",
         "killicon_card_bar_t.png",
         "killicon_card_default_t.png",
@@ -307,6 +311,37 @@ public class ExternalTextureManager {
         }
 
         return ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + resolvedPath);
+    }
+
+    public static byte[] readTextureBytes(String presetId, String path) throws IOException {
+        if (isVanillaTexturePath(path)) {
+            ResourceLocation vanilla = getVanillaTextureLocation(path);
+            if (vanilla != null) {
+                try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(vanilla).get().open()) {
+                    return stream.readAllBytes();
+                } catch (Exception e) {
+                    throw new IOException("Failed to read vanilla texture: " + path, e);
+                }
+            }
+        }
+
+        Path file = resolveExternalTexturePath(presetId, path);
+        if (Files.exists(file)) {
+            return Files.readAllBytes(file);
+        }
+
+        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
+        try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
+            return stream.readAllBytes();
+        } catch (Exception e) {
+            try (InputStream stream = ExternalTextureManager.class.getResourceAsStream("/assets/gd656killicon/textures/" + path)) {
+                if (stream != null) {
+                    return stream.readAllBytes();
+                }
+            } catch (Exception ignored) {
+            }
+            throw new IOException("Failed to read texture: " + path, e);
+        }
     }
 
     public static java.util.List<String> getDefaultTexturePaths() {
@@ -856,7 +891,8 @@ public class ExternalTextureManager {
             refreshTextureCache(presetId, fileName);
             invalidateTextureState(presetId, fileName);
             updateCustomLabel(presetId, fileName, originalName);
-            updateCustomMeta(presetId, fileName, gifDerived, frameCount, intervalMs, orientation);
+            TextureDimensions logicalDimensions = calculateLogicalTextureDimensions(targetPath, gifDerived, frameCount, orientation);
+            updateCustomMeta(presetId, fileName, gifDerived, frameCount, intervalMs, orientation, logicalDimensions);
             return fileName;
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.texture.replace_fail", presetId, sourcePath.toString(), e.getMessage());
@@ -889,7 +925,15 @@ public class ExternalTextureManager {
         }
     }
 
-    private static void updateCustomMeta(String presetId, String fileName, boolean gifDerived, Integer frameCount, Integer intervalMs, String orientation) {
+    private static void updateCustomMeta(
+        String presetId,
+        String fileName,
+        boolean gifDerived,
+        Integer frameCount,
+        Integer intervalMs,
+        String orientation,
+        TextureDimensions logicalDimensions
+    ) {
         if (presetId == null || fileName == null) {
             return;
         }
@@ -912,6 +956,10 @@ public class ExternalTextureManager {
         }
         if (orientation != null) {
             meta.addProperty("orientation", orientation);
+        }
+        if (logicalDimensions != null && logicalDimensions.width > 0 && logicalDimensions.height > 0) {
+            meta.addProperty("width", logicalDimensions.width);
+            meta.addProperty("height", logicalDimensions.height);
         }
         obj.add(fileName, meta);
         try {
@@ -942,6 +990,50 @@ public class ExternalTextureManager {
         } catch (Exception ignored) {
         }
         return null;
+    }
+
+    public static TextureDimensions getLogicalTextureDimensions(String presetId, String path) {
+        if (path == null) {
+            return new TextureDimensions(0, 0);
+        }
+        if (isCustomTextureName(path)) {
+            JsonObject meta = getCustomMeta(presetId, path);
+            if (meta != null && meta.has("width") && meta.has("height")) {
+                int width = meta.get("width").getAsInt();
+                int height = meta.get("height").getAsInt();
+                if (width > 0 && height > 0) {
+                    return new TextureDimensions(width, height);
+                }
+            }
+        }
+        return getTextureDimensions(presetId, path);
+    }
+
+    private static TextureDimensions calculateLogicalTextureDimensions(Path texturePath, boolean gifDerived, Integer frameCount, String orientation) {
+        TextureDimensions actualDimensions = readTextureDimensions(texturePath);
+        if (actualDimensions.width <= 0 || actualDimensions.height <= 0) {
+            return actualDimensions;
+        }
+        if (!gifDerived || frameCount == null || frameCount <= 1) {
+            return actualDimensions;
+        }
+        String normalizedOrientation = orientation == null ? "vertical" : orientation.toLowerCase(java.util.Locale.ROOT);
+        if ("horizontal".equals(normalizedOrientation)) {
+            return new TextureDimensions(Math.max(1, actualDimensions.width / frameCount), actualDimensions.height);
+        }
+        return new TextureDimensions(actualDimensions.width, Math.max(1, actualDimensions.height / frameCount));
+    }
+
+    private static TextureDimensions readTextureDimensions(Path texturePath) {
+        if (texturePath == null || !Files.exists(texturePath)) {
+            return new TextureDimensions(0, 0);
+        }
+        try (InputStream stream = new FileInputStream(texturePath.toFile());
+             NativeImage image = NativeImage.read(stream)) {
+            return new TextureDimensions(image.getWidth(), image.getHeight());
+        } catch (IOException ignored) {
+            return new TextureDimensions(0, 0);
+        }
     }
 
     private static void invalidateTextureState(String presetId, String textureName) {

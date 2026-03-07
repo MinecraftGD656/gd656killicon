@@ -290,6 +290,11 @@ public class ElementConfigManager {
                 Map.Entry<String, JsonObject> elementEntry = elementIterator.next();
                 String elementId = elementEntry.getKey();
                 JsonObject config = elementEntry.getValue();
+
+                if ("kill_icon/valorant".equals(elementId)) {
+                    changed |= migrateValorantConfig(config);
+                    ValorantSkinProfileManager.syncActiveSkinProfile(config);
+                }
                 
                 JsonObject safeDefaults = getDefaultElementConfig(elementId);
                 
@@ -320,6 +325,27 @@ public class ElementConfigManager {
                 }
             }
         }
+        return changed;
+    }
+
+    private static boolean migrateValorantConfig(JsonObject config) {
+        boolean changed = false;
+        if (config == null || !config.has("color_gaia_accent")) {
+            return false;
+        }
+
+        String legacyAccent = config.get("color_gaia_accent").getAsString();
+        if (!config.has("color_accent")) {
+            config.addProperty("color_accent", legacyAccent);
+            changed = true;
+        }
+
+        if (!config.has("enable_accent_tint")) {
+            boolean accentCustomized = legacyAccent != null && !"#E2505C".equalsIgnoreCase(legacyAccent);
+            config.addProperty("enable_accent_tint", accentCustomized);
+            changed = true;
+        }
+
         return changed;
     }
 
@@ -597,6 +623,9 @@ public class ElementConfigManager {
     public static void setElementConfig(String presetId, String elementId, JsonObject config) {
         ElementPreset preset = getActivePresets().get(presetId);
         if (preset != null) {
+            if ("kill_icon/valorant".equals(elementId) && config != null) {
+                ValorantSkinProfileManager.syncActiveSkinProfile(config);
+            }
             preset.addElementConfig(elementId, config);
             if (!isEditing) {
                 saveConfig();
@@ -639,6 +668,10 @@ public class ElementConfigManager {
             }
         } else {
             config.addProperty(key, value);
+        }
+
+        if ("kill_icon/valorant".equals(elementId)) {
+            ValorantSkinProfileManager.syncActiveSkinProfile(config);
         }
         
         if (!isEditing) {

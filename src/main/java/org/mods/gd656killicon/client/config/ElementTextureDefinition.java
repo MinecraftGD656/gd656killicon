@@ -11,6 +11,9 @@ import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 
 public class ElementTextureDefinition {
+    public static final String VALORANT_SKIN_PRIME = "prime";
+    public static final String VALORANT_SKIN_GAIA = "gaia";
+    public static final String VALORANT_SKIN_CUSTOM_PREFIX = "custom:";
     public static final Map<String, List<String>> ELEMENT_TEXTURES;
 
     static {
@@ -32,6 +35,11 @@ public class ElementTextureDefinition {
             "combo_4", 
             "combo_5", 
             "combo_6"
+        ));
+
+        map.put("kill_icon/valorant", Arrays.asList(
+            "icon",
+            "bar"
         ));
         
         map.put("kill_icon/card", Arrays.asList(
@@ -76,6 +84,7 @@ public class ElementTextureDefinition {
         return switch (elementId) {
             case "kill_icon/scrolling" -> resolveScrollingFileName(presetId, textureKey);
             case "kill_icon/combo" -> "killicon_" + textureKey + ".png";
+            case "kill_icon/valorant" -> getValorantSkinTextureFileName(VALORANT_SKIN_PRIME, textureKey);
             case "kill_icon/card" -> "killicon_card_" + textureKey + ".png";
             case "kill_icon/card_bar" -> "killicon_card_" + textureKey + ".png";
             case "kill_icon/battlefield1" -> "killicon_battlefield1_" + normalizeDestroyVehicle(textureKey) + ".png";
@@ -154,6 +163,57 @@ public class ElementTextureDefinition {
 
     private static String resolveScrollingFileName(String presetId, String textureKey) {
         return "killicon_scrolling_" + normalizeDestroyVehicle(textureKey) + ".png";
+    }
+
+    public static String normalizeValorantSkinStyle(String skinStyle) {
+        if (skinStyle == null) {
+            return VALORANT_SKIN_PRIME;
+        }
+        if (isValorantCustomSkinStyle(skinStyle)) {
+            String id = extractValorantCustomSkinId(skinStyle).trim();
+            return id.isEmpty() ? VALORANT_SKIN_PRIME : buildValorantCustomSkinStyle(id);
+        }
+        return normalizeBuiltInValorantSkinStyle(skinStyle);
+    }
+
+    public static boolean isValorantSkinStyle(String skinStyle) {
+        return isBuiltInValorantSkinStyle(skinStyle) || isValorantCustomSkinStyle(skinStyle);
+    }
+
+    public static String normalizeBuiltInValorantSkinStyle(String skinStyle) {
+        return VALORANT_SKIN_GAIA.equalsIgnoreCase(skinStyle) ? VALORANT_SKIN_GAIA : VALORANT_SKIN_PRIME;
+    }
+
+    public static boolean isBuiltInValorantSkinStyle(String skinStyle) {
+        return skinStyle != null
+            && !isValorantCustomSkinStyle(skinStyle)
+            && (VALORANT_SKIN_PRIME.equalsIgnoreCase(skinStyle) || VALORANT_SKIN_GAIA.equalsIgnoreCase(skinStyle));
+    }
+
+    public static boolean isValorantCustomSkinStyle(String skinStyle) {
+        return skinStyle != null && skinStyle.toLowerCase(java.util.Locale.ROOT).startsWith(VALORANT_SKIN_CUSTOM_PREFIX);
+    }
+
+    public static String buildValorantCustomSkinStyle(String customId) {
+        return VALORANT_SKIN_CUSTOM_PREFIX + customId;
+    }
+
+    public static String extractValorantCustomSkinId(String skinStyle) {
+        if (!isValorantCustomSkinStyle(skinStyle)) {
+            return "";
+        }
+        return skinStyle.substring(VALORANT_SKIN_CUSTOM_PREFIX.length());
+    }
+
+    public static String getValorantSkinTextureFileName(String skinStyle, String textureKey) {
+        if (textureKey == null) {
+            return null;
+        }
+        String normalized = normalizeBuiltInValorantSkinStyle(skinStyle);
+        if (VALORANT_SKIN_GAIA.equals(normalized)) {
+            return "killicon_valorant_gaia_" + textureKey + ".png";
+        }
+        return "killicon_valorant_" + textureKey + ".png";
     }
 
     private static String normalizeDestroyVehicle(String textureKey) {

@@ -202,5 +202,4 @@ tasks.named('jar', Jar).configure {
 // Java编译配置
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'  // 设置编译编码为UTF-8
-    source("src/main/java/org/mods/gd656killicon/client/gui/tabs/PresetConfigTab.java")
 }

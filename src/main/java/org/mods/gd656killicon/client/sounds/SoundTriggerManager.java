@@ -32,9 +32,11 @@ public class SoundTriggerManager {
             } else {
                 ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_CARD_DEFAULT);
             }
-        } else if ("kill_icon".equals(category) && ("scrolling".equals(name) || "combo".equals(name))) {
-            if ("combo".equals(name)) {
-                int count = Mth.clamp(comboCount, 1, 6);
+        } else if ("kill_icon".equals(category) && ("scrolling".equals(name) || "combo".equals(name) || "valorant".equals(name))) {
+            if ("combo".equals(name) || "valorant".equals(name)) {
+                int count = "valorant".equals(name)
+                    ? Mth.clamp(comboCount, 1, 6)
+                    : Mth.clamp(comboCount, 1, 6);
                 String slotId = switch (count) {
                     case 1 -> ExternalSoundManager.SLOT_COMBO_1;
                     case 2 -> ExternalSoundManager.SLOT_COMBO_2;
@@ -43,7 +45,12 @@ public class SoundTriggerManager {
                     case 5 -> ExternalSoundManager.SLOT_COMBO_5;
                     default -> ExternalSoundManager.SLOT_COMBO_6;
                 };
-                ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), slotId);
+                if ("valorant".equals(name)) {
+                    float volumeScale = config.has("sound_volume") ? config.get("sound_volume").getAsFloat() : 1.0f;
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), slotId, false, volumeScale);
+                } else {
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), slotId);
+                }
             } else {
                 if (killType == KillType.HEADSHOT) {
                     ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_HEADSHOT);

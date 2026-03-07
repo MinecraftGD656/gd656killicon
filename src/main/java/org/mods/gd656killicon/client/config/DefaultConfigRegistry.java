@@ -36,6 +36,7 @@ public class DefaultConfigRegistry {
         OFFICIAL_PRESET_NAMES.put("00006", "PUBG淘汰字幕模式");
         OFFICIAL_PRESET_NAMES.put("00007", "Battlefield 5模式");
         OFFICIAL_PRESET_NAMES.put("00008", "三角洲行动：全面战场模式");
+        OFFICIAL_PRESET_NAMES.put("00009", "Valorant Mode");
     }
 
     public static java.util.Set<String> getOfficialPresetElements(String presetId) {
@@ -102,6 +103,10 @@ public class DefaultConfigRegistry {
         p00008.add("subtitle/bonus_list");
         p00008.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00008", p00008);
+
+        java.util.Set<String> p00009 = new java.util.HashSet<>();
+        p00009.add("kill_icon/valorant");
+        OFFICIAL_PRESET_STRUCTURE.put("00009", p00009);
     }
 
     public static JsonObject getDefaultConfig(String presetId, String elementId) {
@@ -366,6 +371,32 @@ public class DefaultConfigRegistry {
         injectTextureAnimationConfigs("kill_icon/combo", combo);
         injectTextureSelectionConfigs("00001", "kill_icon/combo", combo);
         registerGlobal("kill_icon/combo", combo);
+
+        JsonObject valorant = new JsonObject();
+        valorant.addProperty("visible", true);
+        valorant.addProperty("scale", 0.85f);
+        valorant.addProperty("x_offset", 0);
+        valorant.addProperty("y_offset", 80);
+        valorant.addProperty("display_duration", 2.6f);
+        valorant.addProperty("skin_style", "prime");
+        valorant.addProperty("enable_accent_tint", false);
+        valorant.addProperty("color_accent", "#E2505C");
+        valorant.addProperty("brightness", 1.0f);
+        valorant.addProperty("contrast", 1.0f);
+        valorant.addProperty("particle_intensity", 1.0f);
+        valorant.addProperty("particle_direction", 0.0f);
+        valorant.addProperty("enable_custom_particle_color", false);
+        valorant.addProperty("color_particle", "#FFD138");
+        valorant.addProperty("sound_volume", 1.0f);
+        valorant.addProperty("icon_scale", 1.0f);
+        valorant.addProperty("bar_scale", 1.0f);
+        valorant.addProperty("bar_x_offset", 0);
+        valorant.addProperty("bar_y_offset", 0);
+        valorant.addProperty("bar_radius_offset", 0);
+        valorant.add("valorant_skin_profiles", new JsonObject());
+        injectTextureAnimationConfigs("kill_icon/valorant", valorant);
+        injectTextureSelectionConfigs("00001", "kill_icon/valorant", valorant);
+        registerGlobal("kill_icon/valorant", valorant);
 
         JsonObject cardBar = new JsonObject();
         cardBar.addProperty("visible", true);
@@ -800,6 +831,13 @@ public class DefaultConfigRegistry {
                 case "combo_5" -> "minecraft:item/diamond";
                 case "combo_6" -> "minecraft:item/netherite_ingot";
                 default -> "minecraft:item/coal";
+            };
+        }
+        if ("kill_icon/valorant".equals(elementId)) {
+            return switch (textureKey) {
+                case "icon" -> "minecraft:item/nether_star";
+                case "bar" -> "minecraft:item/amethyst_shard";
+                default -> "minecraft:item/nether_star";
             };
         }
         if ("kill_icon/card".equals(elementId)) {
