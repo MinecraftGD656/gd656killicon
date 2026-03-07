@@ -931,6 +931,7 @@ public class ServerEventHandler {
         
         if (combo > 0) {
             NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "combo", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
+            NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "valorant", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
         }
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "card", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "card_bar", killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, false), player);

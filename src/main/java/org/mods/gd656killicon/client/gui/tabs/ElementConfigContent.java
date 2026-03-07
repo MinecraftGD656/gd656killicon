@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import org.mods.gd656killicon.client.gui.ClientFileDialogUtil;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
@@ -20,6 +21,7 @@ import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
 import org.mods.gd656killicon.client.gui.elements.InfiniteGridWidget;
 import org.mods.gd656killicon.client.gui.elements.PromptDialog;
 import org.mods.gd656killicon.client.gui.elements.entries.BooleanConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.ActionConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.FixedChoiceConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.FloatConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.HexColorConfigEntry;
@@ -27,6 +29,7 @@ import org.mods.gd656killicon.client.gui.elements.entries.IntegerConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.StringConfigEntry;
 import org.mods.gd656killicon.client.gui.screens.ElementConfigBuilder;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.config.ValorantSkinProfileManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.impl.Battlefield1Renderer;
@@ -38,6 +41,7 @@ import org.mods.gd656killicon.client.render.impl.ScrollingIconRenderer;
 import org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.SubtitleRenderer;
+import org.mods.gd656killicon.client.render.impl.ValorantIconRenderer;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -71,6 +75,9 @@ public class ElementConfigContent extends ConfigTabContent {
     private long lastComboPreviewTriggerTime = 0L;
     private int previewComboCount = 1;
     private int previewComboKillTypeIndex = 0;
+    private ValorantIconRenderer valorantPreviewRenderer = new ValorantIconRenderer();
+    private long lastValorantPreviewTriggerTime = 0L;
+    private int previewValorantComboCount = 1;
     private CardRenderer cardPreviewRenderer = new CardRenderer();
     private long lastCardPreviewTriggerTime = 0L;
     private int previewCardComboCount = 1;
@@ -116,6 +123,7 @@ public class ElementConfigContent extends ConfigTabContent {
             KillType.DESTROY_VEHICLE
     };
     private static final long PREVIEW_COMBO_TRIGGER_INTERVAL_MS = 1200L;
+    private static final long PREVIEW_VALORANT_TRIGGER_INTERVAL_MS = 1350L;
     private static final int[] PREVIEW_COMBO_KILL_TYPES = new int[] {
             KillType.NORMAL,
             KillType.HEADSHOT,
@@ -209,6 +217,22 @@ public class ElementConfigContent extends ConfigTabContent {
                     this.configRows.add(row);
                 }
             }
+        }
+
+        if (!isGeneral && selectedSecondaryTab != null) {
+            ActionConfigEntry importTextureEntry = new ActionConfigEntry(
+                0, 0, 0, 0,
+                GuiConstants.COLOR_BG,
+                0.3f,
+                I18n.get("gd656killicon.client.gui.config.generic.import_texture_file"),
+                "import_texture_file_action_" + selectedSecondaryTab.elementId,
+                I18n.get("gd656killicon.config.desc.import_texture_file"),
+                I18n.get("gd656killicon.client.gui.action.open"),
+                GuiConstants.COLOR_GREEN,
+                this::openTextureImportDialog,
+                () -> true
+            );
+            this.configRows.add(importTextureEntry);
         }
         
         sortConfigRows();
@@ -329,6 +353,7 @@ public class ElementConfigContent extends ConfigTabContent {
      }
 
     private String getConfigKey(GDRowRenderer row) {
+        if (row instanceof ActionConfigEntry) return ((ActionConfigEntry) row).getKey();
         if (row instanceof BooleanConfigEntry) return ((BooleanConfigEntry) row).getKey();
         if (row instanceof IntegerConfigEntry) return ((IntegerConfigEntry) row).getKey();
         if (row instanceof FloatConfigEntry) return ((FloatConfigEntry) row).getKey();
@@ -446,6 +471,7 @@ public class ElementConfigContent extends ConfigTabContent {
             guiGraphics.pose().popPose();
             renderScrollingPreview(guiGraphics, partialTick);
             renderComboPreview(guiGraphics, partialTick);
+            renderValorantPreview(guiGraphics, partialTick);
             renderCardPreview(guiGraphics, partialTick);
             renderCardBarPreview(guiGraphics, partialTick);
             renderBattlefieldPreview(guiGraphics, partialTick);
@@ -671,6 +697,38 @@ public class ElementConfigContent extends ConfigTabContent {
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         comboPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+        guiGraphics.disableScissor();
+    }
+
+    private void renderValorantPreview(GuiGraphics guiGraphics, float partialTick) {
+        if (!"kill_icon/valorant".equals(elementId) || gridWidget == null) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (now - lastValorantPreviewTriggerTime >= PREVIEW_VALORANT_TRIGGER_INTERVAL_MS) {
+            int comboCount;
+            if (selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId)) {
+                comboCount = "bar".equals(selectedSecondaryTab.elementId) ? 5 : 3;
+            } else {
+                comboCount = previewValorantComboCount;
+                previewValorantComboCount = previewValorantComboCount >= 5 ? 1 : previewValorantComboCount + 1;
+            }
+            valorantPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(KillType.NORMAL, -1, comboCount));
+            lastValorantPreviewTriggerTime = now;
+        }
+
+        float originX = gridWidget.getOriginX();
+        float originY = gridWidget.getOriginY();
+        int scissorX1 = gridWidget.getX();
+        int scissorY1 = gridWidget.getY();
+        int scissorX2 = scissorX1 + gridWidget.getWidth();
+        int scissorY2 = scissorY1 + gridWidget.getHeight();
+        guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
+        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+        valorantPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -1195,26 +1253,101 @@ public class ElementConfigContent extends ConfigTabContent {
         String textureKey = selectedSecondaryTab.elementId;
         String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
         String customKey = ElementTextureDefinition.getCustomTextureKey(textureKey);
+        final Path finalGifPath = gifPath;
+        final Path finalPngPath = pngPath;
 
-        if (gifPath != null) {
-            handleGifDrop(gifPath, textureKey, modeKey, customKey);
-        } else if (pngPath != null) {
-            String customFileName = ExternalTextureManager.createCustomTextureFromFile(presetId, pngPath, pngPath.getFileName().toString(), false, null, null, null);
-            if (customFileName != null) {
-                JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
-                if (current == null) current = new JsonObject();
-                current.addProperty(modeKey, "custom");
-                current.addProperty(customKey, customFileName);
-                ElementConfigManager.setElementConfig(presetId, elementId, current);
-                rebuildUI();
-                Runnable showSuccess = () -> promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_success"), PromptDialog.PromptType.SUCCESS, null);
-                showTextureBindingPrompt(textureKey, customFileName, false, () -> {
-                    resetTextureAnimationConfigs(textureKey);
-                }, showSuccess, showSuccess);
-            } else {
-                promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_fail"), PromptDialog.PromptType.ERROR, null);
+        Runnable importAction = () -> {
+            if (finalGifPath != null) {
+                handleGifDrop(finalGifPath, textureKey, modeKey, customKey);
+            } else if (finalPngPath != null) {
+                String customFileName = ExternalTextureManager.createCustomTextureFromFile(presetId, finalPngPath, finalPngPath.getFileName().toString(), false, null, null, null);
+                if (customFileName != null) {
+                    JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+                    if (current == null) current = new JsonObject();
+                    current.addProperty(modeKey, "custom");
+                    current.addProperty(customKey, customFileName);
+                    ElementConfigManager.setElementConfig(presetId, elementId, current);
+                    rebuildUI();
+                    Runnable showSuccess = () -> promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_success"), PromptDialog.PromptType.SUCCESS, null);
+                    showTextureBindingPrompt(textureKey, customFileName, false, () -> {
+                        applyTextureBindingMeta(textureKey, customFileName, false);
+                    }, showSuccess, showSuccess);
+                } else {
+                    promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_fail"), PromptDialog.PromptType.ERROR, null);
+                }
             }
+        };
+
+        if ("kill_icon/valorant".equals(elementId)) {
+            ensureValorantCustomSkinForImport(importAction);
+            return;
         }
+        importAction.run();
+    }
+
+    private void openTextureImportDialog() {
+        if (ClientFileDialogUtil.isNativeDialogAvailable()) {
+            Path selectedFile = ClientFileDialogUtil.chooseOpenFile(
+                I18n.get("gd656killicon.client.gui.prompt.texture_import_title"),
+                org.mods.gd656killicon.client.config.PresetPackManager.getExportDir(),
+                I18n.get("gd656killicon.client.gui.filetype.texture"),
+                "png",
+                "gif"
+            );
+            if (selectedFile != null) {
+                onFilesDrop(List.of(selectedFile));
+            }
+            return;
+        }
+
+        promptDialog.show(
+            I18n.get("gd656killicon.client.gui.prompt.file_dialog_unavailable"),
+            PromptDialog.PromptType.INFO,
+            () -> getTextInputDialog().show(
+                "",
+                I18n.get("gd656killicon.client.gui.prompt.texture_import_title"),
+                (input) -> {
+                    Path path = ClientFileDialogUtil.tryParsePath(input);
+                    if (path != null) {
+                        onFilesDrop(List.of(path));
+                    }
+                },
+                (input) -> ClientFileDialogUtil.isExistingFileWithExtension(input, "png", "gif")
+            )
+        );
+    }
+
+    private void ensureValorantCustomSkinForImport(Runnable importAction) {
+        JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+        String activeSkin = ValorantSkinProfileManager.resolveActiveSkinStyle(current);
+        if (ElementTextureDefinition.isValorantCustomSkinStyle(activeSkin)) {
+            importAction.run();
+            return;
+        }
+
+        getChoiceListDialog().hide();
+        getTextInputDialog().show(
+            "",
+            I18n.get("gd656killicon.client.gui.prompt.valorant_skin_import_title"),
+            (skinName) -> {
+                String trimmed = skinName == null ? "" : skinName.trim();
+                if (trimmed.isEmpty()) {
+                    return;
+                }
+                JsonObject updated = ElementConfigManager.getElementConfig(presetId, elementId);
+                if (updated == null) {
+                    updated = new JsonObject();
+                }
+                String createdStyle = ValorantSkinProfileManager.createCustomSkin(presetId, updated, trimmed);
+                if (createdStyle == null) {
+                    return;
+                }
+                ElementConfigManager.setElementConfig(presetId, elementId, updated);
+                rebuildUI();
+                importAction.run();
+            },
+            (input) -> input != null && !input.trim().isEmpty()
+        );
     }
 
     private void handleGifDrop(Path gifPath, String textureKey, String modeKey, String customKey) {
@@ -1235,7 +1368,7 @@ public class ElementConfigContent extends ConfigTabContent {
                     rebuildUI();
                     Runnable showSuccess = () -> promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_import_success"), PromptDialog.PromptType.SUCCESS, null);
                     showTextureBindingPrompt(textureKey, customFileName, true, () -> {
-                        applyGifAnimationToSharedTextures(customFileName, result);
+                        applyTextureBindingMeta(textureKey, customFileName, true);
                     }, showSuccess, showSuccess);
                 } else {
                     promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_replace_fail"), PromptDialog.PromptType.ERROR, null);
@@ -1249,33 +1382,12 @@ public class ElementConfigContent extends ConfigTabContent {
         }
     }
 
-    private void applyGifAnimationToSharedTextures(String targetFileName, GifToSpriteSheetConverter.ConversionResult result) {
-        JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
-        if (current == null) current = new JsonObject();
-        for (String textureKey : ElementTextureDefinition.getTextures(elementId)) {
-            String selectedFile = ElementTextureDefinition.getSelectedTextureFileName(presetId, elementId, textureKey, current);
-            if (targetFileName.equals(selectedFile)) {
-                String prefix = "anim_" + textureKey + "_";
-                current.addProperty(prefix + "enable_texture_animation", true);
-                current.addProperty(prefix + "texture_animation_total_frames", result.frameCount);
-                current.addProperty(prefix + "texture_animation_interval_ms", result.intervalMs);
-                current.addProperty(prefix + "texture_animation_orientation", "vertical");
-                current.addProperty(prefix + "texture_animation_loop", true);
-            }
-        }
-        ElementConfigManager.setElementConfig(presetId, elementId, current);
-    }
-
     public void handleTextureBindingChanged(String textureKey, String fileName, boolean gifDerived) {
         if (textureKey == null || fileName == null) {
             return;
         }
         showTextureBindingPrompt(textureKey, fileName, gifDerived, () -> {
-            if (gifDerived) {
-                applyGifAnimationMetaToSharedTextures(fileName);
-            } else {
-                resetTextureAnimationConfigs(textureKey);
-            }
+            applyTextureBindingMeta(textureKey, fileName, gifDerived);
         }, null, null);
     }
 
@@ -1333,6 +1445,73 @@ public class ElementConfigContent extends ConfigTabContent {
         ElementConfigManager.setElementConfig(presetId, elementId, target);
     }
 
+    private void resetTextureAnimationControls(String textureKey) {
+        if (textureKey == null) {
+            return;
+        }
+        JsonObject defaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+        if (defaults == null) {
+            return;
+        }
+        JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+        JsonObject target = current != null ? current : defaults.deepCopy();
+        String prefix = "anim_" + textureKey + "_";
+        String[] keys = new String[] {
+            prefix + "enable_texture_animation",
+            prefix + "texture_animation_total_frames",
+            prefix + "texture_animation_interval_ms",
+            prefix + "texture_animation_orientation",
+            prefix + "texture_animation_loop",
+            prefix + "texture_animation_play_style"
+        };
+        for (String key : keys) {
+            if (defaults.has(key)) {
+                target.add(key, defaults.get(key));
+            }
+        }
+        ElementConfigManager.setElementConfig(presetId, elementId, target);
+    }
+
+    private void applyTextureBindingMeta(String textureKey, String fileName, boolean gifDerived) {
+        if (gifDerived) {
+            applyGifAnimationMetaToSharedTextures(fileName);
+            return;
+        }
+        if (!ExternalTextureManager.isCustomTextureName(fileName) && !ExternalTextureManager.isVanillaTexturePath(fileName)) {
+            resetTextureAnimationConfigs(textureKey);
+            return;
+        }
+
+        resetTextureAnimationControls(textureKey);
+        JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
+        if (current == null) {
+            current = new JsonObject();
+        }
+        if (applyTextureFrameRatio(current, textureKey, fileName)) {
+            ElementConfigManager.setElementConfig(presetId, elementId, current);
+            return;
+        }
+        resetTextureAnimationConfigs(textureKey);
+    }
+
+    private boolean applyTextureFrameRatio(JsonObject target, String textureKey, String fileName) {
+        if (target == null || textureKey == null || fileName == null || fileName.isEmpty()) {
+            return false;
+        }
+        ExternalTextureManager.TextureDimensions dims = ExternalTextureManager.getLogicalTextureDimensions(presetId, fileName);
+        if (dims == null || dims.width <= 0 || dims.height <= 0) {
+            return false;
+        }
+        float base = Math.min(dims.width, dims.height);
+        if (base <= 0.0f) {
+            return false;
+        }
+        String prefix = "anim_" + textureKey + "_";
+        target.addProperty(prefix + "texture_frame_width_ratio", dims.width / base);
+        target.addProperty(prefix + "texture_frame_height_ratio", dims.height / base);
+        return true;
+    }
+
     private void applyGifAnimationMetaToSharedTextures(String targetFileName) {
         JsonObject meta = ExternalTextureManager.getCustomMeta(presetId, targetFileName);
         if (meta == null || !meta.has("gif") || !meta.get("gif").getAsBoolean()) {
@@ -1352,6 +1531,7 @@ public class ElementConfigContent extends ConfigTabContent {
                 current.addProperty(prefix + "texture_animation_interval_ms", interval);
                 current.addProperty(prefix + "texture_animation_orientation", orientation);
                 current.addProperty(prefix + "texture_animation_loop", true);
+                applyTextureFrameRatio(current, textureKey, targetFileName);
             }
         }
         ElementConfigManager.setElementConfig(presetId, elementId, current);
@@ -1549,6 +1729,7 @@ public class ElementConfigContent extends ConfigTabContent {
     private void resetPreviews() {
         scrollingPreviewRenderer = new ScrollingIconRenderer();
         comboPreviewRenderer = new ComboIconRenderer();
+        valorantPreviewRenderer = new ValorantIconRenderer();
         cardPreviewRenderer = new CardRenderer();
         cardBarPreviewRenderer = new CardBarRenderer();
         battlefield1PreviewRenderer = new Battlefield1Renderer();
@@ -1559,6 +1740,7 @@ public class ElementConfigContent extends ConfigTabContent {
         
         lastPreviewTriggerTime = 0;
         lastComboPreviewTriggerTime = 0;
+        lastValorantPreviewTriggerTime = 0;
         lastCardPreviewTriggerTime = 0;
         lastCardBarPreviewTriggerTime = 0;
         lastBattlefieldPreviewTriggerTime = 0;

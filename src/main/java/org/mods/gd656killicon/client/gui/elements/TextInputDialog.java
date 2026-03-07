@@ -2,6 +2,7 @@ package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
@@ -16,6 +17,7 @@ public class TextInputDialog {
     
     private Consumer<String> currentConfirmAction;
     private java.util.function.Predicate<String> currentValidator;
+    private int showToken = 0;
     
     private boolean visible = false;
     private String title = "";
@@ -45,6 +47,7 @@ public class TextInputDialog {
         this.text = initialText;
         this.title = title;
         this.visible = true;
+        this.showToken++;
         this.cursorPosition = text.length();
         this.displayOffset = 0;
         this.hoverProgress = 0.0f;
@@ -88,19 +91,25 @@ public class TextInputDialog {
     }
 
     private void confirm() {
+        int token = showToken;
         if (currentConfirmAction != null) {
             currentConfirmAction.accept(this.text);
         } else if (onConfirm != null) {
             onConfirm.accept(this.text);
         }
-        this.visible = false;
+        if (showToken == token) {
+            this.visible = false;
+        }
     }
     
     private void cancel() {
+        int token = showToken;
         if (onCancel != null) {
             onCancel.run();
         }
-        this.visible = false;
+        if (showToken == token) {
+            this.visible = false;
+        }
     }
     
     public boolean isVisible() {
@@ -281,6 +290,14 @@ public class TextInputDialog {
     
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!visible) return false;
+
+        boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean shiftDown = Screen.hasShiftDown() || (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+
+        if ((keyCode == GLFW.GLFW_KEY_V && controlDown) || (keyCode == GLFW.GLFW_KEY_INSERT && shiftDown)) {
+            insertClipboardText();
+            return true;
+        }
         
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
             if (cursorPosition > 0) {
@@ -328,4 +345,20 @@ public class TextInputDialog {
         }
         
         return true;     }
+
+    private void insertClipboardText() {
+        if (minecraft == null || minecraft.keyboardHandler == null) {
+            return;
+        }
+        String clipboard = minecraft.keyboardHandler.getClipboard();
+        if (clipboard == null || clipboard.isEmpty()) {
+            return;
+        }
+        String sanitized = clipboard.replace("\r", "").replace("\n", "");
+        if (sanitized.isEmpty()) {
+            return;
+        }
+        text = text.substring(0, cursorPosition) + sanitized + text.substring(cursorPosition);
+        cursorPosition += sanitized.length();
+    }
 }
