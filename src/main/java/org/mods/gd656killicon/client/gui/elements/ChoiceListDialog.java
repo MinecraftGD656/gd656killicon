@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class ChoiceListDialog {
     private final Minecraft minecraft;
@@ -27,6 +28,13 @@ public class ChoiceListDialog {
     private final List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
     private final List<FixedChoiceConfigEntry.Choice> filteredChoices = new ArrayList<>();
     private final List<GDRowRenderer> rowRenderers = new ArrayList<>();
+    private Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate;
+    private Consumer<FixedChoiceConfigEntry.Choice> onExtraAction;
+    private Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate;
+    private Consumer<FixedChoiceConfigEntry.Choice> onDirectAction;
+    private String extraActionText = "";
+    private int extraActionColor = GuiConstants.COLOR_RED;
+    private int extraActionWidth = GuiConstants.ROW_HEADER_HEIGHT;
 
     private boolean isDraggingList = false;
     private double lastMouseY = 0;
@@ -53,9 +61,61 @@ public class ChoiceListDialog {
     }
 
     public void show(String initialValue, String title, List<FixedChoiceConfigEntry.Choice> options, Consumer<String> onConfirm, Runnable onCancel) {
+        show(initialValue, title, options, onConfirm, onCancel, null, null, "", GuiConstants.COLOR_RED, GuiConstants.ROW_HEADER_HEIGHT, null, null);
+    }
+
+    public void show(
+        String initialValue,
+        String title,
+        List<FixedChoiceConfigEntry.Choice> options,
+        Consumer<String> onConfirm,
+        Runnable onCancel,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth
+    ) {
+        show(
+            initialValue,
+            title,
+            options,
+            onConfirm,
+            onCancel,
+            extraActionVisiblePredicate,
+            onExtraAction,
+            extraActionText,
+            extraActionColor,
+            extraActionWidth,
+            null,
+            null
+        );
+    }
+
+    public void show(
+        String initialValue,
+        String title,
+        List<FixedChoiceConfigEntry.Choice> options,
+        Consumer<String> onConfirm,
+        Runnable onCancel,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth,
+        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction
+    ) {
         this.title = title;
         this.onConfirm = onConfirm;
         this.onCancel = onCancel;
+        this.extraActionVisiblePredicate = extraActionVisiblePredicate;
+        this.onExtraAction = onExtraAction;
+        this.directActionPredicate = directActionPredicate;
+        this.onDirectAction = onDirectAction;
+        this.extraActionText = extraActionText == null ? "" : extraActionText;
+        this.extraActionColor = extraActionColor;
+        this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
         this.visible = true;
         this.lastFrameTime = System.currentTimeMillis();
         this.inputHoverProgress = 0.0f;
@@ -205,14 +265,27 @@ public class ChoiceListDialog {
         if (mouseX >= listX && mouseX <= listX + PANEL_WIDTH && mouseY >= listY && mouseY <= listY + LIST_HEIGHT) {
             double adjustedMouseY = mouseY + scrollY;
             int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;
-            int selectX1 = listX + PANEL_WIDTH - 30;
+            int selectWidth = 30;
 
             for (int i = 0; i < filteredChoices.size(); i++) {
+                FixedChoiceConfigEntry.Choice choice = filteredChoices.get(i);
+                boolean hasExtraAction = hasExtraAction(choice);
+                int extraWidth = hasExtraAction ? extraActionWidth : 0;
+                int selectX1 = listX + PANEL_WIDTH - selectWidth - extraWidth;
+                int extraX1 = listX + PANEL_WIDTH - extraWidth;
                 int rowTop = listY + i * (rowHeight + 1);
                 int rowBottom = rowTop + rowHeight;
                 if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
-                    if (button == 0 && mouseX >= selectX1) {
-                        selectChoice(filteredChoices.get(i));
+                    if (button == 0 && isDirectAction(choice)) {
+                        if (onDirectAction != null) {
+                            onDirectAction.accept(choice);
+                        }
+                    } else if (button == 0 && hasExtraAction && mouseX >= extraX1) {
+                        if (onExtraAction != null) {
+                            onExtraAction.accept(choice);
+                        }
+                    } else if (button == 0 && mouseX >= selectX1) {
+                        selectChoice(choice);
                     }
                     break;
                 }
@@ -354,9 +427,25 @@ public class ChoiceListDialog {
         boolean selected = choice.value().equals(selectedValue);
         int firstColor = selected ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE;
         int secondColor = selected ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE;
+        if (isDirectAction(choice)) {
+            renderer.addColumn(" " + choice.label(), -1, GuiConstants.COLOR_GOLD, true, true, (btn) -> {
+                if (onDirectAction != null) {
+                    onDirectAction.accept(choice);
+                }
+            });
+            renderer.render(guiGraphics, mouseX, mouseY, partialTick);
+            return;
+        }
 
         renderer.addColumn(" " + choice.label(), -1, firstColor, true, false, null);
         renderer.addColumn(I18n.get("gd656killicon.client.gui.choice.select"), 30, secondColor, false, true, (btn) -> selectChoice(choice));
+        if (hasExtraAction(choice)) {
+            renderer.addColumn(this.extraActionText, this.extraActionWidth, this.extraActionColor, true, true, (btn) -> {
+                if (onExtraAction != null) {
+                    onExtraAction.accept(choice);
+                }
+            });
+        }
 
         renderer.render(guiGraphics, mouseX, mouseY, partialTick);
     }
@@ -496,6 +585,14 @@ public class ChoiceListDialog {
         if (choice != null) {
             selectedValue = choice.value();
         }
+    }
+
+    private boolean hasExtraAction(FixedChoiceConfigEntry.Choice choice) {
+        return choice != null && extraActionVisiblePredicate != null && onExtraAction != null && extraActionVisiblePredicate.test(choice);
+    }
+
+    private boolean isDirectAction(FixedChoiceConfigEntry.Choice choice) {
+        return choice != null && directActionPredicate != null && onDirectAction != null && directActionPredicate.test(choice);
     }
 
     private void confirm() {

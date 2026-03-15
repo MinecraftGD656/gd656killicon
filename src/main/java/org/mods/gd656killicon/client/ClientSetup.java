@@ -20,6 +20,7 @@ public class ClientSetup {
             org.mods.gd656killicon.client.render.HudElementManager.init();
             org.mods.gd656killicon.client.render.HudElementManager.register("kill_icon", "scrolling", new org.mods.gd656killicon.client.render.impl.ScrollingIconRenderer());
             org.mods.gd656killicon.client.render.HudElementManager.register("kill_icon", "combo", new org.mods.gd656killicon.client.render.impl.ComboIconRenderer());
+            org.mods.gd656killicon.client.render.HudElementManager.register("kill_icon", "valorant", new org.mods.gd656killicon.client.render.impl.ValorantIconRenderer());
             org.mods.gd656killicon.client.render.HudElementManager.register("kill_icon", "card_bar", new org.mods.gd656killicon.client.render.impl.CardBarRenderer());
             org.mods.gd656killicon.client.render.HudElementManager.register("kill_icon", "card", new org.mods.gd656killicon.client.render.impl.CardRenderer());
             org.mods.gd656killicon.client.render.HudElementManager.register("kill_icon", "battlefield1", new org.mods.gd656killicon.client.render.impl.Battlefield1Renderer());

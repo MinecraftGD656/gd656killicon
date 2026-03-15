@@ -6,6 +6,9 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.config.ValorantSkinProfileManager;
+import org.mods.gd656killicon.client.gui.ClientFileDialogUtil;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDButton;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
@@ -13,6 +16,7 @@ import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
 import org.mods.gd656killicon.client.gui.elements.InfiniteGridWidget;
 import org.mods.gd656killicon.client.gui.elements.PromptDialog;
 import org.mods.gd656killicon.client.sounds.ExternalSoundManager;
+import com.google.gson.JsonObject;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -36,6 +40,7 @@ public class SoundConfigContent extends ConfigTabContent {
     private boolean isBattlefield1Expanded = false;
     private boolean isCardExpanded = false;
     private boolean isComboExpanded = false;
+    private boolean isValorantExpanded = false;
     private boolean isSelectingSound = false;
     private boolean isSelectOfficialExpanded = true;
     private boolean isSelectCustomExpanded = true;
@@ -388,14 +393,22 @@ public class SoundConfigContent extends ConfigTabContent {
             promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.sound_replace_invalid"), PromptDialog.PromptType.ERROR, null);
             return;
         }
-        String originalName = targetPath.getFileName().toString();
-        String baseName = ExternalSoundManager.createCustomSoundFromFile(presetId, targetPath, originalName);
-        if (baseName != null) {
-            isSelectCustomExpanded = true;
-            updateSoundRows();
-        } else {
-            promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.sound_replace_fail"), PromptDialog.PromptType.ERROR, null);
+        Runnable importAction = () -> {
+            String originalName = targetPath.getFileName().toString();
+            String baseName = ExternalSoundManager.createCustomSoundFromFile(presetId, targetPath, originalName);
+            if (baseName != null) {
+                isSelectCustomExpanded = true;
+                selectSoundForSlot(baseName);
+            } else {
+                promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.sound_replace_fail"), PromptDialog.PromptType.ERROR, null);
+            }
+        };
+
+        if (requiresValorantCustomSkinForImport()) {
+            ensureValorantCustomSkinForImport(importAction);
+            return;
         }
+        importAction.run();
     }
 
     @Override
@@ -443,12 +456,60 @@ public class SoundConfigContent extends ConfigTabContent {
         updateSoundRows();
     }
 
+    private boolean requiresValorantCustomSkinForImport() {
+        if (!"00009".equals(presetId) || selectedSlot == null) {
+            return false;
+        }
+        return selectedSlot.group == SoundGroup.VALORANT;
+    }
+
+    private void ensureValorantCustomSkinForImport(Runnable importAction) {
+        JsonObject current = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+        String activeSkin = ValorantSkinProfileManager.resolveActiveSkinStyle(current);
+        if (ElementTextureDefinition.isValorantCustomSkinStyle(activeSkin)) {
+            importAction.run();
+            return;
+        }
+
+        textInputDialog.show(
+            "",
+            I18n.get("gd656killicon.client.gui.prompt.valorant_skin_import_title"),
+            (skinName) -> {
+                String trimmed = skinName == null ? "" : skinName.trim();
+                JsonObject updated = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+                if (!ValorantSkinProfileManager.isValidCustomSkinDisplayName(trimmed) || ValorantSkinProfileManager.hasSkinLabelConflict(updated, trimmed)) {
+                    return;
+                }
+
+                if (updated == null) {
+                    updated = new JsonObject();
+                }
+
+                String createdStyle = ValorantSkinProfileManager.createCustomSkin(presetId, updated, trimmed);
+                if (createdStyle == null) {
+                    return;
+                }
+
+                ElementConfigManager.setElementConfig(presetId, "kill_icon/valorant", updated);
+                updateSoundRows();
+                importAction.run();
+            },
+            (input) -> {
+                String trimmed = input == null ? "" : input.trim();
+                JsonObject config = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+                return ValorantSkinProfileManager.isValidCustomSkinDisplayName(trimmed)
+                    && !ValorantSkinProfileManager.hasSkinLabelConflict(config, trimmed);
+            }
+        );
+    }
+
     private enum SoundGroup {
         COMMON,
         SCROLLING,
         BATTLEFIELD1,
         CARD,
-        COMBO
+        COMBO,
+        VALORANT
     }
 
     private enum SoundSlot {
@@ -467,6 +528,11 @@ public class SoundConfigContent extends ConfigTabContent {
         CARD_EXPLOSION(SoundGroup.CARD, "gd656killicon.client.gui.config.sound.subgroup.card.explosion", ExternalSoundManager.SLOT_CARD_EXPLOSION),
         CARD_CRIT(SoundGroup.CARD, "gd656killicon.client.gui.config.sound.subgroup.card.crit", ExternalSoundManager.SLOT_CARD_CRIT),
         CARD_ARMOR_HEADSHOT(SoundGroup.CARD, "gd656killicon.client.gui.config.sound.subgroup.card.armor_headshot", ExternalSoundManager.SLOT_CARD_ARMOR_HEADSHOT),
+        VALORANT_1(SoundGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.1", ExternalSoundManager.SLOT_COMBO_1),
+        VALORANT_2(SoundGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.2", ExternalSoundManager.SLOT_COMBO_2),
+        VALORANT_3(SoundGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.3", ExternalSoundManager.SLOT_COMBO_3),
+        VALORANT_4(SoundGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.4", ExternalSoundManager.SLOT_COMBO_4),
+        VALORANT_5(SoundGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.5", ExternalSoundManager.SLOT_COMBO_5),
         COMBO_1(SoundGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.1", ExternalSoundManager.SLOT_COMBO_1),
         COMBO_2(SoundGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.2", ExternalSoundManager.SLOT_COMBO_2),
         COMBO_3(SoundGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.3", ExternalSoundManager.SLOT_COMBO_3),
@@ -493,6 +559,9 @@ public class SoundConfigContent extends ConfigTabContent {
     }
 
     private void buildSoundSlotRows() {
+        boolean hasComboElement = ElementConfigManager.getElementConfig(presetId, "kill_icon/combo") != null;
+        boolean hasValorantElement = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant") != null;
+
         addCategoryHeader("gd656killicon.client.gui.config.sound.group.common", isCommonExpanded, () -> {
             isCommonExpanded = !isCommonExpanded;
             updateSoundRows();
@@ -536,17 +605,36 @@ public class SoundConfigContent extends ConfigTabContent {
             addSoundSlotRow(SoundSlot.CARD_ARMOR_HEADSHOT);
         }
 
-        addCategoryHeader("gd656killicon.client.gui.config.sound.group.combo", isComboExpanded, () -> {
-            isComboExpanded = !isComboExpanded;
-            updateSoundRows();
-        });
-        if (isComboExpanded) {
-            addSoundSlotRow(SoundSlot.COMBO_1);
-            addSoundSlotRow(SoundSlot.COMBO_2);
-            addSoundSlotRow(SoundSlot.COMBO_3);
-            addSoundSlotRow(SoundSlot.COMBO_4);
-            addSoundSlotRow(SoundSlot.COMBO_5);
-            addSoundSlotRow(SoundSlot.COMBO_6);
+        if (hasComboElement) {
+            addCategoryHeader("gd656killicon.client.gui.config.sound.group.combo", isComboExpanded, () -> {
+                isComboExpanded = !isComboExpanded;
+                updateSoundRows();
+            });
+            if (isComboExpanded) {
+                addSoundSlotRow(SoundSlot.COMBO_1);
+                addSoundSlotRow(SoundSlot.COMBO_2);
+                addSoundSlotRow(SoundSlot.COMBO_3);
+                addSoundSlotRow(SoundSlot.COMBO_4);
+                addSoundSlotRow(SoundSlot.COMBO_5);
+                addSoundSlotRow(SoundSlot.COMBO_6);
+            }
+        } else {
+            isComboExpanded = false;
+        }
+        if (hasValorantElement) {
+            addCategoryHeader("gd656killicon.client.gui.config.sound.group.valorant", isValorantExpanded, () -> {
+                isValorantExpanded = !isValorantExpanded;
+                updateSoundRows();
+            });
+            if (isValorantExpanded) {
+                addSoundSlotRow(SoundSlot.VALORANT_1);
+                addSoundSlotRow(SoundSlot.VALORANT_2);
+                addSoundSlotRow(SoundSlot.VALORANT_3);
+                addSoundSlotRow(SoundSlot.VALORANT_4);
+                addSoundSlotRow(SoundSlot.VALORANT_5);
+            }
+        } else {
+            isValorantExpanded = false;
         }
     }
 
@@ -578,6 +666,45 @@ public class SoundConfigContent extends ConfigTabContent {
         }
     }
 
+    private void addImportSoundRow() {
+        GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BG, 0.3f, false);
+        row.addColumn(I18n.get("gd656killicon.client.gui.config.generic.import_audio_file"), -1, GuiConstants.COLOR_WHITE, false, false, null);
+        row.addColumn(I18n.get("gd656killicon.client.gui.action.open"), 60, GuiConstants.COLOR_GREEN, true, true, (idx) -> openSoundImportDialog());
+        configRows.add(row);
+    }
+
+    private void openSoundImportDialog() {
+        if (ClientFileDialogUtil.isNativeDialogAvailable()) {
+            Path selectedFile = ClientFileDialogUtil.chooseOpenFile(
+                I18n.get("gd656killicon.client.gui.prompt.sound_import_title"),
+                org.mods.gd656killicon.client.config.PresetPackManager.getExportDir(),
+                I18n.get("gd656killicon.client.gui.filetype.audio"),
+                "ogg",
+                "wav"
+            );
+            if (selectedFile != null) {
+                onFilesDrop(List.of(selectedFile));
+            }
+            return;
+        }
+
+        promptDialog.show(
+            I18n.get("gd656killicon.client.gui.prompt.file_dialog_unavailable"),
+            PromptDialog.PromptType.INFO,
+            () -> getTextInputDialog().show(
+                "",
+                I18n.get("gd656killicon.client.gui.prompt.sound_import_title"),
+                (input) -> {
+                    Path path = ClientFileDialogUtil.tryParsePath(input);
+                    if (path != null) {
+                        onFilesDrop(List.of(path));
+                    }
+                },
+                (input) -> ClientFileDialogUtil.isExistingFileWithExtension(input, "ogg", "wav")
+            )
+        );
+    }
+
     private void addSoundSlotRow(SoundSlot slot) {
         String baseName = ExternalSoundManager.getSelectedSoundBaseName(presetId, slot.slotId);
         String displayName = ExternalSoundManager.getSoundDisplayName(presetId, baseName);
@@ -593,7 +720,7 @@ public class SoundConfigContent extends ConfigTabContent {
         row.addColumn("▶", 20, GuiConstants.COLOR_WHITE, true, true, (idx) -> {
             selectedSoundName = baseName;
             cachedSoundDataName = null;
-            ExternalSoundManager.playSound(baseName);
+            playPreviewSlot(slot);
         });
         int nameColor = modified ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
         row.addColumn(displayName, 80, nameColor, false, false, (idx) -> {
@@ -637,7 +764,7 @@ public class SoundConfigContent extends ConfigTabContent {
         row.addColumn("▶", 20, GuiConstants.COLOR_WHITE, true, true, (idx) -> {
             selectedSoundName = baseName;
             cachedSoundDataName = null;
-            ExternalSoundManager.playSound(baseName);
+            playPreviewSound(baseName);
         });
         if (isSelected) {
             row.addColumn(I18n.get("gd656killicon.client.gui.config.sound.select.selected"), 36, GuiConstants.COLOR_GRAY, true, true, null);
@@ -648,7 +775,19 @@ public class SoundConfigContent extends ConfigTabContent {
         }
         if (isCustom) {
             row.addColumn("×", GuiConstants.ROW_HEADER_HEIGHT, GuiConstants.COLOR_RED, true, true, (idx) -> {
-                ExternalSoundManager.deleteCustomSound(presetId, baseName);
+                boolean deleted = ExternalSoundManager.deleteCustomSound(presetId, baseName);
+                if (!deleted) {
+                    promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.sound_delete_fail"), PromptDialog.PromptType.ERROR, null);
+                    updateSoundRows();
+                    return;
+                }
+                if (baseName.equals(selectedSoundName)) {
+                    selectedSoundName = selectedSlot == null
+                        ? null
+                        : ExternalSoundManager.getSelectedSoundBaseName(presetId, selectedSlot.slotId);
+                    cachedSoundData = null;
+                    cachedSoundDataName = null;
+                }
                 updateSoundRows();
             });
         }
@@ -663,5 +802,38 @@ public class SoundConfigContent extends ConfigTabContent {
         selectedSoundName = baseName;
         cachedSoundDataName = null;
         updateSoundRows();
+    }
+
+    private void playPreviewSlot(SoundSlot slot) {
+        if (slot == null) {
+            return;
+        }
+        if ("00009".equals(presetId) && slot.group == SoundGroup.VALORANT) {
+            ExternalSoundManager.playConfiguredSound(presetId, slot.slotId, false, getValorantSoundVolumeScale());
+            return;
+        }
+        ExternalSoundManager.playConfiguredSound(presetId, slot.slotId);
+    }
+
+    private void playPreviewSound(String baseName) {
+        if (baseName == null || baseName.isEmpty()) {
+            return;
+        }
+        ExternalSoundManager.playSound(baseName, false, getValorantSoundVolumeScale());
+    }
+
+    private float getValorantSoundVolumeScale() {
+        if (!"00009".equals(presetId)) {
+            return 1.0f;
+        }
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+        if (config == null || !config.has("sound_volume")) {
+            return 1.0f;
+        }
+        try {
+            return Math.max(0.0f, config.get("sound_volume").getAsFloat());
+        } catch (Exception ignored) {
+            return 1.0f;
+        }
     }
 }

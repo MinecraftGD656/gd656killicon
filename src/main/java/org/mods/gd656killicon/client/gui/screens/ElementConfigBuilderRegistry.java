@@ -12,6 +12,7 @@ import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.tabs.ElementConfigContent;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.config.ValorantSkinProfileManager;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
@@ -36,6 +37,9 @@ public class ElementConfigBuilderRegistry {
     private static final Set<String> INTEGER_KEYS = Set.of(
         "x_offset",
         "y_offset",
+        "bar_x_offset",
+        "bar_y_offset",
+        "bar_radius_offset",
         "line_spacing",
         "max_lines",
         "icon_size",
@@ -100,6 +104,84 @@ public class ElementConfigBuilderRegistry {
         return cachedVanillaItemChoices;
     }
 
+    private static List<FixedChoiceConfigEntry.Choice> getValorantSkinChoices(JsonObject config) {
+        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+        for (ValorantSkinProfileManager.SkinChoice choice : ValorantSkinProfileManager.listSkinChoices(config)) {
+            String label;
+            if (choice.builtIn()) {
+                label = I18n.get("gd656killicon.config.choice.valorant_skin.builtin_format", resolveBuiltInSkinLabel(choice.style()));
+            } else {
+                label = I18n.get("gd656killicon.config.choice.valorant_skin.custom_format", choice.label());
+            }
+            choices.add(new FixedChoiceConfigEntry.Choice(choice.style(), label));
+        }
+        choices.add(new FixedChoiceConfigEntry.Choice(
+            ValorantSkinProfileManager.CREATE_CUSTOM_SKIN_STYLE,
+            I18n.get("gd656killicon.config.choice.valorant_skin.create_custom")
+        ));
+        return choices;
+    }
+
+    private static String resolveBuiltInSkinLabel(String skinStyle) {
+        return ElementTextureDefinition.VALORANT_SKIN_GAIA.equals(skinStyle)
+            ? I18n.get("gd656killicon.config.choice.valorant_skin.gaia")
+            : I18n.get("gd656killicon.config.choice.valorant_skin.prime");
+    }
+
+    private static String resolveValorantSkinStyle(JsonObject config) {
+        return ValorantSkinProfileManager.resolveActiveSkinStyle(config);
+    }
+
+    private static void applyValorantSkinStyle(String presetId, String elementId, String skinStyle) {
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+        if (config == null) {
+            config = new JsonObject();
+        }
+        ValorantSkinProfileManager.applySkinStyle(config, skinStyle);
+        ElementConfigManager.setElementConfig(presetId, elementId, config);
+    }
+
+    private static boolean isValidValorantSkinCreateInput(String presetId, String elementId, String input) {
+        String trimmed = input == null ? "" : input.trim();
+        if (!ValorantSkinProfileManager.isValidCustomSkinDisplayName(trimmed)) {
+            return false;
+        }
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+        if (config == null) {
+            return true;
+        }
+        return !ValorantSkinProfileManager.hasSkinLabelConflict(config, trimmed);
+    }
+
+    private static void openValorantSkinCreateDialog(ElementConfigContent elementContent, String presetId, String elementId) {
+        elementContent.getTextInputDialog().show(
+            "",
+            I18n.get("gd656killicon.client.gui.prompt.valorant_skin_import_title"),
+            (skinName) -> {
+                String trimmed = skinName == null ? "" : skinName.trim();
+                if (!isValidValorantSkinCreateInput(presetId, elementId, trimmed)) {
+                    return;
+                }
+                JsonObject updated = ElementConfigManager.getElementConfig(presetId, elementId);
+                if (updated == null) {
+                    updated = new JsonObject();
+                }
+                String createdStyle = ValorantSkinProfileManager.createCustomSkin(presetId, updated, trimmed);
+                if (createdStyle == null) {
+                    return;
+                }
+                ElementConfigManager.setElementConfig(presetId, elementId, updated);
+                elementContent.rebuildUIFromConfig();
+                elementContent.getPromptDialog().show(
+                    I18n.get("gd656killicon.client.gui.prompt.valorant_skin_import_created", trimmed),
+                    PromptDialog.PromptType.INFO,
+                    null
+                );
+            },
+            (input) -> isValidValorantSkinCreateInput(presetId, elementId, input)
+        );
+    }
+
     private static class DefaultElementConfigBuilder implements ElementConfigBuilder {
         @Override
         public void build(ConfigTabContent content) {
@@ -125,9 +207,10 @@ public class ElementConfigBuilderRegistry {
             java.util.function.Function<String, java.util.function.Supplier<Boolean>> getDependency = (k) -> {
                 if (!k.equals("visible") && configKeys.contains("visible")) {
                      return () -> {
-                         if (!getConfigBoolean.apply("visible")) return false;
+                        if (!getConfigBoolean.apply("visible")) return false;
                          
                         if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
+                        if (k.equals("color_particle") && configKeys.contains("enable_custom_particle_color")) return getConfigBoolean.apply("enable_custom_particle_color");
                         if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
                         if (k.startsWith("ring_effect_")) {
                             if (k.startsWith("ring_effect_crit_") || k.startsWith("ring_effect_normal_")) {
@@ -193,6 +276,7 @@ public class ElementConfigBuilderRegistry {
                 
                 return () -> {
                      if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
+                     if (k.equals("color_particle") && configKeys.contains("enable_custom_particle_color")) return getConfigBoolean.apply("enable_custom_particle_color");
                      if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
                      if (k.startsWith("ring_effect_")) {
                          if (k.startsWith("ring_effect_crit_") || k.startsWith("ring_effect_normal_")) {
@@ -258,6 +342,9 @@ public class ElementConfigBuilderRegistry {
             
             for (String key : sortedKeys) {
                 if (key.equals("enable_icon_effect")) {
+                    continue;
+                }
+                if ("kill_icon/valorant".equals(elementId) && key.equals("display_duration")) {
                     continue;
                 }
                 if (key.startsWith("ring_effect_normal_") && configKeys.contains("ring_effect_crit_color")) {
@@ -396,10 +483,61 @@ public class ElementConfigBuilderRegistry {
                 } else if (primitive.isString()) {
                     String defaultValue = primitive.getAsString();
                     String currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsString() : defaultValue;
+                    if ("kill_icon/valorant".equals(elementId) && "skin_style".equals(key)) {
+                        defaultValue = ElementTextureDefinition.normalizeValorantSkinStyle(defaultValue);
+                        currentValue = resolveValorantSkinStyle(currentConfig);
+                    }
+                    final String resolvedDefaultValue = defaultValue;
+                    final String resolvedCurrentValue = currentValue;
 
-                    boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(defaultValue).matches();
+                    boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(resolvedDefaultValue).matches();
 
-                    if (key.startsWith("texture_mode_")) {
+                    if ("kill_icon/valorant".equals(elementId) && "skin_style".equals(key)) {
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc.skin_style",
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            getValorantSkinChoices(currentConfig),
+                            (newValue) -> {
+                                if (ValorantSkinProfileManager.CREATE_CUSTOM_SKIN_STYLE.equals(newValue)) {
+                                    return;
+                                }
+                                String normalized = ElementTextureDefinition.normalizeValorantSkinStyle(newValue);
+                                if (normalized.equals(resolveValorantSkinStyle(ElementConfigManager.getElementConfig(finalPresetId, finalElementId)))) {
+                                    return;
+                                }
+                                applyValorantSkinStyle(finalPresetId, finalElementId, normalized);
+                                elementContent.rebuildUIFromConfig();
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition,
+                            choice -> ElementTextureDefinition.isValorantCustomSkinStyle(choice.value()),
+                            choice -> {
+                                JsonObject updated = ElementConfigManager.getElementConfig(finalPresetId, finalElementId);
+                                if (updated == null || !ElementTextureDefinition.isValorantCustomSkinStyle(choice.value())) {
+                                    return;
+                                }
+                                ValorantSkinProfileManager.deleteSkinProfile(updated, choice.value());
+                                ElementConfigManager.setElementConfig(finalPresetId, finalElementId, updated);
+                                elementContent.getChoiceListDialog().hide();
+                                elementContent.rebuildUIFromConfig();
+                            },
+                            "×",
+                            GuiConstants.COLOR_RED,
+                            GuiConstants.ROW_HEADER_HEIGHT,
+                            choice -> ValorantSkinProfileManager.CREATE_CUSTOM_SKIN_STYLE.equals(choice.value()),
+                            choice -> {
+                                elementContent.getChoiceListDialog().hide();
+                                openValorantSkinCreateDialog(elementContent, finalPresetId, finalElementId);
+                            }
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.startsWith("texture_mode_")) {
                         List<FixedChoiceConfigEntry.Choice> choices = List.of(
                             new FixedChoiceConfigEntry.Choice("custom", I18n.get("gd656killicon.config.choice.texture_mode.custom")),
                             new FixedChoiceConfigEntry.Choice("official", I18n.get("gd656killicon.config.choice.texture_mode.official")),
@@ -413,11 +551,11 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc.texture_select_mode",
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
-                                if (newValue != null && newValue.equals(currentValue)) {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
                                     return;
                                 }
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -451,17 +589,17 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc.vanilla_texture_select",
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
-                                if (newValue != null && newValue.equals(currentValue)) {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
                                     return;
                                 }
                                 if (!ExternalTextureManager.isVanillaTextureAvailable(newValue)) {
                                     elementContent.getChoiceListDialog().hide();
                                     elementContent.getPromptDialog().show(I18n.get("gd656killicon.client.gui.prompt.texture_unavailable"), PromptDialog.PromptType.ERROR, null);
-                                    ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, currentValue);
+                                    ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, resolvedCurrentValue);
                                     elementContent.rebuildUIFromConfig();
                                     return;
                                 }
@@ -488,14 +626,21 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc.official_texture_select",
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
-                                if (newValue != null && newValue.equals(currentValue)) {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
                                     return;
                                 }
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                                if ("kill_icon/valorant".equals(finalElementId) && ("icon".equals(textureKey) || "bar".equals(textureKey))) {
+                                    JsonObject updated = ElementConfigManager.getElementConfig(finalPresetId, finalElementId);
+                                    if (updated != null) {
+                                        updated.addProperty("skin_style", resolveValorantSkinStyle(updated));
+                                        ElementConfigManager.setElementConfig(finalPresetId, finalElementId, updated);
+                                    }
+                                }
                                 elementContent.handleTextureBindingChanged(textureKey, newValue, false);
                             },
                             content.getChoiceListDialog(),
@@ -520,11 +665,11 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc.custom_texture_select",
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
-                                if (newValue != null && newValue.equals(currentValue)) {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
                                     return;
                                 }
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -549,8 +694,8 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc." + key,
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -571,8 +716,8 @@ public class ElementConfigBuilderRegistry {
                              displayName,
                              key,
                              "gd656killicon.config.desc." + key,
-                             currentValue,
-                             defaultValue,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
                              choices,
                              (newValue) -> {
                                  ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -595,8 +740,8 @@ public class ElementConfigBuilderRegistry {
                              displayName,
                              key,
                              "gd656killicon.config.desc." + key,
-                             currentValue,
-                             defaultValue,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
                              choices,
                              (newValue) -> {
                                  ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -627,8 +772,8 @@ public class ElementConfigBuilderRegistry {
                              displayName,
                              key,
                              "gd656killicon.config.desc." + key,
-                             currentValue,
-                             defaultValue,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
                              choices,
                              (newValue) -> {
                                  ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -645,8 +790,8 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc." + key,
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             (newValue) -> {
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
                             },
@@ -663,8 +808,8 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc." + key,
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             (newValue) -> {
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
                             },
@@ -675,6 +820,7 @@ public class ElementConfigBuilderRegistry {
                     }
                 }
             }
+
         }
     }
 }

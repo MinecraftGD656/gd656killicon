@@ -5,12 +5,16 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraftforge.fml.loading.FMLPaths;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryStack;
 import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ElementConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.config.ValorantSkinProfileManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 import javax.sound.sampled.*;
@@ -56,6 +60,16 @@ public class ExternalSoundManager {
         "combokillsound_4_cf.ogg",
         "combokillsound_5_cf.ogg",
         "combokillsound_6_cf.ogg",
+        "valorant_primekill_1.ogg",
+        "valorant_primekill_2.ogg",
+        "valorant_primekill_3.ogg",
+        "valorant_primekill_4.ogg",
+        "valorant_primekill_5.ogg",
+        "valorant_gaiakill_1.ogg",
+        "valorant_gaiakill_2.ogg",
+        "valorant_gaiakill_3.ogg",
+        "valorant_gaiakill_4.ogg",
+        "valorant_gaiakill_5.ogg",
         "explosionkillsound_df.ogg",
         "headshotkillsound_df.ogg",
         "critkillsound_df.ogg",
@@ -297,12 +311,37 @@ public class ExternalSoundManager {
     }
 
     public static String getSelectedSoundBaseName(String presetId, String slotId) {
+        if (isValorantComboSlot(presetId, slotId)) {
+            String skinSelected = getValorantSkinSelectedSoundBaseName(presetId, slotId);
+            if (skinSelected != null && !skinSelected.isEmpty()) {
+                return skinSelected;
+            }
+            if (SLOT_COMBO_6.equals(slotId)) {
+                String comboFiveSelected = getValorantSkinSelectedSoundBaseName(presetId, SLOT_COMBO_5);
+                if (comboFiveSelected != null && !comboFiveSelected.isEmpty()) {
+                    return comboFiveSelected;
+                }
+            }
+        }
         ensureSoundSelectionsLoaded(presetId);
         String selected = getActiveSoundSelections().getOrDefault(presetId, new HashMap<>()).get(slotId);
         if (selected == null || selected.isEmpty()) {
             return getDefaultSoundBaseName(presetId, slotId);
         }
+        if (isValorantManagedSelection(presetId, slotId, selected)) {
+            return getDefaultSoundBaseName(presetId, slotId);
+        }
         return selected;
+    }
+
+    private static boolean isValorantManagedSelection(String presetId, String slotId, String selected) {
+        if (!"00009".equals(presetId) || slotId == null || selected == null) {
+            return false;
+        }
+        if (!slotId.startsWith("combo_")) {
+            return false;
+        }
+        return selected.startsWith("valorant_primekill_") || selected.startsWith("valorant_gaiakill_");
     }
 
     public static boolean isSoundSelectionModified(String presetId, String slotId) {
@@ -313,6 +352,11 @@ public class ExternalSoundManager {
 
     public static void setSoundSelection(String presetId, String slotId, String baseName) {
         if (presetId == null || slotId == null || baseName == null) {
+            return;
+        }
+        if (isValorantComboSlot(presetId, slotId)) {
+            setValorantSkinSoundSelection(presetId, slotId, baseName);
+            refreshSoundCache(presetId, baseName);
             return;
         }
         ensureSoundSelectionsLoaded(presetId);
@@ -351,6 +395,7 @@ public class ExternalSoundManager {
         }
         selections.put(presetId, defaults);
         getActiveSoundLabels().remove(presetId);
+        clearValorantSkinSoundSelections(presetId);
     }
 
     public static void playConfiguredSound(String presetId, String slotId) {
@@ -358,11 +403,15 @@ public class ExternalSoundManager {
     }
 
     public static void playConfiguredSound(String presetId, String slotId, boolean blocking) {
+        playConfiguredSound(presetId, slotId, blocking, 1.0f);
+    }
+
+    public static void playConfiguredSound(String presetId, String slotId, boolean blocking, float volumeMultiplier) {
         String baseName = getSelectedSoundBaseName(presetId, slotId);
         if (baseName == null || baseName.isEmpty()) {
             return;
         }
-        playSound(baseName, blocking);
+        playSound(baseName, blocking, volumeMultiplier);
     }
 
     public static String createCustomSoundFromFile(String presetId, Path sourcePath, String originalName) {
@@ -401,9 +450,17 @@ public class ExternalSoundManager {
         }
     }
 
-    public static void deleteCustomSound(String presetId, String baseName) {
+    public static byte[] readSoundBytes(String presetId, String baseName) throws IOException {
+        Path path = getSoundPathForPreset(presetId, baseName);
+        if (path == null || !Files.exists(path)) {
+            throw new IOException("Missing sound: " + baseName);
+        }
+        return Files.readAllBytes(path);
+    }
+
+    public static boolean deleteCustomSound(String presetId, String baseName) {
         if (presetId == null || baseName == null) {
-            return;
+            return false;
         }
         ensureSoundSelectionsLoaded(presetId);
         String fileNameOgg = baseName + ".ogg";
@@ -414,6 +471,7 @@ public class ExternalSoundManager {
         Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
         Set<String> pending = PENDING_CUSTOM_SOUNDS.get(presetId);
         try {
+            boolean existedBefore = Files.exists(oggPath) || Files.exists(wavPath);
             if (pending == null || (!pending.contains(fileNameOgg) && !pending.contains(fileNameWav))) {
                 backupFileIfNeeded(presetBackups, oggPath);
                 backupFileIfNeeded(presetBackups, wavPath);
@@ -422,10 +480,7 @@ public class ExternalSoundManager {
             Files.deleteIfExists(wavPath);
             removeCustomSoundLabel(presetId, baseName);
             refreshSoundCache(presetId, baseName);
-            if (pending != null && (pending.contains(fileNameOgg) || pending.contains(fileNameWav))) {
-                pending.add(fileNameOgg);
-                pending.add(fileNameWav);
-            } else if (pending != null) {
+            if (pending != null) {
                 pending.remove(fileNameOgg);
                 pending.remove(fileNameWav);
             }
@@ -440,8 +495,15 @@ public class ExternalSoundManager {
                     }
                 }
             }
+            removeDeletedSoundFromValorantProfiles(presetId, baseName);
+            if (!isEditing) {
+                saveSoundSelections();
+            }
+            boolean missingAfter = !Files.exists(oggPath) && !Files.exists(wavPath);
+            return missingAfter || !existedBefore;
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.sound.revert_fail", presetId, baseName, e.getMessage());
+            return false;
         }
     }
 
@@ -842,6 +904,10 @@ public class ExternalSoundManager {
     }
 
     public static void playSound(String name, boolean blocking) {
+        playSound(name, blocking, 1.0f);
+    }
+
+    public static void playSound(String name, boolean blocking, float volumeMultiplier) {
         if (!ClientConfigManager.isEnableSound()) return;
         int soundVolume = ClientConfigManager.getSoundVolume();
         if (soundVolume <= 0) return;
@@ -903,7 +969,7 @@ public class ExternalSoundManager {
                 if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                     FloatControl gainControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
                     float masterVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MASTER);
-                    masterVolume *= Math.max(0.0f, soundVolume / 100.0f);
+                    masterVolume *= Math.max(0.0f, soundVolume / 100.0f) * Math.max(0.0f, volumeMultiplier);
                     
                     if (masterVolume <= 0.0001f) {
                         masterVolume = 0.0001f;
@@ -1246,6 +1312,7 @@ public class ExternalSoundManager {
             return null;
         }
         boolean isBf5 = "00007".equals(presetId);
+        boolean isValorantPreset = "00009".equals(presetId);
         return switch (slotId) {
             case SLOT_COMMON_SCORE -> "addscore_df";
             case SLOT_COMMON_HIT -> "hitsound_df";
@@ -1262,14 +1329,80 @@ public class ExternalSoundManager {
             case SLOT_CARD_EXPLOSION -> "cardkillsound_explosion_cs";
             case SLOT_CARD_CRIT -> "cardkillsound_crit_cs";
             case SLOT_CARD_ARMOR_HEADSHOT -> "cardkillsound_armorheadshot_cs";
-            case SLOT_COMBO_1 -> "combokillsound_1_cf";
-            case SLOT_COMBO_2 -> "combokillsound_2_cf";
-            case SLOT_COMBO_3 -> "combokillsound_3_cf";
-            case SLOT_COMBO_4 -> "combokillsound_4_cf";
-            case SLOT_COMBO_5 -> "combokillsound_5_cf";
-            case SLOT_COMBO_6 -> "combokillsound_6_cf";
+            case SLOT_COMBO_1 -> isValorantPreset ? resolveValorantComboSoundBaseName(presetId, 1) : "combokillsound_1_cf";
+            case SLOT_COMBO_2 -> isValorantPreset ? resolveValorantComboSoundBaseName(presetId, 2) : "combokillsound_2_cf";
+            case SLOT_COMBO_3 -> isValorantPreset ? resolveValorantComboSoundBaseName(presetId, 3) : "combokillsound_3_cf";
+            case SLOT_COMBO_4 -> isValorantPreset ? resolveValorantComboSoundBaseName(presetId, 4) : "combokillsound_4_cf";
+            case SLOT_COMBO_5 -> isValorantPreset ? resolveValorantComboSoundBaseName(presetId, 5) : "combokillsound_5_cf";
+            case SLOT_COMBO_6 -> isValorantPreset ? resolveValorantComboSoundBaseName(presetId, 5) : "combokillsound_6_cf";
             default -> null;
         };
+    }
+
+    private static String resolveValorantComboSoundBaseName(String presetId, int comboTier) {
+        int resolvedTier = Mth.clamp(comboTier, 1, 5);
+        return isValorantGaiaSkinActive(presetId)
+            ? "valorant_gaiakill_" + resolvedTier
+            : "valorant_primekill_" + resolvedTier;
+    }
+
+    private static boolean isValorantGaiaSkinActive(String presetId) {
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+        if (config == null) {
+            return false;
+        }
+        String effectiveBaseSkin = ValorantSkinProfileManager.resolveEffectiveBaseSkin(config);
+        if (ElementTextureDefinition.VALORANT_SKIN_GAIA.equalsIgnoreCase(effectiveBaseSkin)) {
+            return true;
+        }
+        String iconFile = config.has("texture_style_icon") ? config.get("texture_style_icon").getAsString() : "";
+        String barFile = config.has("texture_style_bar") ? config.get("texture_style_bar").getAsString() : "";
+        return iconFile.contains("valorant_gaia") && barFile.contains("valorant_gaia");
+    }
+
+    private static boolean isValorantComboSlot(String presetId, String slotId) {
+        return "00009".equals(presetId) && slotId != null && slotId.startsWith("combo_");
+    }
+
+    private static String getValorantSkinSelectedSoundBaseName(String presetId, String slotId) {
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+        if (config == null) {
+            return null;
+        }
+        return ValorantSkinProfileManager.getActiveSkinSoundSelection(config, slotId);
+    }
+
+    private static void setValorantSkinSoundSelection(String presetId, String slotId, String baseName) {
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+        if (config == null) {
+            return;
+        }
+
+        String defaultBaseName = getDefaultSoundBaseName(presetId, slotId);
+        if (defaultBaseName != null && defaultBaseName.equals(baseName)) {
+            ValorantSkinProfileManager.clearActiveSkinSoundSelection(config, slotId);
+        } else {
+            ValorantSkinProfileManager.setActiveSkinSoundSelection(config, slotId, baseName);
+        }
+        ElementConfigManager.setElementConfig(presetId, "kill_icon/valorant", config);
+    }
+
+    private static void clearValorantSkinSoundSelections(String presetId) {
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+        if (config == null) {
+            return;
+        }
+        ValorantSkinProfileManager.clearAllSkinSoundSelections(config);
+        ElementConfigManager.setElementConfig(presetId, "kill_icon/valorant", config);
+    }
+
+    private static void removeDeletedSoundFromValorantProfiles(String presetId, String baseName) {
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, "kill_icon/valorant");
+        if (config == null) {
+            return;
+        }
+        ValorantSkinProfileManager.removeSoundFromAllSkinProfiles(config, baseName);
+        ElementConfigManager.setElementConfig(presetId, "kill_icon/valorant", config);
     }
 
     private static void refreshSoundCache(String presetId, String baseName) {

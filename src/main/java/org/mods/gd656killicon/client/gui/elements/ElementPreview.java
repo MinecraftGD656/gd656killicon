@@ -130,6 +130,10 @@ public class ElementPreview {
             int size = (int)(this.scale * 55);
             this.width = size;
             this.height = size;
+        } else if ("kill_icon/valorant".equals(elementId)) {
+            int size = (int)(this.scale * 90);
+            this.width = size;
+            this.height = size;
         } else if ("kill_icon/card_bar".equals(elementId)) {
             this.width = (int)(this.scale * 300);
             this.height = (int)(this.scale * 40);
