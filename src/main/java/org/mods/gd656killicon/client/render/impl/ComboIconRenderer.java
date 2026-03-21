@@ -7,7 +7,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
 import org.mods.gd656killicon.client.textures.ModTextures;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
@@ -47,6 +49,10 @@ public class ComboIconRenderer implements IHudRenderer {
     private float ringHeadshotThickness = 3.0f;
     private float ringExplosionRadius = 42.0f;
     private float ringExplosionThickness = 5.4f;
+    private boolean configIconGlowEnabled = false;
+    private int configIconGlowColor = 0xFFFFFF;
+    private float configIconGlowIntensity = 0.45f;
+    private float configIconGlowSize = 4.0f;
     private JsonObject currentConfig;
 
     private long startTime = -1;
@@ -164,13 +170,35 @@ public class ComboIconRenderer implements IHudRenderer {
         float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
         float drawWidth = 64.0f * frameWidthRatio;
         float drawHeight = 64.0f * frameHeightRatio;
+        float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/combo", textureKey);
 
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
         try {
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(centerX, centerY, 0);
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
             guiGraphics.pose().translate(-drawWidth / 2.0f, -drawHeight / 2.0f, 0);
+            if (configIconGlowEnabled) {
+                IconGlowRenderEffect.drawGlowFrame(
+                    guiGraphics,
+                    ModTextures.get(texturePath),
+                    0,
+                    0,
+                    (int) drawWidth,
+                    (int) drawHeight,
+                    0,
+                    0,
+                    (int) drawWidth,
+                    (int) drawHeight,
+                    (int) drawWidth,
+                    (int) drawHeight,
+                    focusedAlpha,
+                    configIconGlowColor,
+                    configIconGlowIntensity,
+                    configIconGlowSize
+                );
+                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
+            }
             guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight);
             guiGraphics.pose().popPose();
             ringEffect.render(guiGraphics, centerX, centerY, currentTime);
@@ -210,6 +238,10 @@ public class ComboIconRenderer implements IHudRenderer {
             this.ringExplosionThickness = config.has("ring_effect_explosion_thickness")
                     ? config.get("ring_effect_explosion_thickness").getAsFloat()
                     : 5.4f;
+            this.configIconGlowEnabled = IconGlowRenderEffect.isEnabled(config);
+            this.configIconGlowColor = IconGlowRenderEffect.resolveColor(config);
+            this.configIconGlowIntensity = IconGlowRenderEffect.resolveIntensity(config);
+            this.configIconGlowSize = IconGlowRenderEffect.resolveSize(config);
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.combo.config_error");
             this.currentConfig = null;
@@ -226,6 +258,10 @@ public class ComboIconRenderer implements IHudRenderer {
             this.ringHeadshotThickness = 3.0f;
             this.ringExplosionRadius = 42.0f;
             this.ringExplosionThickness = 5.4f;
+            this.configIconGlowEnabled = false;
+            this.configIconGlowColor = 0xFFFFFF;
+            this.configIconGlowIntensity = 0.45f;
+            this.configIconGlowSize = 4.0f;
         }
     }
 

@@ -82,9 +82,10 @@ final class ServerCombatEngine {
     }
 
     private static String resolveVictimDisplayName(LivingEntity victim) {
-        return victim instanceof net.minecraft.world.entity.player.Player
+        String baseName = victim instanceof net.minecraft.world.entity.player.Player
             ? victim.getScoreboardName()
             : (victim.hasCustomName() ? victim.getCustomName().getString() : victim.getType().getDescriptionId());
+        return ServerCore.CUSTOM_NPCS.resolveVictimDisplayName(victim, baseName);
     }
 
     static void onBlockBreak(BlockEvent.BreakEvent event) {
@@ -103,6 +104,7 @@ final class ServerCombatEngine {
         ServerCore.IMMERSIVE_AIRCRAFT.init();
         ServerCore.SPOTTING.init();
         ServerCore.PING_WHEEL.init();
+        ServerCore.CUSTOM_NPCS.init();
         startScoreboardRefreshTask();
     }
 
@@ -314,7 +316,7 @@ final class ServerCombatEngine {
         }
 
         if (amt < victim.getHealth()) {
-            ServerPacketDispatcher.sendDamageSound(player);
+            ServerPacketDispatcher.sendDamageSound(player, type == TYPE_HEADSHOT);
         }
     }
 

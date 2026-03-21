@@ -12,7 +12,9 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.scores.Team;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.common.KillType;
 
@@ -32,6 +34,10 @@ public class CardRenderer implements IHudRenderer {
     private String team = "ct";
     private boolean dynamicCardStyle = false;
     private int maxStackCount = 5;
+    private boolean enableIconGlow = false;
+    private int iconGlowColor = 0xFFFFFF;
+    private float iconGlowIntensity = 0.45f;
+    private float iconGlowSize = 4.0f;
     private JsonObject currentConfig;
 
     private static final int CARD_SIZE = 256;
@@ -236,6 +242,8 @@ public class CardRenderer implements IHudRenderer {
         boolean isT = "t".equalsIgnoreCase(currentTeam);
         String cardTextureKey = getCardTextureKey(card.killType, isT);
         String lightTextureKey = isT ? "light_t" : "light_ct";
+        float cardFocusMultiplier = PreviewTextureFocusContext.alphaMultiplier("kill_icon/card", cardTextureKey);
+        float lightFocusMultiplier = PreviewTextureFocusContext.alphaMultiplier("kill_icon/card", lightTextureKey);
         String cardTextureName = ElementTextureDefinition.getSelectedTextureFileName(
             ConfigManager.getCurrentPresetId(),
             "kill_icon/card",
@@ -273,7 +281,7 @@ public class CardRenderer implements IHudRenderer {
             
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, lightAlpha * alpha); 
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, lightAlpha * alpha * lightFocusMultiplier); 
             
             guiGraphics.blit(lightTexture, (int)(-lightW / 2), (int)(-lightH), (int)lightW, (int)lightH, 0, 0, (int)lightW, (int)lightH, (int)lightW, (int)lightH);
             poseStack.popPose();
@@ -286,12 +294,33 @@ public class CardRenderer implements IHudRenderer {
         
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha * cardFocusMultiplier);
         
         float cardWidthRatio = resolveFrameRatio(cardTextureKey, "texture_frame_width_ratio");
         float cardHeightRatio = resolveFrameRatio(cardTextureKey, "texture_frame_height_ratio");
         int drawWidth = Math.round(CARD_SIZE * cardWidthRatio);
         int drawHeight = Math.round(CARD_SIZE * cardHeightRatio);
+        if (enableIconGlow) {
+            IconGlowRenderEffect.drawGlowFrame(
+                guiGraphics,
+                cardTexture,
+                -drawWidth / 2,
+                -drawHeight / 2,
+                drawWidth,
+                drawHeight,
+                0,
+                0,
+                drawWidth,
+                drawHeight,
+                drawWidth,
+                drawHeight,
+                    alpha * cardFocusMultiplier,
+                iconGlowColor,
+                iconGlowIntensity,
+                iconGlowSize
+            );
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha * cardFocusMultiplier);
+        }
         guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
         
         float flashAlpha = 0.0f;
@@ -366,6 +395,10 @@ public class CardRenderer implements IHudRenderer {
         this.textScale = config.has("text_scale") ? config.get("text_scale").getAsFloat() : 1.0f;
         this.dynamicCardStyle = config.has("dynamic_card_style") && config.get("dynamic_card_style").getAsBoolean();
         this.maxStackCount = config.has("max_stack_count") ? config.get("max_stack_count").getAsInt() : 5;
+        this.enableIconGlow = IconGlowRenderEffect.isEnabled(config);
+        this.iconGlowColor = IconGlowRenderEffect.resolveColor(config);
+        this.iconGlowIntensity = IconGlowRenderEffect.resolveIntensity(config);
+        this.iconGlowSize = IconGlowRenderEffect.resolveSize(config);
     }
 
     private long resolveDisplayDuration() {

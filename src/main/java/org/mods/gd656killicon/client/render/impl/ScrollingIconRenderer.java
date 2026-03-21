@@ -7,7 +7,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
 import org.mods.gd656killicon.client.textures.ModTextures;
 import org.mods.gd656killicon.client.textures.IconTextureAnimationManager;
@@ -64,6 +66,10 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private float ringHeadshotThickness = 3.0f;
     private float ringExplosionRadius = 42.0f;
     private float ringExplosionThickness = 5.4f;
+    private boolean configIconGlowEnabled = false;
+    private int configIconGlowColor = 0xFFFFFF;
+    private float configIconGlowIntensity = 0.45f;
+    private float configIconGlowSize = 4.0f;
 
     private boolean isVisible = false;
     private final List<ScrollingIcon> activeIcons = new ArrayList<>();
@@ -172,11 +178,33 @@ public class ScrollingIconRenderer implements IHudRenderer {
                 drawHeight = BASE_ICON_SIZE * frameHeightRatio;
             }
 
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
+            float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/scrolling", textureKey);
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(icon.currentX, centerY, 0);
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
             guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
+            if (configIconGlowEnabled) {
+                IconGlowRenderEffect.drawGlowFrame(
+                    guiGraphics,
+                    ModTextures.get(texturePath),
+                    0,
+                    0,
+                    (int) drawWidth,
+                    (int) drawHeight,
+                    frame.u,
+                    frame.v,
+                    frame.width,
+                    frame.height,
+                    frame.totalWidth,
+                    frame.totalHeight,
+                    focusedAlpha,
+                    configIconGlowColor,
+                    configIconGlowIntensity,
+                    configIconGlowSize
+                );
+                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
+            }
             guiGraphics.blit(ModTextures.get(texturePath), 0, 0, (int)drawWidth, (int)drawHeight, frame.u, frame.v, frame.width, frame.height, frame.totalWidth, frame.totalHeight);
             guiGraphics.pose().popPose();
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -253,11 +281,33 @@ public class ScrollingIconRenderer implements IHudRenderer {
                 drawHeight = BASE_ICON_SIZE * frameHeightRatio;
             }
 
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
+            float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/scrolling", textureKey);
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(icon.currentX, originY, 0);
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
             guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
+            if (configIconGlowEnabled) {
+                IconGlowRenderEffect.drawGlowFrame(
+                    guiGraphics,
+                    ModTextures.get(texturePath),
+                    0,
+                    0,
+                    (int) drawWidth,
+                    (int) drawHeight,
+                    frame.u,
+                    frame.v,
+                    frame.width,
+                    frame.height,
+                    frame.totalWidth,
+                    frame.totalHeight,
+                    focusedAlpha,
+                    configIconGlowColor,
+                    configIconGlowIntensity,
+                    configIconGlowSize
+                );
+                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
+            }
             guiGraphics.blit(ModTextures.get(texturePath), 0, 0, (int)drawWidth, (int)drawHeight, frame.u, frame.v, frame.width, frame.height, frame.totalWidth, frame.totalHeight);
             guiGraphics.pose().popPose();
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -323,6 +373,10 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.ringExplosionThickness = config.has("ring_effect_explosion_thickness")
                     ? config.get("ring_effect_explosion_thickness").getAsFloat()
                     : 5.4f;
+            this.configIconGlowEnabled = IconGlowRenderEffect.isEnabled(config);
+            this.configIconGlowColor = IconGlowRenderEffect.resolveColor(config);
+            this.configIconGlowIntensity = IconGlowRenderEffect.resolveIntensity(config);
+            this.configIconGlowSize = IconGlowRenderEffect.resolveSize(config);
 
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.scrolling.config_error");
@@ -347,6 +401,10 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.ringHeadshotThickness = 3.0f;
             this.ringExplosionRadius = 42.0f;
             this.ringExplosionThickness = 5.4f;
+            this.configIconGlowEnabled = false;
+            this.configIconGlowColor = 0xFFFFFF;
+            this.configIconGlowIntensity = 0.45f;
+            this.configIconGlowSize = 4.0f;
         }
     }
 

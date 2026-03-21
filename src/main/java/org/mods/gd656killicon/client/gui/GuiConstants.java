@@ -7,15 +7,15 @@ public class GuiConstants {
     public static final int HEADER_HEIGHT = 25;     
     public static final int GOLD_BAR_HEIGHT = 1;     
     public static final int DEFAULT_PADDING = 8; 
-    public static final int COLOR_GOLD = 0xFFFFD700;     
-    public static final int COLOR_GOLD_ORANGE = 0xFFFFA500;     
-    public static final int COLOR_DARK_GOLD_ORANGE = 0xFFCC8400;     
+    public static int COLOR_GOLD = 0xFFFFD700;     
+    public static int COLOR_GOLD_ORANGE = 0xFFFFA500;     
+    public static int COLOR_DARK_GOLD_ORANGE = 0xFFCC8400;     
     public static final int COLOR_WHITE = 0xFFFFFFFF;     
     public static final int COLOR_GRAY = 0xFFAAAAAA;     
     public static final int COLOR_DARK_GRAY = 0xFF666666;     
     public static final int COLOR_BG = 0x4D444444;     
     public static final int COLOR_HOVER_BORDER = 0x40808080;     
-    public static final int COLOR_BLACK = 0xFF444444;     
+    public static int COLOR_BLACK = 0xFF444444;     
     public static final int COLOR_RED = 0xFFFF0000;     
     public static final int COLOR_GREEN = 0xFF00FF00;     
     public static final int COLOR_DARK_RED = 0xFF8B0000;     
@@ -39,6 +39,6 @@ public class GuiConstants {
     public static final int ROW_HEADER_HEIGHT = 17;     
     public static final int FLEX_COLUMN_MIN_WIDTH = 60; 
     
-    public static final String MOD_VERSION = "Forge-1.20.1-1.1.0.021Beta";
-    public static final String MOD_ONLINE_VERSION = "https://modrinth.com/mod/gd656killicon/version/1.1.0.021-1.20.1-forge";
+    public static final String MOD_VERSION = "Forge-1.20.1-1.1.0.022Beta";
+    public static final String MOD_ONLINE_VERSION = "https://modrinth.com/mod/gd656killicon/version/1.1.0.022-1.20.1-forge";
 }

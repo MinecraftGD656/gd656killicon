@@ -9,6 +9,7 @@ import org.lwjgl.glfw.GLFW;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 
 import java.util.function.Consumer;
+import java.util.ArrayDeque;
 
 public class TextInputDialog {
     private final Minecraft minecraft;
@@ -23,6 +24,8 @@ public class TextInputDialog {
     private String title = "";
     private String text = "";
     private int cursorPosition = 0;
+    private int selectionAnchor = -1;
+    private final ArrayDeque<EditState> undoStack = new ArrayDeque<>();
     private int displayOffset = 0;     private GDTextRenderer titleRenderer;
     
     private float hoverProgress = 0.0f;     private long lastFrameTime;
@@ -34,6 +37,18 @@ public class TextInputDialog {
     
     private GDButton confirmButton;
     private GDButton cancelButton;
+
+    private static class EditState {
+        final String text;
+        final int cursorPosition;
+        final int selectionAnchor;
+
+        EditState(String text, int cursorPosition, int selectionAnchor) {
+            this.text = text;
+            this.cursorPosition = cursorPosition;
+            this.selectionAnchor = selectionAnchor;
+        }
+    }
     
     public TextInputDialog(Minecraft minecraft, Consumer<String> onConfirm, Runnable onCancel) {
         this.minecraft = minecraft;
@@ -49,6 +64,8 @@ public class TextInputDialog {
         this.visible = true;
         this.showToken++;
         this.cursorPosition = text.length();
+        this.selectionAnchor = -1;
+        this.undoStack.clear();
         this.displayOffset = 0;
         this.hoverProgress = 0.0f;
         this.lastFrameTime = System.currentTimeMillis();
@@ -243,12 +260,6 @@ public class TextInputDialog {
     }
     
     private void renderInputText(GuiGraphics guiGraphics, int x, int y, int w, int h, boolean isValid) {
-        double scale = minecraft.getWindow().getGuiScale();
-        int sx = (int)(x * scale);
-        int sy = (int)(minecraft.getWindow().getHeight() - (y + h) * scale);
-        int sw = (int)(w * scale);
-        int sh = (int)(h * scale);
-        
         guiGraphics.enableScissor(x, y, x + w, y + h);
         
         int textWidth = minecraft.font.width(text);
@@ -269,6 +280,14 @@ public class TextInputDialog {
         
         int drawX = x + 2 - displayOffset;
         int drawY = y + (h - minecraft.font.lineHeight) / 2;
+
+        if (hasSelection()) {
+            int selStartRel = minecraft.font.width(text.substring(0, getSelectionStart()));
+            int selEndRel = minecraft.font.width(text.substring(0, getSelectionEnd()));
+            int sx = drawX + selStartRel;
+            int ex = drawX + selEndRel;
+            guiGraphics.fill(sx, drawY - 1, ex, drawY + minecraft.font.lineHeight + 1, 0x66FFD700);
+        }
         
         int textColor = isValid ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_RED;
         guiGraphics.drawString(minecraft.font, text, drawX, drawY, textColor, true);
@@ -286,8 +305,7 @@ public class TextInputDialog {
         if (!visible) return false;
         
         if (net.minecraft.SharedConstants.isAllowedChatCharacter(codePoint)) {
-            text = text.substring(0, cursorPosition) + codePoint + text.substring(cursorPosition);
-            cursorPosition++;
+            replaceSelection(String.valueOf(codePoint));
             return true;
         }
         return false;     }
@@ -298,13 +316,33 @@ public class TextInputDialog {
         boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
         boolean shiftDown = Screen.hasShiftDown() || (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
 
+        if (controlDown && keyCode == GLFW.GLFW_KEY_A) {
+            selectionAnchor = 0;
+            cursorPosition = text.length();
+            return true;
+        }
+        if (controlDown && keyCode == GLFW.GLFW_KEY_C) {
+            if (hasSelection() && minecraft != null && minecraft.keyboardHandler != null) {
+                minecraft.keyboardHandler.setClipboard(text.substring(getSelectionStart(), getSelectionEnd()));
+            }
+            return true;
+        }
+        if (controlDown && keyCode == GLFW.GLFW_KEY_Z) {
+            undoEdit();
+            return true;
+        }
         if ((keyCode == GLFW.GLFW_KEY_V && controlDown) || (keyCode == GLFW.GLFW_KEY_INSERT && shiftDown)) {
             insertClipboardText();
             return true;
         }
         
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            if (hasSelection()) {
+                deleteSelection();
+                return true;
+            }
             if (cursorPosition > 0) {
+                pushUndoState();
                 text = text.substring(0, cursorPosition - 1) + text.substring(cursorPosition);
                 cursorPosition--;
             }
@@ -312,28 +350,53 @@ public class TextInputDialog {
         }
         
         if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            if (hasSelection()) {
+                deleteSelection();
+                return true;
+            }
             if (cursorPosition < text.length()) {
+                pushUndoState();
                 text = text.substring(0, cursorPosition) + text.substring(cursorPosition + 1);
             }
             return true;
         }
         
         if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             if (cursorPosition > 0) cursorPosition--;
             return true;
         }
         
         if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             if (cursorPosition < text.length()) cursorPosition++;
             return true;
         }
         
         if (keyCode == GLFW.GLFW_KEY_HOME) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             cursorPosition = 0;
             return true;
         }
         
         if (keyCode == GLFW.GLFW_KEY_END) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             cursorPosition = text.length();
             return true;
         }
@@ -362,7 +425,64 @@ public class TextInputDialog {
         if (sanitized.isEmpty()) {
             return;
         }
-        text = text.substring(0, cursorPosition) + sanitized + text.substring(cursorPosition);
-        cursorPosition += sanitized.length();
+        replaceSelection(sanitized);
+    }
+
+    private boolean hasSelection() {
+        return selectionAnchor >= 0 && selectionAnchor != cursorPosition;
+    }
+
+    private int getSelectionStart() {
+        return Math.min(selectionAnchor, cursorPosition);
+    }
+
+    private int getSelectionEnd() {
+        return Math.max(selectionAnchor, cursorPosition);
+    }
+
+    private void deleteSelection() {
+        if (!hasSelection()) {
+            return;
+        }
+        pushUndoState();
+        int start = getSelectionStart();
+        int end = getSelectionEnd();
+        text = text.substring(0, start) + text.substring(end);
+        cursorPosition = start;
+        selectionAnchor = -1;
+    }
+
+    private void replaceSelection(String insertText) {
+        if (insertText == null) {
+            insertText = "";
+        }
+        pushUndoState();
+        if (hasSelection()) {
+            int start = getSelectionStart();
+            int end = getSelectionEnd();
+            text = text.substring(0, start) + insertText + text.substring(end);
+            cursorPosition = start + insertText.length();
+            selectionAnchor = -1;
+            return;
+        }
+        text = text.substring(0, cursorPosition) + insertText + text.substring(cursorPosition);
+        cursorPosition += insertText.length();
+    }
+
+    private void pushUndoState() {
+        if (undoStack.size() >= 64) {
+            undoStack.removeFirst();
+        }
+        undoStack.addLast(new EditState(text, cursorPosition, selectionAnchor));
+    }
+
+    private void undoEdit() {
+        if (undoStack.isEmpty()) {
+            return;
+        }
+        EditState state = undoStack.removeLast();
+        text = state.text;
+        cursorPosition = Math.max(0, Math.min(state.cursorPosition, text.length()));
+        selectionAnchor = state.selectionAnchor < 0 ? -1 : Math.max(0, Math.min(state.selectionAnchor, text.length()));
     }
 }

@@ -11,6 +11,8 @@ import net.minecraftforge.fml.loading.FMLPaths;
 import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.config.ValorantStyleCatalog;
+import org.mods.gd656killicon.client.render.effect.IconTextureFilterEffect;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 import java.io.FileInputStream;
@@ -23,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +34,6 @@ import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class ExternalTextureManager {
     private static final Path CONFIG_ASSETS_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
@@ -43,54 +45,48 @@ public class ExternalTextureManager {
     private static final String CUSTOM_LABELS_FILE = "custom_labels.json";
     private static final String CUSTOM_META_FILE = "custom_meta.json";
     
-    private static final String[] DEFAULT_TEXTURES = {
-        "killicon_scrolling_default.png",
-        "killicon_scrolling_headshot.png",
-        "killicon_scrolling_explosion.png",
-        "killicon_scrolling_crit.png",
-        "killicon_scrolling_assist.png",
-        "killicon_scrolling_destroyvehicle.png",
-        "killicon_combo_1.png",
-        "killicon_combo_2.png",
-        "killicon_combo_3.png",
-        "killicon_combo_4.png",
-        "killicon_combo_5.png",
-        "killicon_combo_6.png",
-        "killicon_valorant_icon.png",
-        "killicon_valorant_bar.png",
-        "killicon_valorant_gaia_icon.png",
-        "killicon_valorant_gaia_bar.png",
-        "killicon_card_bar_ct.png",
-        "killicon_card_bar_t.png",
-        "killicon_card_default_t.png",
-        "killicon_card_default_ct.png",
-        "killicon_card_headshot_t.png",
-        "killicon_card_headshot_ct.png",
-        "killicon_card_explosion_t.png",
-        "killicon_card_explosion_ct.png",
-        "killicon_card_crit_t.png",
-        "killicon_card_crit_ct.png",
-        "killicon_card_light_t.png",
-        "killicon_card_light_ct.png",
-        "killicon_battlefield1_default.png",
-        "killicon_battlefield1_headshot.png",
-        "killicon_battlefield1_explosion.png",
-        "killicon_battlefield1_crit.png",
-        "killicon_battlefield1_destroyvehicle.png",
-        "killicon_battlefield5_default.png",
-        "killicon_battlefield5_headshot.png",
-        "killicon_battlefield5_assist.png",
-        "killicon_battlefield5_destroyvehicle.png",
-        "killicon_df_default.png",
-        "killicon_df_headshot.png",
-        "killicon_df_destroyvehicle.png"
-    };
+    private static final String[] DEFAULT_TEXTURES = buildDefaultTextures();
     private static final Set<String> DEFAULT_TEXTURE_SET = new HashSet<>(Arrays.asList(DEFAULT_TEXTURES));
     private static final List<String> DEFAULT_TEXTURE_LIST = Collections.unmodifiableList(Arrays.asList(DEFAULT_TEXTURES));
     private static final Map<String, Map<String, TextureBackup>> PENDING_TEXTURE_BACKUPS = new HashMap<>();
     private static final Map<String, byte[]> DEFAULT_TEXTURE_BYTES = new HashMap<>();
     private static final Map<String, TextureState> TEXTURE_STATE_CACHE = new ConcurrentHashMap<>();
     private static final Set<String> TEXTURE_STATE_LOADING = ConcurrentHashMap.newKeySet();
+
+    private static String[] buildDefaultTextures() {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        addElementTextures(names, "00001", "kill_icon/scrolling");
+        addElementTextures(names, "00007", "kill_icon/scrolling");
+        addElementTextures(names, "00008", "kill_icon/scrolling");
+        addElementTextures(names, "00001", "kill_icon/combo");
+        addElementTextures(names, "00001", "kill_icon/card");
+        addElementTextures(names, "00001", "kill_icon/card_bar");
+        addElementTextures(names, "00001", "kill_icon/battlefield1");
+
+        for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
+            for (String textureKey : ElementTextureDefinition.getTextures("kill_icon/valorant")) {
+                String fileName = ValorantStyleCatalog.getOfficialTextureFileNameForStyle(definition.styleId(), textureKey);
+                if (fileName != null && !fileName.isBlank()) {
+                    names.add(fileName);
+                }
+            }
+        }
+
+        names.add("killicon_valorant_icon.png");
+        names.add("killicon_valorant_bar.png");
+        names.add("killicon_valorant_gaia_icon.png");
+        names.add("killicon_valorant_gaia_bar.png");
+        return names.toArray(new String[0]);
+    }
+
+    private static void addElementTextures(Set<String> names, String presetId, String elementId) {
+        for (String textureKey : ElementTextureDefinition.getTextures(elementId)) {
+            String fileName = ElementTextureDefinition.getTextureFileName(presetId, elementId, textureKey);
+            if (fileName != null && !fileName.isBlank()) {
+                names.add(fileName);
+            }
+        }
+    }
 
     public static void init() {
         ensureAllPresetsTextureFiles(false);
@@ -117,10 +113,7 @@ public class ExternalTextureManager {
 
                 String currentPresetId = ConfigManager.getCurrentPresetId();
                 Path presetDir = CONFIG_ASSETS_DIR.resolve(currentPresetId).resolve("textures");
-                final int[] totalTextures = { DEFAULT_TEXTURES.length };
-                
                 Map<String, NativeImage> loadedImages = new HashMap<>();
-                AtomicInteger processedCount = new AtomicInteger(0);
 
                 for (String path : DEFAULT_TEXTURES) {
                     Path file = presetDir.resolve(path);
@@ -131,11 +124,6 @@ public class ExternalTextureManager {
                         } catch (IOException e) {
                             ClientMessageLogger.error("gd656killicon.client.texture.load_fail", currentPresetId, path, e.getMessage());
                         }
-                    }
-                    
-                    int current = processedCount.incrementAndGet();
-                    if (current % 2 == 0 || current == totalTextures[0]) {
-                        ClientMessageLogger.info("Async texture reload progress: %d/%d.", current, totalTextures[0]);
                     }
                 }
 
@@ -155,7 +143,7 @@ public class ExternalTextureManager {
                              image.close();
                         }
                     }
-                    ClientMessageLogger.info("Async texture reload complete for preset %s: %d loaded.", currentPresetId, successCount);
+                    ClientMessageLogger.info("Async texture reload success for preset %s: %d loaded.", currentPresetId, successCount);
                 });
 
             } catch (Exception e) {
@@ -177,10 +165,11 @@ public class ExternalTextureManager {
     public static void resetTexturesAsync(String presetId) {
         TEXTURE_THREAD_POOL.submit(() -> {
             try {
+                ClientMessageLogger.info("Async texture reset started for preset %s.", presetId);
                 ensureCommonTextureFiles(false);
                 ensureTextureFilesForPreset(presetId, true);
                 
-                ClientMessageLogger.info("Async texture reset complete for preset %s.", presetId);
+                ClientMessageLogger.info("Async texture reset success for preset %s.", presetId);
 
                 if (presetId.equals(ConfigManager.getCurrentPresetId())) {
                     reloadAsync();
@@ -226,6 +215,7 @@ public class ExternalTextureManager {
     public static void resetAllTexturesAsync() {
         TEXTURE_THREAD_POOL.submit(() -> {
             try {
+                ClientMessageLogger.info("Async texture reset started for all presets.");
                 ensureCommonTextureFiles(true);
                 Set<String> presets = ConfigManager.getPresetIds();
 
@@ -233,7 +223,7 @@ public class ExternalTextureManager {
                     ensureTextureFilesForPreset(presetId, true);
                 }
                 
-                ClientMessageLogger.info("Async texture reset complete for all presets.");
+                ClientMessageLogger.info("Async texture reset success for all presets.");
                 
                 reloadAsync();
             } catch (Exception e) {
@@ -295,6 +285,7 @@ public class ExternalTextureManager {
         if (isVanillaTexturePath(path)) {
             ResourceLocation vanilla = getVanillaTextureLocation(path);
             if (vanilla != null) {
+                applyTextureFilter(vanilla);
                 return vanilla;
             }
         }
@@ -303,14 +294,24 @@ public class ExternalTextureManager {
         String cacheKey = presetId + ":" + resolvedPath;
         
         if (TEXTURE_CACHE.containsKey(cacheKey)) {
-            return TEXTURE_CACHE.get(cacheKey);
+            ResourceLocation cached = TEXTURE_CACHE.get(cacheKey);
+            applyTextureFilter(cached);
+            return cached;
         }
 
         if (loadExternalTexture(presetId, resolvedPath)) {
-            return TEXTURE_CACHE.get(cacheKey);
+            ResourceLocation loaded = TEXTURE_CACHE.get(cacheKey);
+            applyTextureFilter(loaded);
+            return loaded;
         }
 
-        return ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + resolvedPath);
+        ResourceLocation fallback = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + resolvedPath);
+        applyTextureFilter(fallback);
+        return fallback;
+    }
+
+    private static void applyTextureFilter(ResourceLocation textureLocation) {
+        IconTextureFilterEffect.apply(textureLocation);
     }
 
     public static byte[] readTextureBytes(String presetId, String path) throws IOException {

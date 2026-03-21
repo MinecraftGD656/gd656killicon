@@ -1,21 +1,34 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fml.ModList;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.entries.BooleanConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.FixedChoiceConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.HexColorConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.IntegerConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.ConfirmDialog;
 
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 
-import net.minecraft.client.resources.language.I18n;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 public class GlobalConfigTab extends ConfigTabContent {
     private ConfirmDialog aceLagConfirmDialog;
+    private final List<FixedChoiceConfigEntry.Choice> vanillaBlockChoices;
     public GlobalConfigTab(Minecraft minecraft) {
         super(minecraft, "gd656killicon.client.gui.config.tab.global");
         this.aceLagConfirmDialog = new ConfirmDialog(minecraft, null, null);
+        this.vanillaBlockChoices = buildVanillaBlockChoices();
         
         this.configRows.add(new BooleanConfigEntry(
             0, 0, 0, 0, 
@@ -51,6 +64,103 @@ public class GlobalConfigTab extends ConfigTabContent {
                     return false;
                 }
             }
+        ));
+
+        this.configRows.add(new BooleanConfigEntry(
+            0, 0, 0, 0,
+            GuiConstants.COLOR_BG,
+            (GuiConstants.COLOR_BG >>> 24) / 255.0f,
+            I18n.get("gd656killicon.client.gui.config.global.enable_icon_antialiasing"),
+            "enable_icon_antialiasing",
+            I18n.get("gd656killicon.client.gui.config.global.enable_icon_antialiasing.desc"),
+            ClientConfigManager.isEnableIconAntialiasing(),
+            true,
+            ClientConfigManager::setEnableIconAntialiasing
+        ));
+
+        this.configRows.add(new FixedChoiceConfigEntry(
+            0, 0, 0, 0,
+            GuiConstants.COLOR_BG,
+            (GuiConstants.COLOR_BG >>> 24) / 255.0f,
+            I18n.get("gd656killicon.client.gui.config.global.single_line_subtitle_compression"),
+            "single_line_subtitle_compression_mode",
+            I18n.get("gd656killicon.client.gui.config.global.single_line_subtitle_compression.desc"),
+            ClientConfigManager.getSingleLineSubtitleCompressionMode(),
+            "scroll",
+            List.of(
+                new FixedChoiceConfigEntry.Choice("scroll", I18n.get("gd656killicon.client.gui.config.global.single_line_subtitle_compression.scroll")),
+                new FixedChoiceConfigEntry.Choice("ellipsis", I18n.get("gd656killicon.client.gui.config.global.single_line_subtitle_compression.ellipsis"))
+            ),
+            ClientConfigManager::setSingleLineSubtitleCompressionMode,
+            this.getChoiceListDialog()
+        ));
+
+        this.configRows.add(new HexColorConfigEntry(
+            0, 0, 0, 0,
+            GuiConstants.COLOR_BG,
+            (GuiConstants.COLOR_BG >>> 24) / 255.0f,
+            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_primary"),
+            "gui_theme_color_primary",
+            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_primary.desc"),
+            ClientConfigManager.getGuiThemeColorPrimary(),
+            "#FFB840",
+            (value) -> {
+                ClientConfigManager.setGuiThemeColorPrimary(value);
+                showGuiReloadPrompt();
+            },
+            this.getTextInputDialog(),
+            this.getColorPickerDialog()
+        ));
+
+        this.configRows.add(new HexColorConfigEntry(
+            0, 0, 0, 0,
+            GuiConstants.COLOR_BG,
+            (GuiConstants.COLOR_BG >>> 24) / 255.0f,
+            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_secondary"),
+            "gui_theme_color_secondary",
+            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_secondary.desc"),
+            ClientConfigManager.getGuiThemeColorSecondary(),
+            "#F29B3D",
+            (value) -> {
+                ClientConfigManager.setGuiThemeColorSecondary(value);
+                showGuiReloadPrompt();
+            },
+            this.getTextInputDialog(),
+            this.getColorPickerDialog()
+        ));
+
+        this.configRows.add(new HexColorConfigEntry(
+            0, 0, 0, 0,
+            GuiConstants.COLOR_BG,
+            (GuiConstants.COLOR_BG >>> 24) / 255.0f,
+            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_tertiary"),
+            "gui_theme_color_tertiary",
+            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_tertiary.desc"),
+            ClientConfigManager.getGuiThemeColorTertiary(),
+            "#E49A1C",
+            (value) -> {
+                ClientConfigManager.setGuiThemeColorTertiary(value);
+                showGuiReloadPrompt();
+            },
+            this.getTextInputDialog(),
+            this.getColorPickerDialog()
+        ));
+
+        this.configRows.add(new FixedChoiceConfigEntry(
+            0, 0, 0, 0,
+            GuiConstants.COLOR_BG,
+            (GuiConstants.COLOR_BG >>> 24) / 255.0f,
+            I18n.get("gd656killicon.client.gui.config.global.gui_background_material"),
+            "gui_background_material",
+            I18n.get("gd656killicon.client.gui.config.global.gui_background_material.desc"),
+            ClientConfigManager.getGuiBackgroundMaterial(),
+            "minecraft:cut_copper",
+            vanillaBlockChoices,
+            (value) -> {
+                ClientConfigManager.setGuiBackgroundMaterial(value);
+                showGuiReloadPrompt();
+            },
+            this.getChoiceListDialog()
         ));
 
         this.configRows.add(new BooleanConfigEntry(
@@ -173,5 +283,43 @@ public class GlobalConfigTab extends ConfigTabContent {
             return aceLagConfirmDialog.charTyped(codePoint, modifiers);
         }
         return super.charTyped(codePoint, modifiers);
+    }
+
+    private void showGuiReloadPrompt() {
+        promptDialog.show(
+            I18n.get("gd656killicon.client.gui.prompt.gui_partial_reload"),
+            org.mods.gd656killicon.client.gui.elements.PromptDialog.PromptType.INFO,
+            null
+        );
+        promptDialog.setDismissible(false);
+    }
+
+    private List<FixedChoiceConfigEntry.Choice> buildVanillaBlockChoices() {
+        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+        List<Block> blocks = new ArrayList<>();
+        for (Block block : BuiltInRegistries.BLOCK) {
+            ResourceLocation key = BuiltInRegistries.BLOCK.getKey(block);
+            if (key != null && "minecraft".equals(key.getNamespace()) && !"minecraft:air".equals(key.toString())) {
+                blocks.add(block);
+            }
+        }
+        blocks.sort(Comparator.comparing(block -> block.getName().getString()));
+        for (Block block : blocks) {
+            ResourceLocation key = BuiltInRegistries.BLOCK.getKey(block);
+            if (key == null) {
+                continue;
+            }
+            BlockState state = block.defaultBlockState();
+            if (!state.canOcclude() || !state.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
+                continue;
+            }
+            ResourceLocation textureLocation = ResourceLocation.fromNamespaceAndPath(key.getNamespace(), "textures/block/" + key.getPath() + ".png");
+            if (minecraft.getResourceManager().getResource(textureLocation).isEmpty()) {
+                continue;
+            }
+            String label = block.getName().getString();
+            choices.add(new FixedChoiceConfigEntry.Choice(key.toString(), label + " (" + key + ")"));
+        }
+        return choices;
     }
 }

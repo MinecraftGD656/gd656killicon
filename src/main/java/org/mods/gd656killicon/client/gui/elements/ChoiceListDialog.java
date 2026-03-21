@@ -2,12 +2,14 @@ package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import org.lwjgl.glfw.GLFW;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.entries.FixedChoiceConfigEntry;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
@@ -22,6 +24,8 @@ public class ChoiceListDialog {
     private String title = "";
     private String filterText = "";
     private int cursorPosition = 0;
+    private int selectionAnchor = -1;
+    private final ArrayDeque<EditState> undoStack = new ArrayDeque<>();
     private int displayOffset = 0;
     private String selectedValue = "";
 
@@ -55,6 +59,18 @@ public class ChoiceListDialog {
     private static final int PAD = GuiConstants.DEFAULT_PADDING;
     private static final int LIST_HEIGHT = PANEL_WIDTH - HUE_BAR_WIDTH - PAD;
     private static final int PANEL_HEIGHT = LIST_HEIGHT + PAD + INPUT_HEIGHT + PAD + BUTTON_HEIGHT;
+
+    private static class EditState {
+        final String text;
+        final int cursorPosition;
+        final int selectionAnchor;
+
+        EditState(String text, int cursorPosition, int selectionAnchor) {
+            this.text = text;
+            this.cursorPosition = cursorPosition;
+            this.selectionAnchor = selectionAnchor;
+        }
+    }
 
     public ChoiceListDialog(Minecraft minecraft) {
         this.minecraft = minecraft;
@@ -121,6 +137,8 @@ public class ChoiceListDialog {
         this.inputHoverProgress = 0.0f;
         this.filterText = "";
         this.cursorPosition = 0;
+        this.selectionAnchor = -1;
+        this.undoStack.clear();
         this.displayOffset = 0;
 
         this.choices.clear();
@@ -259,6 +277,7 @@ public class ChoiceListDialog {
 
         if (mouseX >= inputX && mouseX <= inputX + PANEL_WIDTH && mouseY >= inputY && mouseY <= inputY + INPUT_HEIGHT) {
             setCursorByMouse((int)mouseX, inputX);
+            selectionAnchor = -1;
             return true;
         }
 
@@ -326,8 +345,7 @@ public class ChoiceListDialog {
         if (!visible) return false;
 
         if (net.minecraft.SharedConstants.isAllowedChatCharacter(codePoint)) {
-            filterText = filterText.substring(0, cursorPosition) + codePoint + filterText.substring(cursorPosition);
-            cursorPosition++;
+            replaceSelection(String.valueOf(codePoint));
             applyFilter();
             return true;
         }
@@ -336,9 +354,39 @@ public class ChoiceListDialog {
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!visible) return false;
+        boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean shiftDown = Screen.hasShiftDown() || (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+
+        if (controlDown && keyCode == GLFW.GLFW_KEY_A) {
+            selectionAnchor = 0;
+            cursorPosition = filterText.length();
+            return true;
+        }
+        if (controlDown && keyCode == GLFW.GLFW_KEY_C) {
+            if (hasSelection() && minecraft != null && minecraft.keyboardHandler != null) {
+                minecraft.keyboardHandler.setClipboard(filterText.substring(getSelectionStart(), getSelectionEnd()));
+            }
+            return true;
+        }
+        if (controlDown && keyCode == GLFW.GLFW_KEY_Z) {
+            undoEdit();
+            applyFilter();
+            return true;
+        }
+        if ((controlDown && keyCode == GLFW.GLFW_KEY_V) || (shiftDown && keyCode == GLFW.GLFW_KEY_INSERT)) {
+            insertClipboardText();
+            applyFilter();
+            return true;
+        }
 
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            if (hasSelection()) {
+                deleteSelection();
+                applyFilter();
+                return true;
+            }
             if (cursorPosition > 0) {
+                pushUndoState();
                 filterText = filterText.substring(0, cursorPosition - 1) + filterText.substring(cursorPosition);
                 cursorPosition--;
                 applyFilter();
@@ -347,7 +395,13 @@ public class ChoiceListDialog {
         }
 
         if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            if (hasSelection()) {
+                deleteSelection();
+                applyFilter();
+                return true;
+            }
             if (cursorPosition < filterText.length()) {
+                pushUndoState();
                 filterText = filterText.substring(0, cursorPosition) + filterText.substring(cursorPosition + 1);
                 applyFilter();
             }
@@ -355,21 +409,41 @@ public class ChoiceListDialog {
         }
 
         if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             if (cursorPosition > 0) cursorPosition--;
             return true;
         }
 
         if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             if (cursorPosition < filterText.length()) cursorPosition++;
             return true;
         }
 
         if (keyCode == GLFW.GLFW_KEY_HOME) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             cursorPosition = 0;
             return true;
         }
 
         if (keyCode == GLFW.GLFW_KEY_END) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             cursorPosition = filterText.length();
             return true;
         }
@@ -470,6 +544,14 @@ public class ChoiceListDialog {
         int drawX = x + 2 - displayOffset;
         int drawY = y + (h - minecraft.font.lineHeight) / 2;
 
+        if (hasSelection()) {
+            int selStartRel = minecraft.font.width(filterText.substring(0, getSelectionStart()));
+            int selEndRel = minecraft.font.width(filterText.substring(0, getSelectionEnd()));
+            int sx = drawX + selStartRel;
+            int ex = drawX + selEndRel;
+            guiGraphics.fill(sx, drawY - 1, ex, drawY + minecraft.font.lineHeight + 1, 0x66FFD700);
+        }
+
         guiGraphics.drawString(minecraft.font, filterText, drawX, drawY, GuiConstants.COLOR_WHITE, true);
 
         if (System.currentTimeMillis() / 500 % 2 == 0) {
@@ -539,6 +621,79 @@ public class ChoiceListDialog {
         cursorPosition = pos;
     }
 
+    private void insertClipboardText() {
+        if (minecraft == null || minecraft.keyboardHandler == null) {
+            return;
+        }
+        String clipboard = minecraft.keyboardHandler.getClipboard();
+        if (clipboard == null || clipboard.isEmpty()) {
+            return;
+        }
+        String sanitized = clipboard.replace("\r", "").replace("\n", "");
+        if (sanitized.isEmpty()) {
+            return;
+        }
+        replaceSelection(sanitized);
+    }
+
+    private boolean hasSelection() {
+        return selectionAnchor >= 0 && selectionAnchor != cursorPosition;
+    }
+
+    private int getSelectionStart() {
+        return Math.min(selectionAnchor, cursorPosition);
+    }
+
+    private int getSelectionEnd() {
+        return Math.max(selectionAnchor, cursorPosition);
+    }
+
+    private void deleteSelection() {
+        if (!hasSelection()) {
+            return;
+        }
+        pushUndoState();
+        int start = getSelectionStart();
+        int end = getSelectionEnd();
+        filterText = filterText.substring(0, start) + filterText.substring(end);
+        cursorPosition = start;
+        selectionAnchor = -1;
+    }
+
+    private void replaceSelection(String insertText) {
+        if (insertText == null) {
+            insertText = "";
+        }
+        pushUndoState();
+        if (hasSelection()) {
+            int start = getSelectionStart();
+            int end = getSelectionEnd();
+            filterText = filterText.substring(0, start) + insertText + filterText.substring(end);
+            cursorPosition = start + insertText.length();
+            selectionAnchor = -1;
+            return;
+        }
+        filterText = filterText.substring(0, cursorPosition) + insertText + filterText.substring(cursorPosition);
+        cursorPosition += insertText.length();
+    }
+
+    private void pushUndoState() {
+        if (undoStack.size() >= 64) {
+            undoStack.removeFirst();
+        }
+        undoStack.addLast(new EditState(filterText, cursorPosition, selectionAnchor));
+    }
+
+    private void undoEdit() {
+        if (undoStack.isEmpty()) {
+            return;
+        }
+        EditState state = undoStack.removeLast();
+        filterText = state.text;
+        cursorPosition = Math.max(0, Math.min(state.cursorPosition, filterText.length()));
+        selectionAnchor = state.selectionAnchor < 0 ? -1 : Math.max(0, Math.min(state.selectionAnchor, filterText.length()));
+    }
+
     private void updateScroll(float dt, int viewHeight) {
         int contentHeight = filteredChoices.size() * (GuiConstants.ROW_HEADER_HEIGHT + 1);
         double maxScroll = Math.max(0, contentHeight - viewHeight);
@@ -565,6 +720,9 @@ public class ChoiceListDialog {
         targetScrollY = 0;
         scrollY = 0;
         cursorPosition = Math.min(cursorPosition, filterText.length());
+        if (selectionAnchor >= 0) {
+            selectionAnchor = Math.min(selectionAnchor, filterText.length());
+        }
     }
 
     private String resolveValue(String value) {

@@ -36,7 +36,9 @@ public class DefaultConfigRegistry {
         OFFICIAL_PRESET_NAMES.put("00006", "PUBG淘汰字幕模式");
         OFFICIAL_PRESET_NAMES.put("00007", "Battlefield 5模式");
         OFFICIAL_PRESET_NAMES.put("00008", "三角洲行动：全面战场模式");
-        OFFICIAL_PRESET_NAMES.put("00009", "Valorant Mode");
+        for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
+            OFFICIAL_PRESET_NAMES.put(definition.presetId(), "VALORANT " + definition.displayName());
+        }
     }
 
     public static java.util.Set<String> getOfficialPresetElements(String presetId) {
@@ -104,9 +106,11 @@ public class DefaultConfigRegistry {
         p00008.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00008", p00008);
 
-        java.util.Set<String> p00009 = new java.util.HashSet<>();
-        p00009.add("kill_icon/valorant");
-        OFFICIAL_PRESET_STRUCTURE.put("00009", p00009);
+        for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
+            java.util.Set<String> valorantPreset = new java.util.HashSet<>();
+            valorantPreset.add("kill_icon/valorant");
+            OFFICIAL_PRESET_STRUCTURE.put(definition.presetId(), valorantPreset);
+        }
     }
 
     public static JsonObject getDefaultConfig(String presetId, String elementId) {
@@ -374,28 +378,52 @@ public class DefaultConfigRegistry {
 
         JsonObject valorant = new JsonObject();
         valorant.addProperty("visible", true);
-        valorant.addProperty("scale", 0.65f);
+        valorant.addProperty("scale", 0.85f);
         valorant.addProperty("x_offset", 0);
         valorant.addProperty("y_offset", 80);
-        valorant.addProperty("skin_style", "prime");
         valorant.addProperty("enable_accent_tint", false);
         valorant.addProperty("color_accent", "#E2505C");
         valorant.addProperty("brightness", 1.0f);
-        valorant.addProperty("contrast", 1.0f);
-        valorant.addProperty("particle_intensity", 1.0f);
-        valorant.addProperty("particle_direction", 0.0f);
-        valorant.addProperty("enable_custom_particle_color", false);
-        valorant.addProperty("color_particle", "#FFD138");
-        valorant.addProperty("sound_volume", 1.0f);
-        valorant.addProperty("icon_scale", 1.0f);
-        valorant.addProperty("bar_scale", 1.0f);
+        valorant.addProperty("enable_icon_glow", false);
+        valorant.addProperty("color_icon_glow", "#FFFFFF");
+        valorant.addProperty("icon_glow_intensity", 0.45f);
+        valorant.addProperty("icon_glow_size", 4.0f);
+        valorant.addProperty("enable_halo_ring", true);
+        valorant.addProperty("halo_ring_radius", 30.0f);
+        valorant.addProperty("halo_ring_width", 1.50f);
+        valorant.addProperty("color_halo_ring", "#FFFFFF");
+        valorant.addProperty("icon_entry_offset_y", -16);
+        valorant.addProperty("icon_entry_duration", 0.10f);
+        valorant.addProperty("icon_flash_count", 4);
+        valorant.addProperty("icon_flash_hold_duration", 0.08f);
+        valorant.addProperty("color_icon_flash", "#FF2A36");
+        valorant.addProperty("color_headshot_overlay", "#FF2A36");
+        valorant.addProperty("headshot_anim_initial_scale", 1.8f);
+        valorant.addProperty("headshot_anim_duration", 0.25f);
+        valorant.addProperty("bar_entry_initial_scale", 1.6f);
+        valorant.addProperty("bar_entry_duration", 0.18f);
+        valorant.addProperty("enable_math_particle_effect", false);
+        valorant.addProperty("math_particle_density", 1.0f);
+        valorant.addProperty("math_particle_spread", 1.0f);
+        valorant.addProperty("math_particle_size", 1.0f);
+        injectValorantParticleLayerDefaults(valorant, "base_particle", "#908CCD");
+        injectValorantParticleLayerDefaults(valorant, "hero_flame", "#908CCD");
+        injectValorantParticleLayerDefaults(valorant, "large_sparks", "#908CCD");
+        injectValorantParticleLayerDefaults(valorant, "x_sparks", "#FF2A36");
+        valorant.addProperty("icon_scale", 0.90f);
+        valorant.addProperty("enable_blade_effect", true);
+        valorant.addProperty("enable_blade_rotation_effect", true);
+        valorant.addProperty("blade_deceleration_window", 2.0f);
         valorant.addProperty("bar_x_offset", 0);
         valorant.addProperty("bar_y_offset", 0);
         valorant.addProperty("bar_radius_offset", 0);
-        valorant.add("valorant_skin_profiles", new JsonObject());
         injectTextureAnimationConfigs("kill_icon/valorant", valorant);
-        injectTextureSelectionConfigs("00001", "kill_icon/valorant", valorant);
+        applyValorantParticleAnimationDefaults(valorant);
+        valorant.addProperty("anim_base_particle_texture_y_offset", 45);
+        valorant.addProperty("anim_blade_texture_scale", 0.60f);
+        injectTextureSelectionConfigs("00009", "kill_icon/valorant", valorant);
         registerGlobal("kill_icon/valorant", valorant);
+        registerValorantPresetOverrides(valorant);
 
         JsonObject cardBar = new JsonObject();
         cardBar.addProperty("visible", true);
@@ -752,11 +780,133 @@ public class DefaultConfigRegistry {
     }
 
     private static void registerGlobal(String elementId, JsonObject config) {
+        if (elementId != null && elementId.startsWith("kill_icon")) {
+            applyIconGlowDefaults(config);
+        }
         GLOBAL_DEFAULTS.put(elementId, config);
+    }
+
+    private static void applyIconGlowDefaults(JsonObject config) {
+        if (!config.has("enable_icon_glow")) {
+            config.addProperty("enable_icon_glow", false);
+        }
+        if (!config.has("color_icon_glow")) {
+            config.addProperty("color_icon_glow", "#FFFFFF");
+        }
+        if (!config.has("icon_glow_intensity")) {
+            config.addProperty("icon_glow_intensity", 0.45f);
+        }
+        if (!config.has("icon_glow_size")) {
+            config.addProperty("icon_glow_size", 4.0f);
+        }
+    }
+
+    private static void injectValorantParticleLayerDefaults(JsonObject config, String keyPrefix, String color) {
+        config.addProperty("enable_" + keyPrefix, true);
+        config.addProperty("color_" + keyPrefix, color);
+    }
+
+    private static void applyValorantParticleAnimationDefaults(JsonObject config) {
+        applyAnimationDefaults(config, "base_particle", 49, 25);
+        applyAnimationDefaults(config, "hero_flame", 20, 29);
+        applyAnimationDefaults(config, "large_sparks", 52, 25);
+        applyAnimationDefaults(config, "x_sparks", 29, 25);
+    }
+
+    private static void applyAnimationDefaults(JsonObject config, String textureKey, int totalFrames, int intervalMs) {
+        String prefix = "anim_" + textureKey + "_";
+        config.addProperty(prefix + "enable_texture_animation", true);
+        config.addProperty(prefix + "texture_animation_total_frames", totalFrames);
+        config.addProperty(prefix + "texture_animation_interval_ms", intervalMs);
+        config.addProperty(prefix + "texture_animation_orientation", "vertical");
+        config.addProperty(prefix + "texture_animation_loop", false);
+        config.addProperty(prefix + "texture_animation_play_style", "sequential");
+        config.addProperty(prefix + "texture_frame_width_ratio", 1);
+        config.addProperty(prefix + "texture_frame_height_ratio", 1);
+        config.addProperty(prefix + "texture_scale", 1.0f);
+        config.addProperty(prefix + "texture_final_opacity", 1.0f);
+        config.addProperty(prefix + "texture_x_offset", 0);
+        config.addProperty(prefix + "texture_y_offset", 0);
     }
 
     private static void registerOverride(String presetId, String elementId, JsonObject config) {
         PRESET_OVERRIDES.computeIfAbsent(presetId, k -> new HashMap<>()).put(elementId, config);
+    }
+
+    private static void registerValorantPresetOverrides(JsonObject baseConfig) {
+        for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
+            JsonObject override = baseConfig.deepCopy();
+            override.addProperty("enable_blade_effect", ValorantStyleCatalog.usesBlade(definition.styleId()));
+            override.addProperty("anim_base_particle_texture_y_offset", 45);
+            if (!ValorantStyleCatalog.usesBlade(definition.styleId())) {
+                override.addProperty("anim_blade_texture_scale", 0.7f);
+            }
+            applyValorantPresetTuning(definition.presetId(), override);
+            override.addProperty("color_base_particle", String.format("#%06X", definition.accentColor() & 0xFFFFFF));
+            override.addProperty("color_hero_flame", String.format("#%06X", definition.accentColor() & 0xFFFFFF));
+            override.addProperty("color_large_sparks", String.format("#%06X", definition.accentColor() & 0xFFFFFF));
+            injectTextureSelectionConfigs(definition.presetId(), "kill_icon/valorant", override);
+            registerOverride(definition.presetId(), "kill_icon/valorant", override);
+        }
+    }
+
+    private static void applyValorantPresetTuning(String presetId, JsonObject override) {
+        if (presetId == null || presetId.length() != 5) {
+            return;
+        }
+        int id;
+        try {
+            id = Integer.parseInt(presetId);
+        } catch (NumberFormatException e) {
+            return;
+        }
+
+        if (id >= 11 && id <= 13) {
+            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
+            override.addProperty("anim_emblem_texture_scale", 0.9f);
+        }
+        if (id >= 9 && id <= 13) {
+            override.addProperty("enable_hero_flame", false);
+        }
+        if (id == 10) {
+            override.addProperty("halo_ring_radius", 25.0f);
+        }
+        if (id >= 14 && id <= 17) {
+            override.addProperty("bar_radius_offset", 4);
+            override.addProperty("anim_emblem_texture_scale", 0.9f);
+        }
+        if (id >= 18 && id <= 21) {
+            override.addProperty("anim_emblem_texture_scale", 0.55f);
+            override.addProperty("anim_base_particle_texture_y_offset", 55);
+            override.addProperty("anim_base_particle_texture_scale", 1.20f);
+        }
+        if (id == 22) {
+            override.addProperty("anim_emblem_texture_scale", 0.6f);
+            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
+        }
+        if (id >= 23 && id <= 25) {
+            override.addProperty("anim_emblem_texture_scale", 0.5f);
+            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
+            override.addProperty("bar_radius_offset", 9);
+        }
+        if (id >= 26 && id <= 29) {
+            override.addProperty("halo_ring_radius", 25.0f);
+            override.addProperty("anim_emblem_texture_scale", 0.4f);
+            override.addProperty("anim_base_particle_texture_scale", 0.9f);
+        }
+        if (id == 30) {
+            override.addProperty("halo_ring_radius", 25.0f);
+            override.addProperty("anim_emblem_texture_scale", 0.5f);
+            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
+        }
+        if (id >= 31 && id <= 34) {
+            override.addProperty("halo_ring_radius", 25.0f);
+            override.addProperty("anim_emblem_texture_scale", 0.35f);
+            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
+        }
+        if (id >= 18 && id <= 34) {
+            override.addProperty("anim_large_sparks_texture_scale", 2.2f);
+        }
     }
 
     private static void injectTextureAnimationConfigs(String elementId, JsonObject config) {
@@ -773,6 +923,10 @@ public class DefaultConfigRegistry {
             config.addProperty(prefix + "texture_animation_play_style", "sequential");
             config.addProperty(prefix + "texture_frame_width_ratio", 1);
             config.addProperty(prefix + "texture_frame_height_ratio", 1);
+            config.addProperty(prefix + "texture_scale", 1.0f);
+            config.addProperty(prefix + "texture_final_opacity", 1.0f);
+            config.addProperty(prefix + "texture_x_offset", 0);
+            config.addProperty(prefix + "texture_y_offset", 0);
         }
     }
 
@@ -834,8 +988,10 @@ public class DefaultConfigRegistry {
         }
         if ("kill_icon/valorant".equals(elementId)) {
             return switch (textureKey) {
-                case "icon" -> "minecraft:item/nether_star";
+                case "emblem" -> "minecraft:item/nether_star";
+                case "frame" -> "minecraft:item/echo_shard";
                 case "bar" -> "minecraft:item/amethyst_shard";
+                case "headshot" -> "minecraft:item/firework_star";
                 default -> "minecraft:item/nether_star";
             };
         }
@@ -855,24 +1011,6 @@ public class DefaultConfigRegistry {
     }
 
     private static String resolveScrollingStyleFileName(String presetId, String textureKey) {
-        if ("00007".equals(presetId)) {
-            return switch (textureKey) {
-                case "headshot" -> "killicon_battlefield5_headshot.png";
-                case "assist" -> "killicon_battlefield5_assist.png";
-                case "destroy_vehicle" -> "killicon_battlefield5_destroyvehicle.png";
-                case "explosion", "crit", "default" -> "killicon_battlefield5_default.png";
-                default -> "killicon_battlefield5_default.png";
-            };
-        }
-        if ("00008".equals(presetId)) {
-            return switch (textureKey) {
-                case "headshot" -> "killicon_df_headshot.png";
-                case "destroy_vehicle" -> "killicon_df_destroyvehicle.png";
-                case "assist" -> "killicon_scrolling_assist.png";
-                case "explosion", "crit", "default" -> "killicon_df_default.png";
-                default -> "killicon_df_default.png";
-            };
-        }
-        return ElementTextureDefinition.getTextureFileName("00001", "kill_icon/scrolling", textureKey);
+        return ElementTextureDefinition.getTextureFileName(presetId, "kill_icon/scrolling", textureKey);
     }
 }

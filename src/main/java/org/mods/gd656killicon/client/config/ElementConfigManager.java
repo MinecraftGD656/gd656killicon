@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import net.minecraftforge.fml.loading.FMLPaths;
+import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 import java.io.File;
@@ -75,7 +76,7 @@ public class ElementConfigManager {
         if (preset == null) return;
         
         if (preset.getConfig(elementId) != null) return; 
-        JsonObject safeDefaults = getDefaultElementConfig(elementId);
+        JsonObject safeDefaults = getDefaultElementConfig(presetId, elementId);
         if (!safeDefaults.entrySet().isEmpty()) {
             preset.addElementConfig(elementId, safeDefaults);
             if (!isEditing) {
@@ -292,11 +293,10 @@ public class ElementConfigManager {
                 JsonObject config = elementEntry.getValue();
 
                 if ("kill_icon/valorant".equals(elementId)) {
-                    changed |= migrateValorantConfig(config);
-                    ValorantSkinProfileManager.syncActiveSkinProfile(config);
+                    changed |= migrateValorantConfig(presetId, config);
                 }
                 
-                JsonObject safeDefaults = getDefaultElementConfig(elementId);
+                JsonObject safeDefaults = getDefaultElementConfig(presetId, elementId);
                 
                 if (safeDefaults.entrySet().isEmpty()) {
                     elementIterator.remove();
@@ -328,25 +328,172 @@ public class ElementConfigManager {
         return changed;
     }
 
-    private static boolean migrateValorantConfig(JsonObject config) {
+    private static boolean migrateValorantConfig(String presetId, JsonObject config) {
         boolean changed = false;
-        if (config == null || !config.has("color_gaia_accent")) {
+        if (config == null) {
             return false;
         }
 
-        String legacyAccent = config.get("color_gaia_accent").getAsString();
-        if (!config.has("color_accent")) {
-            config.addProperty("color_accent", legacyAccent);
+        if (config.has("color_gaia_accent")) {
+            String legacyAccent = config.get("color_gaia_accent").getAsString();
+            if (!config.has("color_accent")) {
+                config.addProperty("color_accent", legacyAccent);
+                changed = true;
+            }
+            if (!config.has("enable_accent_tint")) {
+                boolean accentCustomized = legacyAccent != null && !"#E2505C".equalsIgnoreCase(legacyAccent);
+                config.addProperty("enable_accent_tint", accentCustomized);
+                changed = true;
+            }
+        }
+
+        if (config.has("skin_style")) {
+            config.remove("skin_style");
+            changed = true;
+        }
+        if (config.has("base_particle_speed")) {
+            config.remove("base_particle_speed");
+            changed = true;
+        }
+        if (config.has("hero_flame_speed")) {
+            config.remove("hero_flame_speed");
+            changed = true;
+        }
+        if (config.has("large_sparks_speed")) {
+            config.remove("large_sparks_speed");
+            changed = true;
+        }
+        if (config.has("x_sparks_speed")) {
+            config.remove("x_sparks_speed");
+            changed = true;
+        }
+        if (config.has("sound_volume")) {
+            config.remove("sound_volume");
+            changed = true;
+        }
+        if (config.has("headshot_sound_volume")) {
+            config.remove("headshot_sound_volume");
+            changed = true;
+        }
+        if (config.has("enable_icon_antialiasing")) {
+            config.remove("enable_icon_antialiasing");
+            changed = true;
+        }
+        if (config.has("display_duration")) {
+            config.remove("display_duration");
+            changed = true;
+        }
+        String[] legacyParticleConfigKeys = new String[]{
+            "base_particle_scale", "base_particle_x_offset", "base_particle_y_offset", "base_particle_opacity", "base_particle_center_x_offset",
+            "hero_flame_scale", "hero_flame_x_offset", "hero_flame_y_offset", "hero_flame_opacity",
+            "large_sparks_scale", "large_sparks_x_offset", "large_sparks_y_offset", "large_sparks_opacity",
+            "x_sparks_scale", "x_sparks_x_offset", "x_sparks_y_offset", "x_sparks_opacity",
+            "enable_custom_color_base_particle", "enable_custom_color_hero_flame", "enable_custom_color_large_sparks", "enable_custom_color_x_sparks",
+            "contrast", "icon_entry_curve", "color_headshot_anim_flicker", "headshot_anim_flicker_speed", "headshot_anim_scale_curve",
+            "bar_entry_scale_curve", "icon_x_offset", "icon_y_offset", "frame_scale", "enable_ring", "ring_scale", "blade_scale", "bar_scale", "headshot_scale",
+            "frame_x_offset", "frame_y_offset", "ring_x_offset", "ring_y_offset", "blade_x_offset", "blade_y_offset", "headshot_x_offset", "headshot_y_offset"
+        };
+        for (String key : legacyParticleConfigKeys) {
+            if (config.has(key)) {
+                config.remove(key);
+                changed = true;
+            }
+        }
+        if (!config.has("enable_blade_rotation_effect")) {
+            config.addProperty("enable_blade_rotation_effect", true);
+            changed = true;
+        }
+        if (!config.has("blade_deceleration_window")) {
+            config.addProperty("blade_deceleration_window", 2.0f);
+            changed = true;
+        }
+        if (!config.has("enable_math_particle_effect")) {
+            config.addProperty("enable_math_particle_effect", false);
             changed = true;
         }
 
-        if (!config.has("enable_accent_tint")) {
-            boolean accentCustomized = legacyAccent != null && !"#E2505C".equalsIgnoreCase(legacyAccent);
-            config.addProperty("enable_accent_tint", accentCustomized);
+        String styleId = ValorantStyleCatalog.resolveStyleId(presetId, config);
+        if (!config.has("enable_blade_effect")) {
+            config.addProperty("enable_blade_effect", ValorantStyleCatalog.usesBlade(styleId));
             changed = true;
+        }
+        JsonObject valorantDefaults = DefaultConfigRegistry.getDefaultConfig(presetId, "kill_icon/valorant");
+        int expectedBaseParticleYOffset = 45;
+        if (valorantDefaults != null && valorantDefaults.has("anim_base_particle_texture_y_offset")) {
+            expectedBaseParticleYOffset = valorantDefaults.get("anim_base_particle_texture_y_offset").getAsInt();
+        }
+        boolean expectedEnableBaseParticle = valorantDefaults == null || !valorantDefaults.has("enable_base_particle") || valorantDefaults.get("enable_base_particle").getAsBoolean();
+        boolean expectedEnableHeroFlame = valorantDefaults == null || !valorantDefaults.has("enable_hero_flame") || valorantDefaults.get("enable_hero_flame").getAsBoolean();
+        boolean expectedEnableLargeSparks = valorantDefaults == null || !valorantDefaults.has("enable_large_sparks") || valorantDefaults.get("enable_large_sparks").getAsBoolean();
+        boolean expectedEnableXSparks = valorantDefaults == null || !valorantDefaults.has("enable_x_sparks") || valorantDefaults.get("enable_x_sparks").getAsBoolean();
+        if (!config.has("enable_base_particle")) {
+            config.addProperty("enable_base_particle", expectedEnableBaseParticle);
+            changed = true;
+        }
+        if (!config.has("enable_hero_flame")) {
+            config.addProperty("enable_hero_flame", expectedEnableHeroFlame);
+            changed = true;
+        }
+        if (!config.has("enable_large_sparks")) {
+            config.addProperty("enable_large_sparks", expectedEnableLargeSparks);
+            changed = true;
+        }
+        if (!config.has("enable_x_sparks")) {
+            config.addProperty("enable_x_sparks", expectedEnableXSparks);
+            changed = true;
+        }
+        if (!config.has("anim_base_particle_texture_y_offset")) {
+            config.addProperty("anim_base_particle_texture_y_offset", expectedBaseParticleYOffset);
+            changed = true;
+        }
+        for (String textureKey : ElementTextureDefinition.getTextures("kill_icon/valorant")) {
+            String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
+            String officialKey = ElementTextureDefinition.getOfficialTextureKey(textureKey);
+            String customKey = ElementTextureDefinition.getCustomTextureKey(textureKey);
+            String expectedFile = ValorantStyleCatalog.getOfficialTextureFileNameForStyle(styleId, textureKey);
+            String mode = config.has(modeKey) ? config.get(modeKey).getAsString() : "official";
+            if (!"official".equalsIgnoreCase(mode) && !"custom".equalsIgnoreCase(mode) && !"vanilla".equalsIgnoreCase(mode)) {
+                config.addProperty(modeKey, "official");
+                changed = true;
+                mode = "official";
+            }
+            if ("custom".equalsIgnoreCase(mode)) {
+                String customTexture = config.has(customKey) ? config.get(customKey).getAsString() : "";
+                if (customTexture == null || customTexture.isBlank()) {
+                    config.addProperty(modeKey, "official");
+                    changed = true;
+                }
+            }
+            if (expectedFile == null || expectedFile.isBlank()) {
+                continue;
+            }
+            String officialTexture = config.has(officialKey) ? config.get(officialKey).getAsString() : null;
+            if (officialTexture == null || officialTexture.isBlank() || !isValidValorantOfficialTexture(textureKey, officialTexture)) {
+                config.addProperty(officialKey, expectedFile);
+                changed = true;
+            }
         }
 
         return changed;
+    }
+
+    private static boolean isValidValorantOfficialTexture(String textureKey, String fileName) {
+        if (!ExternalTextureManager.isOfficialTextureName(fileName)) {
+            return false;
+        }
+        for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
+            String allowed = ValorantStyleCatalog.getOfficialTextureFileNameForStyle(definition.styleId(), textureKey);
+            if (fileName.equals(allowed)) {
+                return true;
+            }
+        }
+        if ("emblem".equals(textureKey)) {
+            return "killicon_valorant_icon.png".equals(fileName) || "killicon_valorant_gaia_icon.png".equals(fileName);
+        }
+        if ("bar".equals(textureKey)) {
+            return "killicon_valorant_bar.png".equals(fileName) || "killicon_valorant_gaia_bar.png".equals(fileName);
+        }
+        return false;
     }
 
     private static ElementPreset createOfficialPreset(String presetId) {
@@ -434,7 +581,7 @@ public class ElementConfigManager {
     
     public static JsonObject getElementConfigWithFallback(String presetId, String elementId) {
         JsonObject config = getElementConfig(presetId, elementId);
-        JsonObject safeDefaults = getDefaultElementConfig(elementId);
+        JsonObject safeDefaults = getDefaultElementConfig(presetId, elementId);
         
         if (config == null) {
             return safeDefaults;
@@ -623,9 +770,6 @@ public class ElementConfigManager {
     public static void setElementConfig(String presetId, String elementId, JsonObject config) {
         ElementPreset preset = getActivePresets().get(presetId);
         if (preset != null) {
-            if ("kill_icon/valorant".equals(elementId) && config != null) {
-                ValorantSkinProfileManager.syncActiveSkinProfile(config);
-            }
             preset.addElementConfig(elementId, config);
             if (!isEditing) {
                 saveConfig();
@@ -670,10 +814,6 @@ public class ElementConfigManager {
             config.addProperty(key, value);
         }
 
-        if ("kill_icon/valorant".equals(elementId)) {
-            ValorantSkinProfileManager.syncActiveSkinProfile(config);
-        }
-        
         if (!isEditing) {
             saveConfig();
         }

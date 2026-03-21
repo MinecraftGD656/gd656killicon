@@ -12,7 +12,6 @@ import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.tabs.ElementConfigContent;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
-import org.mods.gd656killicon.client.config.ValorantSkinProfileManager;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
@@ -104,82 +103,44 @@ public class ElementConfigBuilderRegistry {
         return cachedVanillaItemChoices;
     }
 
-    private static List<FixedChoiceConfigEntry.Choice> getValorantSkinChoices(JsonObject config) {
-        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
-        for (ValorantSkinProfileManager.SkinChoice choice : ValorantSkinProfileManager.listSkinChoices(config)) {
-            String label;
-            if (choice.builtIn()) {
-                label = I18n.get("gd656killicon.config.choice.valorant_skin.builtin_format", resolveBuiltInSkinLabel(choice.style()));
-            } else {
-                label = I18n.get("gd656killicon.config.choice.valorant_skin.custom_format", choice.label());
-            }
-            choices.add(new FixedChoiceConfigEntry.Choice(choice.style(), label));
-        }
-        choices.add(new FixedChoiceConfigEntry.Choice(
-            ValorantSkinProfileManager.CREATE_CUSTOM_SKIN_STYLE,
-            I18n.get("gd656killicon.config.choice.valorant_skin.create_custom")
-        ));
-        return choices;
+    private static boolean isValorantMathParticleKey(String key) {
+        return "math_particle_density".equals(key)
+            || "math_particle_spread".equals(key)
+            || "math_particle_size".equals(key);
     }
 
-    private static String resolveBuiltInSkinLabel(String skinStyle) {
-        return ElementTextureDefinition.VALORANT_SKIN_GAIA.equals(skinStyle)
-            ? I18n.get("gd656killicon.config.choice.valorant_skin.gaia")
-            : I18n.get("gd656killicon.config.choice.valorant_skin.prime");
-    }
-
-    private static String resolveValorantSkinStyle(JsonObject config) {
-        return ValorantSkinProfileManager.resolveActiveSkinStyle(config);
-    }
-
-    private static void applyValorantSkinStyle(String presetId, String elementId, String skinStyle) {
-        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-        if (config == null) {
-            config = new JsonObject();
-        }
-        ValorantSkinProfileManager.applySkinStyle(config, skinStyle);
-        ElementConfigManager.setElementConfig(presetId, elementId, config);
-    }
-
-    private static boolean isValidValorantSkinCreateInput(String presetId, String elementId, String input) {
-        String trimmed = input == null ? "" : input.trim();
-        if (!ValorantSkinProfileManager.isValidCustomSkinDisplayName(trimmed)) {
+    private static boolean isValorantStandardParticleKey(String key) {
+        if (key == null) {
             return false;
         }
-        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-        if (config == null) {
+        if (key.startsWith("base_particle_")
+            || key.startsWith("hero_flame_")
+            || key.startsWith("large_sparks_")
+            || key.startsWith("x_sparks_")
+            || key.startsWith("color_base_particle")
+            || key.startsWith("color_hero_flame")
+            || key.startsWith("color_large_sparks")
+            || key.startsWith("color_x_sparks")
+            || key.startsWith("enable_custom_color_base_particle")
+            || key.startsWith("enable_custom_color_hero_flame")
+            || key.startsWith("enable_custom_color_large_sparks")
+            || key.startsWith("enable_custom_color_x_sparks")
+            || key.startsWith("enable_base_particle")
+            || key.startsWith("enable_hero_flame")
+            || key.startsWith("enable_large_sparks")
+            || key.startsWith("enable_x_sparks")) {
             return true;
         }
-        return !ValorantSkinProfileManager.hasSkinLabelConflict(config, trimmed);
-    }
-
-    private static void openValorantSkinCreateDialog(ElementConfigContent elementContent, String presetId, String elementId) {
-        elementContent.getTextInputDialog().show(
-            "",
-            I18n.get("gd656killicon.client.gui.prompt.valorant_skin_import_title"),
-            (skinName) -> {
-                String trimmed = skinName == null ? "" : skinName.trim();
-                if (!isValidValorantSkinCreateInput(presetId, elementId, trimmed)) {
-                    return;
-                }
-                JsonObject updated = ElementConfigManager.getElementConfig(presetId, elementId);
-                if (updated == null) {
-                    updated = new JsonObject();
-                }
-                String createdStyle = ValorantSkinProfileManager.createCustomSkin(presetId, updated, trimmed);
-                if (createdStyle == null) {
-                    return;
-                }
-                ElementConfigManager.setElementConfig(presetId, elementId, updated);
-                elementContent.rebuildUIFromConfig();
-                elementContent.getPromptDialog().show(
-                    I18n.get("gd656killicon.client.gui.prompt.valorant_skin_import_created", trimmed),
-                    PromptDialog.PromptType.INFO,
-                    null
-                );
-            },
-            (input) -> isValidValorantSkinCreateInput(presetId, elementId, input)
-        );
+        if (key.startsWith("anim_base_particle_")
+            || key.startsWith("anim_hero_flame_")
+            || key.startsWith("anim_large_sparks_")
+            || key.startsWith("anim_x_sparks_")) {
+            return true;
+        }
+        return key.equals("texture_mode_base_particle") || key.equals("texture_style_base_particle") || key.equals("custom_texture_base_particle") || key.equals("vanilla_texture_base_particle")
+            || key.equals("texture_mode_hero_flame") || key.equals("texture_style_hero_flame") || key.equals("custom_texture_hero_flame") || key.equals("vanilla_texture_hero_flame")
+            || key.equals("texture_mode_large_sparks") || key.equals("texture_style_large_sparks") || key.equals("custom_texture_large_sparks") || key.equals("vanilla_texture_large_sparks")
+            || key.equals("texture_mode_x_sparks") || key.equals("texture_style_x_sparks") || key.equals("custom_texture_x_sparks") || key.equals("vanilla_texture_x_sparks");
     }
 
     private static class DefaultElementConfigBuilder implements ElementConfigBuilder {
@@ -212,6 +173,12 @@ public class ElementConfigBuilderRegistry {
                         if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
                         if (k.equals("color_particle") && configKeys.contains("enable_custom_particle_color")) return getConfigBoolean.apply("enable_custom_particle_color");
                         if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
+                        if ((k.equals("color_icon_glow") || k.equals("icon_glow_intensity") || k.equals("icon_glow_size")) && configKeys.contains("enable_icon_glow")) {
+                            return getConfigBoolean.apply("enable_icon_glow");
+                        }
+                        if ((k.equals("color_halo_ring") || k.equals("halo_ring_radius") || k.equals("halo_ring_width")) && configKeys.contains("enable_halo_ring")) {
+                            return getConfigBoolean.apply("enable_halo_ring");
+                        }
                         if (k.startsWith("ring_effect_")) {
                             if (k.startsWith("ring_effect_crit_") || k.startsWith("ring_effect_normal_")) {
                                 return !configKeys.contains("enable_ring_effect_crit") || getConfigBoolean.apply("enable_ring_effect_crit");
@@ -236,6 +203,18 @@ public class ElementConfigBuilderRegistry {
                                                   
                              return "time".equals(killReset) || "time".equals(assistReset);
                          }
+                        if ("kill_icon/valorant".equals(elementId) && !k.equals("enable_math_particle_effect")) {
+                            boolean mathEnabled = configKeys.contains("enable_math_particle_effect") && getConfigBoolean.apply("enable_math_particle_effect");
+                            if ("color_base_particle".equals(k) || "enable_custom_color_base_particle".equals(k)) {
+                                return true;
+                            }
+                            if (isValorantStandardParticleKey(k)) {
+                                return !mathEnabled;
+                            }
+                            if (isValorantMathParticleKey(k)) {
+                                return mathEnabled;
+                            }
+                        }
                          
                          if (elementId.equals("kill_icon/battlefield1")) {
                          }
@@ -255,6 +234,12 @@ public class ElementConfigBuilderRegistry {
                                  String property = k.substring(prefix.length());
                                  
                                  if (property.equals("enable_texture_animation")) return true;
+                                if (property.equals("texture_scale")
+                                    || property.equals("texture_final_opacity")
+                                    || property.equals("texture_x_offset")
+                                    || property.equals("texture_y_offset")) {
+                                    return true;
+                                }
                                 if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
                                     String enableKey = prefix + "enable_texture_animation";
                                     if (configKeys.contains(enableKey)) {
@@ -278,6 +263,12 @@ public class ElementConfigBuilderRegistry {
                      if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
                      if (k.equals("color_particle") && configKeys.contains("enable_custom_particle_color")) return getConfigBoolean.apply("enable_custom_particle_color");
                      if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
+                     if ((k.equals("color_icon_glow") || k.equals("icon_glow_intensity") || k.equals("icon_glow_size")) && configKeys.contains("enable_icon_glow")) {
+                         return getConfigBoolean.apply("enable_icon_glow");
+                     }
+                     if ((k.equals("color_halo_ring") || k.equals("halo_ring_radius") || k.equals("halo_ring_width")) && configKeys.contains("enable_halo_ring")) {
+                         return getConfigBoolean.apply("enable_halo_ring");
+                     }
                      if (k.startsWith("ring_effect_")) {
                          if (k.startsWith("ring_effect_crit_") || k.startsWith("ring_effect_normal_")) {
                              return !configKeys.contains("enable_ring_effect_crit") || getConfigBoolean.apply("enable_ring_effect_crit");
@@ -302,6 +293,18 @@ public class ElementConfigBuilderRegistry {
                                               
                          return "time".equals(killReset) || "time".equals(assistReset);
                      }
+                    if ("kill_icon/valorant".equals(elementId) && !k.equals("enable_math_particle_effect")) {
+                        boolean mathEnabled = configKeys.contains("enable_math_particle_effect") && getConfigBoolean.apply("enable_math_particle_effect");
+                        if ("color_base_particle".equals(k) || "enable_custom_color_base_particle".equals(k)) {
+                            return true;
+                        }
+                        if (isValorantStandardParticleKey(k)) {
+                            return !mathEnabled;
+                        }
+                        if (isValorantMathParticleKey(k)) {
+                            return mathEnabled;
+                        }
+                    }
 
                      if (k.startsWith("anim_")) {
                          String matchingTexture = null;
@@ -318,6 +321,12 @@ public class ElementConfigBuilderRegistry {
                              String property = k.substring(prefix.length());
                              
                              if (property.equals("enable_texture_animation")) return true;
+                            if (property.equals("texture_scale")
+                                || property.equals("texture_final_opacity")
+                                || property.equals("texture_x_offset")
+                                || property.equals("texture_y_offset")) {
+                                return true;
+                            }
                              if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
                                  String enableKey = prefix + "enable_texture_animation";
                                  if (configKeys.contains(enableKey)) {
@@ -483,61 +492,12 @@ public class ElementConfigBuilderRegistry {
                 } else if (primitive.isString()) {
                     String defaultValue = primitive.getAsString();
                     String currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsString() : defaultValue;
-                    if ("kill_icon/valorant".equals(elementId) && "skin_style".equals(key)) {
-                        defaultValue = ElementTextureDefinition.normalizeValorantSkinStyle(defaultValue);
-                        currentValue = resolveValorantSkinStyle(currentConfig);
-                    }
                     final String resolvedDefaultValue = defaultValue;
                     final String resolvedCurrentValue = currentValue;
 
                     boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(resolvedDefaultValue).matches();
 
-                    if ("kill_icon/valorant".equals(elementId) && "skin_style".equals(key)) {
-                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
-                            0, 0, 0, 0,
-                            GuiConstants.COLOR_BG,
-                            0.3f,
-                            displayName,
-                            key,
-                            "gd656killicon.config.desc.skin_style",
-                            resolvedCurrentValue,
-                            resolvedDefaultValue,
-                            getValorantSkinChoices(currentConfig),
-                            (newValue) -> {
-                                if (ValorantSkinProfileManager.CREATE_CUSTOM_SKIN_STYLE.equals(newValue)) {
-                                    return;
-                                }
-                                String normalized = ElementTextureDefinition.normalizeValorantSkinStyle(newValue);
-                                if (normalized.equals(resolveValorantSkinStyle(ElementConfigManager.getElementConfig(finalPresetId, finalElementId)))) {
-                                    return;
-                                }
-                                applyValorantSkinStyle(finalPresetId, finalElementId, normalized);
-                                elementContent.rebuildUIFromConfig();
-                            },
-                            content.getChoiceListDialog(),
-                            activeCondition,
-                            choice -> ElementTextureDefinition.isValorantCustomSkinStyle(choice.value()),
-                            choice -> {
-                                JsonObject updated = ElementConfigManager.getElementConfig(finalPresetId, finalElementId);
-                                if (updated == null || !ElementTextureDefinition.isValorantCustomSkinStyle(choice.value())) {
-                                    return;
-                                }
-                                ValorantSkinProfileManager.deleteSkinProfile(updated, choice.value());
-                                ElementConfigManager.setElementConfig(finalPresetId, finalElementId, updated);
-                                elementContent.getChoiceListDialog().hide();
-                                elementContent.rebuildUIFromConfig();
-                            },
-                            "×",
-                            GuiConstants.COLOR_RED,
-                            GuiConstants.ROW_HEADER_HEIGHT,
-                            choice -> ValorantSkinProfileManager.CREATE_CUSTOM_SKIN_STYLE.equals(choice.value()),
-                            choice -> {
-                                elementContent.getChoiceListDialog().hide();
-                                openValorantSkinCreateDialog(elementContent, finalPresetId, finalElementId);
-                            }
-                        );
-                        content.getConfigRows().add(entry);
-                    } else if (key.startsWith("texture_mode_")) {
+                    if (key.startsWith("texture_mode_")) {
                         List<FixedChoiceConfigEntry.Choice> choices = List.of(
                             new FixedChoiceConfigEntry.Choice("custom", I18n.get("gd656killicon.config.choice.texture_mode.custom")),
                             new FixedChoiceConfigEntry.Choice("official", I18n.get("gd656killicon.config.choice.texture_mode.official")),
@@ -612,13 +572,13 @@ public class ElementConfigBuilderRegistry {
                         content.getConfigRows().add(entry);
                     } else if (key.startsWith("texture_style_")) {
                         List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+                        String textureKey = key.substring("texture_style_".length());
                         for (String fileName : ExternalTextureManager.getAllTextureFileNames()) {
                             String baseName = fileName.endsWith(".png") ? fileName.substring(0, fileName.length() - 4) : fileName;
                             String labelKey = "gd656killicon.client.gui.texture.file." + baseName;
                             String label = I18n.exists(labelKey) ? I18n.get(labelKey) : baseName;
                             choices.add(new FixedChoiceConfigEntry.Choice(fileName, label));
                         }
-                        String textureKey = key.substring("texture_style_".length());
                         FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
                             0, 0, 0, 0,
                             GuiConstants.COLOR_BG,
@@ -634,13 +594,6 @@ public class ElementConfigBuilderRegistry {
                                     return;
                                 }
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
-                                if ("kill_icon/valorant".equals(finalElementId) && ("icon".equals(textureKey) || "bar".equals(textureKey))) {
-                                    JsonObject updated = ElementConfigManager.getElementConfig(finalPresetId, finalElementId);
-                                    if (updated != null) {
-                                        updated.addProperty("skin_style", resolveValorantSkinStyle(updated));
-                                        ElementConfigManager.setElementConfig(finalPresetId, finalElementId, updated);
-                                    }
-                                }
                                 elementContent.handleTextureBindingChanged(textureKey, newValue, false);
                             },
                             content.getChoiceListDialog(),

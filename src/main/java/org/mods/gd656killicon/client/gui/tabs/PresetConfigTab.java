@@ -6,6 +6,7 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.Util;
+import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
@@ -31,7 +32,6 @@ import java.util.Set;
 
 import java.util.Map;
 import java.util.HashMap;
-import org.mods.gd656killicon.client.gui.elements.TextInputDialog;
 import org.mods.gd656killicon.client.gui.elements.ElementPreview;
 import com.google.gson.JsonObject;
 
@@ -82,6 +82,8 @@ public class PresetConfigTab extends ConfigTabContent {
     private double targetContentScrollY = 0;
     private boolean isContentDragging = false;
     private double contentLastMouseY = 0;
+    private boolean valorantPresetFolderExpanded = false;
+    private boolean battlefieldPresetFolderExpanded = false;
     private boolean leftRequireExitBeforeAutoOpen = false;
     private boolean rightRequireExitBeforeAutoOpen = false;
     private boolean resetPanelPositions = false;
@@ -104,6 +106,44 @@ public class PresetConfigTab extends ConfigTabContent {
     
     private ConfigScreenHeader header;
 
+    private enum GuideDock {
+        TOP_LEFT,
+        TOP_RIGHT,
+        BOTTOM_CENTER
+    }
+
+    private enum GuidePhase {
+        ENTER,
+        ACTIVE,
+        EXIT
+    }
+
+    private static class GuideStep {
+        final int index;
+        final GuideDock dock;
+        final List<GDTextRenderer.ColoredText> texts;
+
+        GuideStep(int index, GuideDock dock, List<GDTextRenderer.ColoredText> texts) {
+            this.index = index;
+            this.dock = dock;
+            this.texts = texts;
+        }
+    }
+
+    private GDTextRenderer tutorialRenderer;
+    private int tutorialCurrentStep = 8;
+    private GuidePhase tutorialPhase = GuidePhase.ACTIVE;
+    private long tutorialPhaseStartAt = 0L;
+    private float tutorialExitDirection = 0.0f;
+    private float tutorialTextWidth = 0.0f;
+    private float tutorialTextHeight = 0.0f;
+    private float tutorialInterruptKick = 0.0f;
+    private float tutorialRenderX = 0.0f;
+    private float tutorialRenderY = 0.0f;
+    private long tutorialLastRenderAt = 0L;
+    private boolean tutorialTriggeredLeft = false;
+    private boolean tutorialTriggeredRight = false;
+
     public PresetConfigTab(Minecraft minecraft) {
         super(minecraft, "gd656killicon.client.gui.config.tab.preset");
         this.lastFrameTime = Util.getMillis();
@@ -123,10 +163,14 @@ public class PresetConfigTab extends ConfigTabContent {
         leftRequireExitBeforeAutoOpen = true;
         rightRequireExitBeforeAutoOpen = true;
         resetPanelPositions = true;
-        if (ClientConfigManager.shouldShowPresetIntro()) {
-            ClientConfigManager.markPresetIntroShown();
-            promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.preset_intro"), PromptDialog.PromptType.INFO, null);
-        }
+        tutorialTriggeredLeft = false;
+        tutorialTriggeredRight = false;
+        tutorialRenderer = null;
+        tutorialCurrentStep = ClientConfigManager.shouldRunPresetTutorial() ? ClientConfigManager.getPresetTutorialStep() : 8;
+        tutorialPhase = GuidePhase.ENTER;
+        tutorialPhaseStartAt = System.currentTimeMillis();
+        tutorialInterruptKick = 0.0f;
+        tutorialLastRenderAt = 0L;
     }
 
     private void updatePreviews() {
@@ -154,81 +198,53 @@ public class PresetConfigTab extends ConfigTabContent {
 
         String currentId = ClientConfigManager.getCurrentPresetId();
 
-        for (int i = 0; i < sortedPresets.size(); i++) {
-            String id = sortedPresets.get(i);
-            GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0, false);
-            
-            if (i % 2 != 0) row.setBackgroundAlpha(0.15f);
-            else row.setBackgroundAlpha(0.3f);
-
-            String displayName = " " + ElementConfigManager.getPresetDisplayName(id);
-            int nameColor;
-            if (ElementConfigManager.isOfficialPreset(id)) {
-                nameColor = isEditMode ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
+        List<String> battlefieldPresets = new ArrayList<>();
+        List<String> valorantPresets = new ArrayList<>();
+        List<String> ungroupedOfficialPresets = new ArrayList<>();
+        List<String> customPresets = new ArrayList<>();
+        for (String id : sortedPresets) {
+            if (isBattlefieldModePreset(id)) {
+                battlefieldPresets.add(id);
+            } else if (isValorantIconModePreset(id)) {
+                valorantPresets.add(id);
+            } else if (ElementConfigManager.isOfficialPreset(id)) {
+                ungroupedOfficialPresets.add(id);
             } else {
-                nameColor = GuiConstants.COLOR_WHITE;
+                customPresets.add(id);
             }
-            
-            row.addColumn(displayName, -1, nameColor, false, false);
-            
-            int idWidth = isEditMode ? 60 : 54;
-            int idColor = id.equals(currentId) ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE;
-            
-            if (isExportMode) {
-                 String exportLabel = I18n.get("gd656killicon.client.gui.config.preset.action.export");
-                 row.addColumn(exportLabel, idWidth, GuiConstants.COLOR_WHITE, true, true, (btn) -> {
-                      openExportDialog(id);
-                 });
-            } else if (isEditMode) {
-                if (ElementConfigManager.isOfficialPreset(id)) {
-                    boolean configReset = resetCompletedStates.contains(id + ":reset_all");
-                    String label = configReset ? I18n.get("gd656killicon.client.gui.config.preset.action.reset_config.done")
-                        : I18n.get("gd656killicon.client.gui.config.preset.action.reset_config");
-                    row.addColumn(label, 60, configReset ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE, true, true, configReset ? null : (btn) -> {
-                        ConfigManager.resetPresetConfig(id);
-                        ExternalTextureManager.markPendingTextureReset(id);
-                        ExternalSoundManager.markPendingSoundReset(id);
-                        resetCompletedStates.add(id + ":reset_all");
-                        resetCompletedTimes.put(id + ":reset_all", System.currentTimeMillis());
-                        rebuildPresetList();
-                    });
-                } else {
-                    row.addColumn(I18n.get("gd656killicon.client.gui.config.preset.action.edit_id"), 30, GuiConstants.COLOR_GRAY, true, true, (btn) -> {
-                        openRenameIdDialog(id);
-                    });
-                    row.addColumn(I18n.get("gd656killicon.client.gui.config.preset.action.delete"), 30, GuiConstants.COLOR_RED, true, true, (btn) -> {
-                        if (ElementConfigManager.deletePreset(id)) {
-                            if (id.equals(ClientConfigManager.getCurrentPresetId())) {
-                                ConfigManager.setCurrentPresetId("00001");
-                            }
-                            rebuildPresetList();
-                        }
-                    });
-                }
-            } else {
-                row.addColumn(id, idWidth, idColor, true, true);
-                
-                if (!isEditMode) {
-                    
-                    row.getColumn(1).onClick = (btn) -> {
-                         if (btn == 0) {
-                            ConfigManager.setCurrentPresetId(id);
-                            rebuildPresetList();
-                         }
-                    };
-                } else {
-                    
-                    if (!ElementConfigManager.isOfficialPreset(id)) {
-                        List<GDRowRenderer.Column> nameHoverCols = new ArrayList<>();
-                        nameHoverCols.add(createActionColumn(I18n.get("gd656killicon.client.gui.config.preset.action.edit_name_tooltip"), GuiConstants.COLOR_GRAY, (btn) -> {
-                            openRenameDialog(id);
-                        }));
-                        row.setColumnHoverReplacement(0, nameHoverCols);
-                    }
+        }
+
+        int visualIndex = 0;
+        for (String id : ungroupedOfficialPresets) {
+            addPresetRow(currentId, id, visualIndex, 1);
+            visualIndex++;
+        }
+
+        if (!battlefieldPresets.isEmpty()) {
+            addBattlefieldPresetFolderRow();
+            visualIndex++;
+            if (battlefieldPresetFolderExpanded) {
+                for (String battlefieldPresetId : battlefieldPresets) {
+                    addPresetRow(currentId, battlefieldPresetId, visualIndex, 3);
+                    visualIndex++;
                 }
             }
+        }
 
-            presetRows.add(row);
+        if (!valorantPresets.isEmpty()) {
+            addValorantPresetFolderRow();
+            visualIndex++;
+            if (valorantPresetFolderExpanded) {
+                for (String valorantPresetId : valorantPresets) {
+                    addPresetRow(currentId, valorantPresetId, visualIndex, 3);
+                    visualIndex++;
+                }
+            }
+        }
+
+        for (String id : customPresets) {
+            addPresetRow(currentId, id, visualIndex, 1);
+            visualIndex++;
         }
         
         GDRowRenderer createRow = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, false);
@@ -261,6 +277,132 @@ public class PresetConfigTab extends ConfigTabContent {
             rebuildPresetList();
         });
         presetRows.add(exportToggleRow);
+    }
+
+    private void addPresetRow(String currentId, String id, int rowIndex, int indentSpaces) {
+        GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0, false);
+        row.setBackgroundAlpha(rowIndex % 2 != 0 ? 0.15f : 0.3f);
+
+        String displayName = " ".repeat(Math.max(1, indentSpaces)) + ElementConfigManager.getPresetDisplayName(id);
+        int nameColor;
+        if (ElementConfigManager.isOfficialPreset(id)) {
+            nameColor = isEditMode ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
+        } else {
+            nameColor = GuiConstants.COLOR_WHITE;
+        }
+        row.addColumn(displayName, -1, nameColor, false, false);
+
+        int idWidth = isEditMode ? 60 : 54;
+        int idColor = id.equals(currentId) ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE;
+
+        if (isExportMode) {
+            String exportLabel = I18n.get("gd656killicon.client.gui.config.preset.action.export");
+            row.addColumn(exportLabel, idWidth, GuiConstants.COLOR_WHITE, true, true, (btn) -> openExportDialog(id));
+        } else if (isEditMode) {
+            if (ElementConfigManager.isOfficialPreset(id)) {
+                boolean configReset = resetCompletedStates.contains(id + ":reset_all");
+                String label = configReset ? I18n.get("gd656killicon.client.gui.config.preset.action.reset_config.done")
+                    : I18n.get("gd656killicon.client.gui.config.preset.action.reset_config");
+                row.addColumn(label, 60, configReset ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE, true, true, configReset ? null : (btn) -> {
+                    ConfigManager.resetPresetConfig(id);
+                    ExternalTextureManager.markPendingTextureReset(id);
+                    ExternalSoundManager.markPendingSoundReset(id);
+                    resetCompletedStates.add(id + ":reset_all");
+                    resetCompletedTimes.put(id + ":reset_all", System.currentTimeMillis());
+                    rebuildPresetList();
+                });
+            } else {
+                row.addColumn(I18n.get("gd656killicon.client.gui.config.preset.action.edit_id"), 30, GuiConstants.COLOR_GRAY, true, true, (btn) -> openRenameIdDialog(id));
+                row.addColumn(I18n.get("gd656killicon.client.gui.config.preset.action.delete"), 30, GuiConstants.COLOR_RED, true, true, (btn) -> {
+                    if (ElementConfigManager.deletePreset(id)) {
+                        if (id.equals(ClientConfigManager.getCurrentPresetId())) {
+                            ConfigManager.setCurrentPresetId("00001");
+                        }
+                        rebuildPresetList();
+                    }
+                });
+            }
+        } else {
+            row.addColumn(id, idWidth, idColor, true, true);
+            row.getColumn(1).onClick = (btn) -> {
+                if (btn == 0) {
+                    ConfigManager.setCurrentPresetId(id);
+                    rebuildPresetList();
+                }
+            };
+        }
+
+        if (isEditMode && !ElementConfigManager.isOfficialPreset(id)) {
+            List<GDRowRenderer.Column> nameHoverCols = new ArrayList<>();
+            nameHoverCols.add(createActionColumn(I18n.get("gd656killicon.client.gui.config.preset.action.edit_name_tooltip"), GuiConstants.COLOR_GRAY, (btn) -> {
+                openRenameDialog(id);
+            }));
+            row.setColumnHoverReplacement(0, nameHoverCols);
+        }
+        presetRows.add(row);
+    }
+
+    private void addValorantPresetFolderRow() {
+        GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_GOLD, 0.75f, true);
+        String label = I18n.get("gd656killicon.client.gui.config.preset.folder.valorant_icon_mode");
+        row.addColumn(" " + label, -1, GuiConstants.COLOR_WHITE, true, false, (button) -> {
+            valorantPresetFolderExpanded = !valorantPresetFolderExpanded;
+            rebuildPresetList();
+        });
+        row.addColumn(valorantPresetFolderExpanded ? "▼" : "▶", 20, GuiConstants.COLOR_WHITE, true, true, (button) -> {
+            valorantPresetFolderExpanded = !valorantPresetFolderExpanded;
+            rebuildPresetList();
+        });
+        presetRows.add(row);
+    }
+
+    private void addBattlefieldPresetFolderRow() {
+        GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_GOLD, 0.75f, true);
+        String label = I18n.get("gd656killicon.client.gui.config.preset.folder.battlefield_icon_mode");
+        row.addColumn(" " + label, -1, GuiConstants.COLOR_WHITE, true, false, (button) -> {
+            battlefieldPresetFolderExpanded = !battlefieldPresetFolderExpanded;
+            rebuildPresetList();
+        });
+        row.addColumn(battlefieldPresetFolderExpanded ? "▼" : "▶", 20, GuiConstants.COLOR_WHITE, true, true, (button) -> {
+            battlefieldPresetFolderExpanded = !battlefieldPresetFolderExpanded;
+            rebuildPresetList();
+        });
+        presetRows.add(row);
+    }
+
+    private boolean isValorantIconModePreset(String presetId) {
+        if (!ElementConfigManager.isOfficialPreset(presetId) || presetId == null || presetId.length() != 5) {
+            return false;
+        }
+        try {
+            int id = Integer.parseInt(presetId);
+            return id >= 9 && id <= 34;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private boolean isBattlefieldModePreset(String presetId) {
+        if (!ElementConfigManager.isOfficialPreset(presetId) || presetId == null || presetId.length() != 5) {
+            return false;
+        }
+        try {
+            int id = Integer.parseInt(presetId);
+            return id == 4 || id == 5 || id == 7;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private int parsePresetNumericId(String presetId) {
+        if (presetId == null || presetId.length() != 5) {
+            return Integer.MAX_VALUE;
+        }
+        try {
+            return Integer.parseInt(presetId);
+        } catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
+        }
     }
 
     private void openExportDialog(String presetId) {
@@ -574,6 +716,14 @@ public class PresetConfigTab extends ConfigTabContent {
         } else {
             currentRightTranslation = targetRightTranslation;
         }
+        if (!tutorialTriggeredLeft && state == PanelState.OPEN) {
+            tutorialTriggeredLeft = true;
+            markTutorialAction(1);
+        }
+        if (!tutorialTriggeredRight && rightPanelState == PanelState.OPEN) {
+            tutorialTriggeredRight = true;
+            markTutorialAction(2);
+        }
 
         if (!configRows.isEmpty()) {
             for (GDRowRenderer row : configRows) {
@@ -613,6 +763,8 @@ public class PresetConfigTab extends ConfigTabContent {
         for (ElementPreview preview : renderList) {
             preview.render(guiGraphics, partialTick, screenWidth, preview == hoveredElement, bgMouseX, bgMouseY);
         }
+        renderTutorialOverlay(guiGraphics, partialTick, screenWidth, screenHeight);
+        renderPanelDirectionArrows(guiGraphics, screenWidth, screenHeight);
 
         if (currentElementRows.isEmpty() && !isDialogVisible) {
             net.minecraft.client.gui.Font font = minecraft.font;
@@ -990,6 +1142,269 @@ public class PresetConfigTab extends ConfigTabContent {
         rebuildPresetList();
     }
 
+    private GuideStep getGuideStep(int step) {
+        if (step == 1) {
+            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2190) + " ", GuiConstants.COLOR_WHITE));
+            texts.add(new GDTextRenderer.ColoredText("1. 将鼠标悬停至窗口最左侧以打开预设模式选择器", GuiConstants.COLOR_GOLD));
+            return new GuideStep(1, GuideDock.TOP_LEFT, texts);
+        }
+        if (step == 2) {
+            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+            texts.add(new GDTextRenderer.ColoredText("2. 将鼠标悬停至窗口最右侧可打开当前模式的元素列表 ", GuiConstants.COLOR_GOLD));
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2192), GuiConstants.COLOR_WHITE));
+            return new GuideStep(2, GuideDock.TOP_RIGHT, texts);
+        }
+        if (step == 3) {
+            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
+            texts.add(new GDTextRenderer.ColoredText("3. 按住并拖动任意元素预览框可以修改元素的显示位置", GuiConstants.COLOR_GOLD));
+            return new GuideStep(3, GuideDock.BOTTOM_CENTER, texts);
+        }
+        if (step == 4) {
+            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
+            texts.add(new GDTextRenderer.ColoredText("4. 按住并拖动元素四角的控制柄以快速对元素的缩放进行配置", GuiConstants.COLOR_GOLD));
+            return new GuideStep(4, GuideDock.BOTTOM_CENTER, texts);
+        }
+        if (step == 5) {
+            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
+            texts.add(new GDTextRenderer.ColoredText("5. 在对一个元素进行缩放或位移之后可以按下Ctrl+Z来撤回上一次更改", GuiConstants.COLOR_GOLD));
+            return new GuideStep(5, GuideDock.BOTTOM_CENTER, texts);
+        }
+        if (step == 6) {
+            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
+            texts.add(new GDTextRenderer.ColoredText("6. 右键某个元素可隐藏某个元素", GuiConstants.COLOR_GOLD));
+            return new GuideStep(6, GuideDock.BOTTOM_CENTER, texts);
+        }
+        if (step == 7) {
+            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
+            texts.add(new GDTextRenderer.ColoredText("7. 双击某个元素以直接进入此元素的配置界面", GuiConstants.COLOR_GOLD));
+            return new GuideStep(7, GuideDock.BOTTOM_CENTER, texts);
+        }
+        return null;
+    }
+
+    private void markTutorialAction(int step) {
+        if (tutorialCurrentStep != step || tutorialCurrentStep > 7 || !ClientConfigManager.shouldRunPresetTutorial()) {
+            return;
+        }
+        startTutorialExit();
+    }
+
+    private void startTutorialExit() {
+        if (tutorialCurrentStep > 7 || tutorialPhase == GuidePhase.EXIT) {
+            return;
+        }
+        GuideStep guideStep = getGuideStep(tutorialCurrentStep);
+        if (guideStep == null) {
+            tutorialCurrentStep = 8;
+            ClientConfigManager.setPresetTutorialStep(8);
+            return;
+        }
+        tutorialPhase = GuidePhase.EXIT;
+        tutorialPhaseStartAt = System.currentTimeMillis();
+        tutorialExitDirection = guideStep.dock == GuideDock.TOP_RIGHT ? 1.0f : -1.0f;
+        tutorialInterruptKick = tutorialExitDirection * 5.0f;
+    }
+
+    private void advanceTutorialStep() {
+        tutorialCurrentStep++;
+        ClientConfigManager.setPresetTutorialStep(tutorialCurrentStep);
+        tutorialRenderer = null;
+        tutorialTextWidth = 0.0f;
+        tutorialTextHeight = 0.0f;
+        tutorialInterruptKick = 0.0f;
+        tutorialLastRenderAt = 0L;
+        if (tutorialCurrentStep > 7) {
+            return;
+        }
+        tutorialPhase = GuidePhase.ENTER;
+        tutorialPhaseStartAt = System.currentTimeMillis();
+    }
+
+    private float easeOutQuad(float t) {
+        return 1.0f - (1.0f - t) * (1.0f - t);
+    }
+
+    private float easeInQuad(float t) {
+        return t * t;
+    }
+
+    private float easeOutBack(float t) {
+        float c1 = 1.70158f;
+        float c3 = c1 + 1.0f;
+        float p = t - 1.0f;
+        return 1.0f + c3 * p * p * p + c1 * p * p;
+    }
+
+    private float computeBounceOffset(GuideDock dock) {
+        long activeElapsedMs = System.currentTimeMillis() - tutorialPhaseStartAt;
+        if (activeElapsedMs < 3000L) {
+            return 0.0f;
+        }
+        float t = ((activeElapsedMs - 3000L) % 3000L) / 3000.0f;
+        float offset = 0.0f;
+        if (t < 0.10f) {
+            offset = 8.0f * easeOutBack(t / 0.10f);
+        } else if (t < 0.20f) {
+            float p = (t - 0.10f) / 0.10f;
+            offset = 8.0f * (1.0f - easeInQuad(p));
+        } else if (t < 0.28f) {
+            offset = 4.0f * easeOutBack((t - 0.20f) / 0.08f);
+        } else if (t < 0.37f) {
+            float p = (t - 0.28f) / 0.09f;
+            offset = 4.0f * (1.0f - easeInQuad(p));
+        }
+        if (dock == GuideDock.TOP_RIGHT) {
+            return -offset;
+        }
+        if (dock == GuideDock.BOTTOM_CENTER) {
+            return -offset;
+        }
+        return offset;
+    }
+
+    private void ensureTutorialRenderer(GuideStep step) {
+        int width = minecraft.font.width(getPlainGuideText(step.texts));
+        int height = 9;
+        tutorialTextWidth = width;
+        tutorialTextHeight = height;
+        if (tutorialRenderer == null) {
+            tutorialRenderer = new GDTextRenderer(step.texts, 0, 0, Math.max(1, width + 2), height + 2, 1.0f, false);
+        } else {
+            tutorialRenderer.setColoredTexts(step.texts);
+        }
+    }
+
+    private String getPlainGuideText(List<GDTextRenderer.ColoredText> texts) {
+        StringBuilder sb = new StringBuilder();
+        for (GDTextRenderer.ColoredText token : texts) {
+            if (token != null && token.text != null) {
+                sb.append(token.text);
+            }
+        }
+        return sb.toString();
+    }
+
+    private void renderTutorialOverlay(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
+        if (!ClientConfigManager.shouldRunPresetTutorial() || tutorialCurrentStep > 7) {
+            return;
+        }
+        GuideStep step = getGuideStep(tutorialCurrentStep);
+        if (step == null) {
+            return;
+        }
+        ensureTutorialRenderer(step);
+        float baseX;
+        float baseY;
+        float boxWidth = tutorialTextWidth + 2.0f;
+        float boxHeight = tutorialTextHeight + 2.0f;
+        float topY = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT;
+        if (step.dock == GuideDock.TOP_LEFT) {
+            baseX = GuiConstants.DEFAULT_PADDING;
+            baseY = topY + GuiConstants.DEFAULT_PADDING;
+        } else if (step.dock == GuideDock.TOP_RIGHT) {
+            baseX = screenWidth - GuiConstants.DEFAULT_PADDING - boxWidth;
+            baseY = topY + GuiConstants.DEFAULT_PADDING;
+        } else {
+            baseX = (screenWidth - boxWidth) * 0.5f;
+            baseY = screenHeight - GuiConstants.DEFAULT_PADDING - boxHeight;
+        }
+
+        float elapsed = (System.currentTimeMillis() - tutorialPhaseStartAt) / 1000.0f;
+        float moveX = 0.0f;
+        float moveY = 0.0f;
+        if (tutorialPhase == GuidePhase.ENTER) {
+            float p = Mth.clamp(elapsed / 0.22f, 0.0f, 1.0f);
+            float eased = easeOutQuad(p);
+            if (step.dock == GuideDock.TOP_LEFT) {
+                moveX = (-boxWidth - 24.0f) * (1.0f - eased);
+            } else if (step.dock == GuideDock.TOP_RIGHT) {
+                moveX = (boxWidth + 24.0f) * (1.0f - eased);
+            } else {
+                moveY = (boxHeight + 24.0f) * (1.0f - eased);
+            }
+            if (p >= 1.0f) {
+                tutorialPhase = GuidePhase.ACTIVE;
+                tutorialPhaseStartAt = System.currentTimeMillis();
+            }
+        } else if (tutorialPhase == GuidePhase.EXIT) {
+            float p = Mth.clamp(elapsed / 0.14f, 0.0f, 1.0f);
+            float eased = easeInQuad(p);
+            float interrupt = tutorialInterruptKick * (1.0f - p);
+            if (step.dock == GuideDock.BOTTOM_CENTER) {
+                moveY = (boxHeight + 30.0f) * eased;
+            } else {
+                moveX = tutorialExitDirection * (boxWidth + 30.0f) * eased + interrupt;
+            }
+            if (p >= 1.0f) {
+                advanceTutorialStep();
+                return;
+            }
+        } else {
+            float bounce = computeBounceOffset(step.dock);
+            if (step.dock == GuideDock.BOTTOM_CENTER) {
+                moveY = bounce;
+            } else {
+                moveX = bounce;
+            }
+        }
+
+        float targetX = baseX + moveX;
+        float targetY = baseY + moveY;
+        long now = System.currentTimeMillis();
+        if (tutorialLastRenderAt == 0L) {
+            tutorialRenderX = targetX;
+            tutorialRenderY = targetY;
+            tutorialLastRenderAt = now;
+        } else {
+            float dt = (now - tutorialLastRenderAt) / 1000.0f;
+            tutorialLastRenderAt = now;
+            float smoothFactor = 1.0f - (float)Math.exp(-18.0f * dt);
+            tutorialRenderX = tutorialRenderX + (targetX - tutorialRenderX) * smoothFactor;
+            tutorialRenderY = tutorialRenderY + (targetY - tutorialRenderY) * smoothFactor;
+        }
+
+        int renderWidth = Math.max(1, (int)Math.ceil(boxWidth));
+        int renderHeight = Math.max(1, (int)Math.ceil(boxHeight));
+        tutorialRenderer.setX1(0);
+        tutorialRenderer.setY1(0);
+        tutorialRenderer.setX2(renderWidth);
+        tutorialRenderer.setY2(renderHeight);
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(tutorialRenderX, tutorialRenderY, 0);
+        tutorialRenderer.render(guiGraphics, partialTick, false);
+        guiGraphics.pose().popPose();
+    }
+
+    private void renderPanelDirectionArrows(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
+        int centerY = screenHeight / 2;
+        int leftX = TRIGGER_ZONE_WIDTH / 2;
+        int rightX = screenWidth - TRIGGER_ZONE_WIDTH / 2;
+        String leftArrow = state == PanelState.OPEN ? "<" : ">";
+        String rightArrow = rightPanelState == PanelState.OPEN ? ">" : "<";
+        guiGraphics.drawCenteredString(minecraft.font, leftArrow, leftX, centerY - minecraft.font.lineHeight / 2, GuiConstants.COLOR_GOLD);
+        guiGraphics.drawCenteredString(minecraft.font, rightArrow, rightX, centerY - minecraft.font.lineHeight / 2, GuiConstants.COLOR_GOLD);
+    }
+
+    private boolean hasFloatChanged(JsonObject before, JsonObject after, String key) {
+        if (before == null || after == null || !before.has(key) || !after.has(key)) {
+            return false;
+        }
+        return Math.abs(before.get(key).getAsFloat() - after.get(key).getAsFloat()) > 0.0001f;
+    }
+
+    private boolean hasIntChanged(JsonObject before, JsonObject after, String key) {
+        if (before == null || after == null || !before.has(key) || !after.has(key)) {
+            return false;
+        }
+        return before.get(key).getAsInt() != after.get(key).getAsInt();
+    }
+
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (promptDialog.isVisible()) {
@@ -1011,6 +1426,7 @@ public class PresetConfigTab extends ConfigTabContent {
         }
         if (Screen.hasControlDown() && (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
             if (tryUndo()) {
+                markTutorialAction(5);
                 return true;
             }
         }
@@ -1184,6 +1600,7 @@ public class PresetConfigTab extends ConfigTabContent {
             if (result != ElementPreview.PreviewInteractionResult.PASS) {
                 if (result == ElementPreview.PreviewInteractionResult.DOUBLE_CLICK) {
                      String id = preview.getElementId();
+                     markTutorialAction(7);
                      String currentId = ClientConfigManager.getCurrentPresetId();
                      if (header != null) {
                         ElementConfigBuilder builder = ElementConfigBuilderRegistry.getBuilder(id);
@@ -1196,6 +1613,7 @@ public class PresetConfigTab extends ConfigTabContent {
                      return true;
                 } else if (result == ElementPreview.PreviewInteractionResult.RIGHT_CLICK) {
                      String id = preview.getElementId();
+                     markTutorialAction(6);
                      String currentId = ClientConfigManager.getCurrentPresetId();
                      JsonObject config = ElementConfigManager.getElementConfig(currentId, id);
                      boolean isVisible = config != null && (config.has("visible") ? config.get("visible").getAsBoolean() : true);
@@ -1345,63 +1763,64 @@ public class PresetConfigTab extends ConfigTabContent {
 
         for (int i = 0; i < sortedIds.size(); i++) {
             String id = sortedIds.get(i);
-            GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0, false);
-            
-            if (i % 2 != 0) row.setBackgroundAlpha(0.15f);
-            else row.setBackgroundAlpha(0.3f);
-
-            JsonObject config = ElementConfigManager.getElementConfig(currentId, id);
-            boolean isVisible = config != null && (config.has("visible") ? config.get("visible").getAsBoolean() : true);
-
-            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
-            texts.add(new GDTextRenderer.ColoredText(" ", GuiConstants.COLOR_WHITE));
-            texts.add(new GDTextRenderer.ColoredText("[" + id + "] ", isVisible ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_DARK_GRAY));
-            
-            String nameKey = "gd656killicon.element.name." + id.replace("/", ".");
-            String name = I18n.exists(nameKey) ? I18n.get(nameKey) : id;
-            texts.add(new GDTextRenderer.ColoredText(name, isVisible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY));
-            
-            row.addColoredColumn(texts, -1, false, false, null);
-
-            row.addColumn(I18n.get("gd656killicon.client.gui.config.preset.configure_button"), 30, GuiConstants.COLOR_WHITE, true, true, (btn) -> {
-                if (header != null) {
-                    ElementConfigBuilder builder = ElementConfigBuilderRegistry.getBuilder(id);
-                    header.setOverrideContent(new ElementConfigContent(minecraft, currentId, id, builder, () -> {
-                        header.setOverrideContent(null);
-                        updatePreviews();
-                        updateCurrentElementRows();
-                    }));
-                }
-            });
-            row.getColumn(1).isDarker = true;
-
-            int toggleWidth = GuiConstants.ROW_HEADER_HEIGHT;
-            String toggleText = isVisible ? "👁" : "×";             int toggleColor = GuiConstants.COLOR_WHITE; 
-            row.addColumn(toggleText, toggleWidth, toggleColor, false, true, (btn) -> {
-                ElementConfigManager.updateConfigValue(currentId, id, "visible", String.valueOf(!isVisible));
-                updateCurrentElementRows();
-                updatePreviews();
-            });
-
-            int deleteWidth = GuiConstants.ROW_HEADER_HEIGHT;
-            row.addColumn("×", deleteWidth, GuiConstants.COLOR_RED, true, true, (btn) -> {
-                ElementConfigManager.removeElementFromPreset(currentId, id);
-                updateCurrentElementRows();
-                updateAvailableElementRows();
-                updatePreviews();
-            });
-            row.getColumn(3).isDarker = true;
-
-            row.setOnHover((hovered) -> {
-                ElementPreview preview = previewElements.get(id);
-                if (preview != null) {
-                    preview.setExternalHover(hovered);
-                }
-            });
-
-            currentElementRows.add(row);
+            currentElementRows.add(createElementRow(currentId, id, currentElementRows.size()));
         }
     }
+
+    private GDRowRenderer createElementRow(String currentId, String id, int rowIndex) {
+        GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0, false);
+        row.setBackgroundAlpha(rowIndex % 2 != 0 ? 0.15f : 0.3f);
+
+        JsonObject config = ElementConfigManager.getElementConfig(currentId, id);
+        boolean isVisible = config != null && (config.has("visible") ? config.get("visible").getAsBoolean() : true);
+
+        List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+        texts.add(new GDTextRenderer.ColoredText(" ", GuiConstants.COLOR_WHITE));
+        texts.add(new GDTextRenderer.ColoredText("[" + id + "] ", isVisible ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_DARK_GRAY));
+
+        String nameKey = "gd656killicon.element.name." + id.replace("/", ".");
+        String name = I18n.exists(nameKey) ? I18n.get(nameKey) : id;
+        texts.add(new GDTextRenderer.ColoredText(name, isVisible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY));
+        row.addColoredColumn(texts, -1, false, false, null);
+
+        row.addColumn(I18n.get("gd656killicon.client.gui.config.preset.configure_button"), 30, GuiConstants.COLOR_WHITE, true, true, (btn) -> {
+            if (header != null) {
+                ElementConfigBuilder builder = ElementConfigBuilderRegistry.getBuilder(id);
+                header.setOverrideContent(new ElementConfigContent(minecraft, currentId, id, builder, () -> {
+                    header.setOverrideContent(null);
+                    updatePreviews();
+                    updateCurrentElementRows();
+                }));
+            }
+        });
+        row.getColumn(1).isDarker = true;
+
+        int toggleWidth = GuiConstants.ROW_HEADER_HEIGHT;
+        String toggleText = isVisible ? "👁" : "×";
+        row.addColumn(toggleText, toggleWidth, GuiConstants.COLOR_WHITE, false, true, (btn) -> {
+            ElementConfigManager.updateConfigValue(currentId, id, "visible", String.valueOf(!isVisible));
+            updateCurrentElementRows();
+            updatePreviews();
+        });
+
+        int deleteWidth = GuiConstants.ROW_HEADER_HEIGHT;
+        row.addColumn("×", deleteWidth, GuiConstants.COLOR_RED, true, true, (btn) -> {
+            ElementConfigManager.removeElementFromPreset(currentId, id);
+            updateCurrentElementRows();
+            updateAvailableElementRows();
+            updatePreviews();
+        });
+        row.getColumn(3).isDarker = true;
+
+        row.setOnHover((hovered) -> {
+            ElementPreview preview = previewElements.get(id);
+            if (preview != null) {
+                preview.setExternalHover(hovered);
+            }
+        });
+        return row;
+    }
+
 
     private void updateContentScroll(float dt, double currentMouseY, int viewHeight) {
         int contentHeight = currentElementRows.size() * (GuiConstants.ROW_HEADER_HEIGHT + 1);
@@ -1478,6 +1897,11 @@ public class PresetConfigTab extends ConfigTabContent {
              
              if (currentConfig != null && !currentConfig.equals(dragStartConfig)) {
                  undoStacks.computeIfAbsent(currentPresetId, k -> new java.util.ArrayDeque<>()).push(new UndoState(draggingElementId, dragStartConfig));
+                 if (hasFloatChanged(dragStartConfig, currentConfig, "scale")) {
+                     markTutorialAction(4);
+                 } else if (hasIntChanged(dragStartConfig, currentConfig, "x_offset") || hasIntChanged(dragStartConfig, currentConfig, "y_offset")) {
+                     markTutorialAction(3);
+                 }
              }
              
              draggingElementId = null;

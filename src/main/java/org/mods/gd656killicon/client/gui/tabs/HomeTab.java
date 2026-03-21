@@ -48,6 +48,7 @@ public class HomeTab extends ConfigTabContent {
         modStatuses.add(new ModStatus("gd656killicon.client.gui.hometab.mod.spotting.name", "spotting", "https://www.curseforge.com/minecraft/mc-mods/spotting", "gd656killicon.client.gui.hometab.mod.spotting.desc"));
         modStatuses.add(new ModStatus("gd656killicon.client.gui.hometab.mod.pingwheel.name", "pingwheel", "https://www.mcmod.cn/class/9032.html", "gd656killicon.client.gui.hometab.mod.pingwheel.desc"));
         modStatuses.add(new ModStatus("gd656killicon.client.gui.hometab.mod.lr.name", "lrtactical", "https://curseforge.com/minecraft/mc-mods/tacz-lesraisins-tactical-equipements", "gd656killicon.client.gui.hometab.mod.lr.desc"));
+        modStatuses.add(new ModStatus("gd656killicon.client.gui.hometab.mod.cnpc.name", "customnpcs", "https://www.mcmod.cn/class/15373.html", "gd656killicon.client.gui.hometab.mod.cnpc.desc"));
     }
 
     @Override
@@ -271,7 +272,7 @@ public class HomeTab extends ConfigTabContent {
 
         if (area3Renderers.isEmpty()) {
             for (ModStatus status : modStatuses) {
-                GDRowRenderer renderer = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, false);
+                GDRowRenderer renderer = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.25f, false);
                 area3Renderers.add(renderer);
             }
         }
@@ -314,7 +315,7 @@ public class HomeTab extends ConfigTabContent {
 
             if (status.expanded) {
                 if (status.descriptionRenderer == null) {
-                    status.descriptionRenderer = new GDRowRenderer(x1 + rowHeight, 0, x2, 0, GuiConstants.COLOR_BLACK, 0.15f, false);
+                    status.descriptionRenderer = new GDRowRenderer(x1 + rowHeight, 0, x2, 0, GuiConstants.COLOR_BLACK, 0.22f, false);
                 }
                 
                 GDRowRenderer descRenderer = status.descriptionRenderer;

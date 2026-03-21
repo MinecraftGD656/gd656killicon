@@ -20,8 +20,8 @@ public final class ServerPacketDispatcher {
         NetworkHandler.sendToPlayer(packetFactory.get(), player);
     }
 
-    public static void sendDamageSound(ServerPlayer player) {
-        dispatch(player, ServerPacketType.DAMAGE_SOUND, DamageSoundPacket::new);
+    public static void sendDamageSound(ServerPlayer player, boolean headshotDamage) {
+        dispatch(player, ServerPacketType.DAMAGE_SOUND, () -> new DamageSoundPacket(headshotDamage));
     }
 
     public static void sendDeath(ServerPlayer player, String playerName, String deathCause, String killerName) {

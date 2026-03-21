@@ -335,16 +335,32 @@ public class MainConfigScreen extends Screen {
     }
 
     private void renderGildedBlackstoneBackground(GuiGraphics guiGraphics) {
-        RenderSystem.setShaderTexture(0, BACKGROUND_TEXTURE);
+        RenderSystem.setShaderTexture(0, resolveBackgroundTexture());
         RenderSystem.setShaderColor(0.25F, 0.25F, 0.25F, 1.0F);         
         int size = 32;         int cols = width / size + 1;
         int rows = height / size + 1;
 
         for (int x = 0; x < cols; x++) {
             for (int y = 0; y < rows; y++) {
-                guiGraphics.blit(BACKGROUND_TEXTURE, x * size, y * size, 0, 0, size, size, size, size);
+                guiGraphics.blit(resolveBackgroundTexture(), x * size, y * size, 0, 0, size, size, size, size);
             }
         }
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    private ResourceLocation resolveBackgroundTexture() {
+        String material = ClientConfigManager.getGuiBackgroundMaterial();
+        if (material == null || !material.contains(":")) {
+            return BACKGROUND_TEXTURE;
+        }
+        String[] split = material.split(":", 2);
+        if (split.length != 2 || split[0].isEmpty() || split[1].isEmpty()) {
+            return BACKGROUND_TEXTURE;
+        }
+        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath(split[0], "textures/block/" + split[1] + ".png");
+        if (minecraft == null || minecraft.getResourceManager().getResource(texture).isEmpty()) {
+            return BACKGROUND_TEXTURE;
+        }
+        return texture;
     }
 }

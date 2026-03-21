@@ -26,14 +26,10 @@ public class PlayerDataManager {
 
     private static final String PLAYERDATA_DIR = "playerdata";
     private static final long AUTO_SAVE_INTERVAL_MINUTES = 5;
-    private static final long CACHE_EXPIRE_TIME_MS = 3000; 
     private final Map<UUID, PlayerData> playerDataCache;
     private Path playerdataDir;
     private ScheduledExecutorService autoSaveExecutor;
     private boolean initialized = false;
-
-    private List<ScoreboardSyncPacket.Entry> scoreboardSnapshot = null;
-    private long lastSnapshotTime = 0;
 
     private PlayerDataManager() {
         this.playerDataCache = new ConcurrentHashMap<>();
@@ -416,40 +412,49 @@ public class PlayerDataManager {
      * 处理客户端发来的排行榜请求
      * 使用快照缓存优化高频请求
      */
-    public void handleScoreboardRequest(ServerPlayer player) {
-        long now = System.currentTimeMillis();
-        synchronized (this) {
-            if (scoreboardSnapshot == null || now - lastSnapshotTime > CACHE_EXPIRE_TIME_MS) {
-                updateScoreboardSnapshot(player.server);
-            }
-        }
-        NetworkHandler.sendToPlayer(new ScoreboardSyncPacket(new ArrayList<>(scoreboardSnapshot)), player);
+    public void handleScoreboardRequest(ServerPlayer player, int offset, int limit, long requestId) {
+        List<ScoreboardSyncPacket.Entry> allEntries = buildScoreboardEntries(player.server);
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = Math.max(1, limit);
+        int fromIndex = Math.min(safeOffset, allEntries.size());
+        int toIndex = Math.min(fromIndex + safeLimit, allEntries.size());
+        List<ScoreboardSyncPacket.Entry> pageEntries = new ArrayList<>(allEntries.subList(fromIndex, toIndex));
+        NetworkHandler.sendToPlayer(new ScoreboardSyncPacket(pageEntries, safeOffset, allEntries.size(), requestId), player);
     }
 
     /**
      * 更新排行榜快照
      * 遍历缓存中的所有玩家数据，构建同步条目
      */
-    private void updateScoreboardSnapshot(MinecraftServer server) {
-        List<ScoreboardSyncPacket.Entry> newSnapshot = new ArrayList<>();
+    private List<ScoreboardSyncPacket.Entry> buildScoreboardEntries(MinecraftServer server) {
+        List<ScoreboardSyncPacket.Entry> entries = new ArrayList<>();
         playerDataCache.forEach((uuid, data) -> {
             String lastLoginName = data.getLastLoginName();
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(uuid);
             
             if ((lastLoginName != null && !lastLoginName.isEmpty()) || onlinePlayer != null) {
                 String name = ServerData.get().getScoreHolderName(server, uuid);
-                newSnapshot.add(new ScoreboardSyncPacket.Entry(
+                boolean isOnline = onlinePlayer != null;
+                entries.add(new ScoreboardSyncPacket.Entry(
                     uuid,
                     name,
-                    (lastLoginName != null && !lastLoginName.isEmpty()) ? lastLoginName : (onlinePlayer != null ? onlinePlayer.getScoreboardName() : ""),
+                    (lastLoginName != null && !lastLoginName.isEmpty()) ? lastLoginName : (isOnline ? onlinePlayer.getScoreboardName() : ""),
                     Math.round(data.getScore()),
                     data.getKill(),
                     data.getDeath(),
                     data.getAssist(),
-                    onlinePlayer != null ? onlinePlayer.latency : -1                 ));
+                    isOnline ? onlinePlayer.latency : -1,
+                    isOnline,
+                    isOnline && onlinePlayer.isSpectator()                 ));
             }
         });
-        this.scoreboardSnapshot = newSnapshot;
-        this.lastSnapshotTime = System.currentTimeMillis();
+        entries.sort((a, b) -> {
+            int scoreCompare = Integer.compare(b.score, a.score);
+            if (scoreCompare != 0) {
+                return scoreCompare;
+            }
+            return a.uuid.compareTo(b.uuid);
+        });
+        return entries;
     }
 }

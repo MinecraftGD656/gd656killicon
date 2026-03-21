@@ -141,7 +141,12 @@ public class KillIconPacket implements IPacket {
     }
 
     private static void processTrigger(KillIconPacket packet, long now) {
-        SoundTriggerManager.tryPlaySound(packet.category, packet.name, packet.killType, packet.comboCount, packet.hasHelmet);
+        boolean suppressValorantTrigger = "kill_icon".equals(packet.category)
+            && "valorant".equals(packet.name)
+            && (packet.killType == KillType.ASSIST || packet.killType == KillType.DESTROY_VEHICLE);
+        if (!suppressValorantTrigger) {
+            SoundTriggerManager.tryPlaySound(packet.category, packet.name, packet.killType, packet.comboCount, packet.hasHelmet, packet.isVictimPlayer);
+        }
 
         String displayName = packet.customVictimName;
         if (packet.customVictimName != null && !packet.customVictimName.isEmpty() && !packet.isVictimPlayer) {
@@ -151,11 +156,13 @@ public class KillIconPacket implements IPacket {
             }
         }
 
-        HudElementManager.trigger(packet.category, packet.name, 
-            new org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext(
-                packet.killType, packet.victimId, packet.comboCount, displayName, packet.distance
-            )
-        );
+        if (!suppressValorantTrigger) {
+            HudElementManager.trigger(packet.category, packet.name, 
+                new org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext(
+                    packet.killType, packet.victimId, packet.comboCount, displayName, packet.distance
+                )
+            );
+        }
 
         if (packet.shouldRecordStats && displayName != null && !displayName.isEmpty() && !isLocalPlayerVictim(packet)) {
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordGeneralKillStats(displayName, packet.isVictimPlayer);

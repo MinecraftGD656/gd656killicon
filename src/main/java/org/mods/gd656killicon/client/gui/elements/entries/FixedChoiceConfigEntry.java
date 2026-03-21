@@ -83,8 +83,9 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
         });
 
         this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
+            if (!hasDefaultChoice()) return;
             if (getCurrentValue().equals(this.defaultValue)) return;
-            this.index = resolveIndex(this.defaultValue, this.defaultValue);
+            this.index = resolveIndex(this.defaultValue, getCurrentValue());
             updateState();
             if (this.onValueChange != null) {
                 this.onValueChange.accept(getCurrentValue());
@@ -163,6 +164,21 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
     }
 
     private int getResetButtonColor() {
+        if (!hasDefaultChoice()) {
+            return GuiConstants.COLOR_GRAY;
+        }
         return getCurrentValue().equals(this.defaultValue) ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
+    }
+
+    private boolean hasDefaultChoice() {
+        if (choices == null || choices.isEmpty()) {
+            return false;
+        }
+        for (Choice choice : choices) {
+            if (choice.value().equals(this.defaultValue)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

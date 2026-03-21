@@ -8,16 +8,34 @@ import org.mods.gd656killicon.network.IPacket;
 import java.util.function.Supplier;
 
 public class DamageSoundPacket implements IPacket {
-    public DamageSoundPacket() {}
+    private final boolean headshotDamage;
 
-    public DamageSoundPacket(FriendlyByteBuf buffer) {}
+    public DamageSoundPacket() {
+        this(false);
+    }
+
+    public DamageSoundPacket(boolean headshotDamage) {
+        this.headshotDamage = headshotDamage;
+    }
+
+    public DamageSoundPacket(FriendlyByteBuf buffer) {
+        this.headshotDamage = buffer.readBoolean();
+    }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {}
+    public void encode(FriendlyByteBuf buffer) {
+        buffer.writeBoolean(headshotDamage);
+    }
 
     @Override
     public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(SoundTriggerManager::playHitSound);
+        context.get().enqueueWork(() -> {
+            if (headshotDamage) {
+                SoundTriggerManager.playHeadshotDamageSound();
+            } else {
+                SoundTriggerManager.playHitSound();
+            }
+        });
         context.get().setPacketHandled(true);
     }
 }

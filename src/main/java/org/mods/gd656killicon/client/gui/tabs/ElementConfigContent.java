@@ -10,7 +10,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
-import org.mods.gd656killicon.client.gui.ClientFileDialogUtil;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
@@ -29,7 +28,6 @@ import org.mods.gd656killicon.client.gui.elements.entries.IntegerConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.StringConfigEntry;
 import org.mods.gd656killicon.client.gui.screens.ElementConfigBuilder;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
-import org.mods.gd656killicon.client.config.ValorantSkinProfileManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.impl.Battlefield1Renderer;
@@ -53,9 +51,13 @@ import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public class ElementConfigContent extends ConfigTabContent {
@@ -100,6 +102,7 @@ public class ElementConfigContent extends ConfigTabContent {
     private final List<SecondaryTab> secondaryTabs = new ArrayList<>();
     private SecondaryTab selectedSecondaryTab;
     private final List<GDRowRenderer> allConfigRows = new ArrayList<>();
+    private final Map<String, Boolean> generalFolderExpanded = new LinkedHashMap<>();
     private double secondaryScrollX = 0;
     private double secondaryTargetScrollX = 0;
     private double secondaryMaxScroll = 0;
@@ -182,6 +185,10 @@ public class ElementConfigContent extends ConfigTabContent {
 
         if (!isKillIconElement() || !ElementTextureDefinition.hasTextures(elementId)) {
             this.configRows.addAll(this.allConfigRows);
+            if (isSubtitleElement()) {
+                applyGeneralFolderGrouping();
+                return;
+            }
             sortConfigRows();
             return;
         }
@@ -200,7 +207,12 @@ public class ElementConfigContent extends ConfigTabContent {
         
         for (GDRowRenderer row : allConfigRows) {
             String key = getConfigKey(row);
-            if (key == null) continue;
+            if (key == null) {
+                if (isGeneral) {
+                    this.configRows.add(row);
+                }
+                continue;
+            }
             
             boolean isAnimKey = key.startsWith("anim_");
             boolean isTextureStyleKey = key.startsWith("texture_style_");
@@ -219,7 +231,152 @@ public class ElementConfigContent extends ConfigTabContent {
             }
         }
 
+        if (isGeneral) {
+            applyGeneralFolderGrouping();
+            return;
+        }
+
         sortConfigRows();
+    }
+
+    private void applyGeneralFolderGrouping() {
+        List<GDRowRenderer> sourceRows = new ArrayList<>(this.configRows);
+        Map<String, List<GDRowRenderer>> groupedRows = new LinkedHashMap<>();
+        for (String categoryId : getGeneralFolderOrder()) {
+            groupedRows.put(categoryId, new ArrayList<>());
+            generalFolderExpanded.putIfAbsent(categoryId, false);
+        }
+
+        for (GDRowRenderer row : sourceRows) {
+            applyFolderChildIndent(row, 1);
+            String key = getConfigKey(row);
+            String categoryId = resolveGeneralFolderCategory(key);
+            groupedRows.computeIfAbsent(categoryId, k -> {
+                generalFolderExpanded.putIfAbsent(k, false);
+                return new ArrayList<>();
+            }).add(row);
+        }
+
+        this.configRows.clear();
+        for (String categoryId : getGeneralFolderOrder()) {
+            List<GDRowRenderer> rows = groupedRows.get(categoryId);
+            if (rows == null || rows.isEmpty()) {
+                continue;
+            }
+            this.configRows.add(createGeneralFolderHeader(categoryId));
+            if (generalFolderExpanded.getOrDefault(categoryId, false)) {
+                for (GDRowRenderer row : rows) {
+                    applyFolderChildIndent(row, 3);
+                }
+                this.configRows.addAll(rows);
+            }
+        }
+        List<GDRowRenderer> otherRows = groupedRows.get("other");
+        if (otherRows != null && !otherRows.isEmpty()) {
+            this.configRows.addAll(otherRows);
+        }
+    }
+
+    private void applyFolderChildIndent(GDRowRenderer row, int indentSpaces) {
+        if (row == null || row.getColumn(0) == null) {
+            return;
+        }
+        GDRowRenderer.Column first = row.getColumn(0);
+        if (first == null) {
+            return;
+        }
+        if (first.text != null) {
+            first.text = applyLeadingSpaces(first.text, indentSpaces);
+            return;
+        }
+        if (first.coloredTexts != null && !first.coloredTexts.isEmpty()) {
+            GDTextRenderer.ColoredText token = first.coloredTexts.get(0);
+            if (token != null && token.text != null) {
+                token.text = applyLeadingSpaces(token.text, indentSpaces);
+            }
+        }
+    }
+
+    private String applyLeadingSpaces(String text, int indentSpaces) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        String normalized = text.stripLeading();
+        return " ".repeat(Math.max(0, indentSpaces)) + normalized;
+    }
+
+    private List<String> getGeneralFolderOrder() {
+        List<String> order = new ArrayList<>();
+        order.add("visibility");
+        if (isSubtitleElement()) {
+            order.add("content");
+        }
+        order.add("position");
+        order.add("color");
+        order.add("effect");
+        order.add("timing");
+        if (isSubtitleElement()) {
+            order.add("behavior");
+        }
+        return order;
+    }
+
+    private GDRowRenderer createGeneralFolderHeader(String categoryId) {
+        GDRowRenderer row = new GDRowRenderer(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.75f, true);
+        row.setBackgroundAlpha(0.75f);
+        boolean expanded = generalFolderExpanded.getOrDefault(categoryId, false);
+        String arrow = expanded ? "▼" : "▶";
+        String key = "gd656killicon.client.gui.config.folder.general." + categoryId;
+        String label = I18n.exists(key) ? I18n.get(key) : categoryId;
+        row.addColumn(" " + label, -1, GuiConstants.COLOR_GOLD, true, false, (button) -> {
+            generalFolderExpanded.put(categoryId, !generalFolderExpanded.getOrDefault(categoryId, false));
+            refreshVisibleRows();
+            int sw = minecraft.getWindow().getGuiScaledWidth();
+            int sh = minecraft.getWindow().getGuiScaledHeight();
+            updateConfigRowsLayout(sw, sh);
+        });
+        row.addColumn(arrow, 20, GuiConstants.COLOR_GOLD, true, true, (button) -> {
+            generalFolderExpanded.put(categoryId, !generalFolderExpanded.getOrDefault(categoryId, false));
+            refreshVisibleRows();
+            int sw = minecraft.getWindow().getGuiScaledWidth();
+            int sh = minecraft.getWindow().getGuiScaledHeight();
+            updateConfigRowsLayout(sw, sh);
+        });
+        return row;
+    }
+
+    private String resolveGeneralFolderCategory(String key) {
+        if (key == null) {
+            return "other";
+        }
+        if ("visible".equals(key)) {
+            return "visibility";
+        }
+        if (isSubtitleElement() && (key.startsWith("format_") || key.endsWith("_format") || key.contains("placeholder"))) {
+            return "content";
+        }
+        if (isSubtitleElement() && (key.startsWith("reset_") || key.endsWith("_threshold") || key.contains("enable_stacking") || key.contains("enable_special_streak") || key.contains("enable_kill_feed") || key.endsWith("_kill"))) {
+            return "behavior";
+        }
+        if (key.contains("x_offset") || key.contains("y_offset") || key.contains("radius_offset") || key.contains("line_spacing") || key.contains("max_lines")) {
+            return "position";
+        }
+        if (isSubtitleElement() && (key.equals("scale") || key.contains("align_") || key.contains("kill_bonus_scale"))) {
+            return "position";
+        }
+        if (key.startsWith("color_") || key.contains("_color") || key.startsWith("enable_custom_color_")) {
+            return "color";
+        }
+        if (key.contains("duration") || key.contains("speed") || key.contains("interval") || key.contains("timeout") || key.contains("window") || key.contains("curve") || key.contains("refresh_rate") || key.contains("_ms")) {
+            return "timing";
+        }
+        if ("subtitle/kill_feed".equals(elementId) && (key.startsWith("format_") || key.contains("placeholder") || key.contains("emphasis"))) {
+            return "color";
+        }
+        if (key.startsWith("enable_") || key.contains("glow") || key.contains("ring") || key.contains("particle") || key.contains("flash")) {
+            return "effect";
+        }
+        return "other";
     }
     
     private void updateRowActiveConditions() {
@@ -453,6 +610,11 @@ public class ElementConfigContent extends ConfigTabContent {
             guiGraphics.pose().pushPose();
             gridWidget.render(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick, Collections.emptyList());
             guiGraphics.pose().popPose();
+            if (isKillIconElement() && selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId)) {
+                PreviewTextureFocusContext.activate(elementId, selectedSecondaryTab.elementId);
+            } else {
+                PreviewTextureFocusContext.clear();
+            }
             renderScrollingPreview(guiGraphics, partialTick);
             renderComboPreview(guiGraphics, partialTick);
             renderValorantPreview(guiGraphics, partialTick);
@@ -463,6 +625,7 @@ public class ElementConfigContent extends ConfigTabContent {
             renderComboSubtitlePreview(guiGraphics, partialTick);
             renderScorePreview(guiGraphics, partialTick);
             renderBonusListPreview(guiGraphics, partialTick);
+            PreviewTextureFocusContext.clear();
         }
 
         if (elementInfoRenderer != null) {
@@ -693,13 +856,17 @@ public class ElementConfigContent extends ConfigTabContent {
         long now = System.currentTimeMillis();
         if (now - lastValorantPreviewTriggerTime >= PREVIEW_VALORANT_TRIGGER_INTERVAL_MS) {
             int comboCount;
+            int killType = KillType.NORMAL;
             if (selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId)) {
-                comboCount = "bar".equals(selectedSecondaryTab.elementId) ? 5 : 3;
+                comboCount = ("bar".equals(selectedSecondaryTab.elementId) || "large_sparks".equals(selectedSecondaryTab.elementId)) ? 5 : 3;
+                if ("headshot".equals(selectedSecondaryTab.elementId) || "x_sparks".equals(selectedSecondaryTab.elementId)) {
+                    killType = KillType.HEADSHOT;
+                }
             } else {
                 comboCount = previewValorantComboCount;
                 previewValorantComboCount = previewValorantComboCount >= 5 ? 1 : previewValorantComboCount + 1;
             }
-            valorantPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(KillType.NORMAL, -1, comboCount));
+            valorantPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
             lastValorantPreviewTriggerTime = now;
         }
 
@@ -1262,76 +1429,50 @@ public class ElementConfigContent extends ConfigTabContent {
             }
         };
 
-        if ("kill_icon/valorant".equals(elementId)) {
-            ensureValorantCustomSkinForImport(importAction);
-            return;
-        }
         importAction.run();
     }
 
     private void openTextureImportDialog() {
-        if (ClientFileDialogUtil.isNativeDialogAvailable()) {
-            Path selectedFile = ClientFileDialogUtil.chooseOpenFile(
-                I18n.get("gd656killicon.client.gui.prompt.texture_import_title"),
-                org.mods.gd656killicon.client.config.PresetPackManager.getExportDir(),
-                I18n.get("gd656killicon.client.gui.filetype.texture"),
-                "png",
-                "gif"
-            );
-            if (selectedFile != null) {
-                onFilesDrop(List.of(selectedFile));
-            }
-            return;
-        }
-
-        promptDialog.show(
-            I18n.get("gd656killicon.client.gui.prompt.file_dialog_unavailable"),
-            PromptDialog.PromptType.INFO,
-            () -> getTextInputDialog().show(
-                "",
-                I18n.get("gd656killicon.client.gui.prompt.texture_import_title"),
-                (input) -> {
-                    Path path = ClientFileDialogUtil.tryParsePath(input);
-                    if (path != null) {
-                        onFilesDrop(List.of(path));
-                    }
-                },
-                (input) -> ClientFileDialogUtil.isExistingFileWithExtension(input, "png", "gif")
-            )
+        getTextInputDialog().show(
+            "",
+            I18n.get("gd656killicon.client.gui.prompt.texture_import_title"),
+            (input) -> {
+                Path path = tryParsePath(input);
+                if (path != null) {
+                    onFilesDrop(List.of(path));
+                }
+            },
+            (input) -> isExistingFileWithExtension(input, "png", "gif")
         );
     }
 
-    private void ensureValorantCustomSkinForImport(Runnable importAction) {
-        JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
-        String activeSkin = ValorantSkinProfileManager.resolveActiveSkinStyle(current);
-        if (ElementTextureDefinition.isValorantCustomSkinStyle(activeSkin)) {
-            importAction.run();
-            return;
+    private Path tryParsePath(String rawInput) {
+        if (rawInput == null) {
+            return null;
         }
+        String trimmed = rawInput.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        try {
+            return Path.of(trimmed);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
 
-        getChoiceListDialog().hide();
-        getTextInputDialog().show(
-            "",
-            I18n.get("gd656killicon.client.gui.prompt.valorant_skin_import_title"),
-            (skinName) -> {
-                String trimmed = skinName == null ? "" : skinName.trim();
-                if (trimmed.isEmpty()) {
-                    return;
-                }
-                JsonObject updated = ElementConfigManager.getElementConfig(presetId, elementId);
-                if (updated == null) {
-                    updated = new JsonObject();
-                }
-                String createdStyle = ValorantSkinProfileManager.createCustomSkin(presetId, updated, trimmed);
-                if (createdStyle == null) {
-                    return;
-                }
-                ElementConfigManager.setElementConfig(presetId, elementId, updated);
-                rebuildUI();
-                importAction.run();
-            },
-            (input) -> input != null && !input.trim().isEmpty()
-        );
+    private boolean isExistingFileWithExtension(String rawInput, String... extensions) {
+        Path path = tryParsePath(rawInput);
+        if (path == null || !Files.isRegularFile(path) || extensions == null || extensions.length == 0) {
+            return false;
+        }
+        String lower = path.getFileName() == null ? "" : path.getFileName().toString().toLowerCase(Locale.ROOT);
+        for (String extension : extensions) {
+            if (extension != null && !extension.isBlank() && lower.endsWith("." + extension.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void handleGifDrop(Path gifPath, String textureKey, String modeKey, String customKey) {
@@ -1419,7 +1560,11 @@ public class ElementConfigContent extends ConfigTabContent {
             prefix + "texture_animation_loop",
             prefix + "texture_animation_play_style",
             prefix + "texture_frame_width_ratio",
-            prefix + "texture_frame_height_ratio"
+            prefix + "texture_frame_height_ratio",
+            prefix + "texture_scale",
+            prefix + "texture_final_opacity",
+            prefix + "texture_x_offset",
+            prefix + "texture_y_offset"
         };
         for (String key : keys) {
             if (defaults.has(key)) {
@@ -1461,21 +1606,35 @@ public class ElementConfigContent extends ConfigTabContent {
             applyGifAnimationMetaToSharedTextures(fileName);
             return;
         }
-        if (!ExternalTextureManager.isCustomTextureName(fileName) && !ExternalTextureManager.isVanillaTexturePath(fileName)) {
+
+        boolean customTexture = ExternalTextureManager.isCustomTextureName(fileName);
+        boolean vanillaTexture = ExternalTextureManager.isVanillaTexturePath(fileName);
+        boolean officialTexture = !customTexture && !vanillaTexture;
+        String defaultOfficial = ElementTextureDefinition.getTextureFileName(presetId, elementId, textureKey);
+        boolean useDefaultOfficial = officialTexture && defaultOfficial != null && defaultOfficial.equals(fileName);
+
+        if (useDefaultOfficial) {
             resetTextureAnimationConfigs(textureKey);
             return;
         }
 
-        resetTextureAnimationControls(textureKey);
+        applyStaticImageAnimationMeta(textureKey, fileName);
+    }
+
+    private void applyStaticImageAnimationMeta(String textureKey, String fileName) {
         JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
         if (current == null) {
             current = new JsonObject();
         }
-        if (applyTextureFrameRatio(current, textureKey, fileName)) {
-            ElementConfigManager.setElementConfig(presetId, elementId, current);
-            return;
-        }
-        resetTextureAnimationConfigs(textureKey);
+        String prefix = "anim_" + textureKey + "_";
+        current.addProperty(prefix + "enable_texture_animation", false);
+        current.addProperty(prefix + "texture_animation_total_frames", 1);
+        current.addProperty(prefix + "texture_animation_interval_ms", 100);
+        current.addProperty(prefix + "texture_animation_orientation", "vertical");
+        current.addProperty(prefix + "texture_animation_loop", false);
+        current.addProperty(prefix + "texture_animation_play_style", "sequential");
+        applyTextureFrameRatio(current, textureKey, fileName);
+        ElementConfigManager.setElementConfig(presetId, elementId, current);
     }
 
     private boolean applyTextureFrameRatio(JsonObject target, String textureKey, String fileName) {
@@ -1561,6 +1720,10 @@ public class ElementConfigContent extends ConfigTabContent {
             prefix + "texture_animation_play_style",
             prefix + "texture_frame_width_ratio",
             prefix + "texture_frame_height_ratio",
+            prefix + "texture_scale",
+            prefix + "texture_final_opacity",
+            prefix + "texture_x_offset",
+            prefix + "texture_y_offset",
             officialKey,
             customKey,
             modeKey,
@@ -1576,6 +1739,10 @@ public class ElementConfigContent extends ConfigTabContent {
 
     public boolean isKillIconElement() {
         return elementId != null && elementId.startsWith("kill_icon");
+    }
+
+    public boolean isSubtitleElement() {
+        return elementId != null && elementId.startsWith("subtitle/");
     }
 
     public boolean isMouseInSecondaryTabArea(double mouseX, double mouseY) {
@@ -1827,8 +1994,24 @@ public class ElementConfigContent extends ConfigTabContent {
         }
         com.google.gson.JsonElement defaultValue = defaults.get(key);
         com.google.gson.JsonElement currentValue = currentConfig != null ? currentConfig.get(key) : null;
+        if (currentValue == null && defaultValue != null) {
+            return false;
+        }
+        if ((defaultValue == null || defaultValue.isJsonNull()) && currentValue != null && currentValue.isJsonPrimitive() && currentValue.getAsJsonPrimitive().isString() && currentValue.getAsString().isBlank()) {
+            return false;
+        }
+        if ((currentValue == null || currentValue.isJsonNull()) && defaultValue != null && defaultValue.isJsonPrimitive() && defaultValue.getAsJsonPrimitive().isString() && defaultValue.getAsString().isBlank()) {
+            return false;
+        }
         if (defaultValue == null && currentValue == null) {
             return false;
+        }
+        if (defaultValue != null && currentValue != null && defaultValue.isJsonPrimitive() && currentValue.isJsonPrimitive()) {
+            com.google.gson.JsonPrimitive dv = defaultValue.getAsJsonPrimitive();
+            com.google.gson.JsonPrimitive cv = currentValue.getAsJsonPrimitive();
+            if (dv.isNumber() && cv.isNumber()) {
+                return Math.abs(dv.getAsDouble() - cv.getAsDouble()) > 1.0e-6;
+            }
         }
         return defaultValue == null || !defaultValue.equals(currentValue);
     }
