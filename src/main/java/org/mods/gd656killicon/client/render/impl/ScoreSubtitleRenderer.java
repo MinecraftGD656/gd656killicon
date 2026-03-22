@@ -7,6 +7,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.DigitalScrollEffect;
 import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
@@ -96,7 +97,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     private RenderState resolveRenderState() {
         if (!visible || startTime == -1) return null;
 
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
 
         if (!isFadingOut && currentTime > textHideTime) {
             isFadingOut = true;
@@ -280,7 +281,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             this.displayDuration = FADE_IN_DURATION;
         }
 
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         
         boolean shouldReset = false;
         if (this.isFadingOut) {

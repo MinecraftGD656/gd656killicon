@@ -14,6 +14,7 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.common.KillType;
@@ -89,7 +90,7 @@ public class CardRenderer implements IHudRenderer {
     }
 
     private void renderInternal(GuiGraphics guiGraphics, float partialTick, float standardX, float standardY) {
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         long displayDuration = resolveDisplayDuration();
         long animDurMs = (long) (animationDuration * 1000);
         Minecraft mc = Minecraft.getInstance();
@@ -448,7 +449,7 @@ public class CardRenderer implements IHudRenderer {
         }
 
         if (context.comboCount() == 1 && !activeCards.isEmpty()) {
-            long now = System.currentTimeMillis();
+            long now = PreviewRenderTimeContext.currentTimeMillis();
             for (CardInstance card : activeCards) {
                 if (card.state != CardState.EXITING) {
                     card.startExit(now);
@@ -466,7 +467,7 @@ public class CardRenderer implements IHudRenderer {
             }
         }
 
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
         CardInstance newCard = new CardInstance(
             context.type(),
             context.comboCount(),

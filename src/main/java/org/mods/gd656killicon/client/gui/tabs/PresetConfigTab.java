@@ -101,6 +101,7 @@ public class PresetConfigTab extends ConfigTabContent {
     }
     
     private final Map<String, java.util.Deque<UndoState>> undoStacks = new HashMap<>();
+    private final Map<String, java.util.Deque<UndoState>> redoStacks = new HashMap<>();
     private String draggingElementId = null;
     private JsonObject dragStartConfig = null;
     
@@ -131,7 +132,7 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     private GDTextRenderer tutorialRenderer;
-    private int tutorialCurrentStep = 8;
+    private int tutorialCurrentStep = 9;
     private GuidePhase tutorialPhase = GuidePhase.ACTIVE;
     private long tutorialPhaseStartAt = 0L;
     private float tutorialExitDirection = 0.0f;
@@ -166,7 +167,7 @@ public class PresetConfigTab extends ConfigTabContent {
         tutorialTriggeredLeft = false;
         tutorialTriggeredRight = false;
         tutorialRenderer = null;
-        tutorialCurrentStep = ClientConfigManager.shouldRunPresetTutorial() ? ClientConfigManager.getPresetTutorialStep() : 8;
+        tutorialCurrentStep = ClientConfigManager.shouldRunPresetTutorial() ? ClientConfigManager.getPresetTutorialStep() : 9;
         tutorialPhase = GuidePhase.ENTER;
         tutorialPhaseStartAt = System.currentTimeMillis();
         tutorialInterruptKick = 0.0f;
@@ -1146,63 +1147,69 @@ public class PresetConfigTab extends ConfigTabContent {
         if (step == 1) {
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2190) + " ", GuiConstants.COLOR_WHITE));
-            texts.add(new GDTextRenderer.ColoredText("1. 将鼠标悬停至窗口最左侧以打开预设模式选择器", GuiConstants.COLOR_GOLD));
+            texts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.preset_tutorial.step1"), GuiConstants.COLOR_GOLD));
             return new GuideStep(1, GuideDock.TOP_LEFT, texts);
         }
         if (step == 2) {
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
-            texts.add(new GDTextRenderer.ColoredText("2. 将鼠标悬停至窗口最右侧可打开当前模式的元素列表 ", GuiConstants.COLOR_GOLD));
+            texts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.preset_tutorial.step2") + " ", GuiConstants.COLOR_GOLD));
             texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2192), GuiConstants.COLOR_WHITE));
             return new GuideStep(2, GuideDock.TOP_RIGHT, texts);
         }
         if (step == 3) {
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
-            texts.add(new GDTextRenderer.ColoredText("3. 按住并拖动任意元素预览框可以修改元素的显示位置", GuiConstants.COLOR_GOLD));
+            texts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.preset_tutorial.step3"), GuiConstants.COLOR_GOLD));
             return new GuideStep(3, GuideDock.BOTTOM_CENTER, texts);
         }
         if (step == 4) {
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
-            texts.add(new GDTextRenderer.ColoredText("4. 按住并拖动元素四角的控制柄以快速对元素的缩放进行配置", GuiConstants.COLOR_GOLD));
+            texts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.preset_tutorial.step4"), GuiConstants.COLOR_GOLD));
             return new GuideStep(4, GuideDock.BOTTOM_CENTER, texts);
         }
         if (step == 5) {
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
-            texts.add(new GDTextRenderer.ColoredText("5. 在对一个元素进行缩放或位移之后可以按下Ctrl+Z来撤回上一次更改", GuiConstants.COLOR_GOLD));
+            texts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.preset_tutorial.step5"), GuiConstants.COLOR_GOLD));
             return new GuideStep(5, GuideDock.BOTTOM_CENTER, texts);
         }
         if (step == 6) {
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
-            texts.add(new GDTextRenderer.ColoredText("6. 右键某个元素可隐藏某个元素", GuiConstants.COLOR_GOLD));
+            texts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.preset_tutorial.step6"), GuiConstants.COLOR_GOLD));
             return new GuideStep(6, GuideDock.BOTTOM_CENTER, texts);
         }
         if (step == 7) {
             List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
             texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
-            texts.add(new GDTextRenderer.ColoredText("7. 双击某个元素以直接进入此元素的配置界面", GuiConstants.COLOR_GOLD));
+            texts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.preset_tutorial.step7"), GuiConstants.COLOR_GOLD));
             return new GuideStep(7, GuideDock.BOTTOM_CENTER, texts);
+        }
+        if (step == 8) {
+            List<GDTextRenderer.ColoredText> texts = new ArrayList<>();
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf((char)0x2191) + " ", GuiConstants.COLOR_WHITE));
+            texts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.preset_tutorial.step8"), GuiConstants.COLOR_GOLD));
+            return new GuideStep(8, GuideDock.BOTTOM_CENTER, texts);
         }
         return null;
     }
 
     private void markTutorialAction(int step) {
-        if (tutorialCurrentStep != step || tutorialCurrentStep > 7 || !ClientConfigManager.shouldRunPresetTutorial()) {
+        if (tutorialCurrentStep != step || tutorialCurrentStep > 8 || !ClientConfigManager.shouldRunPresetTutorial()) {
             return;
         }
         startTutorialExit();
     }
 
     private void startTutorialExit() {
-        if (tutorialCurrentStep > 7 || tutorialPhase == GuidePhase.EXIT) {
+        if (tutorialCurrentStep > 8 || tutorialPhase == GuidePhase.EXIT) {
             return;
         }
         GuideStep guideStep = getGuideStep(tutorialCurrentStep);
         if (guideStep == null) {
-            tutorialCurrentStep = 8;
-            ClientConfigManager.setPresetTutorialStep(8);
+            tutorialCurrentStep = 9;
+            ClientConfigManager.setPresetTutorialStep(9);
             return;
         }
         tutorialPhase = GuidePhase.EXIT;
@@ -1219,7 +1226,7 @@ public class PresetConfigTab extends ConfigTabContent {
         tutorialTextHeight = 0.0f;
         tutorialInterruptKick = 0.0f;
         tutorialLastRenderAt = 0L;
-        if (tutorialCurrentStep > 7) {
+        if (tutorialCurrentStep > 8) {
             return;
         }
         tutorialPhase = GuidePhase.ENTER;
@@ -1291,7 +1298,7 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     private void renderTutorialOverlay(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
-        if (!ClientConfigManager.shouldRunPresetTutorial() || tutorialCurrentStep > 7) {
+        if (!ClientConfigManager.shouldRunPresetTutorial() || tutorialCurrentStep > 8) {
             return;
         }
         GuideStep step = getGuideStep(tutorialCurrentStep);
@@ -1426,7 +1433,12 @@ public class PresetConfigTab extends ConfigTabContent {
         }
         if (Screen.hasControlDown() && (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
             if (tryUndo()) {
-                markTutorialAction(5);
+                markTutorialAction(6);
+                return true;
+            }
+        }
+        if (Screen.hasControlDown() && (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Y)) {
+            if (tryRedo()) {
                 return true;
             }
         }
@@ -1600,7 +1612,7 @@ public class PresetConfigTab extends ConfigTabContent {
             if (result != ElementPreview.PreviewInteractionResult.PASS) {
                 if (result == ElementPreview.PreviewInteractionResult.DOUBLE_CLICK) {
                      String id = preview.getElementId();
-                     markTutorialAction(7);
+                     markTutorialAction(8);
                      String currentId = ClientConfigManager.getCurrentPresetId();
                      if (header != null) {
                         ElementConfigBuilder builder = ElementConfigBuilderRegistry.getBuilder(id);
@@ -1613,10 +1625,13 @@ public class PresetConfigTab extends ConfigTabContent {
                      return true;
                 } else if (result == ElementPreview.PreviewInteractionResult.RIGHT_CLICK) {
                      String id = preview.getElementId();
-                     markTutorialAction(6);
+                     markTutorialAction(7);
                      String currentId = ClientConfigManager.getCurrentPresetId();
                      JsonObject config = ElementConfigManager.getElementConfig(currentId, id);
                      boolean isVisible = config != null && (config.has("visible") ? config.get("visible").getAsBoolean() : true);
+                     if (config != null) {
+                         pushUndoState(currentId, id, config);
+                     }
                      ElementConfigManager.updateConfigValue(currentId, id, "visible", String.valueOf(!isVisible));
                      updateCurrentElementRows();
                      updatePreviews();
@@ -1725,6 +1740,10 @@ public class PresetConfigTab extends ConfigTabContent {
         String presetId = ClientConfigManager.getCurrentPresetId();
         if (undoStacks.containsKey(presetId) && !undoStacks.get(presetId).isEmpty()) {
             UndoState state = undoStacks.get(presetId).pop();
+            JsonObject currentConfig = ElementConfigManager.getElementConfig(presetId, state.elementId);
+            if (currentConfig != null) {
+                redoStacks.computeIfAbsent(presetId, k -> new java.util.ArrayDeque<>()).push(new UndoState(state.elementId, currentConfig));
+            }
             ElementConfigManager.setElementConfig(presetId, state.elementId, state.configSnapshot);
             updatePreviews();
             updateCurrentElementRows();
@@ -1732,6 +1751,29 @@ public class PresetConfigTab extends ConfigTabContent {
             return true;
         }
         return false;
+    }
+
+    private boolean tryRedo() {
+        String presetId = ClientConfigManager.getCurrentPresetId();
+        if (redoStacks.containsKey(presetId) && !redoStacks.get(presetId).isEmpty()) {
+            UndoState state = redoStacks.get(presetId).pop();
+            JsonObject currentConfig = ElementConfigManager.getElementConfig(presetId, state.elementId);
+            if (currentConfig != null) {
+                undoStacks.computeIfAbsent(presetId, k -> new java.util.ArrayDeque<>()).push(new UndoState(state.elementId, currentConfig));
+            }
+            ElementConfigManager.setElementConfig(presetId, state.elementId, state.configSnapshot);
+            updatePreviews();
+            updateCurrentElementRows();
+            minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            return true;
+        }
+        return false;
+    }
+
+    private void pushUndoState(String presetId, String elementId, JsonObject config) {
+        undoStacks.computeIfAbsent(presetId, k -> new java.util.ArrayDeque<>()).push(new UndoState(elementId, config));
+        java.util.Deque<UndoState> redoStack = redoStacks.computeIfAbsent(presetId, k -> new java.util.ArrayDeque<>());
+        redoStack.clear();
     }
 
     private void updateElementListScroll(float dt, double currentMouseY, int viewHeight) {
@@ -1798,6 +1840,10 @@ public class PresetConfigTab extends ConfigTabContent {
         int toggleWidth = GuiConstants.ROW_HEADER_HEIGHT;
         String toggleText = isVisible ? "👁" : "×";
         row.addColumn(toggleText, toggleWidth, GuiConstants.COLOR_WHITE, false, true, (btn) -> {
+            JsonObject beforeConfig = ElementConfigManager.getElementConfig(currentId, id);
+            if (beforeConfig != null) {
+                pushUndoState(currentId, id, beforeConfig);
+            }
             ElementConfigManager.updateConfigValue(currentId, id, "visible", String.valueOf(!isVisible));
             updateCurrentElementRows();
             updatePreviews();
@@ -1896,11 +1942,13 @@ public class PresetConfigTab extends ConfigTabContent {
              JsonObject currentConfig = ElementConfigManager.getElementConfig(currentPresetId, draggingElementId);
              
              if (currentConfig != null && !currentConfig.equals(dragStartConfig)) {
-                 undoStacks.computeIfAbsent(currentPresetId, k -> new java.util.ArrayDeque<>()).push(new UndoState(draggingElementId, dragStartConfig));
-                 if (hasFloatChanged(dragStartConfig, currentConfig, "scale")) {
-                     markTutorialAction(4);
-                 } else if (hasIntChanged(dragStartConfig, currentConfig, "x_offset") || hasIntChanged(dragStartConfig, currentConfig, "y_offset")) {
+                pushUndoState(currentPresetId, draggingElementId, dragStartConfig);
+                 if (hasIntChanged(dragStartConfig, currentConfig, "x_offset") || hasIntChanged(dragStartConfig, currentConfig, "y_offset")) {
                      markTutorialAction(3);
+                 } else if (hasFloatChanged(dragStartConfig, currentConfig, "rotation_angle")) {
+                     markTutorialAction(4);
+                 } else if (hasFloatChanged(dragStartConfig, currentConfig, "scale")) {
+                     markTutorialAction(5);
                  }
              }
              

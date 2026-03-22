@@ -780,10 +780,17 @@ public class DefaultConfigRegistry {
     }
 
     private static void registerGlobal(String elementId, JsonObject config) {
+        applyRotationDefaults(config);
         if (elementId != null && elementId.startsWith("kill_icon")) {
             applyIconGlowDefaults(config);
         }
         GLOBAL_DEFAULTS.put(elementId, config);
+    }
+
+    private static void applyRotationDefaults(JsonObject config) {
+        if (!config.has("rotation_angle")) {
+            config.addProperty("rotation_angle", 0.0f);
+        }
     }
 
     private static void applyIconGlowDefaults(JsonObject config) {

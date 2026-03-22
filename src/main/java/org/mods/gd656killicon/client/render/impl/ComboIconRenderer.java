@@ -9,6 +9,7 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
 import org.mods.gd656killicon.client.textures.ModTextures;
@@ -109,7 +110,7 @@ public class ComboIconRenderer implements IHudRenderer {
         }
         this.effectiveDisplayDuration = this.displayDuration + ANIMATION_DURATION;
 
-        this.startTime = System.currentTimeMillis();
+        this.startTime = PreviewRenderTimeContext.currentTimeMillis();
         this.isVisible = true;
 
         triggerRingEffect();
@@ -130,7 +131,7 @@ public class ComboIconRenderer implements IHudRenderer {
     public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
         if (!isVisible || startTime == -1) return;
 
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         long elapsed = currentTime - startTime;
 
         if (elapsed > effectiveDisplayDuration) {

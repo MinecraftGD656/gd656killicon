@@ -12,6 +12,7 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 
@@ -234,7 +235,7 @@ public class CardBarRenderer implements IHudRenderer {
         long flashAnimDurMs = Math.max(1L, (long)(animDurMs / CENTER_FLASH_SPEED_MULTIPLIER));
         
         if (flashStartTime != -1) {
-            long elapsed = System.currentTimeMillis() - flashStartTime;
+            long elapsed = PreviewRenderTimeContext.currentTimeMillis() - flashStartTime;
             
             long flashHold = flashAnimDurMs / 2;
             long flashFade = flashAnimDurMs * 4;
@@ -265,7 +266,7 @@ public class CardBarRenderer implements IHudRenderer {
             
             renderLightEffect(guiGraphics, lightWidth, lightHeight, mixedColorHex, 1.0f);
             
-            ringEffect.render(guiGraphics, 0, 0, System.currentTimeMillis());
+            ringEffect.render(guiGraphics, 0, 0, PreviewRenderTimeContext.currentTimeMillis());
         }
         
         if (showLight) {
@@ -412,7 +413,7 @@ public class CardBarRenderer implements IHudRenderer {
         if (context.type() == org.mods.gd656killicon.common.KillType.ASSIST) {
             return;
         }
-        this.flashStartTime = System.currentTimeMillis();
+        this.flashStartTime = PreviewRenderTimeContext.currentTimeMillis();
         
         if (config != null) {
             String lightColorCt = config.has("color_light_ct") ? config.get("color_light_ct").getAsString() : "9cc1eb";
@@ -444,7 +445,7 @@ public class CardBarRenderer implements IHudRenderer {
             int b2 = (b + 255) / 2;
             int explosionColor2 = (r2 << 16) | (g2 << 8) | b2;
             
-            ringEffect.trigger(System.currentTimeMillis(), true, context.type(), color, explosionColor2, color);
+            ringEffect.trigger(PreviewRenderTimeContext.currentTimeMillis(), true, context.type(), color, explosionColor2, color);
         }
         
         int combo = context.comboCount();
@@ -474,14 +475,14 @@ public class CardBarRenderer implements IHudRenderer {
         
         private static final float WAVE_RADIUS_RATIO = 0.15f;         private static final float MAX_STRETCH_PIXELS = 25.0f;         
         public void trigger(int pairCount) {
-            long now = System.currentTimeMillis();
+            long now = PreviewRenderTimeContext.currentTimeMillis();
             for (int i = 0; i < pairCount; i++) {
                 pendingSpawns.offer(now);
             }
         }
         
         public void updateAndRender(GuiGraphics guiGraphics, float width, String colorHex, float animationDuration, float flashAlpha) {
-            long now = System.currentTimeMillis();
+            long now = PreviewRenderTimeContext.currentTimeMillis();
             long interval = (long) ((animationDuration * 1000) / 2.0f);
             
             if (!pendingSpawns.isEmpty()) {

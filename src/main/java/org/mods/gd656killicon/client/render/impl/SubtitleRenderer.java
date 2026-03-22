@@ -10,6 +10,7 @@ import net.minecraft.world.item.ItemStack;
 import org.mods.gd656killicon.common.KillType;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import com.google.gson.JsonObject;
 
@@ -175,7 +176,7 @@ public class SubtitleRenderer implements IHudRenderer {
                 this.displayDuration = FADE_IN_DURATION;
             }
 
-            this.startTime = System.currentTimeMillis();
+            this.startTime = PreviewRenderTimeContext.currentTimeMillis();
             this.textHideTime = this.startTime + this.displayDuration;
             this.isVisible = true;
         }
@@ -236,7 +237,7 @@ public class SubtitleRenderer implements IHudRenderer {
                 this.displayDuration = FADE_IN_DURATION;
             }
 
-            this.startTime = System.currentTimeMillis();
+            this.startTime = PreviewRenderTimeContext.currentTimeMillis();
             this.textHideTime = this.startTime + this.displayDuration;
             this.isVisible = true;
         }
@@ -291,7 +292,7 @@ public class SubtitleRenderer implements IHudRenderer {
     }
 
     private void renderStacked(GuiGraphics guiGraphics, Font font, int centerX, int startY) {
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
         
         if (!pendingQueue.isEmpty()) {
             if (now - lastDequeueTime >= 200) {
@@ -335,7 +336,7 @@ public class SubtitleRenderer implements IHudRenderer {
     }
 
     private void renderStackItems(GuiGraphics guiGraphics, Font font, int centerX, int startY) {
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
         
         for (int i = 0; i < stackedItems.size(); i++) {
             SubtitleItem item = stackedItems.get(i);
@@ -381,7 +382,7 @@ public class SubtitleRenderer implements IHudRenderer {
     private RenderState resolveRenderState() {
         if (!isVisible || startTime == -1) return null;
 
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         long elapsed = currentTime - startTime;
 
         float alpha = calculateAlpha(currentTime);
@@ -479,7 +480,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
     public static void recordBonusScore(int bonusType, float score, int victimId) {
         if (victimId == -1) return;
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
         ScoreEntry entry = new ScoreEntry(victimId, score, now);
         RECENT_SCORES.put(victimId, entry);
         RECENT_SCORE_QUEUE.addLast(entry);
@@ -493,7 +494,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
     private static String resolveScoreString(int victimId, long referenceTime) {
         if (victimId == PREVIEW_SCORE_VICTIM_ID) return "20";
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
         if (victimId != -1) {
             ScoreEntry entry = RECENT_SCORES.get(victimId);
             if (entry != null) {

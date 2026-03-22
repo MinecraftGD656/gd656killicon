@@ -3,6 +3,7 @@ package org.mods.gd656killicon.client.textures;
 import com.google.gson.JsonObject;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager.TextureDimensions;
 
 public class IconTextureAnimationManager {
@@ -56,7 +57,7 @@ public class IconTextureAnimationManager {
             frameH = totalH / totalFrames;
         }
         
-        long elapsed = System.currentTimeMillis() - startTime;
+        long elapsed = PreviewRenderTimeContext.currentTimeMillis() - startTime;
         if (elapsed < 0) elapsed = 0;
         int frameIndex = 0;
         

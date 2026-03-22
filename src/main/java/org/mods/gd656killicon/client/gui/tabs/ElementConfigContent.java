@@ -6,6 +6,7 @@ import java.io.IOException;
 
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
@@ -30,6 +31,7 @@ import org.mods.gd656killicon.client.gui.screens.ElementConfigBuilder;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.impl.Battlefield1Renderer;
 import org.mods.gd656killicon.client.render.impl.CardBarRenderer;
 import org.mods.gd656killicon.client.render.impl.CardRenderer;
@@ -40,6 +42,7 @@ import org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.SubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.ValorantIconRenderer;
+import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -147,11 +150,15 @@ public class ElementConfigContent extends ConfigTabContent {
     private static final RandomSource PREVIEW_RANDOM = RandomSource.create();
     
     private GDButton saveButton;
+    private GDButton previewPauseButton;
+    private GDButton previewSoundButton;
     private ConfirmDialog textureResetDialog;
     private ConfirmDialog textureBindingDialog;
     
     private boolean isConfirmingReset = false;
     private long resetConfirmTime = 0;
+    private boolean previewPaused = false;
+    private boolean previewSoundEnabled = false;
 
     public ElementConfigContent(Minecraft minecraft, String presetId, String elementId, ElementConfigBuilder builder, Runnable onClose) {
         super(minecraft, Component.translatable("gd656killicon.client.gui.config.element.title"));
@@ -164,6 +171,8 @@ public class ElementConfigContent extends ConfigTabContent {
         
         JsonObject current = ElementConfigManager.getElementConfig(presetId, elementId);
         this.initialConfig = current != null ? current.deepCopy() : new JsonObject();
+        this.previewSoundEnabled = ClientConfigManager.isElementPreviewSoundEnabled();
+        PreviewRenderTimeContext.setPaused(false);
         
         rebuildUI();
     }
@@ -358,7 +367,7 @@ public class ElementConfigContent extends ConfigTabContent {
         if (isSubtitleElement() && (key.startsWith("reset_") || key.endsWith("_threshold") || key.contains("enable_stacking") || key.contains("enable_special_streak") || key.contains("enable_kill_feed") || key.endsWith("_kill"))) {
             return "behavior";
         }
-        if (key.contains("x_offset") || key.contains("y_offset") || key.contains("radius_offset") || key.contains("line_spacing") || key.contains("max_lines")) {
+        if (key.contains("x_offset") || key.contains("y_offset") || key.contains("radius_offset") || key.contains("line_spacing") || key.contains("max_lines") || key.contains("rotation_angle")) {
             return "position";
         }
         if (isSubtitleElement() && (key.equals("scale") || key.contains("align_") || key.contains("kill_bonus_scale"))) {
@@ -615,16 +624,21 @@ public class ElementConfigContent extends ConfigTabContent {
             } else {
                 PreviewTextureFocusContext.clear();
             }
-            renderScrollingPreview(guiGraphics, partialTick);
-            renderComboPreview(guiGraphics, partialTick);
-            renderValorantPreview(guiGraphics, partialTick);
-            renderCardPreview(guiGraphics, partialTick);
-            renderCardBarPreview(guiGraphics, partialTick);
-            renderBattlefieldPreview(guiGraphics, partialTick);
-            renderKillFeedPreview(guiGraphics, partialTick);
-            renderComboSubtitlePreview(guiGraphics, partialTick);
-            renderScorePreview(guiGraphics, partialTick);
-            renderBonusListPreview(guiGraphics, partialTick);
+            PreviewRenderTimeContext.beginPreviewFrame();
+            try {
+                renderScrollingPreview(guiGraphics, partialTick);
+                renderComboPreview(guiGraphics, partialTick);
+                renderValorantPreview(guiGraphics, partialTick);
+                renderCardPreview(guiGraphics, partialTick);
+                renderCardBarPreview(guiGraphics, partialTick);
+                renderBattlefieldPreview(guiGraphics, partialTick);
+                renderKillFeedPreview(guiGraphics, partialTick);
+                renderComboSubtitlePreview(guiGraphics, partialTick);
+                renderScorePreview(guiGraphics, partialTick);
+                renderBonusListPreview(guiGraphics, partialTick);
+            } finally {
+                PreviewRenderTimeContext.endPreviewFrame();
+            }
             PreviewTextureFocusContext.clear();
         }
 
@@ -774,16 +788,18 @@ public class ElementConfigContent extends ConfigTabContent {
             else if ("assist".equals(tex)) killType = KillType.ASSIST;
             
             if (killType != -1) {
-                if (now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
+                if (!previewPaused && now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
                     scrollingPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1));
+                    triggerPreviewSound(killType, 1);
                     lastPreviewTriggerTime = now;
                 }
             }
         } else {
-            if (now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
+            if (!previewPaused && now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
                 int killType = PREVIEW_KILL_TYPES[previewKillTypeIndex % PREVIEW_KILL_TYPES.length];
                 previewKillTypeIndex++;
                 scrollingPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1));
+                triggerPreviewSound(killType, 1);
                 lastPreviewTriggerTime = now;
             }
         }
@@ -797,7 +813,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        scrollingPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> scrollingPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -819,17 +835,19 @@ public class ElementConfigContent extends ConfigTabContent {
                 }
             } catch (Exception e) {}
             
-            if (now - lastComboPreviewTriggerTime >= PREVIEW_COMBO_TRIGGER_INTERVAL_MS) {
+            if (!previewPaused && now - lastComboPreviewTriggerTime >= PREVIEW_COMBO_TRIGGER_INTERVAL_MS) {
                 comboPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(KillType.NORMAL, -1, combo));
+                triggerPreviewSound(KillType.NORMAL, combo);
                 lastComboPreviewTriggerTime = now;
             }
         } else {
-            if (now - lastComboPreviewTriggerTime >= PREVIEW_COMBO_TRIGGER_INTERVAL_MS) {
+            if (!previewPaused && now - lastComboPreviewTriggerTime >= PREVIEW_COMBO_TRIGGER_INTERVAL_MS) {
                 int killType = PREVIEW_COMBO_KILL_TYPES[previewComboKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
                 int comboCount = previewComboCount;
                 previewComboKillTypeIndex++;
                 previewComboCount = previewComboCount >= 6 ? 1 : previewComboCount + 1;
                 comboPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
+                triggerPreviewSound(killType, comboCount);
                 lastComboPreviewTriggerTime = now;
             }
         }
@@ -843,7 +861,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        comboPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> comboPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -854,7 +872,7 @@ public class ElementConfigContent extends ConfigTabContent {
         }
 
         long now = System.currentTimeMillis();
-        if (now - lastValorantPreviewTriggerTime >= PREVIEW_VALORANT_TRIGGER_INTERVAL_MS) {
+        if (!previewPaused && now - lastValorantPreviewTriggerTime >= PREVIEW_VALORANT_TRIGGER_INTERVAL_MS) {
             int comboCount;
             int killType = KillType.NORMAL;
             if (selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId)) {
@@ -867,6 +885,7 @@ public class ElementConfigContent extends ConfigTabContent {
                 previewValorantComboCount = previewValorantComboCount >= 5 ? 1 : previewValorantComboCount + 1;
             }
             valorantPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
+            triggerPreviewSound(killType, comboCount);
             lastValorantPreviewTriggerTime = now;
         }
 
@@ -879,7 +898,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        valorantPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> valorantPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -912,17 +931,19 @@ public class ElementConfigContent extends ConfigTabContent {
                 config.addProperty("show_light", false);
             }
             
-            if (now - lastCardPreviewTriggerTime >= PREVIEW_CARD_TRIGGER_INTERVAL_MS) {
+            if (!previewPaused && now - lastCardPreviewTriggerTime >= PREVIEW_CARD_TRIGGER_INTERVAL_MS) {
                 cardPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, 1));
+                triggerPreviewSound(killType, 1);
                 lastCardPreviewTriggerTime = now;
             }
         } else {
-            if (now - lastCardPreviewTriggerTime >= PREVIEW_CARD_TRIGGER_INTERVAL_MS) {
+            if (!previewPaused && now - lastCardPreviewTriggerTime >= PREVIEW_CARD_TRIGGER_INTERVAL_MS) {
                 int killType = PREVIEW_COMBO_KILL_TYPES[previewCardKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
                 int comboCount = previewCardComboCount;
                 previewCardKillTypeIndex++;
                 previewCardComboCount = previewCardComboCount >= 6 ? 1 : previewCardComboCount + 1;
                 cardPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
+                triggerPreviewSound(killType, comboCount);
                 lastCardPreviewTriggerTime = now;
             }
         }
@@ -936,7 +957,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        cardPreviewRenderer.renderPreviewAt(guiGraphics, partialTick, originX, originY, config);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> cardPreviewRenderer.renderPreviewAt(guiGraphics, partialTick, originX, originY, config));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -958,17 +979,19 @@ public class ElementConfigContent extends ConfigTabContent {
             config.addProperty("team", team);
             config.addProperty("dynamic_card_style", false);
             
-            if (now - lastCardBarPreviewTriggerTime >= PREVIEW_CARD_BAR_TRIGGER_INTERVAL_MS) {
+            if (!previewPaused && now - lastCardBarPreviewTriggerTime >= PREVIEW_CARD_BAR_TRIGGER_INTERVAL_MS) {
                 cardBarPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(KillType.NORMAL, -1, 1));
+                triggerPreviewSound(KillType.NORMAL, 1);
                 lastCardBarPreviewTriggerTime = now;
             }
         } else {
-            if (now - lastCardBarPreviewTriggerTime >= PREVIEW_CARD_BAR_TRIGGER_INTERVAL_MS) {
+            if (!previewPaused && now - lastCardBarPreviewTriggerTime >= PREVIEW_CARD_BAR_TRIGGER_INTERVAL_MS) {
                 int killType = PREVIEW_COMBO_KILL_TYPES[previewCardBarKillTypeIndex % PREVIEW_COMBO_KILL_TYPES.length];
                 int comboCount = previewCardBarComboCount;
                 previewCardBarKillTypeIndex++;
                 previewCardBarComboCount = previewCardBarComboCount >= 6 ? 1 : previewCardBarComboCount + 1;
                 cardBarPreviewRenderer.trigger(IHudRenderer.TriggerContext.of(killType, -1, comboCount));
+                triggerPreviewSound(killType, comboCount);
                 lastCardBarPreviewTriggerTime = now;
             }
         }
@@ -982,7 +1005,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        cardBarPreviewRenderer.renderPreviewAt(guiGraphics, partialTick, originX, originY, config);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> cardBarPreviewRenderer.renderPreviewAt(guiGraphics, partialTick, originX, originY, config));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -1005,18 +1028,20 @@ public class ElementConfigContent extends ConfigTabContent {
             else if ("destroy_vehicle".equals(tex)) killType = KillType.DESTROY_VEHICLE;
             
             if (killType != -1) {
-                if (now - lastBattlefieldPreviewTriggerTime >= PREVIEW_BATTLEFIELD_TRIGGER_INTERVAL_MS) {
+                if (!previewPaused && now - lastBattlefieldPreviewTriggerTime >= PREVIEW_BATTLEFIELD_TRIGGER_INTERVAL_MS) {
                     String weaponName = resolveRandomItemName();
                     battlefield1PreviewRenderer.triggerPreview(killType, weaponName, "Minecraft_GD656", "20");
+                    triggerPreviewSound(killType, 1);
                     lastBattlefieldPreviewTriggerTime = now;
                 }
             }
         } else {
-            if (now - lastBattlefieldPreviewTriggerTime >= PREVIEW_BATTLEFIELD_TRIGGER_INTERVAL_MS) {
+            if (!previewPaused && now - lastBattlefieldPreviewTriggerTime >= PREVIEW_BATTLEFIELD_TRIGGER_INTERVAL_MS) {
                 int killType = PREVIEW_BATTLEFIELD_KILL_TYPES[previewBattlefieldKillTypeIndex % PREVIEW_BATTLEFIELD_KILL_TYPES.length];
                 previewBattlefieldKillTypeIndex++;
                 String weaponName = resolveRandomItemName();
                 battlefield1PreviewRenderer.triggerPreview(killType, weaponName, "Minecraft_GD656", "20");
+                triggerPreviewSound(killType, 1);
                 lastBattlefieldPreviewTriggerTime = now;
             }
         }
@@ -1030,7 +1055,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        battlefield1PreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> battlefield1PreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -1040,11 +1065,12 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastSubtitlePreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
+        if (!previewPaused && now - lastSubtitlePreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
             int killType = PREVIEW_KILL_TYPES[previewKillTypeIndex % PREVIEW_KILL_TYPES.length];
             previewKillTypeIndex++;
             String weaponName = resolveRandomItemName();
             subtitlePreviewRenderer.triggerPreview(killType, weaponName, "Minecraft_GD656");
+            triggerPreviewSound(killType, 1);
             lastSubtitlePreviewTriggerTime = now;
         }
         float originX = gridWidget.getOriginX();
@@ -1056,7 +1082,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        subtitlePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> subtitlePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -1066,10 +1092,11 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastComboSubtitlePreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
+        if (!previewPaused && now - lastComboSubtitlePreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
             int combo = 1 + PREVIEW_RANDOM.nextInt(8);
             boolean isAssist = PREVIEW_RANDOM.nextBoolean();
             comboSubtitlePreviewRenderer.triggerPreview(isAssist, combo);
+            triggerPreviewSound(isAssist ? KillType.ASSIST : KillType.NORMAL, combo);
             lastComboSubtitlePreviewTriggerTime = now;
         }
         float originX = gridWidget.getOriginX();
@@ -1084,7 +1111,7 @@ public class ElementConfigContent extends ConfigTabContent {
         
         
         
-        comboSubtitlePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> comboSubtitlePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
@@ -1095,7 +1122,7 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastScorePreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
+        if (!previewPaused && now - lastScorePreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
             float score = 0.1f + PREVIEW_RANDOM.nextFloat() * (100.0f - 0.1f);
             scorePreviewRenderer.addScore(score);
             lastScorePreviewTriggerTime = now;
@@ -1109,7 +1136,7 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        scorePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> scorePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -1119,7 +1146,7 @@ public class ElementConfigContent extends ConfigTabContent {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastBonusListPreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
+        if (!previewPaused && now - lastBonusListPreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
             JsonObject config = ElementConfigManager.getElementConfig(presetId, "subtitle/bonus_list");
             if (config == null) {
                 return;
@@ -1133,6 +1160,7 @@ public class ElementConfigContent extends ConfigTabContent {
                 String extraData = resolveBonusPreviewExtraData(type, config);
                 bonusListPreviewRenderer.triggerPreview(type, score, extraData, weaponName, victimName, config);
             }
+            triggerPreviewSound(KillType.NORMAL, 1);
             lastBonusListPreviewTriggerTime = now;
         }
         float originX = gridWidget.getOriginX();
@@ -1144,9 +1172,37 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        bonusListPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY);
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> bonusListPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
+    }
+
+    private void renderPreviewWithRotation(GuiGraphics guiGraphics, float partialTick, float originX, float originY, Runnable renderTask) {
+        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+        float rotationAngle = config != null && config.has("rotation_angle") ? config.get("rotation_angle").getAsFloat() : 0.0f;
+        if (Math.abs(rotationAngle) <= 0.001f) {
+            renderTask.run();
+            return;
+        }
+        float pivotX = originX;
+        float pivotY = originY;
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(pivotX, pivotY, 0.0f);
+        guiGraphics.pose().mulPose(Axis.ZP.rotationDegrees(rotationAngle));
+        guiGraphics.pose().translate(-pivotX, -pivotY, 0.0f);
+        renderTask.run();
+        guiGraphics.pose().popPose();
+    }
+
+    private void triggerPreviewSound(int killType, int comboCount) {
+        if (!previewSoundEnabled || elementId == null || !elementId.contains("/")) {
+            return;
+        }
+        String[] parts = elementId.split("/", 2);
+        if (parts.length != 2) {
+            return;
+        }
+        SoundTriggerManager.tryPlaySound(parts[0], parts[1], killType, Math.max(1, comboCount), false, false);
     }
 
     private String resolveRandomItemName() {
@@ -1225,7 +1281,7 @@ public class ElementConfigContent extends ConfigTabContent {
         int totalWidth = area1Right - padding;
         int x1 = padding + (int)getSidebarOffset();
 
-        int row1ButtonWidth = (totalWidth - 1) / 2;
+        int row1ButtonWidth = (totalWidth - 2) / 3;
 
         if (resetButton == null) {
             resetButton = new GDButton(x1, row1Y, row1ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.reset_element"), (btn) -> {
@@ -1251,27 +1307,63 @@ public class ElementConfigContent extends ConfigTabContent {
         resetButton.setY(row1Y);
         resetButton.setWidth(row1ButtonWidth);
         resetButton.render(guiGraphics, mouseX, mouseY, partialTick);
-        
+
+        int pauseX = x1 + row1ButtonWidth + 1;
+        if (previewPauseButton == null) {
+            previewPauseButton = new GDButton(pauseX, row1Y, row1ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.pause_preview"), (btn) -> {
+                previewPaused = !previewPaused;
+                PreviewRenderTimeContext.setPaused(previewPaused);
+                btn.setMessage(Component.translatable(previewPaused
+                        ? "gd656killicon.client.gui.config.button.play_preview"
+                        : "gd656killicon.client.gui.config.button.pause_preview"));
+            });
+        }
+        previewPauseButton.setX(pauseX);
+        previewPauseButton.setY(row1Y);
+        previewPauseButton.setWidth(row1ButtonWidth);
+        previewPauseButton.setMessage(Component.translatable(previewPaused
+                ? "gd656killicon.client.gui.config.button.play_preview"
+                : "gd656killicon.client.gui.config.button.pause_preview"));
+        previewPauseButton.render(guiGraphics, mouseX, mouseY, partialTick);
+
+        int soundX = pauseX + row1ButtonWidth + 1;
+        if (previewSoundButton == null) {
+            previewSoundButton = new GDButton(soundX, row1Y, row1ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.play_sound_preview"), (btn) -> {
+                previewSoundEnabled = !previewSoundEnabled;
+                ClientConfigManager.setElementPreviewSoundEnabled(previewSoundEnabled);
+                btn.setMessage(Component.translatable(previewSoundEnabled
+                        ? "gd656killicon.client.gui.config.button.disable_sound_preview"
+                        : "gd656killicon.client.gui.config.button.play_sound_preview"));
+            });
+        }
+        previewSoundButton.setX(soundX);
+        previewSoundButton.setY(row1Y);
+        previewSoundButton.setWidth(row1ButtonWidth);
+        previewSoundButton.setMessage(Component.translatable(previewSoundEnabled
+                ? "gd656killicon.client.gui.config.button.disable_sound_preview"
+                : "gd656killicon.client.gui.config.button.play_sound_preview"));
+        previewSoundButton.render(guiGraphics, mouseX, mouseY, partialTick);
+
+        int row2ButtonWidth = (totalWidth - 1) / 2;
+
         if (cancelButton == null) {
-            cancelButton = new GDButton(x1 + row1ButtonWidth + 1, row1Y, row1ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.button.cancel"), (btn) -> {
+            cancelButton = new GDButton(x1, row2Y, row2ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.button.cancel"), (btn) -> {
                 discardElementChangesAndClose();
             });
         }
         
-        cancelButton.setX(x1 + row1ButtonWidth + 1);
-        cancelButton.setY(row1Y);
-        cancelButton.setWidth(row1ButtonWidth);
+        cancelButton.setX(x1);
+        cancelButton.setY(row2Y);
+        cancelButton.setWidth(row2ButtonWidth);
         cancelButton.render(guiGraphics, mouseX, mouseY, partialTick);
-        
-        int row2ButtonWidth = totalWidth;
 
         if (saveButton == null) {
-            saveButton = new GDButton(x1, row2Y, row2ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.save_and_exit"), (btn) -> {
+            saveButton = new GDButton(x1 + row2ButtonWidth + 1, row2Y, row2ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.save_and_exit"), (btn) -> {
                 closeContent();
             });
         }
         
-        saveButton.setX(x1);
+        saveButton.setX(x1 + row2ButtonWidth + 1);
         saveButton.setY(row2Y);
         saveButton.setWidth(row2ButtonWidth);
         saveButton.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -1307,6 +1399,12 @@ public class ElementConfigContent extends ConfigTabContent {
             return true;
         }
 
+        if (previewPauseButton != null && previewPauseButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (previewSoundButton != null && previewSoundButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         if (saveButton != null && saveButton.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
@@ -1927,7 +2025,7 @@ public class ElementConfigContent extends ConfigTabContent {
                     }
                     if (textureResetDialog != null) {
                         String textureKey = tab.elementId;
-                        textureResetDialog.show("是否重置此材质", ConfirmDialog.PromptType.WARNING, () -> {
+                        textureResetDialog.show(I18n.get("gd656killicon.client.gui.prompt.texture_reset_confirm"), ConfirmDialog.PromptType.WARNING, () -> {
                             JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
                             List<String> affectedKeys = getTextureKeysBySelectedFile(config, fileName);
                             if (affectedKeys.isEmpty()) {

@@ -15,6 +15,7 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.sounds.ExternalSoundManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
@@ -187,7 +188,7 @@ public class Battlefield1Renderer implements IHudRenderer {
             }
         }
 
-        this.startTime = System.currentTimeMillis();
+        this.startTime = PreviewRenderTimeContext.currentTimeMillis();
         this.lastSwitchTime = this.startTime;
         this.isVisible = true;
     }
@@ -233,7 +234,7 @@ public class Battlefield1Renderer implements IHudRenderer {
             currentConfig
         );
 
-        this.startTime = System.currentTimeMillis();
+        this.startTime = PreviewRenderTimeContext.currentTimeMillis();
         this.lastSwitchTime = this.startTime;
         this.isVisible = true;
         this.displayQueue.clear();
@@ -241,7 +242,7 @@ public class Battlefield1Renderer implements IHudRenderer {
 
     @Override
     public void render(GuiGraphics guiGraphics, float partialTick) {
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
 
         if (!displayQueue.isEmpty()) {
             boolean shouldSwitch = !isVisible;
@@ -271,7 +272,7 @@ public class Battlefield1Renderer implements IHudRenderer {
 
     public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
         if (!isVisible || startTime == -1) return;
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         renderInternal(guiGraphics, partialTick, currentTime, centerX, centerY);
     }
 

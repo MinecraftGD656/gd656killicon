@@ -448,7 +448,7 @@ public class ScoreboardTab extends ConfigTabContent {
         refreshCheckStartAt = System.currentTimeMillis();
         refreshRequestId = nextRequestId();
         refreshStatusLocked = false;
-        setRefreshButtonStatus("正在检测...", GuiConstants.COLOR_GRAY);
+        setRefreshButtonStatus(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.checking"), GuiConstants.COLOR_GRAY);
         requestPage(0, refreshRequestId);
     }
 
@@ -461,15 +461,15 @@ public class ScoreboardTab extends ConfigTabContent {
         if (refreshChecking && refreshReplyReceived) {
             refreshChecking = false;
             int selfPing = getSelfPing();
-            showRefreshResult("已刷新表单 当前客户端延迟 " + selfPing + "毫秒", GuiConstants.COLOR_GRAY);
+            showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.success", selfPing), GuiConstants.COLOR_GRAY);
         }
 
         if (refreshChecking && now - refreshCheckStartAt >= 2000) {
             refreshChecking = false;
             if (!isConnectedToVanillaServer()) {
-                showRefreshResult("您已与原版服务端断开链接", GuiConstants.COLOR_RED);
+                showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.disconnected"), GuiConstants.COLOR_RED);
             } else if (!refreshReplyReceived) {
-                showRefreshResult("与服务端GDKI握手失败", GuiConstants.COLOR_RED);
+                showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.handshake_failed"), GuiConstants.COLOR_RED);
             }
         }
 
@@ -481,16 +481,16 @@ public class ScoreboardTab extends ConfigTabContent {
         }
     }
 
-    private void showRefreshResult(String message, int color) {
+    private void showRefreshResult(Component message, int color) {
         refreshStatusLocked = true;
         refreshStatusUntil = System.currentTimeMillis() + 3000;
         setRefreshButtonStatus(message, color);
     }
 
-    private void setRefreshButtonStatus(String text, int color) {
+    private void setRefreshButtonStatus(Component text, int color) {
         if (refreshButton != null) {
             refreshButton.active = false;
-            refreshButton.setMessage(Component.literal(text));
+            refreshButton.setMessage(text);
             refreshButton.setTextColor(color);
         }
     }

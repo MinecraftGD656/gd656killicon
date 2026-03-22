@@ -9,6 +9,7 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
 import org.mods.gd656killicon.client.textures.ModTextures;
@@ -120,7 +121,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
             return;
         }
 
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         float centerX = resolveCenterX();
 
         processPendingIcons(currentTime, centerX);
@@ -227,7 +228,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
             return;
         }
 
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
 
         syncCustomCenter(originX);
         processPendingIcons(currentTime, originX);

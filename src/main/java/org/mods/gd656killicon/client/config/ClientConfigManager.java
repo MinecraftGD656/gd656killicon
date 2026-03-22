@@ -30,6 +30,7 @@ public class ClientConfigManager {
     private static final boolean DEFAULT_SHOW_ELEMENT_INTRO = true;
     private static final boolean DEFAULT_SHOW_SOUND_INTRO = true;
     private static final boolean DEFAULT_SHOW_SCOREBOARD_INTRO = true;
+    private static final boolean DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND = false;
     private static final int DEFAULT_PRESET_TUTORIAL_STEP = 1;
     private static final String DEFAULT_LAST_LANGUAGE = "";
     private static final String DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE = "scroll";
@@ -52,6 +53,7 @@ public class ClientConfigManager {
     private static boolean showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
     private static boolean showSoundSelectIntro = true;
     private static boolean showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
+    private static boolean enableElementPreviewSound = DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND;
     private static int presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
     private static String lastLanguageCode = DEFAULT_LAST_LANGUAGE;
     private static String lastModVersion = "";
@@ -202,6 +204,7 @@ public class ClientConfigManager {
             showSoundIntro = json.has("show_sound_intro") ? json.get("show_sound_intro").getAsBoolean() : DEFAULT_SHOW_SOUND_INTRO;
             showSoundSelectIntro = json.has("show_sound_select_intro") ? json.get("show_sound_select_intro").getAsBoolean() : true;
             showScoreboardIntro = json.has("show_scoreboard_intro") ? json.get("show_scoreboard_intro").getAsBoolean() : DEFAULT_SHOW_SCOREBOARD_INTRO;
+            enableElementPreviewSound = json.has("enable_element_preview_sound") ? json.get("enable_element_preview_sound").getAsBoolean() : DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND;
             presetTutorialStep = json.has("preset_tutorial_step") ? json.get("preset_tutorial_step").getAsInt() : DEFAULT_PRESET_TUTORIAL_STEP;
             if (presetTutorialStep < 1) {
                 presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
@@ -231,6 +234,7 @@ public class ClientConfigManager {
             showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
             showSoundSelectIntro = true;
             showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
+            enableElementPreviewSound = DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND;
             presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
             lastLanguageCode = DEFAULT_LAST_LANGUAGE;
             lastModVersion = "";
@@ -259,6 +263,7 @@ public class ClientConfigManager {
         json.addProperty("show_sound_intro", DEFAULT_SHOW_SOUND_INTRO);
         json.addProperty("show_sound_select_intro", true);
         json.addProperty("show_scoreboard_intro", DEFAULT_SHOW_SCOREBOARD_INTRO);
+        json.addProperty("enable_element_preview_sound", DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND);
         json.addProperty("preset_tutorial_step", DEFAULT_PRESET_TUTORIAL_STEP);
         json.addProperty("last_language", DEFAULT_LAST_LANGUAGE);
         json.addProperty("last_mod_version", GuiConstants.MOD_VERSION);
@@ -282,6 +287,7 @@ public class ClientConfigManager {
         showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
         showSoundSelectIntro = true;
         showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
+        enableElementPreviewSound = DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND;
         presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
         lastLanguageCode = DEFAULT_LAST_LANGUAGE;
         lastModVersion = GuiConstants.MOD_VERSION;
@@ -316,6 +322,7 @@ public class ClientConfigManager {
         root.addProperty("show_sound_intro", showSoundIntro);
         root.addProperty("show_sound_select_intro", showSoundSelectIntro);
         root.addProperty("show_scoreboard_intro", showScoreboardIntro);
+        root.addProperty("enable_element_preview_sound", enableElementPreviewSound);
         root.addProperty("preset_tutorial_step", presetTutorialStep);
         root.addProperty("last_language", lastLanguageCode);
         root.addProperty("last_mod_version", lastModVersion);
@@ -402,6 +409,15 @@ public class ClientConfigManager {
             soundVolume = clamped;
             saveGlobalConfig();
         }
+    }
+
+    public static boolean isElementPreviewSoundEnabled() {
+        return enableElementPreviewSound;
+    }
+
+    public static void setElementPreviewSoundEnabled(boolean enabled) {
+        enableElementPreviewSound = enabled;
+        saveGlobalConfig();
     }
 
     public static boolean isEnableAceLag() {
@@ -564,7 +580,7 @@ public class ClientConfigManager {
     }
 
     public static boolean shouldRunPresetTutorial() {
-        return showPresetIntro && presetTutorialStep <= 7;
+        return showPresetIntro && presetTutorialStep <= 8;
     }
 
     public static int getPresetTutorialStep() {
@@ -573,8 +589,8 @@ public class ClientConfigManager {
 
     public static void setPresetTutorialStep(int step) {
         int next = Math.max(1, step);
-        if (next > 7) {
-            presetTutorialStep = 8;
+        if (next > 8) {
+            presetTutorialStep = 9;
             showPresetIntro = false;
         } else {
             presetTutorialStep = next;

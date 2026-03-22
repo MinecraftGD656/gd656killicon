@@ -19,6 +19,7 @@ import org.mods.gd656killicon.client.config.ValorantStyleCatalog;
 import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.effect.IconGlowProcessor;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.textures.IconTextureAnimationManager;
 import org.mods.gd656killicon.client.textures.IconTextureAnimationManager.TextureFrame;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
@@ -194,7 +195,7 @@ public class ValorantIconRenderer implements IHudRenderer {
         } else {
             smallParticles = new SmallParticle[0];
         }
-        startTime = System.currentTimeMillis();
+        startTime = PreviewRenderTimeContext.currentTimeMillis();
         visible = true;
     }
 
@@ -222,7 +223,7 @@ public class ValorantIconRenderer implements IHudRenderer {
             loadConfig(liveConfig);
         }
 
-        long elapsed = System.currentTimeMillis() - startTime;
+        long elapsed = PreviewRenderTimeContext.currentTimeMillis() - startTime;
         long displayDuration = resolveDisplayDuration();
         if (elapsed > displayDuration) {
             visible = false;

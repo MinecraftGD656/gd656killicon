@@ -15,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.DigitalScrollEffect;
 import org.mods.gd656killicon.client.render.effect.TextScrambleEffect;
 import org.mods.gd656killicon.common.BonusType;
@@ -203,7 +204,7 @@ public class BonusListRenderer implements IHudRenderer {
 
         int specialColor = parseSpecialColor(config);
 
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
         
         String weaponName = "";
         String victimName = "";
@@ -268,7 +269,7 @@ public class BonusListRenderer implements IHudRenderer {
         String resolvedExtraData = extraData != null ? extraData : "";
         String format = getEffectiveFormat(type, resolvedExtraData, config);
         int specialColor = parseSpecialColor(config);
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
 
         synchronized (items) {
             boolean isComboFormat = format.contains("<combo>");
@@ -345,7 +346,7 @@ public class BonusListRenderer implements IHudRenderer {
         int centerX = Math.round(baseCenterX);
         int startY = Math.round(baseBottomY);
 
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
 
         if (lastRenderTime == 0) lastRenderTime = now;
         float dt = (now - lastRenderTime) / 1000.0f;
@@ -647,7 +648,7 @@ public class BonusListRenderer implements IHudRenderer {
             this.extraData = extraData != null ? extraData : "";
             this.currentY = 0; 
             this.isFading = false;
-            this.spawnTime = System.currentTimeMillis();
+            this.spawnTime = PreviewRenderTimeContext.currentTimeMillis();
             this.specialColor = specialColor;
             
             this.isKillBonus = type == BonusType.KILL || type == BonusType.KILL_HEADSHOT || 
@@ -781,7 +782,7 @@ public class BonusListRenderer implements IHudRenderer {
             int baseTextWidth = mc.font.width(component);
             int feedTextWidth = killFeedComponent != null ? mc.font.width(killFeedComponent) : 0;
             
-            long now = System.currentTimeMillis();
+            long now = PreviewRenderTimeContext.currentTimeMillis();
             long elapsed = now - this.spawnTime;
             long enterDuration = BonusListRenderer.this.enterAnimationDuration;
             boolean sweepEnabled = BonusListRenderer.this.enableTextSweepAnimation;
