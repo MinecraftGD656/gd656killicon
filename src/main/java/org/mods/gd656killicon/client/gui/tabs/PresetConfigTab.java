@@ -422,10 +422,6 @@ public class PresetConfigTab extends ConfigTabContent {
             java.io.File dir = PresetPackManager.getExportDir().toFile();
             net.minecraft.Util.getPlatform().openFile(dir);
         } catch (Exception ignored) {
-            try {
-                new ProcessBuilder("explorer", PresetPackManager.getExportDir().toAbsolutePath().toString()).start();
-            } catch (Exception ignoredAgain) {
-            }
         }
     }
 
