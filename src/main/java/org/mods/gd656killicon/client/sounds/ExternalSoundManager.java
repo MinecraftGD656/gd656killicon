@@ -5,12 +5,14 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraftforge.fml.loading.FMLPaths;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryStack;
 import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ValorantStyleCatalog;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 import javax.sound.sampled.*;
@@ -35,6 +37,7 @@ import java.util.function.Consumer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 import static org.lwjgl.stb.STBVorbis.*;
 
@@ -44,10 +47,11 @@ public class ExternalSoundManager {
     private static final String SOUND_SELECTION_FILE = "sound_selection.json";
     private static final String CUSTOM_SOUND_LABELS_FILE = "custom_sound_labels.json";
     private static final String CUSTOM_SOUND_PREFIX = "custom_";
-    private static final Map<String, SoundData> SOUND_CACHE = new HashMap<>();
+    private static final Map<String, SoundData> SOUND_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, Long> SOUND_LAST_PLAY_TIMES = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> BLOCKING_STATUS = new ConcurrentHashMap<>();
-    private static final ExecutorService SOUND_THREAD_POOL = Executors.newCachedThreadPool();
+    private static final ExecutorService SOUND_IO_THREAD_POOL = Executors.newCachedThreadPool(createThreadFactory("gd656-sound-io"));
+    private static final ExecutorService SOUND_PLAYBACK_THREAD_POOL = Executors.newCachedThreadPool(createThreadFactory("gd656-sound-play"));
     private static final long SOUND_COOLDOWN = 10L; 
     private static final String[] DEFAULT_SOUNDS = {
         "combokillsound_1_cf.ogg",
@@ -56,6 +60,57 @@ public class ExternalSoundManager {
         "combokillsound_4_cf.ogg",
         "combokillsound_5_cf.ogg",
         "combokillsound_6_cf.ogg",
+        "valorant_primekill_1.ogg",
+        "valorant_primekill_2.ogg",
+        "valorant_primekill_3.ogg",
+        "valorant_primekill_4.ogg",
+        "valorant_primekill_5.ogg",
+        "valorant_glitchpopkill_1.ogg",
+        "valorant_glitchpopkill_2.ogg",
+        "valorant_glitchpopkill_3.ogg",
+        "valorant_glitchpopkill_4.ogg",
+        "valorant_glitchpopkill_5.ogg",
+        "valorant_singularitykill_1.ogg",
+        "valorant_singularitykill_2.ogg",
+        "valorant_singularitykill_3.ogg",
+        "valorant_singularitykill_4.ogg",
+        "valorant_singularitykill_5.ogg",
+        "valorant_gaiavengeancekill_1.ogg",
+        "valorant_gaiavengeancekill_2.ogg",
+        "valorant_gaiavengeancekill_3.ogg",
+        "valorant_gaiavengeancekill_4.ogg",
+        "valorant_gaiavengeancekill_5.ogg",
+        "valorant_bubblegumdeathwishkill_1.ogg",
+        "valorant_bubblegumdeathwishkill_2.ogg",
+        "valorant_bubblegumdeathwishkill_3.ogg",
+        "valorant_bubblegumdeathwishkill_4.ogg",
+        "valorant_bubblegumdeathwishkill_5.ogg",
+        "valorant_champions2021kill_1.ogg",
+        "valorant_champions2021kill_2.ogg",
+        "valorant_champions2021kill_3.ogg",
+        "valorant_champions2021kill_4.ogg",
+        "valorant_champions2021kill_5.ogg",
+        "valorant_preludetochaoskill_1.ogg",
+        "valorant_preludetochaoskill_2.ogg",
+        "valorant_preludetochaoskill_3.ogg",
+        "valorant_preludetochaoskill_4.ogg",
+        "valorant_preludetochaoskill_5.ogg",
+        "valorant_primordiumkill_1.ogg",
+        "valorant_primordiumkill_2.ogg",
+        "valorant_primordiumkill_3.ogg",
+        "valorant_primordiumkill_4.ogg",
+        "valorant_primordiumkill_5.ogg",
+        "valorant_radiantcrisis001kill_1.ogg",
+        "valorant_radiantcrisis001kill_2.ogg",
+        "valorant_radiantcrisis001kill_3.ogg",
+        "valorant_radiantcrisis001kill_4.ogg",
+        "valorant_radiantcrisis001kill_5.ogg",
+        "valorant_rgx11zprokill_1.ogg",
+        "valorant_rgx11zprokill_2.ogg",
+        "valorant_rgx11zprokill_3.ogg",
+        "valorant_rgx11zprokill_4.ogg",
+        "valorant_rgx11zprokill_5.ogg",
+        "valorant_headshot.ogg",
         "explosionkillsound_df.ogg",
         "headshotkillsound_df.ogg",
         "critkillsound_df.ogg",
@@ -87,6 +142,7 @@ public class ExternalSoundManager {
 
     public static final String SLOT_COMMON_SCORE = "common_score";
     public static final String SLOT_COMMON_HIT = "common_hit";
+    public static final String SLOT_COMMON_HEADSHOT_HIT = "common_headshot_hit";
     public static final String SLOT_SCROLLING_DEFAULT = "scrolling_default";
     public static final String SLOT_SCROLLING_HEADSHOT = "scrolling_headshot";
     public static final String SLOT_SCROLLING_EXPLOSION = "scrolling_explosion";
@@ -106,9 +162,68 @@ public class ExternalSoundManager {
     public static final String SLOT_COMBO_4 = "combo_4";
     public static final String SLOT_COMBO_5 = "combo_5";
     public static final String SLOT_COMBO_6 = "combo_6";
+    public static final String SLOT_VALORANT_1 = "valorant_1";
+    public static final String SLOT_VALORANT_2 = "valorant_2";
+    public static final String SLOT_VALORANT_3 = "valorant_3";
+    public static final String SLOT_VALORANT_4 = "valorant_4";
+    public static final String SLOT_VALORANT_5 = "valorant_5";
+
+    public enum SoundElementGroup {
+        COMMON("gd656killicon.client.gui.config.sound.group.common"),
+        SCROLLING("gd656killicon.client.gui.config.sound.group.scrolling"),
+        BATTLEFIELD1("gd656killicon.client.gui.config.sound.group.battlefield1"),
+        CARD("gd656killicon.client.gui.config.sound.group.card"),
+        COMBO("gd656killicon.client.gui.config.sound.group.combo"),
+        VALORANT("gd656killicon.client.gui.config.sound.group.valorant");
+
+        private final String titleKey;
+
+        SoundElementGroup(String titleKey) {
+            this.titleKey = titleKey;
+        }
+
+        public String titleKey() {
+            return titleKey;
+        }
+    }
+
+    public record SoundSlotDefinition(SoundElementGroup group, String titleKey, String slotId) {
+    }
+
+    private static final List<SoundSlotDefinition> SOUND_SLOT_DEFINITIONS = List.of(
+        new SoundSlotDefinition(SoundElementGroup.COMMON, "gd656killicon.client.gui.config.sound.subgroup.common.score", SLOT_COMMON_SCORE),
+        new SoundSlotDefinition(SoundElementGroup.COMMON, "gd656killicon.client.gui.config.sound.subgroup.common.hit", SLOT_COMMON_HIT),
+        new SoundSlotDefinition(SoundElementGroup.COMMON, "gd656killicon.client.gui.config.sound.subgroup.common.headshot", SLOT_COMMON_HEADSHOT_HIT),
+        new SoundSlotDefinition(SoundElementGroup.SCROLLING, "gd656killicon.client.gui.config.sound.subgroup.scrolling.default", SLOT_SCROLLING_DEFAULT),
+        new SoundSlotDefinition(SoundElementGroup.SCROLLING, "gd656killicon.client.gui.config.sound.subgroup.scrolling.headshot", SLOT_SCROLLING_HEADSHOT),
+        new SoundSlotDefinition(SoundElementGroup.SCROLLING, "gd656killicon.client.gui.config.sound.subgroup.scrolling.explosion", SLOT_SCROLLING_EXPLOSION),
+        new SoundSlotDefinition(SoundElementGroup.SCROLLING, "gd656killicon.client.gui.config.sound.subgroup.scrolling.crit", SLOT_SCROLLING_CRIT),
+        new SoundSlotDefinition(SoundElementGroup.SCROLLING, "gd656killicon.client.gui.config.sound.subgroup.scrolling.vehicle", SLOT_SCROLLING_VEHICLE),
+        new SoundSlotDefinition(SoundElementGroup.SCROLLING, "gd656killicon.client.gui.config.sound.subgroup.scrolling.assist", SLOT_SCROLLING_ASSIST),
+        new SoundSlotDefinition(SoundElementGroup.BATTLEFIELD1, "gd656killicon.client.gui.config.sound.subgroup.bf1.default", SLOT_BF1_DEFAULT),
+        new SoundSlotDefinition(SoundElementGroup.BATTLEFIELD1, "gd656killicon.client.gui.config.sound.subgroup.bf1.headshot", SLOT_BF1_HEADSHOT),
+        new SoundSlotDefinition(SoundElementGroup.CARD, "gd656killicon.client.gui.config.sound.subgroup.card.default", SLOT_CARD_DEFAULT),
+        new SoundSlotDefinition(SoundElementGroup.CARD, "gd656killicon.client.gui.config.sound.subgroup.card.headshot", SLOT_CARD_HEADSHOT),
+        new SoundSlotDefinition(SoundElementGroup.CARD, "gd656killicon.client.gui.config.sound.subgroup.card.explosion", SLOT_CARD_EXPLOSION),
+        new SoundSlotDefinition(SoundElementGroup.CARD, "gd656killicon.client.gui.config.sound.subgroup.card.crit", SLOT_CARD_CRIT),
+        new SoundSlotDefinition(SoundElementGroup.CARD, "gd656killicon.client.gui.config.sound.subgroup.card.armor_headshot", SLOT_CARD_ARMOR_HEADSHOT),
+        new SoundSlotDefinition(SoundElementGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.1", SLOT_COMBO_1),
+        new SoundSlotDefinition(SoundElementGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.2", SLOT_COMBO_2),
+        new SoundSlotDefinition(SoundElementGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.3", SLOT_COMBO_3),
+        new SoundSlotDefinition(SoundElementGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.4", SLOT_COMBO_4),
+        new SoundSlotDefinition(SoundElementGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.5", SLOT_COMBO_5),
+        new SoundSlotDefinition(SoundElementGroup.COMBO, "gd656killicon.client.gui.config.sound.subgroup.combo.6", SLOT_COMBO_6),
+        new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.1", SLOT_VALORANT_1),
+        new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.2", SLOT_VALORANT_2),
+        new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.3", SLOT_VALORANT_3),
+        new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.4", SLOT_VALORANT_4),
+        new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.5", SLOT_VALORANT_5)
+    );
+
     private static final List<String> SOUND_SLOT_IDS = Arrays.asList(
         SLOT_COMMON_SCORE,
         SLOT_COMMON_HIT,
+        SLOT_COMMON_HEADSHOT_HIT,
         SLOT_SCROLLING_DEFAULT,
         SLOT_SCROLLING_HEADSHOT,
         SLOT_SCROLLING_EXPLOSION,
@@ -127,7 +242,12 @@ public class ExternalSoundManager {
         SLOT_COMBO_3,
         SLOT_COMBO_4,
         SLOT_COMBO_5,
-        SLOT_COMBO_6
+        SLOT_COMBO_6,
+        SLOT_VALORANT_1,
+        SLOT_VALORANT_2,
+        SLOT_VALORANT_3,
+        SLOT_VALORANT_4,
+        SLOT_VALORANT_5
     );
 
     public static void init() {
@@ -135,6 +255,10 @@ public class ExternalSoundManager {
         loadSoundSelections();
         loadSoundLabels();
         reload();
+    }
+
+    public static List<SoundSlotDefinition> getSoundSlotDefinitions() {
+        return SOUND_SLOT_DEFINITIONS;
     }
 
     public static void startEditing() {
@@ -186,8 +310,9 @@ public class ExternalSoundManager {
     }
 
     public static void reloadAsync() {
-        SOUND_THREAD_POOL.submit(() -> {
+        SOUND_IO_THREAD_POOL.submit(() -> {
             try {
+                ClientMessageLogger.info("Async sound reload started.");
                 ensureAllPresetsSoundFiles(false);
                 
                 clearCache();
@@ -195,7 +320,7 @@ public class ExternalSoundManager {
                 String currentPresetId = ConfigManager.getCurrentPresetId();
                 int finalLoadedCount = loadSoundsForPreset(currentPresetId);
 
-                ClientMessageLogger.info("Async sound reload complete for preset %s: %d loaded.", currentPresetId, finalLoadedCount);
+                ClientMessageLogger.info("Async sound reload success for preset %s: %d loaded.", currentPresetId, finalLoadedCount);
             } catch (Exception e) {
                 ClientMessageLogger.error("Async sound reload failed: %s", e.getMessage());
             }
@@ -298,7 +423,8 @@ public class ExternalSoundManager {
 
     public static String getSelectedSoundBaseName(String presetId, String slotId) {
         ensureSoundSelectionsLoaded(presetId);
-        String selected = getActiveSoundSelections().getOrDefault(presetId, new HashMap<>()).get(slotId);
+        Map<String, String> selections = getActiveSoundSelections().getOrDefault(presetId, new HashMap<>());
+        String selected = selections.get(slotId);
         if (selected == null || selected.isEmpty()) {
             return getDefaultSoundBaseName(presetId, slotId);
         }
@@ -358,11 +484,15 @@ public class ExternalSoundManager {
     }
 
     public static void playConfiguredSound(String presetId, String slotId, boolean blocking) {
+        playConfiguredSound(presetId, slotId, blocking, 1.0f);
+    }
+
+    public static void playConfiguredSound(String presetId, String slotId, boolean blocking, float volumeMultiplier) {
         String baseName = getSelectedSoundBaseName(presetId, slotId);
         if (baseName == null || baseName.isEmpty()) {
             return;
         }
-        playSound(baseName, blocking);
+        playSound(baseName, blocking, volumeMultiplier);
     }
 
     public static String createCustomSoundFromFile(String presetId, Path sourcePath, String originalName) {
@@ -401,9 +531,17 @@ public class ExternalSoundManager {
         }
     }
 
-    public static void deleteCustomSound(String presetId, String baseName) {
+    public static byte[] readSoundBytes(String presetId, String baseName) throws IOException {
+        Path path = getSoundPathForPreset(presetId, baseName);
+        if (path == null || !Files.exists(path)) {
+            throw new IOException("Missing sound: " + baseName);
+        }
+        return Files.readAllBytes(path);
+    }
+
+    public static boolean deleteCustomSound(String presetId, String baseName) {
         if (presetId == null || baseName == null) {
-            return;
+            return false;
         }
         ensureSoundSelectionsLoaded(presetId);
         String fileNameOgg = baseName + ".ogg";
@@ -414,6 +552,7 @@ public class ExternalSoundManager {
         Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
         Set<String> pending = PENDING_CUSTOM_SOUNDS.get(presetId);
         try {
+            boolean existedBefore = Files.exists(oggPath) || Files.exists(wavPath);
             if (pending == null || (!pending.contains(fileNameOgg) && !pending.contains(fileNameWav))) {
                 backupFileIfNeeded(presetBackups, oggPath);
                 backupFileIfNeeded(presetBackups, wavPath);
@@ -422,10 +561,7 @@ public class ExternalSoundManager {
             Files.deleteIfExists(wavPath);
             removeCustomSoundLabel(presetId, baseName);
             refreshSoundCache(presetId, baseName);
-            if (pending != null && (pending.contains(fileNameOgg) || pending.contains(fileNameWav))) {
-                pending.add(fileNameOgg);
-                pending.add(fileNameWav);
-            } else if (pending != null) {
+            if (pending != null) {
                 pending.remove(fileNameOgg);
                 pending.remove(fileNameWav);
             }
@@ -440,8 +576,14 @@ public class ExternalSoundManager {
                     }
                 }
             }
+            if (!isEditing) {
+                saveSoundSelections();
+            }
+            boolean missingAfter = !Files.exists(oggPath) && !Files.exists(wavPath);
+            return missingAfter || !existedBefore;
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.sound.revert_fail", presetId, baseName, e.getMessage());
+            return false;
         }
     }
 
@@ -711,12 +853,13 @@ public class ExternalSoundManager {
     }
 
     public static void resetSoundsAsync(String presetId) {
-        SOUND_THREAD_POOL.submit(() -> {
+        SOUND_IO_THREAD_POOL.submit(() -> {
             try {
+                ClientMessageLogger.info("Async sound reset started for preset %s.", presetId);
                 ensureCommonSoundFiles(false);
                 ensureSoundFilesForPreset(presetId, true);
                 
-                ClientMessageLogger.info("Async sound reset complete for preset %s.", presetId);
+                ClientMessageLogger.info("Async sound reset success for preset %s.", presetId);
 
                 if (presetId.equals(ConfigManager.getCurrentPresetId())) {
                     reloadAsync();
@@ -736,8 +879,9 @@ public class ExternalSoundManager {
     }
 
     public static void resetAllSoundsAsync() {
-        SOUND_THREAD_POOL.submit(() -> {
+        SOUND_IO_THREAD_POOL.submit(() -> {
             try {
+                ClientMessageLogger.info("Async sound reset started for all presets.");
                 ensureCommonSoundFiles(true);
                 Set<String> presets = ConfigManager.getPresetIds();
                 
@@ -745,7 +889,7 @@ public class ExternalSoundManager {
                     ensureSoundFilesForPreset(presetId, true);
                 }
                 
-                ClientMessageLogger.info("Async sound reset complete for all presets.");
+                ClientMessageLogger.info("Async sound reset success for all presets.");
                 
                 reloadAsync();
             } catch (Exception e) {
@@ -842,6 +986,10 @@ public class ExternalSoundManager {
     }
 
     public static void playSound(String name, boolean blocking) {
+        playSound(name, blocking, 1.0f);
+    }
+
+    public static void playSound(String name, boolean blocking, float volumeMultiplier) {
         if (!ClientConfigManager.isEnableSound()) return;
         int soundVolume = ClientConfigManager.getSoundVolume();
         if (soundVolume <= 0) return;
@@ -856,22 +1004,11 @@ public class ExternalSoundManager {
         SOUND_LAST_PLAY_TIMES.put(name, now);
 
         SoundData data = SOUND_CACHE.get(name);
-        String resolvedName = name;
         if (data == null) {
-            if (!name.endsWith("_cf") && !name.endsWith("_df")) {
-                for (String key : SOUND_CACHE.keySet()) {
-                    if (key.startsWith(name)) {
-                        data = SOUND_CACHE.get(key);
-                        resolvedName = key;
-                        break;
-                    }
-                }
-            }
-            if (data == null) return;
+            return;
         }
 
         final SoundData finalData = data;
-        final String finalName = resolvedName;
         
         long frameLength = finalData.pcmData.length / finalData.format.getFrameSize();
         double durationInSeconds = frameLength / finalData.format.getFrameRate();
@@ -890,7 +1027,7 @@ public class ExternalSoundManager {
         });
         SOUND_START_TIMES.put(name, System.currentTimeMillis());
 
-        SOUND_THREAD_POOL.submit(() -> {
+        SOUND_PLAYBACK_THREAD_POOL.submit(() -> {
             try {
                 DataLine.Info info = new DataLine.Info(SourceDataLine.class, finalData.format);
                 if (!AudioSystem.isLineSupported(info)) {
@@ -903,7 +1040,7 @@ public class ExternalSoundManager {
                 if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                     FloatControl gainControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
                     float masterVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MASTER);
-                    masterVolume *= Math.max(0.0f, soundVolume / 100.0f);
+                    masterVolume *= Math.max(0.0f, soundVolume / 100.0f) * Math.max(0.0f, volumeMultiplier);
                     
                     if (masterVolume <= 0.0001f) {
                         masterVolume = 0.0001f;
@@ -919,7 +1056,7 @@ public class ExternalSoundManager {
                 line.drain();
                 line.close();
             } catch (Exception e) {
-                e.printStackTrace();
+                ClientMessageLogger.error("sound playback failed: %s", e.getMessage());
             } finally {
                 if (blocking) {
                     BLOCKING_STATUS.put(name, false);
@@ -1249,6 +1386,7 @@ public class ExternalSoundManager {
         return switch (slotId) {
             case SLOT_COMMON_SCORE -> "addscore_df";
             case SLOT_COMMON_HIT -> "hitsound_df";
+            case SLOT_COMMON_HEADSHOT_HIT -> ValorantStyleCatalog.getPresetSpec(presetId) != null ? "valorant_headshot" : "hitsound_df";
             case SLOT_SCROLLING_DEFAULT -> isBf5 ? "killsound_bf5" : "killsound_df";
             case SLOT_SCROLLING_HEADSHOT -> isBf5 ? "headshotkillsound_bf5" : "headshotkillsound_df";
             case SLOT_SCROLLING_EXPLOSION -> isBf5 ? "headshotkillsound_bf5" : "explosionkillsound_df";
@@ -1268,8 +1406,18 @@ public class ExternalSoundManager {
             case SLOT_COMBO_4 -> "combokillsound_4_cf";
             case SLOT_COMBO_5 -> "combokillsound_5_cf";
             case SLOT_COMBO_6 -> "combokillsound_6_cf";
+            case SLOT_VALORANT_1 -> resolveValorantComboSoundBaseName(presetId, 1);
+            case SLOT_VALORANT_2 -> resolveValorantComboSoundBaseName(presetId, 2);
+            case SLOT_VALORANT_3 -> resolveValorantComboSoundBaseName(presetId, 3);
+            case SLOT_VALORANT_4 -> resolveValorantComboSoundBaseName(presetId, 4);
+            case SLOT_VALORANT_5 -> resolveValorantComboSoundBaseName(presetId, 5);
             default -> null;
         };
+    }
+
+    private static String resolveValorantComboSoundBaseName(String presetId, int comboTier) {
+        int resolvedTier = Mth.clamp(comboTier, 1, 5);
+        return ValorantStyleCatalog.getComboSoundBaseName(presetId, null, resolvedTier);
     }
 
     private static void refreshSoundCache(String presetId, String baseName) {
@@ -1377,5 +1525,14 @@ public class ExternalSoundManager {
             this.pcmData = pcmData;
             this.format = format;
         }
+    }
+
+    private static ThreadFactory createThreadFactory(String namePrefix) {
+        return runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setName(namePrefix + "-" + thread.getId());
+            thread.setDaemon(true);
+            return thread;
+        };
     }
 }

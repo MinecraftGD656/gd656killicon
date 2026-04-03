@@ -1,6 +1,7 @@
 package org.mods.gd656killicon.client.gui.elements;
 
 import com.google.gson.JsonObject;
+import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,6 +14,7 @@ public class ElementPreview {
     private final String elementId;
     private int x, y, width, height;
     private float hoverProgress = 0.0f;     private float clickProgress = 0.0f;     private boolean isPressed = false;
+    private float rotateHandleProgress = 0.0f;
     private long lastTime;
     private boolean visible = true;
     private boolean dragging = false;
@@ -23,6 +25,7 @@ public class ElementPreview {
     private float scale = 1.0f;
     private int xOffset = 0;
     private int yOffset = 0;
+    private float rotationAngle = 0.0f;
     
     private float scaleWeapon = 1.0f;
     private float scaleVictim = 1.2f;
@@ -37,7 +40,7 @@ public class ElementPreview {
     
     private int zIndex = 0;
     
-    private enum ResizeHandle { NONE, TL, TR, BL, BR }
+    private enum ResizeHandle { NONE, TL, TR, BL, BR, ROTATE }
     private ResizeHandle currentHandle = ResizeHandle.NONE;
     private float dragStartScale;
     private double dragStartDist;
@@ -55,6 +58,7 @@ public class ElementPreview {
     private static final int HANDLE_SIZE = 3;
     private static final int HANDLE_HIT_RADIUS = 5;
     private static final int HANDLE_VISIBILITY_RADIUS = 60; 
+    private static final int ROTATE_HANDLE_OFFSET = 10;
     public int getZIndex() {
         return zIndex;
     }
@@ -74,6 +78,7 @@ public class ElementPreview {
     private GDTextRenderer xCoordRenderer;
     private GDTextRenderer yCoordRenderer;
     private GDTextRenderer scaleRenderer;
+    private GDTextRenderer rotationRenderer;
 
     public ElementPreview(String elementId) {
         this.elementId = elementId;
@@ -89,6 +94,7 @@ public class ElementPreview {
         this.scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
         this.xOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
         this.yOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+        this.rotationAngle = config.has("rotation_angle") ? config.get("rotation_angle").getAsFloat() : 0.0f;
         
         if ("kill_icon/battlefield1".equals(elementId)) {
             this.scaleWeapon = config.has("scale_weapon") ? config.get("scale_weapon").getAsFloat() : 1.0f;
@@ -128,6 +134,10 @@ public class ElementPreview {
             this.height = (int)(this.scale * 10);
         } else if ("kill_icon/combo".equals(elementId)) {
             int size = (int)(this.scale * 55);
+            this.width = size;
+            this.height = size;
+        } else if ("kill_icon/valorant".equals(elementId)) {
+            int size = (int)(this.scale * 90);
             this.width = size;
             this.height = size;
         } else if ("kill_icon/card_bar".equals(elementId)) {
@@ -248,7 +258,10 @@ public class ElementPreview {
     }
 
     public boolean isMouseOver(double mouseX, double mouseY) {
-        return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
+        double[] local = toLocalPoint(mouseX, mouseY);
+        double halfW = width / 2.0;
+        double halfH = height / 2.0;
+        return local[0] >= -halfW && local[0] <= halfW && local[1] >= -halfH && local[1] <= halfH;
     }
 
     public void setExternalHover(boolean hover) {
@@ -271,6 +284,13 @@ public class ElementPreview {
         if (isPressed) {
             clickProgress = Math.min(1.0f, clickProgress + dt * 5.0f);         } else {
             clickProgress = Math.max(0.0f, clickProgress - dt * 5.0f);         }
+        boolean nearRotateHandle = isMouseNearRotateHandle(mouseX, mouseY, 5.0);
+        boolean rotateHandleShouldShow = hovered || ((rotateHandleProgress > 0.001f) && nearRotateHandle) || currentHandle == ResizeHandle.ROTATE;
+        if (rotateHandleShouldShow) {
+            rotateHandleProgress = Math.min(1.0f, rotateHandleProgress + dt * 6.0f);
+        } else {
+            rotateHandleProgress = Math.max(0.0f, rotateHandleProgress - dt * 6.0f);
+        }
 
         int baseAlpha = (GuiConstants.COLOR_BG >> 24) & 0xFF;
         int borderAlpha = 0x40;
@@ -287,18 +307,30 @@ public class ElementPreview {
         int targetClickColor = visible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
         int targetColor = (targetClickColor & 0x00FFFFFF) | (0x80 << 24);         
         int fillColor = interpolateColor(baseColor, targetColor, clickProgress);
-        guiGraphics.fill(x, y, x + width, y + height, fillColor);
+        guiGraphics.pose().pushPose();
+        float centerX = x + width / 2.0f;
+        float centerY = y + height / 2.0f;
+        guiGraphics.pose().translate(centerX, centerY, 0.0f);
+        guiGraphics.pose().mulPose(Axis.ZP.rotationDegrees(rotationAngle));
+        int localX = -width / 2;
+        int localY = -height / 2;
+        guiGraphics.fill(localX, localY, localX + width, localY + height, fillColor);
 
         if (hoverProgress < 1.0f) {
-            guiGraphics.fill(x, y, x + width, y + 1, borderColor);             guiGraphics.fill(x, y + height - 1, x + width, y + height, borderColor);             guiGraphics.fill(x, y + 1, x + 1, y + height - 1, borderColor);             guiGraphics.fill(x + width - 1, y + 1, x + width, y + height - 1, borderColor);         }
+            guiGraphics.fill(localX, localY, localX + width, localY + 1, borderColor);
+            guiGraphics.fill(localX, localY + height - 1, localX + width, localY + height, borderColor);
+            guiGraphics.fill(localX, localY + 1, localX + 1, localY + height - 1, borderColor);
+            guiGraphics.fill(localX + width - 1, localY + 1, localX + width, localY + height - 1, borderColor);
+        }
 
         if (hoverProgress > 0.001f) {
-            renderHoverTrail(guiGraphics, x, y, width, height, trailColor);
+            renderHoverTrail(guiGraphics, localX, localY, width, height, trailColor);
         }
         
         renderHandles(guiGraphics, mouseX, mouseY);
+        guiGraphics.pose().popPose();
 
-        if (isHovered) {
+        if (hovered) {
             renderSubtitle(guiGraphics, partialTick, screenWidth);
         }
     }
@@ -306,14 +338,15 @@ public class ElementPreview {
     private void renderSubtitle(GuiGraphics guiGraphics, float partialTick, int screenWidth) {
             Minecraft mc = Minecraft.getInstance();
             int spaceWidth = mc.font.width(" ");
-            int textX = this.x + this.width + spaceWidth;
-            int textY = this.y;
+            int[] bounds = getRotatedBounds();
+            int textX = bounds[1] + spaceWidth;
+            int textY = bounds[2];
             int textX2 = screenWidth;
             
             if (textX < textX2) {
                 int idColor = visible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
                 int nameColor = visible ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY;
-                String idText = visible ? elementId : elementId + " [隐藏状态]";
+                String idText = visible ? elementId : elementId + " [" + I18n.get("gd656killicon.client.gui.preview.hidden_state") + "]";
                 
                 if (elementIdRenderer == null) {
                     elementIdRenderer = new GDTextRenderer(idText, textX, textY, textX2, textY + 9, 1.0f, idColor, false);
@@ -384,6 +417,19 @@ public class ElementPreview {
                     }
                     scaleRenderer.render(guiGraphics, partialTick);
                 }
+                String rText = "R: " + String.format("%.1f°", this.rotationAngle);
+                int rLineY = ("kill_icon/battlefield1".equals(elementId) ? yLineY : yLineY + 10);
+                if (rotationRenderer == null) {
+                    rotationRenderer = new GDTextRenderer(rText, textX, rLineY, textX2, rLineY + 5, 0.5f, GuiConstants.COLOR_GRAY, false);
+                } else {
+                    rotationRenderer.setX1(textX);
+                    rotationRenderer.setY1(rLineY);
+                    rotationRenderer.setX2(textX2);
+                    rotationRenderer.setY2(rLineY + 5);
+                    rotationRenderer.setText(rText);
+                    rotationRenderer.setColor(GuiConstants.COLOR_GRAY);
+                }
+                rotationRenderer.render(guiGraphics, partialTick);
             }
     }
     
@@ -392,14 +438,29 @@ public class ElementPreview {
         
         int color = visible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
         
-        drawHandle(guiGraphics, x, y, mouseX, mouseY, color, ResizeHandle.TL);
-        drawHandle(guiGraphics, x + width - 1, y, mouseX, mouseY, color, ResizeHandle.TR);
-        drawHandle(guiGraphics, x, y + height - 1, mouseX, mouseY, color, ResizeHandle.BL);
-        drawHandle(guiGraphics, x + width - 1, y + height - 1, mouseX, mouseY, color, ResizeHandle.BR);
+        drawHandle(guiGraphics, -width / 2, -height / 2, mouseX, mouseY, color, ResizeHandle.TL);
+        drawHandle(guiGraphics, width / 2 - 1, -height / 2, mouseX, mouseY, color, ResizeHandle.TR);
+        drawHandle(guiGraphics, -width / 2, height / 2 - 1, mouseX, mouseY, color, ResizeHandle.BL);
+        drawHandle(guiGraphics, width / 2 - 1, height / 2 - 1, mouseX, mouseY, color, ResizeHandle.BR);
+        if (rotateHandleProgress > 0.001f) {
+            float eased = easeOut(rotateHandleProgress);
+            float armLen = ROTATE_HANDLE_OFFSET * eased;
+            int rotateY = (int)Math.round(-height / 2.0f - armLen);
+            int lineEnd = (int)Math.round(-height / 2.0f - Math.max(1.0f, armLen));
+            guiGraphics.fill(0, -height / 2, 1, lineEnd + 1, color);
+            drawHandle(guiGraphics, 0, rotateY, mouseX, mouseY, color, ResizeHandle.ROTATE);
+        }
     }
     
     private void drawHandle(GuiGraphics guiGraphics, int hx, int hy, double mx, double my, int color, ResizeHandle handleType) {
-        double dist = Math.sqrt(Math.pow(mx - hx, 2) + Math.pow(my - hy, 2));
+        double centerX = x + width / 2.0;
+        double centerY = y + height / 2.0;
+        double dx = mx - centerX;
+        double dy = my - centerY;
+        double rad = Math.toRadians(-rotationAngle);
+        double localMouseX = dx * Math.cos(rad) - dy * Math.sin(rad);
+        double localMouseY = dx * Math.sin(rad) + dy * Math.cos(rad);
+        double dist = Math.sqrt(Math.pow(localMouseX - hx, 2) + Math.pow(localMouseY - hy, 2));
         
         int alpha = 0;
         int finalColor = color;
@@ -432,17 +493,64 @@ public class ElementPreview {
     
     private ResizeHandle getHandleAt(double mouseX, double mouseY) {
         if ("kill_icon/battlefield1".equals(elementId)) return ResizeHandle.NONE;
-
-        if (isNear(mouseX, mouseY, x, y)) return ResizeHandle.TL;
-        if (isNear(mouseX, mouseY, x + width - 1, y)) return ResizeHandle.TR;
-        if (isNear(mouseX, mouseY, x, y + height - 1)) return ResizeHandle.BL;
-        if (isNear(mouseX, mouseY, x + width - 1, y + height - 1)) return ResizeHandle.BR;
+        int[] tl = rotatedHandlePoint(-width / 2, -height / 2);
+        int[] tr = rotatedHandlePoint(width / 2 - 1, -height / 2);
+        int[] bl = rotatedHandlePoint(-width / 2, height / 2 - 1);
+        int[] br = rotatedHandlePoint(width / 2 - 1, height / 2 - 1);
+        int[] rotate = rotatedHandlePoint(0, getCurrentRotateHandleLocalY());
+        if (isNear(mouseX, mouseY, tl[0], tl[1])) return ResizeHandle.TL;
+        if (isNear(mouseX, mouseY, tr[0], tr[1])) return ResizeHandle.TR;
+        if (isNear(mouseX, mouseY, bl[0], bl[1])) return ResizeHandle.BL;
+        if (isNear(mouseX, mouseY, br[0], br[1])) return ResizeHandle.BR;
+        if (rotateHandleProgress > 0.05f && isNear(mouseX, mouseY, rotate[0], rotate[1])) return ResizeHandle.ROTATE;
         return ResizeHandle.NONE;
+    }
+
+    private int[] rotatedHandlePoint(int localX, int localY) {
+        double rad = Math.toRadians(rotationAngle);
+        double rx = localX * Math.cos(rad) - localY * Math.sin(rad);
+        double ry = localX * Math.sin(rad) + localY * Math.cos(rad);
+        int centerX = x + width / 2;
+        int centerY = y + height / 2;
+        return new int[] { centerX + (int)Math.round(rx), centerY + (int)Math.round(ry) };
     }
 
     private boolean isNear(double mx, double my, int hx, int hy) {
         return Math.sqrt(Math.pow(mx - hx, 2) + Math.pow(my - hy, 2)) <= HANDLE_HIT_RADIUS;
     }
+    
+    private int getCurrentRotateHandleLocalY() {
+        float eased = easeOut(rotateHandleProgress);
+        float armLen = ROTATE_HANDLE_OFFSET * eased;
+        return (int)Math.round(-height / 2.0f - armLen);
+    }
+    
+    private boolean isMouseNearRotateHandle(double mouseX, double mouseY, double radius) {
+        int[] lineStart = rotatedHandlePoint(0, -height / 2);
+        int[] lineEnd = rotatedHandlePoint(0, -height / 2 - ROTATE_HANDLE_OFFSET);
+        double distanceToLine = distancePointToSegment(mouseX, mouseY, lineStart[0], lineStart[1], lineEnd[0], lineEnd[1]);
+        if (distanceToLine <= radius) {
+            return true;
+        }
+        return Math.sqrt(Math.pow(mouseX - lineEnd[0], 2) + Math.pow(mouseY - lineEnd[1], 2)) <= radius;
+    }
+
+    private double distancePointToSegment(double px, double py, double x1, double y1, double x2, double y2) {
+        double vx = x2 - x1;
+        double vy = y2 - y1;
+        double wx = px - x1;
+        double wy = py - y1;
+        double len2 = vx * vx + vy * vy;
+        if (len2 <= 0.0001) {
+            return Math.sqrt(Math.pow(px - x1, 2) + Math.pow(py - y1, 2));
+        }
+        double t = (wx * vx + wy * vy) / len2;
+        t = Math.max(0.0, Math.min(1.0, t));
+        double projX = x1 + t * vx;
+        double projY = y1 + t * vy;
+        return Math.sqrt(Math.pow(px - projX, 2) + Math.pow(py - projY, 2));
+    }
+    
     
     public void resetVisualState() {
         this.isPressed = false;
@@ -465,7 +573,6 @@ public class ElementPreview {
             currentHandle = handle;
             
             dragStartScale = this.scale;
-            
             dragCenterX = x + width / 2;
             dragCenterY = y + height / 2;
             
@@ -476,7 +583,7 @@ public class ElementPreview {
             isPressed = true;             return PreviewInteractionResult.HANDLED;
         }
         
-        if (mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height) {
+        if (isMouseOver(mouseX, mouseY)) {
             long now = System.currentTimeMillis();
             if (now - lastClickTime < 250) {
                 lastClickTime = now;
@@ -509,6 +616,14 @@ public class ElementPreview {
         if (button != 0) return false;
         
         if (currentHandle != ResizeHandle.NONE) {
+            if (currentHandle == ResizeHandle.ROTATE) {
+                double angleWorld = Math.toDegrees(Math.atan2(mouseY - dragCenterY, mouseX - dragCenterX));
+                float newRotation = normalizeDegrees((float)(angleWorld + 90.0));
+                this.rotationAngle = newRotation;
+                String presetId = ClientConfigManager.getCurrentPresetId();
+                ElementConfigManager.updateConfigValue(presetId, elementId, "rotation_angle", String.valueOf(newRotation));
+                return true;
+            }
             
             float oldScale = this.scale;
             int oldWidth = this.width;
@@ -672,5 +787,38 @@ public class ElementPreview {
 
     public String getElementId() {
         return elementId;
+    }
+
+    private double[] toLocalPoint(double worldX, double worldY) {
+        double centerX = x + width / 2.0;
+        double centerY = y + height / 2.0;
+        double dx = worldX - centerX;
+        double dy = worldY - centerY;
+        double rad = Math.toRadians(-rotationAngle);
+        double localX = dx * Math.cos(rad) - dy * Math.sin(rad);
+        double localY = dx * Math.sin(rad) + dy * Math.cos(rad);
+        return new double[] { localX, localY };
+    }
+
+    private int[] getRotatedBounds() {
+        int[] tl = rotatedHandlePoint(-width / 2, -height / 2);
+        int[] tr = rotatedHandlePoint(width / 2, -height / 2);
+        int[] bl = rotatedHandlePoint(-width / 2, height / 2);
+        int[] br = rotatedHandlePoint(width / 2, height / 2);
+        int minX = Math.min(Math.min(tl[0], tr[0]), Math.min(bl[0], br[0]));
+        int maxX = Math.max(Math.max(tl[0], tr[0]), Math.max(bl[0], br[0]));
+        int minY = Math.min(Math.min(tl[1], tr[1]), Math.min(bl[1], br[1]));
+        int maxY = Math.max(Math.max(tl[1], tr[1]), Math.max(bl[1], br[1]));
+        return new int[] { minX, maxX, minY, maxY };
+    }
+
+    private float normalizeDegrees(float angle) {
+        float result = angle % 360.0f;
+        if (result > 180.0f) {
+            result -= 360.0f;
+        } else if (result < -180.0f) {
+            result += 360.0f;
+        }
+        return result;
     }
 }

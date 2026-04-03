@@ -2,6 +2,7 @@ package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import org.mods.gd656killicon.client.config.ClientConfigManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -235,6 +236,14 @@ public class GDTextRenderer {
             return;
         }
 
+        if ("ellipsis".equals(ClientConfigManager.getSingleLineSubtitleCompressionMode())) {
+            drawEllipsizedInternal(guiGraphics, 0, 0, maxWidth);
+            scrollOffset = 0;
+            pauseStartTime = -1;
+            scrollingForward = true;
+            return;
+        }
+
         float maxScroll = textWidth - maxWidth;
         
         if (pauseStartTime != -1) {
@@ -287,6 +296,55 @@ public class GDTextRenderer {
                 currentX += minecraft.font.width(ct.text);
             }
         }
+    }
+
+    private void drawEllipsizedInternal(GuiGraphics guiGraphics, int x, int y, float maxWidth) {
+        String ellipsis = "...";
+        int ellipsisWidth = minecraft.font.width(ellipsis);
+        int targetWidth = Math.max(0, (int) maxWidth - ellipsisWidth);
+        if (coloredTexts == null) {
+            String base = text == null ? "" : text;
+            String clipped = minecraft.font.plainSubstrByWidth(base, targetWidth);
+            guiGraphics.drawString(minecraft.font, clipped + ellipsis, x, y, overrideColor != null ? overrideColor : color, true);
+            return;
+        }
+        List<ColoredText> segments = buildEllipsizedColoredTexts(targetWidth);
+        float currentX = x;
+        int lastColor = overrideColor != null ? overrideColor : (segments.isEmpty() ? color : segments.get(segments.size() - 1).color);
+        for (ColoredText segment : segments) {
+            int segmentColor = overrideColor != null ? overrideColor : segment.color;
+            guiGraphics.drawString(minecraft.font, segment.text, (int) currentX, y, segmentColor, true);
+            currentX += minecraft.font.width(segment.text);
+            lastColor = segmentColor;
+        }
+        guiGraphics.drawString(minecraft.font, ellipsis, (int) currentX, y, lastColor, true);
+    }
+
+    private List<ColoredText> buildEllipsizedColoredTexts(int targetWidth) {
+        List<ColoredText> result = new ArrayList<>();
+        if (targetWidth <= 0 || coloredTexts == null) {
+            return result;
+        }
+        int used = 0;
+        for (ColoredText ct : coloredTexts) {
+            if (ct == null || ct.text == null || ct.text.isEmpty()) {
+                continue;
+            }
+            int remaining = targetWidth - used;
+            if (remaining <= 0) {
+                break;
+            }
+            String part = minecraft.font.plainSubstrByWidth(ct.text, remaining);
+            if (part == null || part.isEmpty()) {
+                break;
+            }
+            result.add(new ColoredText(part, ct.color));
+            used += minecraft.font.width(part);
+            if (part.length() < ct.text.length()) {
+                break;
+            }
+        }
+        return result;
     }
 
     private boolean isCurrentlyScrolling() {

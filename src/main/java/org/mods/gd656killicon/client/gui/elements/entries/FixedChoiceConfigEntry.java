@@ -7,6 +7,7 @@ import org.mods.gd656killicon.client.gui.elements.ChoiceListDialog;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class FixedChoiceConfigEntry extends GDRowRenderer {
@@ -35,12 +36,27 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
     private final String key;
     private final ChoiceListDialog choiceListDialog;
     private final String configName;
+    private final Predicate<Choice> extraActionVisiblePredicate;
+    private final Consumer<Choice> onExtraAction;
+    private final Predicate<Choice> directActionPredicate;
+    private final Consumer<Choice> onDirectAction;
+    private final String extraActionText;
+    private final int extraActionColor;
+    private final int extraActionWidth;
 
     public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog) {
-        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, () -> true);
+        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, () -> true, null, null, "", GuiConstants.COLOR_RED, GuiConstants.ROW_HEADER_HEIGHT, null, null);
     }
 
     public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog, Supplier<Boolean> activeCondition) {
+        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, activeCondition, null, null, "", GuiConstants.COLOR_RED, GuiConstants.ROW_HEADER_HEIGHT, null, null);
+    }
+
+    public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog, Supplier<Boolean> activeCondition, Predicate<Choice> extraActionVisiblePredicate, Consumer<Choice> onExtraAction, String extraActionText, int extraActionColor, int extraActionWidth) {
+        this(x1, y1, x2, y2, bgColor, bgAlpha, configName, configId, description, initialValue, defaultValue, choices, onValueChange, choiceListDialog, activeCondition, extraActionVisiblePredicate, onExtraAction, extraActionText, extraActionColor, extraActionWidth, null, null);
+    }
+
+    public FixedChoiceConfigEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String configName, String configId, String description, String initialValue, String defaultValue, List<Choice> choices, Consumer<String> onValueChange, ChoiceListDialog choiceListDialog, Supplier<Boolean> activeCondition, Predicate<Choice> extraActionVisiblePredicate, Consumer<Choice> onExtraAction, String extraActionText, int extraActionColor, int extraActionWidth, Predicate<Choice> directActionPredicate, Consumer<Choice> onDirectAction) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
         this.key = configId;
         this.setActiveCondition(activeCondition);
@@ -51,6 +67,13 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
         this.onValueChange = onValueChange;
         this.choiceListDialog = choiceListDialog;
         this.configName = configName;
+        this.extraActionVisiblePredicate = extraActionVisiblePredicate;
+        this.onExtraAction = onExtraAction;
+        this.directActionPredicate = directActionPredicate;
+        this.onDirectAction = onDirectAction;
+        this.extraActionText = extraActionText == null ? "" : extraActionText;
+        this.extraActionColor = extraActionColor;
+        this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
         this.index = resolveIndex(initialValue, defaultValue);
 
         this.addNameColumn(configName, configId, GuiConstants.COLOR_WHITE, GuiConstants.COLOR_GRAY, true, false);
@@ -60,8 +83,9 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
         });
 
         this.addColumn("↺", GuiConstants.ROW_HEADER_HEIGHT, getResetButtonColor(), true, true, (btn) -> {
+            if (!hasDefaultChoice()) return;
             if (getCurrentValue().equals(this.defaultValue)) return;
-            this.index = resolveIndex(this.defaultValue, this.defaultValue);
+            this.index = resolveIndex(this.defaultValue, getCurrentValue());
             updateState();
             if (this.onValueChange != null) {
                 this.onValueChange.accept(getCurrentValue());
@@ -135,11 +159,26 @@ public class FixedChoiceConfigEntry extends GDRowRenderer {
                 if (this.onValueChange != null) {
                     this.onValueChange.accept(getCurrentValue());
                 }
-            }, null);
+            }, null, this.extraActionVisiblePredicate, this.onExtraAction, this.extraActionText, this.extraActionColor, this.extraActionWidth, this.directActionPredicate, this.onDirectAction);
         }
     }
 
     private int getResetButtonColor() {
+        if (!hasDefaultChoice()) {
+            return GuiConstants.COLOR_GRAY;
+        }
         return getCurrentValue().equals(this.defaultValue) ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
+    }
+
+    private boolean hasDefaultChoice() {
+        if (choices == null || choices.isEmpty()) {
+            return false;
+        }
+        for (Choice choice : choices) {
+            if (choice.value().equals(this.defaultValue)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -1,16 +1,24 @@
 package org.mods.gd656killicon.client.config;
 
+import com.google.gson.JsonObject;
+import org.mods.gd656killicon.client.textures.ExternalTextureManager;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.google.gson.JsonObject;
-import org.mods.gd656killicon.client.config.ConfigManager;
-import org.mods.gd656killicon.client.config.ElementConfigManager;
-import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 
 public class ElementTextureDefinition {
+    public static final String VALORANT_SKIN_PRIME = "prime";
+    public static final String VALORANT_SKIN_GLITCHPOP = "glitchpop";
+    public static final String VALORANT_SKIN_SINGULARITY_V1 = "singularity_v1";
+    public static final String VALORANT_SKIN_SINGULARITY_V2 = "singularity_v2";
+    public static final String VALORANT_SKIN_SINGULARITY_V3 = "singularity_v3";
+    public static final String VALORANT_SKIN_GAIA = "gaia";
+    public static final String VALORANT_SKIN_GAIA_V1 = "gaia_v1";
+    public static final String VALORANT_SKIN_GAIA_V2 = "gaia_v2";
+    public static final String VALORANT_SKIN_GAIA_V3 = "gaia_v3";
     public static final Map<String, List<String>> ELEMENT_TEXTURES;
 
     static {
@@ -32,6 +40,18 @@ public class ElementTextureDefinition {
             "combo_4", 
             "combo_5", 
             "combo_6"
+        ));
+
+        map.put("kill_icon/valorant", Arrays.asList(
+            "emblem",
+            "frame",
+            "blade",
+            "bar",
+            "headshot",
+            "base_particle",
+            "hero_flame",
+            "large_sparks",
+            "x_sparks"
         ));
         
         map.put("kill_icon/card", Arrays.asList(
@@ -76,6 +96,7 @@ public class ElementTextureDefinition {
         return switch (elementId) {
             case "kill_icon/scrolling" -> resolveScrollingFileName(presetId, textureKey);
             case "kill_icon/combo" -> "killicon_" + textureKey + ".png";
+            case "kill_icon/valorant" -> ValorantStyleCatalog.getOfficialTextureFileName(presetId, textureKey);
             case "kill_icon/card" -> "killicon_card_" + textureKey + ".png";
             case "kill_icon/card_bar" -> "killicon_card_" + textureKey + ".png";
             case "kill_icon/battlefield1" -> "killicon_battlefield1_" + normalizeDestroyVehicle(textureKey) + ".png";
@@ -89,7 +110,7 @@ public class ElementTextureDefinition {
     }
 
     public static String getSelectedTextureFileName(String presetId, String elementId, String textureKey, JsonObject config) {
-        String defaultFileName = getTextureFileName(presetId, elementId, textureKey);
+        String defaultFileName = getDefaultSelectedTextureFileName(presetId, elementId, textureKey, config);
         if (config == null) {
             return defaultFileName;
         }
@@ -132,6 +153,17 @@ public class ElementTextureDefinition {
         return defaultFileName;
     }
 
+    private static String getDefaultSelectedTextureFileName(String presetId, String elementId, String textureKey, JsonObject config) {
+        if ("kill_icon/valorant".equals(elementId)) {
+            String styleId = ValorantStyleCatalog.resolveStyleId(presetId, config);
+            String styleFileName = ValorantStyleCatalog.getOfficialTextureFileNameForStyle(styleId, textureKey);
+            if (styleFileName != null) {
+                return styleFileName;
+            }
+        }
+        return getTextureFileName(presetId, elementId, textureKey);
+    }
+
     public static String getTextureStyleKey(String textureKey) {
         return "texture_style_" + textureKey;
     }
@@ -153,6 +185,24 @@ public class ElementTextureDefinition {
     }
 
     private static String resolveScrollingFileName(String presetId, String textureKey) {
+        if ("00007".equals(presetId)) {
+            return switch (textureKey) {
+                case "headshot" -> "killicon_battlefield5_headshot.png";
+                case "assist" -> "killicon_battlefield5_assist.png";
+                case "destroy_vehicle" -> "killicon_battlefield5_destroyvehicle.png";
+                case "explosion", "crit", "default" -> "killicon_battlefield5_default.png";
+                default -> "killicon_battlefield5_default.png";
+            };
+        }
+        if ("00008".equals(presetId)) {
+            return switch (textureKey) {
+                case "headshot" -> "killicon_df_headshot.png";
+                case "destroy_vehicle" -> "killicon_df_destroyvehicle.png";
+                case "assist" -> "killicon_scrolling_assist.png";
+                case "explosion", "crit", "default" -> "killicon_df_default.png";
+                default -> "killicon_df_default.png";
+            };
+        }
         return "killicon_scrolling_" + normalizeDestroyVehicle(textureKey) + ".png";
     }
 

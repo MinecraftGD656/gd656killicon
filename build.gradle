@@ -155,6 +155,10 @@ dependencies {
     // PINGWHEEL前置依赖
     compileOnly fg.deobf("maven.modrinth:ping-wheel:OIvI752z")
     runtimeOnly fg.deobf("maven.modrinth:ping-wheel:OIvI752z")
+
+    // CustomNPCs前置依赖
+    compileOnly fg.deobf("maven.modrinth:vFAmwl6B:CaWlRoYD")
+    runtimeOnly fg.deobf("maven.modrinth:vFAmwl6B:CaWlRoYD")
 }
 
 // 资源处理任务配置

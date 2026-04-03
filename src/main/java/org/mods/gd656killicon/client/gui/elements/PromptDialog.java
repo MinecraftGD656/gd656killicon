@@ -42,6 +42,7 @@ public class PromptDialog {
     private String message = "";
     private PromptType type = PromptType.INFO;
     private int showToken = 0;
+    private boolean dismissible = true;
 
     private GDTextRenderer titleRenderer;
     private GDTextRenderer messageRenderer;
@@ -72,6 +73,7 @@ public class PromptDialog {
         this.onCancel = onCancelAction;
         this.currentSecondaryAction = null;
         this.secondaryButton = null;
+        this.dismissible = true;
 
         if (this.titleRenderer == null) {
             this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, this.type.getColor(), false);
@@ -111,6 +113,7 @@ public class PromptDialog {
         this.currentConfirmAction = primaryAction;
         this.currentSecondaryAction = secondaryAction;
         this.onCancel = null;
+        this.dismissible = true;
 
         if (this.titleRenderer == null) {
             this.titleRenderer = new GDTextRenderer(title, 0, 0, 0, 0, 1.0f, this.type.getColor(), false);
@@ -193,10 +196,17 @@ public class PromptDialog {
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            if (!dismissible) {
+                return true;
+            }
             cancel();
             return true;
         }
         return true;
+    }
+
+    public void setDismissible(boolean dismissible) {
+        this.dismissible = dismissible;
     }
 
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {

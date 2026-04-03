@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.stats.ClientStatsManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.common.KillType;
@@ -95,7 +96,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             return;
         }
 
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
         if (context.type() == KillType.DESTROY_VEHICLE) return;
 
         this.isAssist = context.type() == KillType.ASSIST;
@@ -218,7 +219,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         
         this.isAssist = assist;
         this.currentCombo = combo;
-        this.startTime = System.currentTimeMillis();
+        this.startTime = PreviewRenderTimeContext.currentTimeMillis();
         this.isVisible = true;
         this.pendingQueue.clear();
         
@@ -265,7 +266,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
     }
     
     private void processQueue() {
-        long now = System.currentTimeMillis();
+        long now = PreviewRenderTimeContext.currentTimeMillis();
         
         if (this.pendingQueue.isEmpty()) {
             return;
@@ -289,7 +290,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
     private RenderState resolveRenderState() {
         if (!isVisible || startTime == -1) return null;
 
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         long elapsed = currentTime - startTime;
 
         if (elapsed > this.displayDuration + EXIT_ANIMATION_DURATION) {

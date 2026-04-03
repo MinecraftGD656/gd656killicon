@@ -1,0 +1,15 @@
+package org.mods.gd656killicon.server.network;
+
+public enum ServerPacketType {
+    DAMAGE_SOUND,
+    PLAYER_DEATH,
+    KILL_DISTANCE,
+    KILL_ICON_SCROLLING,
+    KILL_ICON_VALORANT,
+    KILL_ICON_COMBO,
+    KILL_ICON_CARD,
+    KILL_ICON_CARD_BAR,
+    KILL_ICON_BATTLEFIELD1,
+    SUBTITLE_KILL_FEED,
+    SUBTITLE_COMBO
+}

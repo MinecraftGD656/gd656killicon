@@ -2,12 +2,6 @@ package org.mods.gd656killicon.client.util;
 
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.stats.ClientStatsManager;
-import net.minecraftforge.fml.loading.FMLPaths;
-
-import java.io.InputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Random;
@@ -27,10 +21,6 @@ public class AceLagSimulator {
     private static final long MIN_LAG_INTERVAL = 2000; 
     private static long nextAmbientLagTime = 0;
     private static long nextDiskLagTime = 0;
-    private static Path scanFilePath;
-    private static boolean scanFileReady = false;
-    private static final int SCAN_FILE_SIZE = 2 * 1024 * 1024;
-    private static final byte[] SCAN_BUFFER = new byte[8192];
     /**
      * Called when a kill event occurs.
      * Evaluates the current combat intensity and potentially triggers a lag spike.
@@ -151,35 +141,6 @@ public class AceLagSimulator {
     }
 
     private static void simulateDiskScan(long durationMs) {
-        if (!ensureScanFile()) return;
-        long end = System.currentTimeMillis() + durationMs;
-        while (System.currentTimeMillis() < end) {
-            try (InputStream in = Files.newInputStream(scanFilePath)) {
-                while (System.currentTimeMillis() < end) {
-                    int read = in.read(SCAN_BUFFER);
-                    if (read < 0) break;
-                }
-            } catch (IOException ignored) {
-                break;
-            }
-        }
-    }
-
-    private static boolean ensureScanFile() {
-        if (scanFileReady) return true;
-        try {
-            Path configDir = FMLPaths.CONFIGDIR.get().resolve("gd656killicon");
-            Files.createDirectories(configDir);
-            scanFilePath = configDir.resolve("ace_scan.bin");
-            if (!Files.exists(scanFilePath) || Files.size(scanFilePath) < SCAN_FILE_SIZE) {
-                byte[] data = new byte[SCAN_FILE_SIZE];
-                RANDOM.nextBytes(data);
-                Files.write(scanFilePath, data);
-            }
-            scanFileReady = true;
-            return true;
-        } catch (IOException ignored) {
-            return false;
-        }
+        sleepMs(durationMs);
     }
 }

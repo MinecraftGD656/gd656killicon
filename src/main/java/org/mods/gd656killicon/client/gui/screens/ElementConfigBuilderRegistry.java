@@ -36,6 +36,9 @@ public class ElementConfigBuilderRegistry {
     private static final Set<String> INTEGER_KEYS = Set.of(
         "x_offset",
         "y_offset",
+        "bar_x_offset",
+        "bar_y_offset",
+        "bar_radius_offset",
         "line_spacing",
         "max_lines",
         "icon_size",
@@ -100,6 +103,46 @@ public class ElementConfigBuilderRegistry {
         return cachedVanillaItemChoices;
     }
 
+    private static boolean isValorantMathParticleKey(String key) {
+        return "math_particle_density".equals(key)
+            || "math_particle_spread".equals(key)
+            || "math_particle_size".equals(key);
+    }
+
+    private static boolean isValorantStandardParticleKey(String key) {
+        if (key == null) {
+            return false;
+        }
+        if (key.startsWith("base_particle_")
+            || key.startsWith("hero_flame_")
+            || key.startsWith("large_sparks_")
+            || key.startsWith("x_sparks_")
+            || key.startsWith("color_base_particle")
+            || key.startsWith("color_hero_flame")
+            || key.startsWith("color_large_sparks")
+            || key.startsWith("color_x_sparks")
+            || key.startsWith("enable_custom_color_base_particle")
+            || key.startsWith("enable_custom_color_hero_flame")
+            || key.startsWith("enable_custom_color_large_sparks")
+            || key.startsWith("enable_custom_color_x_sparks")
+            || key.startsWith("enable_base_particle")
+            || key.startsWith("enable_hero_flame")
+            || key.startsWith("enable_large_sparks")
+            || key.startsWith("enable_x_sparks")) {
+            return true;
+        }
+        if (key.startsWith("anim_base_particle_")
+            || key.startsWith("anim_hero_flame_")
+            || key.startsWith("anim_large_sparks_")
+            || key.startsWith("anim_x_sparks_")) {
+            return true;
+        }
+        return key.equals("texture_mode_base_particle") || key.equals("texture_style_base_particle") || key.equals("custom_texture_base_particle") || key.equals("vanilla_texture_base_particle")
+            || key.equals("texture_mode_hero_flame") || key.equals("texture_style_hero_flame") || key.equals("custom_texture_hero_flame") || key.equals("vanilla_texture_hero_flame")
+            || key.equals("texture_mode_large_sparks") || key.equals("texture_style_large_sparks") || key.equals("custom_texture_large_sparks") || key.equals("vanilla_texture_large_sparks")
+            || key.equals("texture_mode_x_sparks") || key.equals("texture_style_x_sparks") || key.equals("custom_texture_x_sparks") || key.equals("vanilla_texture_x_sparks");
+    }
+
     private static class DefaultElementConfigBuilder implements ElementConfigBuilder {
         @Override
         public void build(ConfigTabContent content) {
@@ -125,10 +168,17 @@ public class ElementConfigBuilderRegistry {
             java.util.function.Function<String, java.util.function.Supplier<Boolean>> getDependency = (k) -> {
                 if (!k.equals("visible") && configKeys.contains("visible")) {
                      return () -> {
-                         if (!getConfigBoolean.apply("visible")) return false;
+                        if (!getConfigBoolean.apply("visible")) return false;
                          
                         if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
+                        if (k.equals("color_particle") && configKeys.contains("enable_custom_particle_color")) return getConfigBoolean.apply("enable_custom_particle_color");
                         if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
+                        if ((k.equals("color_icon_glow") || k.equals("icon_glow_intensity") || k.equals("icon_glow_size")) && configKeys.contains("enable_icon_glow")) {
+                            return getConfigBoolean.apply("enable_icon_glow");
+                        }
+                        if ((k.equals("color_halo_ring") || k.equals("halo_ring_radius") || k.equals("halo_ring_width")) && configKeys.contains("enable_halo_ring")) {
+                            return getConfigBoolean.apply("enable_halo_ring");
+                        }
                         if (k.startsWith("ring_effect_")) {
                             if (k.startsWith("ring_effect_crit_") || k.startsWith("ring_effect_normal_")) {
                                 return !configKeys.contains("enable_ring_effect_crit") || getConfigBoolean.apply("enable_ring_effect_crit");
@@ -153,6 +203,18 @@ public class ElementConfigBuilderRegistry {
                                                   
                              return "time".equals(killReset) || "time".equals(assistReset);
                          }
+                        if ("kill_icon/valorant".equals(elementId) && !k.equals("enable_math_particle_effect")) {
+                            boolean mathEnabled = configKeys.contains("enable_math_particle_effect") && getConfigBoolean.apply("enable_math_particle_effect");
+                            if ("color_base_particle".equals(k) || "enable_custom_color_base_particle".equals(k)) {
+                                return true;
+                            }
+                            if (isValorantStandardParticleKey(k)) {
+                                return !mathEnabled;
+                            }
+                            if (isValorantMathParticleKey(k)) {
+                                return mathEnabled;
+                            }
+                        }
                          
                          if (elementId.equals("kill_icon/battlefield1")) {
                          }
@@ -172,6 +234,12 @@ public class ElementConfigBuilderRegistry {
                                  String property = k.substring(prefix.length());
                                  
                                  if (property.equals("enable_texture_animation")) return true;
+                                if (property.equals("texture_scale")
+                                    || property.equals("texture_final_opacity")
+                                    || property.equals("texture_x_offset")
+                                    || property.equals("texture_y_offset")) {
+                                    return true;
+                                }
                                 if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
                                     String enableKey = prefix + "enable_texture_animation";
                                     if (configKeys.contains(enableKey)) {
@@ -193,7 +261,14 @@ public class ElementConfigBuilderRegistry {
                 
                 return () -> {
                      if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
+                     if (k.equals("color_particle") && configKeys.contains("enable_custom_particle_color")) return getConfigBoolean.apply("enable_custom_particle_color");
                      if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
+                     if ((k.equals("color_icon_glow") || k.equals("icon_glow_intensity") || k.equals("icon_glow_size")) && configKeys.contains("enable_icon_glow")) {
+                         return getConfigBoolean.apply("enable_icon_glow");
+                     }
+                     if ((k.equals("color_halo_ring") || k.equals("halo_ring_radius") || k.equals("halo_ring_width")) && configKeys.contains("enable_halo_ring")) {
+                         return getConfigBoolean.apply("enable_halo_ring");
+                     }
                      if (k.startsWith("ring_effect_")) {
                          if (k.startsWith("ring_effect_crit_") || k.startsWith("ring_effect_normal_")) {
                              return !configKeys.contains("enable_ring_effect_crit") || getConfigBoolean.apply("enable_ring_effect_crit");
@@ -218,6 +293,18 @@ public class ElementConfigBuilderRegistry {
                                               
                          return "time".equals(killReset) || "time".equals(assistReset);
                      }
+                    if ("kill_icon/valorant".equals(elementId) && !k.equals("enable_math_particle_effect")) {
+                        boolean mathEnabled = configKeys.contains("enable_math_particle_effect") && getConfigBoolean.apply("enable_math_particle_effect");
+                        if ("color_base_particle".equals(k) || "enable_custom_color_base_particle".equals(k)) {
+                            return true;
+                        }
+                        if (isValorantStandardParticleKey(k)) {
+                            return !mathEnabled;
+                        }
+                        if (isValorantMathParticleKey(k)) {
+                            return mathEnabled;
+                        }
+                    }
 
                      if (k.startsWith("anim_")) {
                          String matchingTexture = null;
@@ -234,6 +321,12 @@ public class ElementConfigBuilderRegistry {
                              String property = k.substring(prefix.length());
                              
                              if (property.equals("enable_texture_animation")) return true;
+                            if (property.equals("texture_scale")
+                                || property.equals("texture_final_opacity")
+                                || property.equals("texture_x_offset")
+                                || property.equals("texture_y_offset")) {
+                                return true;
+                            }
                              if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
                                  String enableKey = prefix + "enable_texture_animation";
                                  if (configKeys.contains(enableKey)) {
@@ -258,6 +351,9 @@ public class ElementConfigBuilderRegistry {
             
             for (String key : sortedKeys) {
                 if (key.equals("enable_icon_effect")) {
+                    continue;
+                }
+                if ("kill_icon/valorant".equals(elementId) && key.equals("display_duration")) {
                     continue;
                 }
                 if (key.startsWith("ring_effect_normal_") && configKeys.contains("ring_effect_crit_color")) {
@@ -396,8 +492,10 @@ public class ElementConfigBuilderRegistry {
                 } else if (primitive.isString()) {
                     String defaultValue = primitive.getAsString();
                     String currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsString() : defaultValue;
+                    final String resolvedDefaultValue = defaultValue;
+                    final String resolvedCurrentValue = currentValue;
 
-                    boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(defaultValue).matches();
+                    boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(resolvedDefaultValue).matches();
 
                     if (key.startsWith("texture_mode_")) {
                         List<FixedChoiceConfigEntry.Choice> choices = List.of(
@@ -413,11 +511,11 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc.texture_select_mode",
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
-                                if (newValue != null && newValue.equals(currentValue)) {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
                                     return;
                                 }
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -451,17 +549,17 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc.vanilla_texture_select",
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
-                                if (newValue != null && newValue.equals(currentValue)) {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
                                     return;
                                 }
                                 if (!ExternalTextureManager.isVanillaTextureAvailable(newValue)) {
                                     elementContent.getChoiceListDialog().hide();
                                     elementContent.getPromptDialog().show(I18n.get("gd656killicon.client.gui.prompt.texture_unavailable"), PromptDialog.PromptType.ERROR, null);
-                                    ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, currentValue);
+                                    ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, resolvedCurrentValue);
                                     elementContent.rebuildUIFromConfig();
                                     return;
                                 }
@@ -474,13 +572,13 @@ public class ElementConfigBuilderRegistry {
                         content.getConfigRows().add(entry);
                     } else if (key.startsWith("texture_style_")) {
                         List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+                        String textureKey = key.substring("texture_style_".length());
                         for (String fileName : ExternalTextureManager.getAllTextureFileNames()) {
                             String baseName = fileName.endsWith(".png") ? fileName.substring(0, fileName.length() - 4) : fileName;
                             String labelKey = "gd656killicon.client.gui.texture.file." + baseName;
                             String label = I18n.exists(labelKey) ? I18n.get(labelKey) : baseName;
                             choices.add(new FixedChoiceConfigEntry.Choice(fileName, label));
                         }
-                        String textureKey = key.substring("texture_style_".length());
                         FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
                             0, 0, 0, 0,
                             GuiConstants.COLOR_BG,
@@ -488,11 +586,11 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc.official_texture_select",
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
-                                if (newValue != null && newValue.equals(currentValue)) {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
                                     return;
                                 }
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -520,11 +618,11 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc.custom_texture_select",
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
-                                if (newValue != null && newValue.equals(currentValue)) {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
                                     return;
                                 }
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -549,8 +647,8 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc." + key,
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             choices,
                             (newValue) -> {
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -571,8 +669,8 @@ public class ElementConfigBuilderRegistry {
                              displayName,
                              key,
                              "gd656killicon.config.desc." + key,
-                             currentValue,
-                             defaultValue,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
                              choices,
                              (newValue) -> {
                                  ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -595,8 +693,8 @@ public class ElementConfigBuilderRegistry {
                              displayName,
                              key,
                              "gd656killicon.config.desc." + key,
-                             currentValue,
-                             defaultValue,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
                              choices,
                              (newValue) -> {
                                  ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -627,8 +725,8 @@ public class ElementConfigBuilderRegistry {
                              displayName,
                              key,
                              "gd656killicon.config.desc." + key,
-                             currentValue,
-                             defaultValue,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
                              choices,
                              (newValue) -> {
                                  ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
@@ -645,8 +743,8 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc." + key,
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             (newValue) -> {
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
                             },
@@ -663,8 +761,8 @@ public class ElementConfigBuilderRegistry {
                             displayName,
                             key,
                             "gd656killicon.config.desc." + key,
-                            currentValue,
-                            defaultValue,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
                             (newValue) -> {
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
                             },
@@ -675,6 +773,7 @@ public class ElementConfigBuilderRegistry {
                     }
                 }
             }
+
         }
     }
 }

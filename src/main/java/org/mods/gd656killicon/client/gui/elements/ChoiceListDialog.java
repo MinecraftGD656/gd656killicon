@@ -2,15 +2,18 @@ package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import org.lwjgl.glfw.GLFW;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.entries.FixedChoiceConfigEntry;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class ChoiceListDialog {
     private final Minecraft minecraft;
@@ -21,12 +24,21 @@ public class ChoiceListDialog {
     private String title = "";
     private String filterText = "";
     private int cursorPosition = 0;
+    private int selectionAnchor = -1;
+    private final ArrayDeque<EditState> undoStack = new ArrayDeque<>();
     private int displayOffset = 0;
     private String selectedValue = "";
 
     private final List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
     private final List<FixedChoiceConfigEntry.Choice> filteredChoices = new ArrayList<>();
     private final List<GDRowRenderer> rowRenderers = new ArrayList<>();
+    private Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate;
+    private Consumer<FixedChoiceConfigEntry.Choice> onExtraAction;
+    private Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate;
+    private Consumer<FixedChoiceConfigEntry.Choice> onDirectAction;
+    private String extraActionText = "";
+    private int extraActionColor = GuiConstants.COLOR_RED;
+    private int extraActionWidth = GuiConstants.ROW_HEADER_HEIGHT;
 
     private boolean isDraggingList = false;
     private double lastMouseY = 0;
@@ -48,19 +60,85 @@ public class ChoiceListDialog {
     private static final int LIST_HEIGHT = PANEL_WIDTH - HUE_BAR_WIDTH - PAD;
     private static final int PANEL_HEIGHT = LIST_HEIGHT + PAD + INPUT_HEIGHT + PAD + BUTTON_HEIGHT;
 
+    private static class EditState {
+        final String text;
+        final int cursorPosition;
+        final int selectionAnchor;
+
+        EditState(String text, int cursorPosition, int selectionAnchor) {
+            this.text = text;
+            this.cursorPosition = cursorPosition;
+            this.selectionAnchor = selectionAnchor;
+        }
+    }
+
     public ChoiceListDialog(Minecraft minecraft) {
         this.minecraft = minecraft;
     }
 
     public void show(String initialValue, String title, List<FixedChoiceConfigEntry.Choice> options, Consumer<String> onConfirm, Runnable onCancel) {
+        show(initialValue, title, options, onConfirm, onCancel, null, null, "", GuiConstants.COLOR_RED, GuiConstants.ROW_HEADER_HEIGHT, null, null);
+    }
+
+    public void show(
+        String initialValue,
+        String title,
+        List<FixedChoiceConfigEntry.Choice> options,
+        Consumer<String> onConfirm,
+        Runnable onCancel,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth
+    ) {
+        show(
+            initialValue,
+            title,
+            options,
+            onConfirm,
+            onCancel,
+            extraActionVisiblePredicate,
+            onExtraAction,
+            extraActionText,
+            extraActionColor,
+            extraActionWidth,
+            null,
+            null
+        );
+    }
+
+    public void show(
+        String initialValue,
+        String title,
+        List<FixedChoiceConfigEntry.Choice> options,
+        Consumer<String> onConfirm,
+        Runnable onCancel,
+        Predicate<FixedChoiceConfigEntry.Choice> extraActionVisiblePredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onExtraAction,
+        String extraActionText,
+        int extraActionColor,
+        int extraActionWidth,
+        Predicate<FixedChoiceConfigEntry.Choice> directActionPredicate,
+        Consumer<FixedChoiceConfigEntry.Choice> onDirectAction
+    ) {
         this.title = title;
         this.onConfirm = onConfirm;
         this.onCancel = onCancel;
+        this.extraActionVisiblePredicate = extraActionVisiblePredicate;
+        this.onExtraAction = onExtraAction;
+        this.directActionPredicate = directActionPredicate;
+        this.onDirectAction = onDirectAction;
+        this.extraActionText = extraActionText == null ? "" : extraActionText;
+        this.extraActionColor = extraActionColor;
+        this.extraActionWidth = extraActionWidth <= 0 ? GuiConstants.ROW_HEADER_HEIGHT : extraActionWidth;
         this.visible = true;
         this.lastFrameTime = System.currentTimeMillis();
         this.inputHoverProgress = 0.0f;
         this.filterText = "";
         this.cursorPosition = 0;
+        this.selectionAnchor = -1;
+        this.undoStack.clear();
         this.displayOffset = 0;
 
         this.choices.clear();
@@ -199,20 +277,34 @@ public class ChoiceListDialog {
 
         if (mouseX >= inputX && mouseX <= inputX + PANEL_WIDTH && mouseY >= inputY && mouseY <= inputY + INPUT_HEIGHT) {
             setCursorByMouse((int)mouseX, inputX);
+            selectionAnchor = -1;
             return true;
         }
 
         if (mouseX >= listX && mouseX <= listX + PANEL_WIDTH && mouseY >= listY && mouseY <= listY + LIST_HEIGHT) {
             double adjustedMouseY = mouseY + scrollY;
             int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;
-            int selectX1 = listX + PANEL_WIDTH - 30;
+            int selectWidth = 30;
 
             for (int i = 0; i < filteredChoices.size(); i++) {
+                FixedChoiceConfigEntry.Choice choice = filteredChoices.get(i);
+                boolean hasExtraAction = hasExtraAction(choice);
+                int extraWidth = hasExtraAction ? extraActionWidth : 0;
+                int selectX1 = listX + PANEL_WIDTH - selectWidth - extraWidth;
+                int extraX1 = listX + PANEL_WIDTH - extraWidth;
                 int rowTop = listY + i * (rowHeight + 1);
                 int rowBottom = rowTop + rowHeight;
                 if (adjustedMouseY >= rowTop && adjustedMouseY <= rowBottom) {
-                    if (button == 0 && mouseX >= selectX1) {
-                        selectChoice(filteredChoices.get(i));
+                    if (button == 0 && isDirectAction(choice)) {
+                        if (onDirectAction != null) {
+                            onDirectAction.accept(choice);
+                        }
+                    } else if (button == 0 && hasExtraAction && mouseX >= extraX1) {
+                        if (onExtraAction != null) {
+                            onExtraAction.accept(choice);
+                        }
+                    } else if (button == 0 && mouseX >= selectX1) {
+                        selectChoice(choice);
                     }
                     break;
                 }
@@ -253,8 +345,7 @@ public class ChoiceListDialog {
         if (!visible) return false;
 
         if (net.minecraft.SharedConstants.isAllowedChatCharacter(codePoint)) {
-            filterText = filterText.substring(0, cursorPosition) + codePoint + filterText.substring(cursorPosition);
-            cursorPosition++;
+            replaceSelection(String.valueOf(codePoint));
             applyFilter();
             return true;
         }
@@ -263,9 +354,39 @@ public class ChoiceListDialog {
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!visible) return false;
+        boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean shiftDown = Screen.hasShiftDown() || (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+
+        if (controlDown && keyCode == GLFW.GLFW_KEY_A) {
+            selectionAnchor = 0;
+            cursorPosition = filterText.length();
+            return true;
+        }
+        if (controlDown && keyCode == GLFW.GLFW_KEY_C) {
+            if (hasSelection() && minecraft != null && minecraft.keyboardHandler != null) {
+                minecraft.keyboardHandler.setClipboard(filterText.substring(getSelectionStart(), getSelectionEnd()));
+            }
+            return true;
+        }
+        if (controlDown && keyCode == GLFW.GLFW_KEY_Z) {
+            undoEdit();
+            applyFilter();
+            return true;
+        }
+        if ((controlDown && keyCode == GLFW.GLFW_KEY_V) || (shiftDown && keyCode == GLFW.GLFW_KEY_INSERT)) {
+            insertClipboardText();
+            applyFilter();
+            return true;
+        }
 
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            if (hasSelection()) {
+                deleteSelection();
+                applyFilter();
+                return true;
+            }
             if (cursorPosition > 0) {
+                pushUndoState();
                 filterText = filterText.substring(0, cursorPosition - 1) + filterText.substring(cursorPosition);
                 cursorPosition--;
                 applyFilter();
@@ -274,7 +395,13 @@ public class ChoiceListDialog {
         }
 
         if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            if (hasSelection()) {
+                deleteSelection();
+                applyFilter();
+                return true;
+            }
             if (cursorPosition < filterText.length()) {
+                pushUndoState();
                 filterText = filterText.substring(0, cursorPosition) + filterText.substring(cursorPosition + 1);
                 applyFilter();
             }
@@ -282,21 +409,41 @@ public class ChoiceListDialog {
         }
 
         if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             if (cursorPosition > 0) cursorPosition--;
             return true;
         }
 
         if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             if (cursorPosition < filterText.length()) cursorPosition++;
             return true;
         }
 
         if (keyCode == GLFW.GLFW_KEY_HOME) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             cursorPosition = 0;
             return true;
         }
 
         if (keyCode == GLFW.GLFW_KEY_END) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             cursorPosition = filterText.length();
             return true;
         }
@@ -354,9 +501,25 @@ public class ChoiceListDialog {
         boolean selected = choice.value().equals(selectedValue);
         int firstColor = selected ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_WHITE;
         int secondColor = selected ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE;
+        if (isDirectAction(choice)) {
+            renderer.addColumn(" " + choice.label(), -1, GuiConstants.COLOR_GOLD, true, true, (btn) -> {
+                if (onDirectAction != null) {
+                    onDirectAction.accept(choice);
+                }
+            });
+            renderer.render(guiGraphics, mouseX, mouseY, partialTick);
+            return;
+        }
 
         renderer.addColumn(" " + choice.label(), -1, firstColor, true, false, null);
         renderer.addColumn(I18n.get("gd656killicon.client.gui.choice.select"), 30, secondColor, false, true, (btn) -> selectChoice(choice));
+        if (hasExtraAction(choice)) {
+            renderer.addColumn(this.extraActionText, this.extraActionWidth, this.extraActionColor, true, true, (btn) -> {
+                if (onExtraAction != null) {
+                    onExtraAction.accept(choice);
+                }
+            });
+        }
 
         renderer.render(guiGraphics, mouseX, mouseY, partialTick);
     }
@@ -380,6 +543,14 @@ public class ChoiceListDialog {
 
         int drawX = x + 2 - displayOffset;
         int drawY = y + (h - minecraft.font.lineHeight) / 2;
+
+        if (hasSelection()) {
+            int selStartRel = minecraft.font.width(filterText.substring(0, getSelectionStart()));
+            int selEndRel = minecraft.font.width(filterText.substring(0, getSelectionEnd()));
+            int sx = drawX + selStartRel;
+            int ex = drawX + selEndRel;
+            guiGraphics.fill(sx, drawY - 1, ex, drawY + minecraft.font.lineHeight + 1, 0x66FFD700);
+        }
 
         guiGraphics.drawString(minecraft.font, filterText, drawX, drawY, GuiConstants.COLOR_WHITE, true);
 
@@ -450,6 +621,79 @@ public class ChoiceListDialog {
         cursorPosition = pos;
     }
 
+    private void insertClipboardText() {
+        if (minecraft == null || minecraft.keyboardHandler == null) {
+            return;
+        }
+        String clipboard = minecraft.keyboardHandler.getClipboard();
+        if (clipboard == null || clipboard.isEmpty()) {
+            return;
+        }
+        String sanitized = clipboard.replace("\r", "").replace("\n", "");
+        if (sanitized.isEmpty()) {
+            return;
+        }
+        replaceSelection(sanitized);
+    }
+
+    private boolean hasSelection() {
+        return selectionAnchor >= 0 && selectionAnchor != cursorPosition;
+    }
+
+    private int getSelectionStart() {
+        return Math.min(selectionAnchor, cursorPosition);
+    }
+
+    private int getSelectionEnd() {
+        return Math.max(selectionAnchor, cursorPosition);
+    }
+
+    private void deleteSelection() {
+        if (!hasSelection()) {
+            return;
+        }
+        pushUndoState();
+        int start = getSelectionStart();
+        int end = getSelectionEnd();
+        filterText = filterText.substring(0, start) + filterText.substring(end);
+        cursorPosition = start;
+        selectionAnchor = -1;
+    }
+
+    private void replaceSelection(String insertText) {
+        if (insertText == null) {
+            insertText = "";
+        }
+        pushUndoState();
+        if (hasSelection()) {
+            int start = getSelectionStart();
+            int end = getSelectionEnd();
+            filterText = filterText.substring(0, start) + insertText + filterText.substring(end);
+            cursorPosition = start + insertText.length();
+            selectionAnchor = -1;
+            return;
+        }
+        filterText = filterText.substring(0, cursorPosition) + insertText + filterText.substring(cursorPosition);
+        cursorPosition += insertText.length();
+    }
+
+    private void pushUndoState() {
+        if (undoStack.size() >= 64) {
+            undoStack.removeFirst();
+        }
+        undoStack.addLast(new EditState(filterText, cursorPosition, selectionAnchor));
+    }
+
+    private void undoEdit() {
+        if (undoStack.isEmpty()) {
+            return;
+        }
+        EditState state = undoStack.removeLast();
+        filterText = state.text;
+        cursorPosition = Math.max(0, Math.min(state.cursorPosition, filterText.length()));
+        selectionAnchor = state.selectionAnchor < 0 ? -1 : Math.max(0, Math.min(state.selectionAnchor, filterText.length()));
+    }
+
     private void updateScroll(float dt, int viewHeight) {
         int contentHeight = filteredChoices.size() * (GuiConstants.ROW_HEADER_HEIGHT + 1);
         double maxScroll = Math.max(0, contentHeight - viewHeight);
@@ -476,6 +720,9 @@ public class ChoiceListDialog {
         targetScrollY = 0;
         scrollY = 0;
         cursorPosition = Math.min(cursorPosition, filterText.length());
+        if (selectionAnchor >= 0) {
+            selectionAnchor = Math.min(selectionAnchor, filterText.length());
+        }
     }
 
     private String resolveValue(String value) {
@@ -496,6 +743,14 @@ public class ChoiceListDialog {
         if (choice != null) {
             selectedValue = choice.value();
         }
+    }
+
+    private boolean hasExtraAction(FixedChoiceConfigEntry.Choice choice) {
+        return choice != null && extraActionVisiblePredicate != null && onExtraAction != null && extraActionVisiblePredicate.test(choice);
+    }
+
+    private boolean isDirectAction(FixedChoiceConfigEntry.Choice choice) {
+        return choice != null && directActionPredicate != null && onDirectAction != null && directActionPredicate.test(choice);
     }
 
     private void confirm() {

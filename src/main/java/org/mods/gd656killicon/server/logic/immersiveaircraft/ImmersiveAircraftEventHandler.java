@@ -205,6 +205,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         boolean hasHelmet = false;
         
         NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName), player);
+        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "valorant", killType, combo, victimId, window, hasHelmet, victimName), player);
         if (combo > 0) {
             NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
         }

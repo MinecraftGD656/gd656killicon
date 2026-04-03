@@ -2,6 +2,7 @@ package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.SharedConstants;
@@ -10,6 +11,7 @@ import org.mods.gd656killicon.client.gui.GuiConstants;
 
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.ArrayDeque;
 
 public class PromptTextInputDialog {
     private final Minecraft minecraft;
@@ -24,6 +26,8 @@ public class PromptTextInputDialog {
     private String message = "";
     private String text = "";
     private int cursorPosition = 0;
+    private int selectionAnchor = -1;
+    private final ArrayDeque<EditState> undoStack = new ArrayDeque<>();
     private int displayOffset = 0;     private GDTextRenderer titleRenderer;
     private GDTextRenderer messageRenderer;
     
@@ -35,6 +39,18 @@ public class PromptTextInputDialog {
     
     private GDButton confirmButton;
     private GDButton cancelButton;
+
+    private static class EditState {
+        final String text;
+        final int cursorPosition;
+        final int selectionAnchor;
+
+        EditState(String text, int cursorPosition, int selectionAnchor) {
+            this.text = text;
+            this.cursorPosition = cursorPosition;
+            this.selectionAnchor = selectionAnchor;
+        }
+    }
     
     public PromptTextInputDialog(Minecraft minecraft, Consumer<String> onConfirm, Runnable onCancel) {
         this.minecraft = minecraft;
@@ -50,6 +66,8 @@ public class PromptTextInputDialog {
         this.message = message;
         this.visible = true;
         this.cursorPosition = this.text.length();
+        this.selectionAnchor = -1;
+        this.undoStack.clear();
         this.displayOffset = 0;
         this.hoverProgress = 0.0f;
         this.lastFrameTime = System.currentTimeMillis();
@@ -103,16 +121,15 @@ public class PromptTextInputDialog {
         if (!visible) return false;
         
         if (SharedConstants.isAllowedChatCharacter(codePoint)) {
-            StringBuilder sb = new StringBuilder(text);
-            sb.insert(cursorPosition, codePoint);
-            text = sb.toString();
-            cursorPosition++;
+            replaceSelection(String.valueOf(codePoint));
             return true;
         }
         return true;     }
     
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!visible) return false;
+        boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean shiftDown = Screen.hasShiftDown() || (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
         
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             confirm();
@@ -124,8 +141,33 @@ public class PromptTextInputDialog {
             return true;
         }
         
+        if (controlDown && keyCode == GLFW.GLFW_KEY_A) {
+            selectionAnchor = 0;
+            cursorPosition = text.length();
+            return true;
+        }
+        if (controlDown && keyCode == GLFW.GLFW_KEY_C) {
+            if (hasSelection() && minecraft != null && minecraft.keyboardHandler != null) {
+                minecraft.keyboardHandler.setClipboard(text.substring(getSelectionStart(), getSelectionEnd()));
+            }
+            return true;
+        }
+        if (controlDown && keyCode == GLFW.GLFW_KEY_Z) {
+            undoEdit();
+            return true;
+        }
+        if ((controlDown && keyCode == GLFW.GLFW_KEY_V) || (shiftDown && keyCode == GLFW.GLFW_KEY_INSERT)) {
+            insertClipboardText();
+            return true;
+        }
+
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            if (hasSelection()) {
+                deleteSelection();
+                return true;
+            }
             if (cursorPosition > 0 && !text.isEmpty()) {
+                pushUndoState();
                 StringBuilder sb = new StringBuilder(text);
                 sb.deleteCharAt(cursorPosition - 1);
                 text = sb.toString();
@@ -135,7 +177,12 @@ public class PromptTextInputDialog {
         }
         
         if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            if (hasSelection()) {
+                deleteSelection();
+                return true;
+            }
             if (cursorPosition < text.length()) {
+                pushUndoState();
                 StringBuilder sb = new StringBuilder(text);
                 sb.deleteCharAt(cursorPosition);
                 text = sb.toString();
@@ -144,33 +191,42 @@ public class PromptTextInputDialog {
         }
         
         if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             if (cursorPosition > 0) cursorPosition--;
             return true;
         }
         
         if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             if (cursorPosition < text.length()) cursorPosition++;
             return true;
         }
         
         if (keyCode == GLFW.GLFW_KEY_HOME) {
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
+            }
             cursorPosition = 0;
             return true;
         }
         
         if (keyCode == GLFW.GLFW_KEY_END) {
-            cursorPosition = text.length();
-            return true;
-        }
-
-        if (keyCode == GLFW.GLFW_KEY_V && (modifiers & GLFW.GLFW_MOD_CONTROL) != 0) {
-            String clipboard = minecraft.keyboardHandler.getClipboard();
-            if (clipboard != null && !clipboard.isEmpty()) {
-                 StringBuilder sb = new StringBuilder(text);
-                 sb.insert(cursorPosition, clipboard);
-                 text = sb.toString();
-                 cursorPosition += clipboard.length();
+            if (shiftDown) {
+                if (selectionAnchor < 0) selectionAnchor = cursorPosition;
+            } else {
+                selectionAnchor = -1;
             }
+            cursorPosition = text.length();
             return true;
         }
 
@@ -352,6 +408,14 @@ public class PromptTextInputDialog {
         
         int drawX = x + 2 - displayOffset;
         int drawY = y + (h - minecraft.font.lineHeight) / 2;
+
+        if (hasSelection()) {
+            int selStartRel = minecraft.font.width(text.substring(0, getSelectionStart()));
+            int selEndRel = minecraft.font.width(text.substring(0, getSelectionEnd()));
+            int sx = drawX + selStartRel;
+            int ex = drawX + selEndRel;
+            guiGraphics.fill(sx, drawY - 1, ex, drawY + minecraft.font.lineHeight + 1, 0x66FFD700);
+        }
         
         int textColor = isValid ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_RED;
         guiGraphics.drawString(minecraft.font, text, drawX, drawY, textColor, false);
@@ -364,5 +428,80 @@ public class PromptTextInputDialog {
         }
         
         guiGraphics.disableScissor();
+    }
+
+    private void insertClipboardText() {
+        if (minecraft == null || minecraft.keyboardHandler == null) {
+            return;
+        }
+        String clipboard = minecraft.keyboardHandler.getClipboard();
+        if (clipboard == null || clipboard.isEmpty()) {
+            return;
+        }
+        String sanitized = clipboard.replace("\r", "").replace("\n", "");
+        if (sanitized.isEmpty()) {
+            return;
+        }
+        replaceSelection(sanitized);
+    }
+
+    private boolean hasSelection() {
+        return selectionAnchor >= 0 && selectionAnchor != cursorPosition;
+    }
+
+    private int getSelectionStart() {
+        return Math.min(selectionAnchor, cursorPosition);
+    }
+
+    private int getSelectionEnd() {
+        return Math.max(selectionAnchor, cursorPosition);
+    }
+
+    private void deleteSelection() {
+        if (!hasSelection()) {
+            return;
+        }
+        pushUndoState();
+        int start = getSelectionStart();
+        int end = getSelectionEnd();
+        text = text.substring(0, start) + text.substring(end);
+        cursorPosition = start;
+        selectionAnchor = -1;
+    }
+
+    private void replaceSelection(String insertText) {
+        if (insertText == null) {
+            insertText = "";
+        }
+        pushUndoState();
+        if (hasSelection()) {
+            int start = getSelectionStart();
+            int end = getSelectionEnd();
+            text = text.substring(0, start) + insertText + text.substring(end);
+            cursorPosition = start + insertText.length();
+            selectionAnchor = -1;
+            return;
+        }
+        StringBuilder sb = new StringBuilder(text);
+        sb.insert(cursorPosition, insertText);
+        text = sb.toString();
+        cursorPosition += insertText.length();
+    }
+
+    private void pushUndoState() {
+        if (undoStack.size() >= 64) {
+            undoStack.removeFirst();
+        }
+        undoStack.addLast(new EditState(text, cursorPosition, selectionAnchor));
+    }
+
+    private void undoEdit() {
+        if (undoStack.isEmpty()) {
+            return;
+        }
+        EditState state = undoStack.removeLast();
+        text = state.text;
+        cursorPosition = Math.max(0, Math.min(state.cursorPosition, text.length()));
+        selectionAnchor = state.selectionAnchor < 0 ? -1 : Math.max(0, Math.min(state.selectionAnchor, text.length()));
     }
 }

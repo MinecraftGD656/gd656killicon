@@ -29,11 +29,26 @@ public class ScoreboardTab extends ConfigTabContent {
 
     private GDButton refreshButton;
     private GDButton toggleOfflineButton;
-    private boolean hideOffline = false;
+    private static boolean hideOffline = false;
 
     private static List<ScoreboardSyncPacket.Entry> leaderboardData = new ArrayList<>();
     private static long lastRefreshTime = 0;
-    private static final long REFRESH_INTERVAL_MS = 1000;
+    private static int serverTotalCount = 0;
+    private static int lastPacketOffset = -1;
+    private static long lastPacketRequestId = -1L;
+
+    private static final int PAGE_SIZE = 20;
+    private static long requestIdSeed = 0L;
+
+    private boolean pageRequestInFlight = false;
+    private int pendingPageOffset = -1;
+
+    private boolean refreshChecking = false;
+    private long refreshCheckStartAt = 0L;
+    private long refreshRequestId = -1L;
+    private boolean refreshReplyReceived = false;
+    private long refreshStatusUntil = 0L;
+    private boolean refreshStatusLocked = false;
     
     private enum SortType {
         NAME, SCORE, KILL, DEATH, ASSIST, PING
@@ -66,8 +81,26 @@ public class ScoreboardTab extends ConfigTabContent {
         super(minecraft, "gd656killicon.client.gui.config.tab.scoreboard");
     }
 
-    public static void updateData(List<ScoreboardSyncPacket.Entry> entries) {
-        leaderboardData = entries;
+    public static void updateData(List<ScoreboardSyncPacket.Entry> entries, int offset, int totalCount, long requestId) {
+        if (offset <= 0) {
+            leaderboardData = new ArrayList<>(entries);
+        } else {
+            for (ScoreboardSyncPacket.Entry entry : entries) {
+                boolean exists = false;
+                for (ScoreboardSyncPacket.Entry old : leaderboardData) {
+                    if (old.uuid.equals(entry.uuid)) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    leaderboardData.add(entry);
+                }
+            }
+        }
+        serverTotalCount = Math.max(totalCount, leaderboardData.size());
+        lastPacketOffset = offset;
+        lastPacketRequestId = requestId;
         sortData();
         lastRefreshTime = System.currentTimeMillis();
     }
@@ -124,6 +157,17 @@ public class ScoreboardTab extends ConfigTabContent {
             ClientConfigManager.markScoreboardIntroShown();
             promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.scoreboard_intro"), PromptDialog.PromptType.INFO, null);
         }
+        refreshButton = null;
+        toggleOfflineButton = null;
+        pageRequestInFlight = false;
+        pendingPageOffset = -1;
+        refreshChecking = false;
+        refreshStatusLocked = false;
+        leaderboardData.clear();
+        serverTotalCount = 0;
+        lastPacketOffset = -1;
+        lastPacketRequestId = -1L;
+        requestPage(0, nextRequestId());
     }
 
     @Override
@@ -265,7 +309,7 @@ public class ScoreboardTab extends ConfigTabContent {
         int visibleCount = 0;
         if (hideOffline) {
             for (ScoreboardSyncPacket.Entry entry : leaderboardData) {
-                if (entry.ping >= 0) visibleCount++;
+                if (entry.online) visibleCount++;
             }
         } else {
             visibleCount = leaderboardData.size();
@@ -324,14 +368,6 @@ public class ScoreboardTab extends ConfigTabContent {
     protected void renderContent(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateAreaCoordinates(screenWidth, screenHeight);
 
-        long now = System.currentTimeMillis();
-        if (now - lastRefreshTime > REFRESH_INTERVAL_MS) {
-            if (minecraft.player != null && minecraft.getConnection() != null) {
-                org.mods.gd656killicon.network.NetworkHandler.sendToServer(new org.mods.gd656killicon.network.packet.ScoreboardRequestPacket());
-                lastRefreshTime = now;
-            }
-        }
-
         long currentTime = System.nanoTime();
         if (lastFrameTime == 0) lastFrameTime = currentTime;
         float dt = (currentTime - lastFrameTime) / 1_000_000_000.0f;         lastFrameTime = currentTime;
@@ -349,6 +385,8 @@ public class ScoreboardTab extends ConfigTabContent {
         }
 
         updateScroll(dt, screenHeight);
+        updateRefreshState();
+        tryLoadNextPage();
 
         renderHeader(guiGraphics, mouseX, mouseY, partialTick, area2X1, area2Y1, area2X2, area2Y1 + GuiConstants.ROW_HEADER_HEIGHT);
 
@@ -379,16 +417,14 @@ public class ScoreboardTab extends ConfigTabContent {
 
         if (refreshButton == null) {
             refreshButton = new GDButton(area3X1, buttonY, buttonWidth, GuiConstants.ROW_HEADER_HEIGHT, Component.translatable("gd656killicon.client.gui.button.refresh"), (btn) -> {
-                if (minecraft.player != null && minecraft.getConnection() != null) {
-                    org.mods.gd656killicon.network.NetworkHandler.sendToServer(new org.mods.gd656killicon.network.packet.ScoreboardRequestPacket());
-                    lastRefreshTime = System.currentTimeMillis();
-                }
+                startRefreshCheck();
             });
         }
         refreshButton.setX(area3X1);
         refreshButton.setY(buttonY);
         refreshButton.setWidth(buttonWidth);
         refreshButton.setHeight(GuiConstants.ROW_HEADER_HEIGHT);
+        refreshButton.active = !refreshChecking && !refreshStatusLocked;
         refreshButton.render(guiGraphics, mouseX, mouseY, partialTick);
 
         if (toggleOfflineButton == null) {
@@ -401,8 +437,114 @@ public class ScoreboardTab extends ConfigTabContent {
         toggleOfflineButton.setY(buttonY);
         toggleOfflineButton.setWidth(buttonWidth);
         toggleOfflineButton.setHeight(GuiConstants.ROW_HEADER_HEIGHT);
+        toggleOfflineButton.active = !refreshChecking && !refreshStatusLocked;
         toggleOfflineButton.setMessage(Component.translatable(hideOffline ? "gd656killicon.client.gui.button.show_offline" : "gd656killicon.client.gui.button.hide_offline"));
         toggleOfflineButton.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    private void startRefreshCheck() {
+        refreshChecking = true;
+        refreshReplyReceived = false;
+        refreshCheckStartAt = System.currentTimeMillis();
+        refreshRequestId = nextRequestId();
+        refreshStatusLocked = false;
+        setRefreshButtonStatus(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.checking"), GuiConstants.COLOR_GRAY);
+        requestPage(0, refreshRequestId);
+    }
+
+    private void updateRefreshState() {
+        if (refreshChecking && lastPacketRequestId == refreshRequestId && lastPacketOffset == 0) {
+            refreshReplyReceived = true;
+        }
+
+        long now = System.currentTimeMillis();
+        if (refreshChecking && refreshReplyReceived) {
+            refreshChecking = false;
+            int selfPing = getSelfPing();
+            showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.success", selfPing), GuiConstants.COLOR_GRAY);
+        }
+
+        if (refreshChecking && now - refreshCheckStartAt >= 2000) {
+            refreshChecking = false;
+            if (!isConnectedToVanillaServer()) {
+                showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.disconnected"), GuiConstants.COLOR_RED);
+            } else if (!refreshReplyReceived) {
+                showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.handshake_failed"), GuiConstants.COLOR_RED);
+            }
+        }
+
+        if (refreshStatusLocked && now >= refreshStatusUntil) {
+            refreshStatusLocked = false;
+            refreshButton.active = true;
+            refreshButton.setMessage(Component.translatable("gd656killicon.client.gui.button.refresh"));
+            refreshButton.setTextColor(GuiConstants.COLOR_WHITE);
+        }
+    }
+
+    private void showRefreshResult(Component message, int color) {
+        refreshStatusLocked = true;
+        refreshStatusUntil = System.currentTimeMillis() + 3000;
+        setRefreshButtonStatus(message, color);
+    }
+
+    private void setRefreshButtonStatus(Component text, int color) {
+        if (refreshButton != null) {
+            refreshButton.active = false;
+            refreshButton.setMessage(text);
+            refreshButton.setTextColor(color);
+        }
+    }
+
+    private boolean isConnectedToVanillaServer() {
+        return minecraft.getConnection() != null
+            && minecraft.getConnection().getConnection() != null
+            && minecraft.getConnection().getConnection().isConnected();
+    }
+
+    private int getSelfPing() {
+        if (minecraft.player == null || minecraft.getConnection() == null) {
+            return -1;
+        }
+        net.minecraft.client.multiplayer.PlayerInfo info = minecraft.getConnection().getPlayerInfo(minecraft.player.getUUID());
+        return info != null ? info.getLatency() : -1;
+    }
+
+    private static long nextRequestId() {
+        requestIdSeed++;
+        return requestIdSeed;
+    }
+
+    private void requestPage(int offset, long requestId) {
+        if (minecraft.player == null || minecraft.getConnection() == null || !isConnectedToVanillaServer()) {
+            return;
+        }
+        int safeOffset = Math.max(0, offset);
+        pendingPageOffset = safeOffset;
+        pageRequestInFlight = true;
+        try {
+            org.mods.gd656killicon.network.NetworkHandler.sendToServer(new org.mods.gd656killicon.network.packet.ScoreboardRequestPacket(safeOffset, PAGE_SIZE, requestId));
+        } catch (Exception ignored) {
+            pageRequestInFlight = false;
+            pendingPageOffset = -1;
+        }
+    }
+
+    private void tryLoadNextPage() {
+        if (pageRequestInFlight && lastPacketOffset == pendingPageOffset) {
+            pageRequestInFlight = false;
+            pendingPageOffset = -1;
+        }
+        if (refreshChecking || refreshStatusLocked || pageRequestInFlight) {
+            return;
+        }
+        if (leaderboardData.size() >= serverTotalCount || serverTotalCount <= 0) {
+            return;
+        }
+        double maxScroll = Math.max(0, totalContentHeight - (area2Y2 - (area2Y1 + GuiConstants.ROW_HEADER_HEIGHT + 1)));
+        if (maxScroll <= 0 || targetScrollY < maxScroll - 1.0) {
+            return;
+        }
+        requestPage(leaderboardData.size(), nextRequestId());
     }
 
     private void updateAreaCoordinates(int screenWidth, int screenHeight) {
@@ -427,16 +569,16 @@ public class ScoreboardTab extends ConfigTabContent {
         int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;
 
         String[][] stats = {
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_kills"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalKills())},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_deaths"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalDeaths())},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_assists"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalAssists())},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.max_streak"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getMaxKillStreak())},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.max_distance"), String.format("%.1fm", org.mods.gd656killicon.client.stats.ClientStatsManager.getMaxKillDistance())},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_damage"), String.format("%.0f", org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalDamageDealt())},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.nemesis"), org.mods.gd656killicon.client.stats.ClientStatsManager.getNemesis()},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.most_killed_mob"), org.mods.gd656killicon.client.stats.ClientStatsManager.getMostKilledMob()},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.most_killed_player"), org.mods.gd656killicon.client.stats.ClientStatsManager.getMostKilledPlayer()},
-            {net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.most_used_weapon"), org.mods.gd656killicon.client.stats.ClientStatsManager.getMostUsedWeapon()}
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_kills"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalKills())},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_deaths"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalDeaths())},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_assists"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalAssists())},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.max_streak"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getMaxKillStreak())},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.max_distance"), String.format("%.1fm", org.mods.gd656killicon.client.stats.ClientStatsManager.getMaxKillDistance())},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_damage"), String.format("%.0f", org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalDamageDealt())},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.nemesis"), org.mods.gd656killicon.client.stats.ClientStatsManager.getNemesis()},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.most_killed_mob"), org.mods.gd656killicon.client.stats.ClientStatsManager.getMostKilledMob()},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.most_killed_player"), org.mods.gd656killicon.client.stats.ClientStatsManager.getMostKilledPlayer()},
+            {" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.most_used_weapon"), org.mods.gd656killicon.client.stats.ClientStatsManager.getMostUsedWeapon()}
         };
 
         guiGraphics.enableScissor(area3X1, area3Y1, area3X2, area3Y2);
@@ -604,7 +746,7 @@ public class ScoreboardTab extends ConfigTabContent {
             for (int i = 0; i < leaderboardData.size(); i++) {
                 ScoreboardSyncPacket.Entry entry = leaderboardData.get(i);
                 
-                if (hideOffline && entry.ping < 0) {
+                if (hideOffline && !entry.online) {
                     continue;
                 }
 
@@ -660,15 +802,22 @@ public class ScoreboardTab extends ConfigTabContent {
 
     private void renderRow(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int index, int visualIndex, int x1, int y1, int x2, int y2) {
         ScoreboardSyncPacket.Entry entry = leaderboardData.get(index);
+        int ping = resolvePing(entry);
         
-        int rowBgColor = 0x000000;         float alpha = (visualIndex % 2 == 1) ? 0.10f : 0.30f;         
+        int rowBgColor = 0x000000;         float alpha = (visualIndex % 2 == 1) ? 0.12f : 0.22f;
+        boolean isTeammate = false;
         if (minecraft.player != null) {
             if (entry.uuid.equals(minecraft.player.getUUID())) {
                 rowBgColor = GuiConstants.COLOR_GOLD_ORANGE & 0xFFFFFF;                 alpha = 0.30f;             } else {
                 net.minecraft.world.scores.PlayerTeam team = minecraft.level.getScoreboard().getPlayersTeam(minecraft.player.getScoreboardName());
                 if (team != null && team.getPlayers().contains(entry.name)) {
-                    rowBgColor = GuiConstants.COLOR_DARK_GOLD_ORANGE & 0xFFFFFF;                 }
+                    rowBgColor = GuiConstants.COLOR_DARK_GOLD_ORANGE & 0xFFFFFF;
+                    isTeammate = true;
+                }
             }
+        }
+        if (isTeammate) {
+            alpha = (visualIndex % 2 == 1) ? 0.17f : 0.23f;
         }
 
         while (rowRenderers.size() <= index) {
@@ -677,22 +826,37 @@ public class ScoreboardTab extends ConfigTabContent {
         GDRowRenderer renderer = rowRenderers.get(index);
         renderer.setBounds(x1, y1, x2, y2);
         renderer.setBackgroundColor(rowBgColor);         renderer.setBackgroundAlpha(alpha);         renderer.resetColumnConfig(); 
-        boolean isOffline = entry.ping < 0;
-        int rowTextColor = isOffline ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_WHITE;
+        boolean isOffline = !entry.online;
+        boolean isSelf = minecraft.player != null && entry.uuid.equals(minecraft.player.getUUID());
+        boolean isSpectator = entry.online && entry.spectator;
 
-        renderer.addColumn(String.valueOf(index + 1), 17, rowTextColor, true, true);
+        int rowTextColor = GuiConstants.COLOR_WHITE;
+        boolean italic = false;
+        if (isSelf) {
+            rowTextColor = GuiConstants.COLOR_GOLD;
+            if (isSpectator) {
+                italic = true;
+            }
+        } else if (isOffline) {
+            rowTextColor = GuiConstants.COLOR_DARK_GRAY;
+        } else if (isSpectator) {
+            rowTextColor = GuiConstants.COLOR_GRAY;
+            italic = true;
+        }
+
+        renderer.addColumn(toStyledText(String.valueOf(index + 1), italic), 17, rowTextColor, true, true);
         
-        renderer.addColumn(entry.lastLoginName != null ? entry.lastLoginName : entry.name, -1, rowTextColor, false, false);
+        renderer.addColumn(toStyledText(entry.lastLoginName != null ? entry.lastLoginName : entry.name, italic), -1, rowTextColor, false, false);
         
-        renderer.addColumn(String.valueOf(entry.score), 50, rowTextColor, true, true);
+        renderer.addColumn(toStyledText(String.valueOf(entry.score), italic), 50, rowTextColor, true, true);
         
-        renderer.addColumn(String.valueOf(entry.kill), 25, rowTextColor, false, true);
+        renderer.addColumn(toStyledText(String.valueOf(entry.kill), italic), 25, rowTextColor, false, true);
         
-        renderer.addColumn(String.valueOf(entry.death), 25, rowTextColor, false, true);
+        renderer.addColumn(toStyledText(String.valueOf(entry.death), italic), 25, rowTextColor, false, true);
         
-        renderer.addColumn(String.valueOf(entry.assist), 25, rowTextColor, false, true);
+        renderer.addColumn(toStyledText(String.valueOf(entry.assist), italic), 25, rowTextColor, false, true);
         
-        renderer.addColoredColumn(formatPing(entry.ping), 40, true, true);
+        renderer.addColoredColumn(formatPing(ping), 40, true, true);
 
         renderer.render(guiGraphics, mouseX, mouseY, partialTick);
     }
@@ -718,6 +882,23 @@ public class ScoreboardTab extends ConfigTabContent {
         int pingColor = 0xFF000000 | (r << 16) | (g << 8) | b;
         texts.add(new GDTextRenderer.ColoredText(ping + "ms", pingColor));
         return texts;
+    }
+
+    private int resolvePing(ScoreboardSyncPacket.Entry entry) {
+        if (minecraft.getConnection() != null) {
+            net.minecraft.client.multiplayer.PlayerInfo info = minecraft.getConnection().getPlayerInfo(entry.uuid);
+            if (info != null) {
+                return info.getLatency();
+            }
+        }
+        return entry.online ? entry.ping : -1;
+    }
+
+    private String toStyledText(String text, boolean italic) {
+        if (!italic || text == null || text.isEmpty()) {
+            return text;
+        }
+        return "§o" + text + "§r";
     }
 
     private List<GDTextRenderer.ColoredText> getTeamInfo() {

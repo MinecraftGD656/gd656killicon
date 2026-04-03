@@ -23,17 +23,17 @@ import net.minecraftforge.server.ServerLifecycleHooks;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.server.ServerCore;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class TaczEventHandler implements ITaczHandler {
-    private final Set<UUID> headshotVictims = new HashSet<>();
-    private final Set<UUID> headshotDamageVictims = new HashSet<>();
-    private final Set<UUID> lastBulletVictims = new HashSet<>();
-    private final Set<UUID> gunKillVictims = new HashSet<>();
+    private static final long COMBAT_FLAG_TTL_MS = 5000L;
+    private final Map<UUID, Long> headshotVictims = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> headshotDamageVictims = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastBulletVictims = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> gunKillVictims = new ConcurrentHashMap<>();
     private final Map<UUID, EntityKineticBullet> trackedBullets = new ConcurrentHashMap<>();
     private final Map<UUID, Vec3> bulletLastPositions = new ConcurrentHashMap<>();
     private final Map<UUID, UUID> bulletShooters = new ConcurrentHashMap<>();
@@ -48,31 +48,32 @@ public class TaczEventHandler implements ITaczHandler {
 
     @Override
     public void tick() {
-        headshotVictims.clear();
-        headshotDamageVictims.clear();
-        lastBulletVictims.clear();
-        gunKillVictims.clear();
+        long now = System.currentTimeMillis();
+        cleanupExpired(headshotVictims, now);
+        cleanupExpired(headshotDamageVictims, now);
+        cleanupExpired(lastBulletVictims, now);
+        cleanupExpired(gunKillVictims, now);
         updateFireSuppressionTracking();
     }
 
     @Override
     public boolean isHeadshotKill(UUID victimId) {
-        return headshotVictims.remove(victimId);
+        return consumeRecent(headshotVictims, victimId);
     }
 
     @Override
     public boolean isHeadshotDamage(UUID victimId) {
-        return headshotDamageVictims.remove(victimId);
+        return consumeRecent(headshotDamageVictims, victimId);
     }
 
     @Override
     public boolean isLastBulletKill(UUID victimId) {
-        return lastBulletVictims.remove(victimId);
+        return consumeRecent(lastBulletVictims, victimId);
     }
 
     @Override
     public boolean isGunKill(UUID victimId) {
-        return gunKillVictims.remove(victimId);
+        return consumeRecent(gunKillVictims, victimId);
     }
 
     @SubscribeEvent
@@ -81,10 +82,10 @@ public class TaczEventHandler implements ITaczHandler {
         if (victim == null) return;
         UUID victimId = victim.getUUID();
 
-        gunKillVictims.add(victimId);
+        markCombatFlag(gunKillVictims, victimId);
 
         if (event.isHeadShot()) {
-            headshotVictims.add(victimId);
+            markCombatFlag(headshotVictims, victimId);
         }
 
         checkLastBullet(event);
@@ -100,7 +101,7 @@ public class TaczEventHandler implements ITaczHandler {
         }
 
         if (event.isHeadShot()) {
-            headshotDamageVictims.add(victim.getUUID());
+            markCombatFlag(headshotDamageVictims, victim.getUUID());
         }
     }
 
@@ -168,9 +169,22 @@ public class TaczEventHandler implements ITaczHandler {
         TimelessAPI.getCommonGunIndex(event.getGunId()).ifPresent(index -> {
             int maxAmmo = index.getGunData().getAmmoAmount();
             if (maxAmmo >= 2 && event.getKilledEntity() != null) {
-                lastBulletVictims.add(event.getKilledEntity().getUUID());
+                markCombatFlag(lastBulletVictims, event.getKilledEntity().getUUID());
             }
         });
+    }
+
+    private void markCombatFlag(Map<UUID, Long> map, UUID victimId) {
+        map.put(victimId, System.currentTimeMillis());
+    }
+
+    private boolean consumeRecent(Map<UUID, Long> map, UUID victimId) {
+        Long ts = map.remove(victimId);
+        return ts != null && System.currentTimeMillis() - ts <= COMBAT_FLAG_TTL_MS;
+    }
+
+    private void cleanupExpired(Map<UUID, Long> map, long now) {
+        map.entrySet().removeIf(entry -> now - entry.getValue() > COMBAT_FLAG_TTL_MS);
     }
 
     private ServerPlayer resolveShooter(EntityKineticBullet bullet, UUID bulletId) {

@@ -6,8 +6,7 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.common.KillType;
 
 public class SoundTriggerManager {
-
-    public static void tryPlaySound(String category, String name, int killType, int comboCount, boolean hasHelmet) {
+    public static void tryPlaySound(String category, String name, int killType, int comboCount, boolean hasHelmet, boolean isVictimPlayer) {
         JsonObject config = ConfigManager.getElementConfig(category, name);
         if (config == null) {
             return;
@@ -15,6 +14,14 @@ public class SoundTriggerManager {
 
         boolean visible = !config.has("visible") || config.get("visible").getAsBoolean();
         if (!visible) {
+            return;
+        }
+        if ("kill_icon".equals(category) && killType == KillType.HEADSHOT) {
+            float headshotVolumeScale = isVictimPlayer ? 1.0f : 2.0f;
+            ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_COMMON_HEADSHOT_HIT, false, headshotVolumeScale);
+        }
+        if ("kill_icon".equals(category) && "valorant".equals(name)
+            && (killType == KillType.ASSIST || killType == KillType.DESTROY_VEHICLE)) {
             return;
         }
 
@@ -32,18 +39,23 @@ public class SoundTriggerManager {
             } else {
                 ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_CARD_DEFAULT);
             }
-        } else if ("kill_icon".equals(category) && ("scrolling".equals(name) || "combo".equals(name))) {
-            if ("combo".equals(name)) {
-                int count = Mth.clamp(comboCount, 1, 6);
+        } else if ("kill_icon".equals(category) && ("scrolling".equals(name) || "combo".equals(name) || "valorant".equals(name))) {
+            if ("combo".equals(name) || "valorant".equals(name)) {
+                int count = "valorant".equals(name) ? Mth.clamp(comboCount, 1, 5) : Mth.clamp(comboCount, 1, 6);
                 String slotId = switch (count) {
-                    case 1 -> ExternalSoundManager.SLOT_COMBO_1;
-                    case 2 -> ExternalSoundManager.SLOT_COMBO_2;
-                    case 3 -> ExternalSoundManager.SLOT_COMBO_3;
-                    case 4 -> ExternalSoundManager.SLOT_COMBO_4;
-                    case 5 -> ExternalSoundManager.SLOT_COMBO_5;
+                    case 1 -> "valorant".equals(name) ? ExternalSoundManager.SLOT_VALORANT_1 : ExternalSoundManager.SLOT_COMBO_1;
+                    case 2 -> "valorant".equals(name) ? ExternalSoundManager.SLOT_VALORANT_2 : ExternalSoundManager.SLOT_COMBO_2;
+                    case 3 -> "valorant".equals(name) ? ExternalSoundManager.SLOT_VALORANT_3 : ExternalSoundManager.SLOT_COMBO_3;
+                    case 4 -> "valorant".equals(name) ? ExternalSoundManager.SLOT_VALORANT_4 : ExternalSoundManager.SLOT_COMBO_4;
+                    case 5 -> "valorant".equals(name) ? ExternalSoundManager.SLOT_VALORANT_5 : ExternalSoundManager.SLOT_COMBO_5;
                     default -> ExternalSoundManager.SLOT_COMBO_6;
                 };
-                ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), slotId);
+                if ("valorant".equals(name)) {
+                    float volumeScale = 1.0f;
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), slotId, false, volumeScale);
+                } else {
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), slotId);
+                }
             } else {
                 if (killType == KillType.HEADSHOT) {
                     ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_HEADSHOT);
@@ -66,7 +78,12 @@ public class SoundTriggerManager {
         ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_COMMON_HIT);
     }
 
+    public static void playHeadshotDamageSound() {
+        ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_COMMON_HEADSHOT_HIT);
+    }
+
     public static void playScoreSound() {
         ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_COMMON_SCORE, true);
     }
+
 }

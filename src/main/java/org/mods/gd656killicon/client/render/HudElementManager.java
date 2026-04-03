@@ -1,11 +1,15 @@
 package org.mods.gd656killicon.client.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.math.Axis;
+import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ElementConfigManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -59,9 +63,29 @@ public class HudElementManager {
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         
         try {
-            for (Map<String, IHudRenderer> categoryMap : renderers.values()) {
-                for (IHudRenderer renderer : categoryMap.values()) {
+            Minecraft mc = Minecraft.getInstance();
+            int screenWidth = mc.getWindow().getGuiScaledWidth();
+            int screenHeight = mc.getWindow().getGuiScaledHeight();
+            String presetId = ConfigManager.getCurrentPresetId();
+            for (Map.Entry<String, Map<String, IHudRenderer>> categoryEntry : renderers.entrySet()) {
+                String category = categoryEntry.getKey();
+                for (Map.Entry<String, IHudRenderer> rendererEntry : categoryEntry.getValue().entrySet()) {
+                    String elementId = category + "/" + rendererEntry.getKey();
+                    IHudRenderer renderer = rendererEntry.getValue();
+                    JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                    float rotationAngle = config != null && config.has("rotation_angle") ? config.get("rotation_angle").getAsFloat() : 0.0f;
+                    if (Math.abs(rotationAngle) <= 0.001f) {
+                        renderer.render(event.getGuiGraphics(), event.getPartialTick());
+                        continue;
+                    }
+                    float pivotX = screenWidth / 2.0f + (config != null && config.has("x_offset") ? config.get("x_offset").getAsInt() : 0);
+                    float pivotY = screenHeight - (config != null && config.has("y_offset") ? config.get("y_offset").getAsInt() : 0);
+                    event.getGuiGraphics().pose().pushPose();
+                    event.getGuiGraphics().pose().translate(pivotX, pivotY, 0.0f);
+                    event.getGuiGraphics().pose().mulPose(Axis.ZP.rotationDegrees(rotationAngle));
+                    event.getGuiGraphics().pose().translate(-pivotX, -pivotY, 0.0f);
                     renderer.render(event.getGuiGraphics(), event.getPartialTick());
+                    event.getGuiGraphics().pose().popPose();
                 }
             }
         } finally {

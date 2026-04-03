@@ -13,7 +13,10 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
+import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.sounds.ExternalSoundManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
@@ -38,6 +41,10 @@ public class Battlefield1Renderer implements IHudRenderer {
     private int colorVictim = 0xFF0000;
     private long animationDuration = 200L;
     private long displayDuration = 300L;
+    private boolean enableIconGlow = false;
+    private int iconGlowColor = 0xFFFFFF;
+    private float iconGlowIntensity = 0.45f;
+    private float iconGlowSize = 4.0f;
     private JsonObject currentConfig;
 
     private long startTime = -1;
@@ -181,7 +188,7 @@ public class Battlefield1Renderer implements IHudRenderer {
             }
         }
 
-        this.startTime = System.currentTimeMillis();
+        this.startTime = PreviewRenderTimeContext.currentTimeMillis();
         this.lastSwitchTime = this.startTime;
         this.isVisible = true;
     }
@@ -227,7 +234,7 @@ public class Battlefield1Renderer implements IHudRenderer {
             currentConfig
         );
 
-        this.startTime = System.currentTimeMillis();
+        this.startTime = PreviewRenderTimeContext.currentTimeMillis();
         this.lastSwitchTime = this.startTime;
         this.isVisible = true;
         this.displayQueue.clear();
@@ -235,7 +242,7 @@ public class Battlefield1Renderer implements IHudRenderer {
 
     @Override
     public void render(GuiGraphics guiGraphics, float partialTick) {
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
 
         if (!displayQueue.isEmpty()) {
             boolean shouldSwitch = !isVisible;
@@ -265,7 +272,7 @@ public class Battlefield1Renderer implements IHudRenderer {
 
     public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
         if (!isVisible || startTime == -1) return;
-        long currentTime = System.currentTimeMillis();
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         renderInternal(guiGraphics, partialTick, currentTime, centerX, centerY);
     }
 
@@ -409,9 +416,30 @@ public class Battlefield1Renderer implements IHudRenderer {
         float drawHeight = size * frameHeightRatio;
         float drawX = x + (size - drawWidth) / 2.0f;
         float drawY = y + (size - drawHeight) / 2.0f;
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
+        float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/battlefield1", textureKey);
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
         RenderSystem.enableBlend();
-        
+        if (enableIconGlow) {
+            IconGlowRenderEffect.drawGlowFrame(
+                guiGraphics,
+                texture,
+                (int) drawX,
+                (int) drawY,
+                (int) drawWidth,
+                (int) drawHeight,
+                0,
+                0,
+                (int) drawWidth,
+                (int) drawHeight,
+                (int) drawWidth,
+                (int) drawHeight,
+                focusedAlpha,
+                iconGlowColor,
+                iconGlowIntensity,
+                iconGlowSize
+            );
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
+        }
         guiGraphics.blit(texture, (int)drawX, (int)drawY, 0, 0, (int)drawWidth, (int)drawHeight, (int)drawWidth, (int)drawHeight);
         
         RenderSystem.disableBlend();
@@ -458,9 +486,17 @@ public class Battlefield1Renderer implements IHudRenderer {
             
             this.animationDuration = config.has("animation_duration") ? (long)(config.get("animation_duration").getAsFloat() * 1000) : 200L;
             this.displayDuration = config.has("display_duration") ? (long)(config.get("display_duration").getAsFloat() * 1000) : 300L;
+            this.enableIconGlow = IconGlowRenderEffect.isEnabled(config);
+            this.iconGlowColor = IconGlowRenderEffect.resolveColor(config);
+            this.iconGlowIntensity = IconGlowRenderEffect.resolveIntensity(config);
+            this.iconGlowSize = IconGlowRenderEffect.resolveSize(config);
 
         } catch (Exception e) {
             ClientMessageLogger.chatWarn("gd656killicon.client.config_error", "battlefield1");
+            this.enableIconGlow = false;
+            this.iconGlowColor = 0xFFFFFF;
+            this.iconGlowIntensity = 0.45f;
+            this.iconGlowSize = 4.0f;
         }
     }
 

@@ -10,7 +10,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.scores.Team;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
+import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
@@ -29,6 +32,7 @@ public class CardBarRenderer implements IHudRenderer {
     private static final Map<ResourceLocation, Float> ASPECT_RATIO_CACHE = new ConcurrentHashMap<>();
     private static final float DEFAULT_ASPECT_RATIO = 1.0f;
     private static final int BASE_LOGICAL_HEIGHT = 40;     
+    private static final float CENTER_FLASH_SPEED_MULTIPLIER = 3.0f;
     private long flashStartTime = -1;
     private final WaveEffectSystem waveSystem = new WaveEffectSystem();
     private final IconRingEffect ringEffect = new IconRingEffect();
@@ -73,9 +77,14 @@ public class CardBarRenderer implements IHudRenderer {
         float lightHeight = config.has("light_height") ? config.get("light_height").getAsFloat() : 20.0f;
         String lightColorCt = config.has("color_light_ct") ? config.get("color_light_ct").getAsString() : "9cc1eb";
         String lightColorT = config.has("color_light_t") ? config.get("color_light_t").getAsString() : "d9ac5b";
+        boolean enableIconGlow = IconGlowRenderEffect.isEnabled(config);
+        int iconGlowColor = IconGlowRenderEffect.resolveColor(config);
+        float iconGlowIntensity = IconGlowRenderEffect.resolveIntensity(config);
+        float iconGlowSize = IconGlowRenderEffect.resolveSize(config);
 
         boolean isT = "t".equalsIgnoreCase(team);
         String textureKey = isT ? "bar_t" : "bar_ct";
+        float focusMultiplier = PreviewTextureFocusContext.alphaMultiplier("kill_icon/card_bar", textureKey);
         String textureName = ElementTextureDefinition.getSelectedTextureFileName(
             ConfigManager.getCurrentPresetId(),
             "kill_icon/card_bar",
@@ -96,7 +105,7 @@ public class CardBarRenderer implements IHudRenderer {
 
         float centerX = screenWidth / 2.0f + xOffset;
         float centerY = screenHeight - yOffset;
-        renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration);
+        renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration, enableIconGlow, iconGlowColor, iconGlowIntensity, iconGlowSize, focusMultiplier);
     }
 
     public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
@@ -132,6 +141,10 @@ public class CardBarRenderer implements IHudRenderer {
         float lightHeight = config.has("light_height") ? config.get("light_height").getAsFloat() : 20.0f;
         String lightColorCt = config.has("color_light_ct") ? config.get("color_light_ct").getAsString() : "9cc1eb";
         String lightColorT = config.has("color_light_t") ? config.get("color_light_t").getAsString() : "d9ac5b";
+        boolean enableIconGlow = IconGlowRenderEffect.isEnabled(config);
+        int iconGlowColor = IconGlowRenderEffect.resolveColor(config);
+        float iconGlowIntensity = IconGlowRenderEffect.resolveIntensity(config);
+        float iconGlowSize = IconGlowRenderEffect.resolveSize(config);
 
         String textureName = "killicon_card_bar_ct.png";
         boolean isT = "t".equalsIgnoreCase(team);
@@ -143,12 +156,13 @@ public class CardBarRenderer implements IHudRenderer {
         if (texture == null) return;
 
         String textureKey = isT ? "bar_t" : "bar_ct";
+        float focusMultiplier = PreviewTextureFocusContext.alphaMultiplier("kill_icon/card_bar", textureKey);
         float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
         float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
         int drawHeight = Math.round(BASE_LOGICAL_HEIGHT * frameHeightRatio);
         int drawWidth = Math.round(BASE_LOGICAL_HEIGHT * frameWidthRatio);
 
-        renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration);
+        renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration, enableIconGlow, iconGlowColor, iconGlowIntensity, iconGlowSize, focusMultiplier);
     }
 
     public void renderPreviewAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY, JsonObject config) {
@@ -181,6 +195,10 @@ public class CardBarRenderer implements IHudRenderer {
         float lightHeight = config.has("light_height") ? config.get("light_height").getAsFloat() : 20.0f;
         String lightColorCt = config.has("color_light_ct") ? config.get("color_light_ct").getAsString() : "9cc1eb";
         String lightColorT = config.has("color_light_t") ? config.get("color_light_t").getAsString() : "d9ac5b";
+        boolean enableIconGlow = IconGlowRenderEffect.isEnabled(config);
+        int iconGlowColor = IconGlowRenderEffect.resolveColor(config);
+        float iconGlowIntensity = IconGlowRenderEffect.resolveIntensity(config);
+        float iconGlowSize = IconGlowRenderEffect.resolveSize(config);
 
         String textureName = "killicon_card_bar_ct.png";
         boolean isT = "t".equalsIgnoreCase(team);
@@ -192,15 +210,16 @@ public class CardBarRenderer implements IHudRenderer {
         if (texture == null) return;
 
         String textureKey = isT ? "bar_t" : "bar_ct";
+        float focusMultiplier = PreviewTextureFocusContext.alphaMultiplier("kill_icon/card_bar", textureKey);
         float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
         float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
         int drawHeight = Math.round(BASE_LOGICAL_HEIGHT * frameHeightRatio);
         int drawWidth = Math.round(BASE_LOGICAL_HEIGHT * frameWidthRatio);
 
-        renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration);
+        renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration, enableIconGlow, iconGlowColor, iconGlowIntensity, iconGlowSize, focusMultiplier);
     }
 
-    private void renderInternal(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY, float scale, boolean isT, ResourceLocation texture, int drawWidth, int drawHeight, boolean showLight, float lightWidth, float lightHeight, String lightColorCt, String lightColorT, float animationDuration) {
+    private void renderInternal(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY, float scale, boolean isT, ResourceLocation texture, int drawWidth, int drawHeight, boolean showLight, float lightWidth, float lightHeight, String lightColorCt, String lightColorT, float animationDuration, boolean enableIconGlow, int iconGlowColor, float iconGlowIntensity, float iconGlowSize, float focusMultiplier) {
         PoseStack poseStack = guiGraphics.pose();
         poseStack.pushPose();
         
@@ -213,12 +232,13 @@ public class CardBarRenderer implements IHudRenderer {
         
         float flashAlpha = 0.0f;
         long animDurMs = (long) (animationDuration * 1000);
+        long flashAnimDurMs = Math.max(1L, (long)(animDurMs / CENTER_FLASH_SPEED_MULTIPLIER));
         
         if (flashStartTime != -1) {
-            long elapsed = System.currentTimeMillis() - flashStartTime;
+            long elapsed = PreviewRenderTimeContext.currentTimeMillis() - flashStartTime;
             
-            long flashHold = animDurMs / 2;
-            long flashFade = animDurMs * 4;
+            long flashHold = flashAnimDurMs / 2;
+            long flashFade = flashAnimDurMs * 4;
             
             if (elapsed < flashHold) {
                 flashAlpha = 1.0f;
@@ -246,7 +266,7 @@ public class CardBarRenderer implements IHudRenderer {
             
             renderLightEffect(guiGraphics, lightWidth, lightHeight, mixedColorHex, 1.0f);
             
-            ringEffect.render(guiGraphics, 0, 0, System.currentTimeMillis());
+            ringEffect.render(guiGraphics, 0, 0, PreviewRenderTimeContext.currentTimeMillis());
         }
         
         if (showLight) {
@@ -256,16 +276,36 @@ public class CardBarRenderer implements IHudRenderer {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        if (enableIconGlow) {
+            IconGlowRenderEffect.drawGlowFrame(
+                guiGraphics,
+                texture,
+                -drawWidth / 2,
+                -drawHeight / 2,
+                drawWidth,
+                drawHeight,
+                0,
+                0,
+                drawWidth,
+                drawHeight,
+                drawWidth,
+                drawHeight,
+                focusMultiplier,
+                iconGlowColor,
+                iconGlowIntensity,
+                iconGlowSize
+            );
+        }
         guiGraphics.blit(texture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
         
         if (flashAlpha > 0.01f) {
             RenderSystem.blendFunc(com.mojang.blaze3d.platform.GlStateManager.SourceFactor.SRC_ALPHA, com.mojang.blaze3d.platform.GlStateManager.DestFactor.ONE);
             
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, flashAlpha);
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, flashAlpha * focusMultiplier);
             guiGraphics.blit(texture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
             
             if (flashAlpha > 0.5f) {
-                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, (flashAlpha - 0.5f) * 2.0f);
+                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, (flashAlpha - 0.5f) * 2.0f * focusMultiplier);
                 guiGraphics.blit(texture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
             }
             
@@ -373,7 +413,7 @@ public class CardBarRenderer implements IHudRenderer {
         if (context.type() == org.mods.gd656killicon.common.KillType.ASSIST) {
             return;
         }
-        this.flashStartTime = System.currentTimeMillis();
+        this.flashStartTime = PreviewRenderTimeContext.currentTimeMillis();
         
         if (config != null) {
             String lightColorCt = config.has("color_light_ct") ? config.get("color_light_ct").getAsString() : "9cc1eb";
@@ -405,7 +445,7 @@ public class CardBarRenderer implements IHudRenderer {
             int b2 = (b + 255) / 2;
             int explosionColor2 = (r2 << 16) | (g2 << 8) | b2;
             
-            ringEffect.trigger(System.currentTimeMillis(), true, context.type(), color, explosionColor2, color);
+            ringEffect.trigger(PreviewRenderTimeContext.currentTimeMillis(), true, context.type(), color, explosionColor2, color);
         }
         
         int combo = context.comboCount();
@@ -435,14 +475,14 @@ public class CardBarRenderer implements IHudRenderer {
         
         private static final float WAVE_RADIUS_RATIO = 0.15f;         private static final float MAX_STRETCH_PIXELS = 25.0f;         
         public void trigger(int pairCount) {
-            long now = System.currentTimeMillis();
+            long now = PreviewRenderTimeContext.currentTimeMillis();
             for (int i = 0; i < pairCount; i++) {
                 pendingSpawns.offer(now);
             }
         }
         
         public void updateAndRender(GuiGraphics guiGraphics, float width, String colorHex, float animationDuration, float flashAlpha) {
-            long now = System.currentTimeMillis();
+            long now = PreviewRenderTimeContext.currentTimeMillis();
             long interval = (long) ((animationDuration * 1000) / 2.0f);
             
             if (!pendingSpawns.isEmpty()) {
