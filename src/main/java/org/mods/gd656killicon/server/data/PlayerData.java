@@ -26,6 +26,9 @@ public class PlayerData {
     @SerializedName("assist")
     private int assist;
 
+    @SerializedName("revive")
+    private int revive;
+
     @SerializedName("last_login_name")
     private String lastLoginName;
 
@@ -41,6 +44,7 @@ public class PlayerData {
         this.kill = 0;
         this.death = 0;
         this.assist = 0;
+        this.revive = 0;
         this.lastLoginName = "";
         this.lastModified = System.currentTimeMillis();
         this.metadata = new HashMap<>();
@@ -126,6 +130,25 @@ public class PlayerData {
         this.lastModified = System.currentTimeMillis();
     }
 
+    public int getRevive() {
+        return revive;
+    }
+
+    public void setRevive(int revive) {
+        this.revive = Math.max(0, revive);
+        this.lastModified = System.currentTimeMillis();
+    }
+
+    public void addRevive(int amount) {
+        this.revive = Math.max(0, this.revive + amount);
+        this.lastModified = System.currentTimeMillis();
+    }
+
+    public void reduceRevive(int amount) {
+        this.revive = Math.max(0, this.revive - amount);
+        this.lastModified = System.currentTimeMillis();
+    }
+
     public String getLastLoginName() {
         return lastLoginName != null ? lastLoginName : "";
     }
@@ -192,6 +215,7 @@ public class PlayerData {
                 ", kill=" + kill +
                 ", death=" + death +
                 ", assist=" + assist +
+                ", revive=" + revive +
                 ", lastLoginName='" + lastLoginName + '\'' +
                 ", lastModified=" + lastModified +
                 ", metadata=" + metadata +

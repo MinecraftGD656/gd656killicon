@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import net.minecraftforge.fml.ModList;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.tacz.DummyTaczHandler;
 import org.mods.gd656killicon.server.logic.tacz.ITaczHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
@@ -30,7 +30,7 @@ public class TaczIntegration {
         }
         initialized = true;
         try {
-            if (ModList.get().isLoaded("tacz")) {
+            if (ServerBridge.loader().isModLoaded("tacz")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.tacz.TaczEventHandler");
                 handler = (ITaczHandler) handlerClass.getDeclaredConstructor().newInstance();
                 handler.init();

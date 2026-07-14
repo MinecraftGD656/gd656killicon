@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import net.minecraftforge.fml.ModList;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.superbwarfare.DummySuperbWarfareHandler;
 import org.mods.gd656killicon.server.logic.superbwarfare.ISuperbWarfareHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
@@ -30,7 +30,7 @@ public class SuperbWarfareIntegration {
         }
         initialized = true;
         try {
-            if (ModList.get().isLoaded("superbwarfare")) {
+            if (ServerBridge.loader().isModLoaded("superbwarfare")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.superbwarfare.SuperbWarfareEventHandler");
                 handler = (ISuperbWarfareHandler) handlerClass.getDeclaredConstructor().newInstance();
                 handler.init();

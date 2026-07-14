@@ -7,7 +7,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.fml.loading.FMLPaths;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
@@ -36,7 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ExternalTextureManager {
-    private static final Path CONFIG_ASSETS_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
+    private static final Path CONFIG_ASSETS_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon/assets");
     private static final Path COMMON_TEXTURES_DIR = CONFIG_ASSETS_DIR.resolve("common").resolve("textures");
     private static final Map<String, ResourceLocation> TEXTURE_CACHE = new HashMap<>();
     private static final ExecutorService TEXTURE_THREAD_POOL = Executors.newCachedThreadPool();

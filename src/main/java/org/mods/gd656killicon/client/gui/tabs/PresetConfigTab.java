@@ -486,7 +486,7 @@ public class PresetConfigTab extends ConfigTabContent {
             texts.add(new GDTextRenderer.ColoredText(" [" + type + "] ", GuiConstants.COLOR_GRAY));
             
             String nameKey = "gd656killicon.element.name." + type.replace("/", ".");
-            String name = I18n.exists(nameKey) ? I18n.get(nameKey) : type;
+            String name = org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey) ? I18n.get(nameKey) : type;
             texts.add(new GDTextRenderer.ColoredText(name, GuiConstants.COLOR_GOLD));
             
             row.addColoredColumn(texts, -1, false, false, null);
@@ -1817,7 +1817,7 @@ public class PresetConfigTab extends ConfigTabContent {
         texts.add(new GDTextRenderer.ColoredText("[" + id + "] ", isVisible ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_DARK_GRAY));
 
         String nameKey = "gd656killicon.element.name." + id.replace("/", ".");
-        String name = I18n.exists(nameKey) ? I18n.get(nameKey) : id;
+        String name = org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey) ? I18n.get(nameKey) : id;
         texts.add(new GDTextRenderer.ColoredText(name, isVisible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY));
         row.addColoredColumn(texts, -1, false, false, null);
 

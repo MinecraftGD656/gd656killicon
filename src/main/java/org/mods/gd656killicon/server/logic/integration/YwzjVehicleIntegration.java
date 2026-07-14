@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import net.minecraftforge.fml.ModList;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.ywzj.DummyYwzjVehicleHandler;
 import org.mods.gd656killicon.server.logic.ywzj.IYwzjVehicleHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
@@ -28,7 +28,7 @@ public class YwzjVehicleIntegration {
         }
         initialized = true;
         try {
-            if (ModList.get().isLoaded("ywzj_vehicle")) {
+            if (ServerBridge.loader().isModLoaded("ywzj_vehicle")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.ywzj.YwzjVehicleEventHandler");
                 handler = (IYwzjVehicleHandler) handlerClass.getDeclaredConstructor().newInstance();
                 handler.init();

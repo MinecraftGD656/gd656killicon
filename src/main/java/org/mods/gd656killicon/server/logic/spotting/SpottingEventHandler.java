@@ -1,15 +1,10 @@
 package org.mods.gd656killicon.server.logic.spotting;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.server.ServerCore;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.data.ServerData;
 import org.mods.gd656killicon.server.util.ServerLog;
 
@@ -19,7 +14,6 @@ import java.util.Deque;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 public class SpottingEventHandler implements ISpottingHandler {
     private static final long SPOTTING_BONUS_WINDOW_MS = 60000L;
@@ -29,7 +23,7 @@ public class SpottingEventHandler implements ISpottingHandler {
 
     @Override
     public void init() {
-        MinecraftForge.EVENT_BUS.register(this);
+        ServerBridge.loader().registerForgeEventBusSubscriber(this);
         registerSpottingPostListener();
         ServerLog.info("Spotting event handler registered.");
     }
@@ -53,10 +47,9 @@ public class SpottingEventHandler implements ISpottingHandler {
         });
     }
 
-    @SubscribeEvent
-    public void onLivingDeath(LivingDeathEvent event) {
-        if (event.getEntity().level().isClientSide) return;
-        LivingEntity victim = event.getEntity();
+    @Override
+    public void onLivingDeath(LivingEntity victim, LivingEntity killerEntity) {
+        if (victim == null || killerEntity == null || victim.level().isClientSide) return;
         Map<UUID, Long> spotters = spottedTargets.get(victim.getUUID());
         if (spotters == null || spotters.isEmpty()) return;
         long now = System.currentTimeMillis();
@@ -65,11 +58,7 @@ public class SpottingEventHandler implements ISpottingHandler {
             spottedTargets.remove(victim.getUUID());
             return;
         }
-        ServerPlayer killer = resolveKiller(event);
-        if (killer == null) {
-            spottedTargets.remove(victim.getUUID());
-            return;
-        }
+        if (!(killerEntity instanceof ServerPlayer killer)) return;
         if (spotters.containsKey(killer.getUUID())) {
             if (ServerData.get().isBonusEnabled(BonusType.SPOTTING_KILL)) {
                 ServerCore.BONUS.add(killer, BonusType.SPOTTING_KILL, 1.0f, "");
@@ -89,11 +78,12 @@ public class SpottingEventHandler implements ISpottingHandler {
     }
 
     private void registerSpottingPostListener() {
-        try {
-            Class<?> postClass = Class.forName("committee.nova.spotting.common.event.impl.SpottingEvent$Post");
-            MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, (Class) postClass, (Consumer) this::onSpottingPost);
-        } catch (Exception e) {
-            ServerLog.error("Failed to register Spotting event listener: %s", e.getMessage());
+        boolean ok = ServerBridge.loader().registerForgeDynamicListener(
+                "committee.nova.spotting.common.event.impl.SpottingEvent$Post",
+                this::onSpottingPost
+        );
+        if (!ok) {
+            ServerLog.error("Failed to register Spotting event listener.");
         }
     }
 
@@ -146,20 +136,5 @@ public class SpottingEventHandler implements ISpottingHandler {
 
     private boolean isSameTeam(ServerPlayer a, ServerPlayer b) {
         return a.getTeam() != null && b.getTeam() != null && a.getTeam().getName().equals(b.getTeam().getName());
-    }
-
-    private ServerPlayer resolveKiller(LivingDeathEvent event) {
-        Entity source = event.getSource().getEntity();
-        if (source instanceof ServerPlayer player) {
-            return player;
-        }
-        Entity direct = event.getSource().getDirectEntity();
-        if (direct instanceof Projectile projectile) {
-            Entity owner = projectile.getOwner();
-            if (owner instanceof ServerPlayer player) {
-                return player;
-            }
-        }
-        return null;
     }
 }

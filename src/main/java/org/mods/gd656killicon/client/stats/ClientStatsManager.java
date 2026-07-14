@@ -140,6 +140,15 @@ public class ClientStatsManager {
     }
 
     /**
+     * 记录一次救援并保存。
+     */
+    public static void recordRevive() {
+        ensureLoaded();
+        statsData.totalRevives++;
+        saveStats();
+    }
+
+    /**
      * 记录造成的伤害并保存。
      *
      * @param damage 伤害值
@@ -196,6 +205,14 @@ public class ClientStatsManager {
     public static long getTotalAssists() {
         ensureLoaded();
         return statsData.totalAssists;
+    }
+
+    /**
+     * @return 总救援数
+     */
+    public static long getTotalRevives() {
+        ensureLoaded();
+        return statsData.totalRevives;
     }
 
     /**

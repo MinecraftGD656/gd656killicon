@@ -3,16 +3,9 @@ package org.mods.gd656killicon.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.client.settings.KeyConflictContext;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
-import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.client.gui.MainConfigScreen;
 
-@Mod.EventBusSubscriber(modid = Gd656killicon.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class KeyBindings {
     public static final String CATEGORY = "key.categories.gd656killicon";
     public static final String OPEN_CONFIG_KEY = "key.gd656killicon.open_config";
@@ -20,7 +13,6 @@ public class KeyBindings {
 
     public static final KeyMapping OPEN_CONFIG = new KeyMapping(
             OPEN_CONFIG_KEY,
-            KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_G,
             CATEGORY
@@ -28,7 +20,6 @@ public class KeyBindings {
 
     public static final KeyMapping OPEN_SCOREBOARD = new KeyMapping(
             OPEN_SCOREBOARD_KEY,
-            KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_TAB,
             CATEGORY
@@ -41,27 +32,26 @@ public class KeyBindings {
         return mapping.getKey().getValue() == keyCode;
     }
 
-    @SubscribeEvent
-    public static void onKeyInput(InputEvent.Key event) {
+    public static void onKeyInput(int key, int action) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
-        handleScoreboardKey(mc, event);
+        handleScoreboardKey(mc, key, action);
 
         if (mc.screen == null) {
             handleConfigKey(mc);
         }
     }
 
-    private static void handleScoreboardKey(Minecraft mc, InputEvent.Key event) {
-        if (!matches(OPEN_SCOREBOARD, event.getKey())) return;
+    private static void handleScoreboardKey(Minecraft mc, int key, int action) {
+        if (!matches(OPEN_SCOREBOARD, key)) return;
 
-        if (event.getAction() == GLFW.GLFW_PRESS) {
+        if (action == GLFW.GLFW_PRESS) {
             if (mc.screen == null) {
                 mc.setScreen(new MainConfigScreen(null, 3, true));
             }
-        } else if (event.getAction() == GLFW.GLFW_RELEASE) {
-            if (mc.screen instanceof MainConfigScreen screen && screen.isQuickScoreboardMode()) {
+        } else if (action == GLFW.GLFW_RELEASE) {
+            if (mc.screen instanceof MainConfigScreen screen && screen.isQuickScoreboardMode() && screen.shouldCloseQuickScoreboardOnRelease()) {
                 mc.setScreen(null);
             }
         }

@@ -2,7 +2,7 @@ package org.mods.gd656killicon.client.stats;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import net.minecraft.client.Minecraft;
+import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.io.Reader;
 import java.io.Writer;
@@ -30,7 +30,7 @@ public class StatsPersistenceManager {
      * @return 统计文件路径
      */
     private static Path getStatsFilePath() {
-        Path gameDirectory = Minecraft.getInstance().gameDirectory.toPath();
+        Path gameDirectory = FMLPaths.GAMEDIR.get();
         Path dataDirectory = gameDirectory.resolve("data").resolve("gd656killicon");
 
         try {
@@ -92,6 +92,8 @@ public class StatsPersistenceManager {
         public long totalDeaths = 0;
         /** 总助攻数 */
         public long totalAssists = 0;
+        /** 总救援数 */
+        public long totalRevives = 0;
         /** 最大击杀距离 */
         public double maxKillDistance = 0.0;
         /** 最大连杀数 */

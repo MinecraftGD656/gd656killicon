@@ -1,15 +1,14 @@
 package org.mods.gd656killicon.network.packet;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.BonusListRenderer;
 import org.mods.gd656killicon.client.render.impl.SubtitleRenderer;
 import org.mods.gd656killicon.network.IPacket;
+import org.mods.gd656killicon.network.PacketContext;
 
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -81,8 +80,8 @@ public class BonusScorePacket implements IPacket {
     }
 
     @Override
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> {
+    public void handle(PacketContext context) {
+        context.enqueueWork(() -> {
             if (org.mods.gd656killicon.client.config.ClientConfigManager.isShowBonusMessage()) {
                 sendBonusChatMessage();
             }
@@ -103,16 +102,36 @@ public class BonusScorePacket implements IPacket {
             HudElementManager.trigger("subtitle", "bonus_list", 
                 org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(this.bonusType, this.victimId, 0, data)
             );
+
+            triggerScrollingBonusIcons();
             
             recordStatistics();
         });
-        context.get().setPacketHandled(true);
+        context.setPacketHandled(true);
+    }
+
+    private void triggerScrollingBonusIcons() {
+        int iconKillType = -1;
+        if (this.bonusType == org.mods.gd656killicon.common.BonusType.VEHICLE_DESTROY_ASSIST) {
+            iconKillType = org.mods.gd656killicon.common.KillType.VEHICLE_DESTROY_ASSIST;
+        } else if (this.bonusType == org.mods.gd656killicon.common.BonusType.REVIVE) {
+            iconKillType = org.mods.gd656killicon.common.KillType.MEDIC;
+        }
+        if (iconKillType == -1) {
+            return;
+        }
+        org.mods.gd656killicon.client.sounds.SoundTriggerManager.tryPlaySound("kill_icon", "scrolling", iconKillType, 0, false, false);
+        HudElementManager.trigger("kill_icon", "scrolling",
+            org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(iconKillType, this.victimId, 0, this.victimName, 0.0f)
+        );
     }
     
     private void recordStatistics() {
         
         if (this.bonusType == org.mods.gd656killicon.common.BonusType.ASSIST) {
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordAssist();
+        } else if (this.bonusType == org.mods.gd656killicon.common.BonusType.REVIVE) {
+            org.mods.gd656killicon.client.stats.ClientStatsManager.recordRevive();
         } else if (this.bonusType == org.mods.gd656killicon.common.BonusType.DAMAGE ||
                    this.bonusType == org.mods.gd656killicon.common.BonusType.EXPLOSION ||
                    this.bonusType == org.mods.gd656killicon.common.BonusType.HEADSHOT ||

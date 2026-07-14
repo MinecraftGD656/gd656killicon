@@ -9,7 +9,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.AABB;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -60,7 +60,7 @@ final class ServerCombatAttribution {
         FireAttribution record = fireAttribution.get(victim.getUUID());
         if (record != null) {
             if (now - record.timestamp() <= fireAttributionTimeoutMs) {
-                var server = ServerLifecycleHooks.getCurrentServer();
+                var server = ServerBridge.loader().getCurrentServer();
                 if (server == null) return null;
                 ServerPlayer player = server.getPlayerList().getPlayer(record.attackerId());
                 if (player != null) return player;

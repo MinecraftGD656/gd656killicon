@@ -335,7 +335,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             formatKey = this.currentCombo > 1 ? this.formatKillMulti : this.formatKillSingle;
         }
         
-        String format = net.minecraft.client.resources.language.I18n.exists(formatKey) 
+        String format = org.mods.gd656killicon.client.util.I18nCompat.exists(formatKey) 
             ? net.minecraft.client.resources.language.I18n.get(formatKey) 
             : formatKey;
             

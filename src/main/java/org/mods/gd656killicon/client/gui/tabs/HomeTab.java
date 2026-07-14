@@ -4,7 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.Util;
-import net.minecraftforge.fml.ModList;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
@@ -28,8 +28,8 @@ public class HomeTab extends ConfigTabContent {
     
     private long lastFrameTime = 0;
 
-    private static final ResourceLocation ICON_NORMAL = new ResourceLocation("gd656killicon", "icon/gd656killicon_icon.png");
-    private static final ResourceLocation ICON_RARE = new ResourceLocation("gd656killicon", "icon/gd656killicon_656de_shuai_zhao.png");
+    private static final ResourceLocation ICON_NORMAL = ResourceLocation.fromNamespaceAndPath("gd656killicon", "icon/gd656killicon_icon.png");
+    private static final ResourceLocation ICON_RARE = ResourceLocation.fromNamespaceAndPath("gd656killicon", "icon/gd656killicon_656de_shuai_zhao.png");
     private ResourceLocation currentIcon = ICON_NORMAL;
     private int versionColor = GuiConstants.COLOR_WHITE;
     private GDRowRenderer linksRowRenderer;     private final List<GDRowRenderer.Column> linkHoverColumns = new ArrayList<>();
@@ -49,6 +49,7 @@ public class HomeTab extends ConfigTabContent {
         modStatuses.add(new ModStatus("gd656killicon.client.gui.hometab.mod.pingwheel.name", "pingwheel", "https://www.mcmod.cn/class/9032.html", "gd656killicon.client.gui.hometab.mod.pingwheel.desc"));
         modStatuses.add(new ModStatus("gd656killicon.client.gui.hometab.mod.lr.name", "lrtactical", "https://curseforge.com/minecraft/mc-mods/tacz-lesraisins-tactical-equipements", "gd656killicon.client.gui.hometab.mod.lr.desc"));
         modStatuses.add(new ModStatus("gd656killicon.client.gui.hometab.mod.cnpc.name", "customnpcs", "https://www.mcmod.cn/class/15373.html", "gd656killicon.client.gui.hometab.mod.cnpc.desc"));
+        modStatuses.add(new ModStatus("gd656killicon.client.gui.hometab.mod.conquest_battlefield.name", "gd656conquest", "https://www.mcmod.cn/", "gd656killicon.client.gui.hometab.mod.conquest_battlefield.desc", false));
     }
 
     @Override
@@ -289,7 +290,7 @@ public class HomeTab extends ConfigTabContent {
 
             renderer.resetColumnConfig();
 
-            boolean isInstalled = ModList.get().isLoaded(status.modId);
+            boolean isInstalled = ClientBridge.loader().isModLoaded(status.modId);
 
             int nameColor = isInstalled ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
             renderer.addColumn(Component.translatable(status.nameKey).getString(), -1, nameColor, false, false, (btn) -> {
@@ -300,9 +301,10 @@ public class HomeTab extends ConfigTabContent {
             int statusColor = isInstalled ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_DARK_GRAY;
             renderer.addColumn(statusText, 40, statusColor, true, true);
 
-            renderer.addColumn(Component.translatable("gd656killicon.client.gui.hometab.action.get").getString(), 30, GuiConstants.COLOR_WHITE, true, true, (btn) -> {
+            int actionColor = status.clickable ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_DARK_GRAY;
+            renderer.addColumn(Component.translatable("gd656killicon.client.gui.hometab.action.get").getString(), 30, actionColor, true, true, status.clickable ? (btn) -> {
                 Util.getPlatform().openUri(URI.create(status.url));
-            });
+            } : null);
 
             float actualTop = currentY - (float)scrollY3;
             float actualBottom = currentY + rowHeight - (float)scrollY3;
@@ -402,14 +404,20 @@ public class HomeTab extends ConfigTabContent {
         final String modId;
         final String url;
         final String descriptionKey;
+        final boolean clickable;
         boolean expanded = false;
         GDRowRenderer descriptionRenderer;
 
         ModStatus(String nameKey, String modId, String url, String descriptionKey) {
+            this(nameKey, modId, url, descriptionKey, true);
+        }
+
+        ModStatus(String nameKey, String modId, String url, String descriptionKey, boolean clickable) {
             this.nameKey = nameKey;
             this.modId = modId;
             this.url = url;
             this.descriptionKey = descriptionKey;
+            this.clickable = clickable;
         }
     }
 

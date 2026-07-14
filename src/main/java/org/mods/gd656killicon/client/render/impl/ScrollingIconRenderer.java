@@ -577,7 +577,10 @@ public class ScrollingIconRenderer implements IHudRenderer {
             case KillType.EXPLOSION -> "explosion";
             case KillType.CRIT -> "crit";
             case KillType.ASSIST -> "assist";
+            case KillType.CAPTURE -> "capture";
             case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
+            case KillType.VEHICLE_DESTROY_ASSIST -> "vehicle_destroy_assist";
+            case KillType.MEDIC -> "medic";
             case KillType.NORMAL -> "default";
             default -> "default";
         };

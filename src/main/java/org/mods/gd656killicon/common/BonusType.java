@@ -8,6 +8,21 @@ public final class BonusType {
     public static final int DAMAGE = 0;     public static final int KILL = 1;     public static final int EXPLOSION = 2;     public static final int HEADSHOT = 3;     public static final int CRIT = 4;     public static final int KILL_EXPLOSION = 5;     public static final int KILL_HEADSHOT = 6;     public static final int KILL_CRIT = 7;     public static final int KILL_COMBO = 8;     public static final int KILL_LONG_DISTANCE = 9;     public static final int KILL_INVISIBLE = 10;     public static final int ASSIST = 11;     public static final int DESPERATE_COUNTERATTACK = 12;     public static final int AVENGE = 13;     public static final int SHOCKWAVE = 14;     public static final int BLIND_KILL = 15;     public static final int BUFF_KILL = 16;     public static final int DEBUFF_KILL = 17;     public static final int BOTH_BUFF_DEBUFF_KILL = 18;     public static final int LAST_BULLET_KILL = 19;     public static final int ONE_BULLET_MULTI_KILL = 20;     public static final int EFFORTLESS_KILL = 21;     public static final int BACKSTAB_KILL = 22;     public static final int BACKSTAB_MELEE_KILL = 23;     public static final int BRAVE_RETURN = 24;     public static final int JUSTICE_FROM_ABOVE = 25;     public static final int ABSOLUTE_AIR_CONTROL = 26;     public static final int BERSERKER = 27;     public static final int INTERRUPTED_STREAK = 28;     public static final int LEAVE_IT_TO_ME = 29;     public static final int SAVIOR = 30;     public static final int SLAY_THE_LEADER = 31;     public static final int PURGE = 32;     public static final int QUICK_SWITCH = 33;     public static final int SEIZE_OPPORTUNITY = 34;     public static final int BLOODTHIRSTY = 35;     public static final int MERCILESS = 36;     public static final int VALIANT = 37;     public static final int FIERCE = 38;     public static final int SAVAGE = 39;     public static final int POTATO_AIM = 40;     public static final int HIT_VEHICLE_ARMOR = 41;     public static final int DESTROY_VEHICLE = 42;     public static final int VEHICLE_REPAIR = 43;     public static final int VALUE_TARGET_DESTROYED = 44;     public static final int LOCKED_TARGET = 45;     public static final int HOLD_POSITION = 46;     public static final int CHARGE_ASSAULT = 47;     public static final int FIRE_SUPPRESSION = 48;    public static final int DESTROY_BLOCK = 49;     public static final int SPOTTING = 50;
     public static final int SPOTTING_KILL = 51;
     public static final int SPOTTING_TEAM_ASSIST = 52;
+    public static final int CONQUEST_CAPTURE_PROGRESS = 53;
+    public static final int CONQUEST_CAPTURE_NEUTRALIZE = 54;
+    public static final int CONQUEST_CAPTURE_CONTROL = 55;
+    public static final int SQUAD_DEPLOY_ON_YOU = 56;
+    public static final int SQUAD_LAST_MEMBER_KILL = 57;
+    public static final int EMERGENCY_REINFORCEMENT = 58;
+    public static final int SQUAD_WIPE_COMPLETION = 59;
+    public static final int TACTICAL_GADGET_DESTROYED = 60;
+    public static final int SQUAD_BEACON_DEPLOY = 61;
+    public static final int VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY = 62;
+    public static final int HEALING = 63;
+    public static final int AMMO_SUPPLY = 64;
+    public static final int REVIVE = 65;
+    public static final int VEHICLE_DESTROY_ASSIST = 66;
+    public static final int FRIENDLY_DEPLOY_ON_YOUR_VEHICLE = 67;
 
     private static final Map<String, Integer> NAME_TO_TYPE = new HashMap<>();
     private static final Map<Integer, String> TYPE_TO_NAME = new HashMap<>();
@@ -66,6 +81,21 @@ public final class BonusType {
         register("SPOTTING", SPOTTING);
         register("SPOTTING_KILL", SPOTTING_KILL);
         register("SPOTTING_TEAM_ASSIST", SPOTTING_TEAM_ASSIST);
+        register("CONQUEST_CAPTURE_PROGRESS", CONQUEST_CAPTURE_PROGRESS);
+        register("CONQUEST_CAPTURE_NEUTRALIZE", CONQUEST_CAPTURE_NEUTRALIZE);
+        register("CONQUEST_CAPTURE_CONTROL", CONQUEST_CAPTURE_CONTROL);
+        register("SQUAD_DEPLOY_ON_YOU", SQUAD_DEPLOY_ON_YOU);
+        register("SQUAD_LAST_MEMBER_KILL", SQUAD_LAST_MEMBER_KILL);
+        register("EMERGENCY_REINFORCEMENT", EMERGENCY_REINFORCEMENT);
+        register("SQUAD_WIPE_COMPLETION", SQUAD_WIPE_COMPLETION);
+        register("TACTICAL_GADGET_DESTROYED", TACTICAL_GADGET_DESTROYED);
+        register("SQUAD_BEACON_DEPLOY", SQUAD_BEACON_DEPLOY);
+        register("VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY", VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY);
+        register("HEALING", HEALING);
+        register("AMMO_SUPPLY", AMMO_SUPPLY);
+        register("REVIVE", REVIVE);
+        register("VEHICLE_DESTROY_ASSIST", VEHICLE_DESTROY_ASSIST);
+        register("FRIENDLY_DEPLOY_ON_YOUR_VEHICLE", FRIENDLY_DEPLOY_ON_YOUR_VEHICLE);
     }
 
     private static void register(String name, int type) {

@@ -1,10 +1,8 @@
 package org.mods.gd656killicon.network.packet;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656killicon.network.IPacket;
-
-import java.util.function.Supplier;
+import org.mods.gd656killicon.network.PacketContext;
 
 /**
  * 客户端向服务端请求排行榜数据的数据包
@@ -38,13 +36,12 @@ public class ScoreboardRequestPacket implements IPacket {
     }
 
     @Override
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ctx.enqueueWork(() -> {
-            if (ctx.getSender() != null) {
-                org.mods.gd656killicon.server.data.PlayerDataManager.get().handleScoreboardRequest(ctx.getSender(), offset, limit, requestId);
+    public void handle(PacketContext context) {
+        context.enqueueWork(() -> {
+            if (context.getSender() != null) {
+                org.mods.gd656killicon.server.data.PlayerDataManager.get().handleScoreboardRequest(context.getSender(), offset, limit, requestId);
             }
         });
-        ctx.setPacketHandled(true);
+        context.setPacketHandled(true);
     }
 }

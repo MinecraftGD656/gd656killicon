@@ -2,6 +2,7 @@ package org.mods.gd656killicon.client.config;
 
 import com.google.gson.JsonObject;
 import java.util.Set;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.client.sounds.ExternalSoundManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 
@@ -16,6 +17,7 @@ public class ConfigManager {
         ClientConfigManager.startEditing();
         ElementConfigManager.startEditing();
         ExternalSoundManager.startEditing();
+        ScoreboardLoadoutConfigManager.startEditing();
     }
 
     public static void saveChanges() {
@@ -23,6 +25,7 @@ public class ConfigManager {
         ElementConfigManager.saveChanges();
         ExternalTextureManager.confirmPendingTextureReplacements();
         ExternalSoundManager.saveChanges();
+        ScoreboardLoadoutConfigManager.saveChanges();
     }
 
     public static void discardChanges() {
@@ -30,13 +33,15 @@ public class ConfigManager {
         ElementConfigManager.discardChanges();
         ExternalTextureManager.revertPendingTextureReplacements();
         ExternalSoundManager.discardChanges();
+        ScoreboardLoadoutConfigManager.discardChanges();
     }
 
     public static boolean hasUnsavedChanges() {
         return ClientConfigManager.hasUnsavedChanges()
                 || ElementConfigManager.hasUnsavedChanges()
                 || ExternalTextureManager.hasPendingTextureChanges()
-                || ExternalSoundManager.hasPendingSoundChanges();
+                || ExternalSoundManager.hasPendingSoundChanges()
+                || ScoreboardLoadoutConfigManager.hasUnsavedChanges();
     }
 
     public static void loadConfig() {
@@ -137,7 +142,7 @@ public class ConfigManager {
     public static void resetFull() {
         resetConfig();
 
-        java.nio.file.Path assetsDir = net.minecraftforge.fml.loading.FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
+        java.nio.file.Path assetsDir = ClientBridge.loader().getConfigDir().resolve("gd656killicon/assets");
         if (java.nio.file.Files.exists(assetsDir)) {
             try {
                 java.nio.file.Files.list(assetsDir).forEach(presetPath -> {

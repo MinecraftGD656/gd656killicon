@@ -1,10 +1,8 @@
 package org.mods.gd656killicon.network.packet;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656killicon.network.IPacket;
-
-import java.util.function.Supplier;
+import org.mods.gd656killicon.network.PacketContext;
 
 public class DeathPacket implements IPacket {
     private final String playerName;
@@ -31,14 +29,14 @@ public class DeathPacket implements IPacket {
     }
 
     @Override
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> {
+    public void handle(PacketContext context) {
+        context.enqueueWork(() -> {
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordDeath();
             if (this.killerName != null && !this.killerName.isEmpty()) {
                 org.mods.gd656killicon.client.stats.ClientStatsManager.recordDeathByPlayer(this.killerName);
             }
             org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer.getInstance().onPlayerDeath();
         });
-        context.get().setPacketHandled(true);
+        context.setPacketHandled(true);
     }
 }

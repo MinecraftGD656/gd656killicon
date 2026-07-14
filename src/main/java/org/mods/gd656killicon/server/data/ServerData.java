@@ -14,6 +14,8 @@ import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import org.mods.gd656killicon.common.BonusType;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
+import org.mods.gd656killicon.server.logic.conquest.ConquestRuntimeStatsAdapter;
 import org.mods.gd656killicon.server.util.ServerLog;
 
 import java.io.IOException;
@@ -25,6 +27,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.ObjIntConsumer;
 
 public class ServerData {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -37,6 +42,7 @@ public class ServerData {
     private static final String DEFAULT_KILLBOARD_DISPLAY_NAME = "Player Kills";
     private static final String DEFAULT_DEATHBOARD_DISPLAY_NAME = "Player Deaths";
     private static final String DEFAULT_ASSISTBOARD_DISPLAY_NAME = "Player Assists";
+    private static final String DEFAULT_REVIVEBOARD_DISPLAY_NAME = "Player Revives";
 
     private double comboWindowSeconds = DEFAULT_COMBO_WINDOW_SECONDS;
     private int assistTimeoutSeconds = DEFAULT_ASSIST_TIMEOUT_SECONDS;
@@ -45,6 +51,7 @@ public class ServerData {
     private String killboardDisplayName = DEFAULT_KILLBOARD_DISPLAY_NAME;
     private String deathboardDisplayName = DEFAULT_DEATHBOARD_DISPLAY_NAME;
     private String assistboardDisplayName = DEFAULT_ASSISTBOARD_DISPLAY_NAME;
+    private String reviveboardDisplayName = DEFAULT_REVIVEBOARD_DISPLAY_NAME;
     private final Set<Integer> disabledBonusTypes = ConcurrentHashMap.newKeySet();
     private final Map<Integer, String> bonusExpressions = new ConcurrentHashMap<>();
     private final Map<Integer, String> defaultExpressions = new HashMap<>();
@@ -108,6 +115,21 @@ public class ServerData {
         defaultExpressions.put(BonusType.SPOTTING, "5");
         defaultExpressions.put(BonusType.SPOTTING_KILL, "30");
         defaultExpressions.put(BonusType.SPOTTING_TEAM_ASSIST, "15");
+        defaultExpressions.put(BonusType.CONQUEST_CAPTURE_PROGRESS, "2");
+        defaultExpressions.put(BonusType.CONQUEST_CAPTURE_NEUTRALIZE, "10");
+        defaultExpressions.put(BonusType.CONQUEST_CAPTURE_CONTROL, "20");
+        defaultExpressions.put(BonusType.SQUAD_DEPLOY_ON_YOU, "10");
+        defaultExpressions.put(BonusType.SQUAD_LAST_MEMBER_KILL, "15");
+        defaultExpressions.put(BonusType.EMERGENCY_REINFORCEMENT, "20");
+        defaultExpressions.put(BonusType.SQUAD_WIPE_COMPLETION, "40");
+        defaultExpressions.put(BonusType.TACTICAL_GADGET_DESTROYED, "20");
+        defaultExpressions.put(BonusType.SQUAD_BEACON_DEPLOY, "20");
+        defaultExpressions.put(BonusType.VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY, "5");
+        defaultExpressions.put(BonusType.HEALING, "10");
+        defaultExpressions.put(BonusType.AMMO_SUPPLY, "10");
+        defaultExpressions.put(BonusType.REVIVE, "100");
+        defaultExpressions.put(BonusType.VEHICLE_DESTROY_ASSIST, "1");
+        defaultExpressions.put(BonusType.FRIENDLY_DEPLOY_ON_YOUR_VEHICLE, "10");
     
         defaultExpressions.put(BonusType.DAMAGE, "1");
         defaultExpressions.put(BonusType.HEADSHOT, "1");
@@ -165,7 +187,7 @@ public class ServerData {
         this.scoreboardDisplayName = name;
         saveConfig();
         
-        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        net.minecraft.server.MinecraftServer server = ServerBridge.loader().getCurrentServer();
         if (server != null) {
             net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
             net.minecraft.world.scores.Objective objective = scoreboard.getObjective(SCOREBOARD_OBJECTIVE);
@@ -181,7 +203,7 @@ public class ServerData {
         this.killboardDisplayName = name;
         saveConfig();
         
-        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        net.minecraft.server.MinecraftServer server = ServerBridge.loader().getCurrentServer();
         if (server != null) {
             net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
             net.minecraft.world.scores.Objective objective = scoreboard.getObjective(KILLBOARD_OBJECTIVE);
@@ -197,7 +219,7 @@ public class ServerData {
         this.deathboardDisplayName = name;
         saveConfig();
         
-        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        net.minecraft.server.MinecraftServer server = ServerBridge.loader().getCurrentServer();
         if (server != null) {
             net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
             net.minecraft.world.scores.Objective objective = scoreboard.getObjective(DEATHBOARD_OBJECTIVE);
@@ -213,10 +235,26 @@ public class ServerData {
         this.assistboardDisplayName = name;
         saveConfig();
         
-        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        net.minecraft.server.MinecraftServer server = ServerBridge.loader().getCurrentServer();
         if (server != null) {
             net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
             net.minecraft.world.scores.Objective objective = scoreboard.getObjective(ASSISTBOARD_OBJECTIVE);
+            if (objective != null) {
+                objective.setDisplayName(net.minecraft.network.chat.Component.literal(name));
+            }
+        }
+    }
+
+    public String getReviveboardDisplayName() { return reviveboardDisplayName; }
+
+    public void setReviveboardDisplayName(String name) {
+        this.reviveboardDisplayName = name;
+        saveConfig();
+
+        net.minecraft.server.MinecraftServer server = ServerBridge.loader().getCurrentServer();
+        if (server != null) {
+            net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
+            net.minecraft.world.scores.Objective objective = scoreboard.getObjective(REVIVEBOARD_OBJECTIVE);
             if (objective != null) {
                 objective.setDisplayName(net.minecraft.network.chat.Component.literal(name));
             }
@@ -258,10 +296,11 @@ public class ServerData {
         comboWindowSeconds = DEFAULT_COMBO_WINDOW_SECONDS;
         assistTimeoutSeconds = DEFAULT_ASSIST_TIMEOUT_SECONDS;
         scoreMaxLimit = DEFAULT_SCORE_MAX_LIMIT;
-        scoreboardDisplayName = "玩家分数";
+        scoreboardDisplayName = "鐜╁鍒嗘暟";
         killboardDisplayName = "玩家击杀";
-        deathboardDisplayName = "玩家死亡";
-        assistboardDisplayName = "玩家助攻";
+        deathboardDisplayName = "鐜╁姝讳骸";
+        assistboardDisplayName = "鐜╁鍔╂敾";
+        reviveboardDisplayName = "玩家救援";
         disabledBonusTypes.clear();
         disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
         bonusExpressions.clear();
@@ -283,9 +322,18 @@ public class ServerData {
         killboardDisplayName = DEFAULT_KILLBOARD_DISPLAY_NAME;
         deathboardDisplayName = DEFAULT_DEATHBOARD_DISPLAY_NAME;
         assistboardDisplayName = DEFAULT_ASSISTBOARD_DISPLAY_NAME;
+        reviveboardDisplayName = DEFAULT_REVIVEBOARD_DISPLAY_NAME;
         disabledBonusTypes.clear();
         disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
         bonusExpressions.clear();
+    }
+
+    private boolean tryRouteConquestRuntimeStats(ServerPlayer player, float scoreDelta, int killDelta, int deathDelta, int assistDelta, int reviveDelta) {
+        return ConquestRuntimeStatsAdapter.routeStatDelta(player, scoreDelta, killDelta, deathDelta, assistDelta, reviveDelta);
+    }
+
+    private boolean shouldBlockConquestGlobalStats(ServerPlayer player) {
+        return ConquestRuntimeStatsAdapter.shouldBlockGlobalStatDelta(player);
     }
 
     public float getScore(UUID uuid) {
@@ -309,31 +357,24 @@ public class ServerData {
     }
 
     public void addScore(ServerPlayer player, float amount) {
-        if (amount == 0) return;
+        if (player == null || amount == 0) return;
+        tryRouteConquestRuntimeStats(player, amount, 0, 0, 0, 0);
+        if (shouldBlockConquestGlobalStats(player)) return;
         UUID uuid = player.getUUID();
         float current = getScore(uuid);
-
         double potential = (double) current + amount;
         float next = (float) Math.min(potential, (double) scoreMaxLimit);
-
-        PlayerDataManager.get().setScore(uuid, next);
-        updateScoreboard(player, next);
+        applyScoreValue(player, next);
     }
 
     public void setScore(ServerPlayer player, float amount) {
-        UUID uuid = player.getUUID();
         float next = Math.max(0, Math.min(amount, scoreMaxLimit));
-        PlayerDataManager.get().setScore(uuid, next);
-        updateScoreboard(player, next);
+        applyScoreValue(player, next);
     }
 
     public void setAllScores(MinecraftServer server, float amount) {
         float next = Math.max(0, Math.min(amount, scoreMaxLimit));
-        PlayerDataManager.get().getAllScores().keySet().forEach(uuid -> {
-            PlayerDataManager.get().setScore(uuid, next);
-        });
-
-        refreshScoreboard(server);
+        setAllIntentionallyTrackedStats(server, PlayerDataManager.get().getAllScores(), (uuid, value) -> PlayerDataManager.get().setScore(uuid, value), next);
     }
 
     public int getKill(UUID uuid) {
@@ -357,31 +398,15 @@ public class ServerData {
     }
 
     public void addKill(ServerPlayer player, int amount) {
-        if (amount == 0) return;
-        UUID uuid = player.getUUID();
-        int current = getKill(uuid);
-
-        long potential = (long) current + amount;
-        int next = (int) Math.min(potential, (long) Integer.MAX_VALUE);
-
-        PlayerDataManager.get().setKill(uuid, next);
-        updateKillboard(player, next);
+        addIntStat(player, amount, 0.0F, amount, 0, 0, 0, this::getKill, (uuid, value) -> PlayerDataManager.get().setKill(uuid, value), this::updateKillboard);
     }
 
     public void setKill(ServerPlayer player, int amount) {
-        UUID uuid = player.getUUID();
-        int next = Math.max(0, amount);
-        PlayerDataManager.get().setKill(uuid, next);
-        updateKillboard(player, next);
+        setIntStat(player, amount, (uuid, value) -> PlayerDataManager.get().setKill(uuid, value), this::updateKillboard);
     }
 
     public void setAllKills(MinecraftServer server, int amount) {
-        int next = Math.max(0, amount);
-        PlayerDataManager.get().getAllKills().keySet().forEach(uuid -> {
-            PlayerDataManager.get().setKill(uuid, next);
-        });
-
-        refreshScoreboard(server);
+        setAllIntentionallyTrackedStats(server, PlayerDataManager.get().getAllKills(), (uuid, value) -> PlayerDataManager.get().setKill(uuid, value), Math.max(0, amount));
     }
 
     public int getDeath(UUID uuid) {
@@ -405,31 +430,15 @@ public class ServerData {
     }
 
     public void addDeath(ServerPlayer player, int amount) {
-        if (amount == 0) return;
-        UUID uuid = player.getUUID();
-        int current = getDeath(uuid);
-
-        long potential = (long) current + amount;
-        int next = (int) Math.min(potential, (long) Integer.MAX_VALUE);
-
-        PlayerDataManager.get().setDeath(uuid, next);
-        updateDeathboard(player, next);
+        addIntStat(player, amount, 0.0F, 0, amount, 0, 0, this::getDeath, (uuid, value) -> PlayerDataManager.get().setDeath(uuid, value), this::updateDeathboard);
     }
 
     public void setDeath(ServerPlayer player, int amount) {
-        UUID uuid = player.getUUID();
-        int next = Math.max(0, amount);
-        PlayerDataManager.get().setDeath(uuid, next);
-        updateDeathboard(player, next);
+        setIntStat(player, amount, (uuid, value) -> PlayerDataManager.get().setDeath(uuid, value), this::updateDeathboard);
     }
 
     public void setAllDeaths(MinecraftServer server, int amount) {
-        int next = Math.max(0, amount);
-        PlayerDataManager.get().getAllDeaths().keySet().forEach(uuid -> {
-            PlayerDataManager.get().setDeath(uuid, next);
-        });
-
-        refreshScoreboard(server);
+        setAllIntentionallyTrackedStats(server, PlayerDataManager.get().getAllDeaths(), (uuid, value) -> PlayerDataManager.get().setDeath(uuid, value), Math.max(0, amount));
     }
 
     public int getAssist(UUID uuid) {
@@ -441,31 +450,35 @@ public class ServerData {
     }
 
     public void addAssist(ServerPlayer player, int amount) {
-        if (amount == 0) return;
-        UUID uuid = player.getUUID();
-        int current = getAssist(uuid);
+        addIntStat(player, amount, 0.0F, 0, 0, amount, 0, this::getAssist, (uuid, value) -> PlayerDataManager.get().setAssist(uuid, value), this::updateAssistboard);
+    }
 
-        long potential = (long) current + amount;
-        int next = (int) Math.min(potential, (long) Integer.MAX_VALUE);
+    public int getRevive(UUID uuid) {
+        return PlayerDataManager.get().getRevive(uuid);
+    }
 
-        PlayerDataManager.get().setAssist(uuid, next);
-        updateAssistboard(player, next);
+    public Map<UUID, Integer> getAllRevives() {
+        return PlayerDataManager.get().getAllRevives();
+    }
+
+    public void addRevive(ServerPlayer player, int amount) {
+        addIntStat(player, amount, 0.0F, 0, 0, 0, amount, this::getRevive, (uuid, value) -> PlayerDataManager.get().setRevive(uuid, value), this::updateReviveboard);
+    }
+
+    public void setRevive(ServerPlayer player, int amount) {
+        setIntStat(player, amount, (uuid, value) -> PlayerDataManager.get().setRevive(uuid, value), this::updateReviveboard);
+    }
+
+    public void setAllRevives(MinecraftServer server, int amount) {
+        setAllIntentionallyTrackedStats(server, PlayerDataManager.get().getAllRevives(), (uuid, value) -> PlayerDataManager.get().setRevive(uuid, value), Math.max(0, amount));
     }
 
     public void setAssist(ServerPlayer player, int amount) {
-        UUID uuid = player.getUUID();
-        int next = Math.max(0, amount);
-        PlayerDataManager.get().setAssist(uuid, next);
-        updateAssistboard(player, next);
+        setIntStat(player, amount, (uuid, value) -> PlayerDataManager.get().setAssist(uuid, value), this::updateAssistboard);
     }
 
     public void setAllAssists(MinecraftServer server, int amount) {
-        int next = Math.max(0, amount);
-        PlayerDataManager.get().getAllAssists().keySet().forEach(uuid -> {
-            PlayerDataManager.get().setAssist(uuid, next);
-        });
-
-        refreshScoreboard(server);
+        setAllIntentionallyTrackedStats(server, PlayerDataManager.get().getAllAssists(), (uuid, value) -> PlayerDataManager.get().setAssist(uuid, value), Math.max(0, amount));
     }
 
     public void refreshScoreboard(MinecraftServer server) {
@@ -510,6 +523,16 @@ public class ServerData {
                 scoreboard.getOrCreatePlayerScore(scoreHolderName, assistObjective).setScore(assist);
             });
         }
+
+        Objective reviveObjective = scoreboard.getObjective(REVIVEBOARD_OBJECTIVE);
+        if (reviveObjective != null) {
+            clearScoreboardScores(scoreboard, reviveObjective);
+
+            PlayerDataManager.get().getAllRevives().forEach((uuid, revive) -> {
+                String scoreHolderName = getScoreHolderName(server, uuid);
+                scoreboard.getOrCreatePlayerScore(scoreHolderName, reviveObjective).setScore(revive);
+            });
+        }
     }
 
     private void clearScoreboardScores(Scoreboard scoreboard, Objective objective) {
@@ -522,6 +545,7 @@ public class ServerData {
     public static final String KILLBOARD_OBJECTIVE = "gd656killicon.kill";
     public static final String DEATHBOARD_OBJECTIVE = "gd656killicon.death";
     public static final String ASSISTBOARD_OBJECTIVE = "gd656killicon.assist";
+    public static final String REVIVEBOARD_OBJECTIVE = "gd656killicon.revive";
     
     public void initScoreboard(MinecraftServer server) {
         Scoreboard scoreboard = server.getScoreboard();
@@ -577,6 +601,21 @@ public class ServerData {
             String scoreHolderName = getScoreHolderName(server, uuid);
             scoreboard.getOrCreatePlayerScore(scoreHolderName, finalAssistObj).setScore(assist);
         });
+
+        if (ServerBridge.loader().isModLoaded("gd656conquest")) {
+            Objective reviveObjective = scoreboard.getObjective(REVIVEBOARD_OBJECTIVE);
+            if (reviveObjective == null) {
+                reviveObjective = scoreboard.addObjective(REVIVEBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(reviveboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
+            } else {
+                reviveObjective.setDisplayName(Component.literal(reviveboardDisplayName));
+            }
+
+            final Objective finalReviveObj = reviveObjective;
+            PlayerDataManager.get().getAllRevives().forEach((uuid, revive) -> {
+                String scoreHolderName = getScoreHolderName(server, uuid);
+                scoreboard.getOrCreatePlayerScore(scoreHolderName, finalReviveObj).setScore(revive);
+            });
+        }
     }
 
     public String getScoreHolderName(MinecraftServer server, UUID uuid) {
@@ -591,6 +630,65 @@ public class ServerData {
 
     public void syncScoreToPlayer(ServerPlayer player) {
         updateScoreboard(player, getScore(player.getUUID()));
+    }
+
+    private void applyScoreValue(ServerPlayer player, float value) {
+        if (player == null) {
+            return;
+        }
+        PlayerDataManager.get().setScore(player.getUUID(), value);
+        updateScoreboard(player, value);
+    }
+
+    private void addIntStat(
+        ServerPlayer player,
+        int amount,
+        float scoreDelta,
+        int killDelta,
+        int deathDelta,
+        int assistDelta,
+        int reviveDelta,
+        Function<UUID, Integer> getter,
+        BiConsumer<UUID, Integer> setter,
+        ObjIntConsumer<ServerPlayer> scoreboardUpdater
+    ) {
+        if (player == null || amount == 0) {
+            return;
+        }
+        tryRouteConquestRuntimeStats(player, scoreDelta, killDelta, deathDelta, assistDelta, reviveDelta);
+        if (shouldBlockConquestGlobalStats(player)) {
+            return;
+        }
+        UUID uuid = player.getUUID();
+        int current = getter.apply(uuid);
+        long potential = (long) current + amount;
+        int next = (int) Math.min(potential, (long) Integer.MAX_VALUE);
+        setter.accept(uuid, next);
+        scoreboardUpdater.accept(player, next);
+    }
+
+    private void setIntStat(
+        ServerPlayer player,
+        int amount,
+        BiConsumer<UUID, Integer> setter,
+        ObjIntConsumer<ServerPlayer> scoreboardUpdater
+    ) {
+        if (player == null) {
+            return;
+        }
+        int next = Math.max(0, amount);
+        setter.accept(player.getUUID(), next);
+        scoreboardUpdater.accept(player, next);
+    }
+
+    private <T> void setAllIntentionallyTrackedStats(
+        MinecraftServer server,
+        Map<UUID, T> currentValues,
+        BiConsumer<UUID, T> setter,
+        T nextValue
+    ) {
+        currentValues.keySet().forEach(uuid -> setter.accept(uuid, nextValue));
+        refreshScoreboard(server);
     }
 
     private void updateScoreboard(ServerPlayer player, float score) {
@@ -625,6 +723,14 @@ public class ServerData {
         }
     }
 
+    private void updateReviveboard(ServerPlayer player, int revive) {
+        Scoreboard scoreboard = player.getScoreboard();
+        Objective objective = scoreboard.getObjective(REVIVEBOARD_OBJECTIVE);
+        if (objective != null) {
+            scoreboard.getOrCreatePlayerScore(player.getScoreboardName(), objective).setScore(revive);
+        }
+    }
+
     private void load() {
         try {
             if (Files.exists(configPath)) {
@@ -636,6 +742,7 @@ public class ServerData {
             if (json.has("killboard_display_name")) killboardDisplayName = json.get("killboard_display_name").getAsString();
             if (json.has("deathboard_display_name")) deathboardDisplayName = json.get("deathboard_display_name").getAsString();
             if (json.has("assistboard_display_name")) assistboardDisplayName = json.get("assistboard_display_name").getAsString();
+            if (json.has("reviveboard_display_name")) reviveboardDisplayName = json.get("reviveboard_display_name").getAsString();
                 if (json.has("disabled_bonuses")) {
                     JsonArray array = json.getAsJsonArray("disabled_bonuses");
                     disabledBonusTypes.clear();
@@ -668,6 +775,7 @@ public class ServerData {
         json.addProperty("killboard_display_name", killboardDisplayName);
         json.addProperty("deathboard_display_name", deathboardDisplayName);
         json.addProperty("assistboard_display_name", assistboardDisplayName);
+        json.addProperty("reviveboard_display_name", reviveboardDisplayName);
 
             JsonArray disabledArray = new JsonArray();
             disabledBonusTypes.forEach(disabledArray::add);
@@ -682,4 +790,5 @@ public class ServerData {
             ServerLog.error("Failed to save server config: %s", e.getMessage());
         }
     }
+
 }

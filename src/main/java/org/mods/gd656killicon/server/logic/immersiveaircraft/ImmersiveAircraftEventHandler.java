@@ -7,21 +7,21 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.ProjectileImpactEvent;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
 import org.mods.gd656killicon.network.NetworkHandler;
 import org.mods.gd656killicon.network.packet.KillIconPacket;
 import org.mods.gd656killicon.server.ServerCore;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.data.PlayerDataManager;
 import org.mods.gd656killicon.server.data.ServerData;
+import org.mods.gd656killicon.server.logic.immersiveaircraft.IImmersiveAircraftHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
 
 import java.util.Map;
@@ -35,14 +35,14 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
 
     @Override
     public void init() {
-        MinecraftForge.EVENT_BUS.register(this);
+        ServerBridge.loader().registerForgeEventBusSubscriber(this);
         ServerLog.info("ImmersiveAircraft event handler registered.");
         
-        if (ModList.get().isLoaded("tacz")) {
+        if (ServerBridge.loader().isModLoaded("tacz")) {
             try {
                 Class<?> listenerClass = Class.forName("org.mods.gd656killicon.server.logic.immersiveaircraft.ImmersiveAircraftEventHandler$TaczListener");
                 Object listener = listenerClass.getDeclaredConstructor(ImmersiveAircraftEventHandler.class).newInstance(this);
-                MinecraftForge.EVENT_BUS.register(listener);
+                ServerBridge.loader().registerForgeEventBusSubscriber(listener);
                 ServerLog.info("ImmersiveAircraft TACZ listener registered.");
             } catch (Exception e) {
                 ServerLog.error("Failed to register TACZ listener: " + e.getMessage());
@@ -191,8 +191,10 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
             if (score > 0) {
                 ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null, vehicle.getId(), vehicleNameKey);
             }
+
+            awardVehicleDestroyAssistBonuses(vehicle, tracker, killer);
             
-            PlayerDataManager.get().addKill(killer.getUUID(), 1);
+            ServerData.get().addKill(killer, 1);
             
             String extraInfo = vehicleNameKey + "|" + DEFAULT_SCORE_BASE;
 
@@ -219,6 +221,32 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
+    }
+
+    private void awardVehicleDestroyAssistBonuses(VehicleEntity vehicle, VehicleCombatTracker tracker, ServerPlayer killer) {
+        if (!ServerData.get().isBonusEnabled(BonusType.VEHICLE_DESTROY_ASSIST)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        UUID killerUuid = killer.getUUID();
+        UUID driverUuid = vehicle.getControllingPassenger() instanceof ServerPlayer driver ? driver.getUUID() : null;
+        tracker.damageByAttacker.forEach((attackerUuid, damage) -> {
+            if (attackerUuid == null || attackerUuid.equals(killerUuid) || damage <= 0.0f) {
+                return;
+            }
+            Long lastContributionTime = tracker.lastContributionTimeByAttacker.get(attackerUuid);
+            if (lastContributionTime == null || now - lastContributionTime > ServerData.get().getAssistTimeoutMs()) {
+                return;
+            }
+            if (driverUuid != null && driverUuid.equals(attackerUuid)) {
+                return;
+            }
+            ServerPlayer assister = ServerCore.getServer().getPlayerList().getPlayer(attackerUuid);
+            if (assister == null) {
+                return;
+            }
+            ServerCore.BONUS.add(assister, BonusType.VEHICLE_DESTROY_ASSIST, damage, null, vehicle.getId(), vehicle.getType().getDescriptionId());
+        });
     }
 
     @SubscribeEvent
@@ -255,10 +283,16 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         UUID lastAttackerUuid;
         long lastAttackTime;
         boolean lastAttackerWasPlayer = false;
+        Map<UUID, Float> damageByAttacker = new java.util.HashMap<>();
+        Map<UUID, Long> lastContributionTimeByAttacker = new java.util.HashMap<>();
 
         void recordDamage(UUID attackerUuid, float amount, boolean isPlayer) {
             if (attackerUuid != null) {
                 lastAttackerUuid = attackerUuid;
+                if (amount > 0.0f) {
+                    damageByAttacker.merge(attackerUuid, amount, Float::sum);
+                    lastContributionTimeByAttacker.put(attackerUuid, System.currentTimeMillis());
+                }
             }
             lastAttackTime = System.currentTimeMillis();
             lastAttackerWasPlayer = isPlayer;

@@ -65,7 +65,10 @@ public class SoundTriggerManager {
                     ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_EXPLOSION);
                 } else if (killType == KillType.CRIT) {
                     ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_CRIT);
-                } else if (killType == KillType.ASSIST) {
+                } else if (killType == KillType.ASSIST
+                    || killType == KillType.CAPTURE
+                    || killType == KillType.VEHICLE_DESTROY_ASSIST
+                    || killType == KillType.MEDIC) {
                     ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_ASSIST);
                 } else {
                     ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_DEFAULT);

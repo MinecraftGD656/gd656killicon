@@ -29,13 +29,13 @@ public class DefaultConfigRegistry {
 
     private static void registerOfficialNames() {
         OFFICIAL_PRESET_NAMES.put("00001", "六五六自制预设");
-        OFFICIAL_PRESET_NAMES.put("00002", "CF连杀图标模式");
-        OFFICIAL_PRESET_NAMES.put("00003", "CS2卡牌模式");
-        OFFICIAL_PRESET_NAMES.put("00004", "Battlefield 1模式");
-        OFFICIAL_PRESET_NAMES.put("00005", "Battlefield 4模式");
-        OFFICIAL_PRESET_NAMES.put("00006", "PUBG淘汰字幕模式");
-        OFFICIAL_PRESET_NAMES.put("00007", "Battlefield 5模式");
-        OFFICIAL_PRESET_NAMES.put("00008", "三角洲行动：全面战场模式");
+        OFFICIAL_PRESET_NAMES.put("00002", "CF杩炴潃鍥炬爣妯″紡");
+        OFFICIAL_PRESET_NAMES.put("00003", "CS2鍗＄墝妯″紡");
+        OFFICIAL_PRESET_NAMES.put("00004", "Battlefield 1妯″紡");
+        OFFICIAL_PRESET_NAMES.put("00005", "Battlefield 4妯″紡");
+        OFFICIAL_PRESET_NAMES.put("00006", "PUBG娣樻卑瀛楀箷妯″紡");
+        OFFICIAL_PRESET_NAMES.put("00007", "Battlefield 5妯″紡");
+        OFFICIAL_PRESET_NAMES.put("00008", "涓夎娲茶鍔細鍏ㄩ潰鎴樺満妯″紡");
         for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
             OFFICIAL_PRESET_NAMES.put(definition.presetId(), "VALORANT " + definition.displayName());
         }
@@ -177,6 +177,8 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("color_assist_placeholder", "#008B8B");
         killFeed.addProperty("format_destroy_vehicle", "gd656killicon.client.format.destroy_vehicle");
         killFeed.addProperty("color_destroy_vehicle_placeholder", "#D4B800");
+        killFeed.addProperty("format_capture", "gd656killicon.client.format.capture");
+        killFeed.addProperty("color_capture_placeholder", "#008B8B");
         killFeed.addProperty("color_normal_text", "#FFFFFF");
         killFeed.addProperty("enable_placeholder_bold", false);
         
@@ -186,6 +188,7 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("enable_crit_kill", true);
         killFeed.addProperty("enable_assist_kill", true);
         killFeed.addProperty("enable_destroy_vehicle_kill", true);
+        killFeed.addProperty("enable_capture_kill", true);
         killFeed.addProperty("enable_scale_animation", true);
 
         killFeed.addProperty("color_normal_emphasis", "#FFFFFF");
@@ -194,6 +197,7 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("color_crit_emphasis", "#FFFFFF");
         killFeed.addProperty("color_assist_emphasis", "#FFFFFF");
         killFeed.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
+        killFeed.addProperty("color_capture_emphasis", "#FFFFFF");
 
         killFeed.addProperty("enable_stacking", false);
         killFeed.addProperty("max_lines", 3);
@@ -277,6 +281,20 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("format_spotting", "gd656killicon.client.format.bonus_spotting");
         bonusList.addProperty("format_spotting_kill", "gd656killicon.client.format.bonus_spotting_kill");
         bonusList.addProperty("format_spotting_team_assist", "gd656killicon.client.format.bonus_spotting_team_assist");
+        bonusList.addProperty("format_conquest_capture_progress", "gd656killicon.client.format.bonus_conquest_capture_progress");
+        bonusList.addProperty("format_conquest_capture_neutralize", "gd656killicon.client.format.bonus_conquest_capture_neutralize");
+        bonusList.addProperty("format_conquest_capture_control", "gd656killicon.client.format.bonus_conquest_capture_control");
+        bonusList.addProperty("format_squad_deploy_on_you", "gd656killicon.client.format.bonus_squad_deploy_on_you");
+        bonusList.addProperty("format_squad_last_member_kill", "gd656killicon.client.format.bonus_squad_last_member_kill");
+        bonusList.addProperty("format_emergency_reinforcement", "gd656killicon.client.format.bonus_emergency_reinforcement");
+        bonusList.addProperty("format_squad_wipe_completion", "gd656killicon.client.format.bonus_squad_wipe_completion");
+        bonusList.addProperty("format_tactical_gadget_destroyed", "gd656killicon.client.format.bonus_tactical_gadget_destroyed");
+        bonusList.addProperty("format_squad_beacon_deploy", "gd656killicon.client.format.bonus_squad_beacon_deploy");
+        bonusList.addProperty("format_value_objective_support_beacon_deploy", "gd656killicon.client.format.bonus_value_objective_support_beacon_deploy");
+        bonusList.addProperty("format_vehicle_destroy_assist", "gd656killicon.client.format.bonus_vehicle_destroy_assist");
+        bonusList.addProperty("format_friendly_deploy_on_your_vehicle", "gd656killicon.client.format.bonus_friendly_deploy_on_your_vehicle");
+        bonusList.addProperty("format_healing", "gd656killicon.client.format.bonus_healing");
+        bonusList.addProperty("format_revive", "gd656killicon.client.format.bonus_revive");
         bonusList.addProperty("format_kill_combo", "gd656killicon.client.format.bonus_combo");
         bonusList.addProperty("enable_special_streak_subtitles", false);
         bonusList.addProperty("enable_text_scrolling", false);
@@ -309,9 +327,9 @@ public class DefaultConfigRegistry {
         comboSubtitle.addProperty("y_offset", 70.0);
         comboSubtitle.addProperty("color_kill_combo", "#FF3500");
         comboSubtitle.addProperty("color_assist_combo", "#FFD700");
-        comboSubtitle.addProperty("format_kill_single", "\u003ccombo\u003e 淘汰");
+        comboSubtitle.addProperty("format_kill_single", "\u003ccombo\u003e 娣樻卑");
         comboSubtitle.addProperty("format_kill_multi", "\u003ccombo\u003e 淘汰数");
-        comboSubtitle.addProperty("format_assist_single", "\u003ccombo\u003e 助攻");
+        comboSubtitle.addProperty("format_assist_single", "\u003ccombo\u003e 鍔╂敾");
         comboSubtitle.addProperty("format_assist_multi", "\u003ccombo\u003e 助攻数");
         comboSubtitle.addProperty("enable_animation", true);
         comboSubtitle.addProperty("enable_light_effect", true);
@@ -575,12 +593,15 @@ public class DefaultConfigRegistry {
         killFeed00007.addProperty("color_assist_placeholder", "#FFFFFF");
         killFeed00007.addProperty("format_destroy_vehicle", "载具已摧毁 +<score>");
         killFeed00007.addProperty("color_destroy_vehicle_placeholder", "#FFFFFF");
+        killFeed00007.addProperty("format_capture", "gd656killicon.client.format.preset_00007.kill_feed.capture");
+        killFeed00007.addProperty("color_capture_placeholder", "#FFFFFF");
         killFeed00007.addProperty("color_normal_emphasis", "#FFFFFF");
         killFeed00007.addProperty("color_headshot_emphasis", "#FFFFFF");
         killFeed00007.addProperty("color_explosion_emphasis", "#FFFFFF");
         killFeed00007.addProperty("color_crit_emphasis", "#FFFFFF");
         killFeed00007.addProperty("color_assist_emphasis", "#FFFFFF");
         killFeed00007.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
+        killFeed00007.addProperty("color_capture_emphasis", "#FFFFFF");
         registerOverride("00007", "subtitle/kill_feed", killFeed00007);
 
         JsonObject score00007 = score.deepCopy();

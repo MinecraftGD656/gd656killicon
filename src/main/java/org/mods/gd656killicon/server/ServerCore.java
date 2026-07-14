@@ -8,9 +8,10 @@ import org.mods.gd656killicon.server.logic.integration.SpottingIntegration;
 import org.mods.gd656killicon.server.logic.integration.SuperbWarfareIntegration;
 import org.mods.gd656killicon.server.logic.integration.TaczIntegration;
 import org.mods.gd656killicon.server.logic.integration.CustomNpcsIntegration;
+import org.mods.gd656killicon.server.logic.integration.ConquestBattlefieldIntegration;
 import org.mods.gd656killicon.server.logic.integration.YwzjVehicleIntegration;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import net.minecraft.server.MinecraftServer;
-import net.minecraftforge.server.ServerLifecycleHooks;
 
 public class ServerCore {
     public static final BonusEngine BONUS = new BonusEngine();
@@ -22,9 +23,10 @@ public class ServerCore {
     public static final SpottingIntegration SPOTTING = SpottingIntegration.get();
     public static final PingWheelIntegration PING_WHEEL = PingWheelIntegration.get();
     public static final CustomNpcsIntegration CUSTOM_NPCS = CustomNpcsIntegration.get();
+    public static final ConquestBattlefieldIntegration CONQUEST_BATTLEFIELD = ConquestBattlefieldIntegration.get();
     public static final org.mods.gd656killicon.server.logic.integration.ImmersiveAircraftIntegration IMMERSIVE_AIRCRAFT = org.mods.gd656killicon.server.logic.integration.ImmersiveAircraftIntegration.get();
 
     public static MinecraftServer getServer() {
-        return ServerLifecycleHooks.getCurrentServer();
+        return ServerBridge.loader().getCurrentServer();
     }
 }

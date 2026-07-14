@@ -6,7 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
-import net.minecraftforge.fml.loading.FMLPaths;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryStack;
 import org.mods.gd656killicon.Gd656killicon;
@@ -42,7 +42,7 @@ import java.util.concurrent.ThreadFactory;
 import static org.lwjgl.stb.STBVorbis.*;
 
 public class ExternalSoundManager {
-    private static final Path CONFIG_ASSETS_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon/assets");
+    private static final Path CONFIG_ASSETS_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon/assets");
     private static final Path COMMON_SOUNDS_DIR = CONFIG_ASSETS_DIR.resolve("common").resolve("sounds");
     private static final String SOUND_SELECTION_FILE = "sound_selection.json";
     private static final String CUSTOM_SOUND_LABELS_FILE = "custom_sound_labels.json";
@@ -845,6 +845,9 @@ public class ExternalSoundManager {
     public static void resetSounds(String presetId) {
         ensureCommonSoundFiles(false);
         ensureSoundFilesForPreset(presetId, true);
+        resetSoundSelectionDataForPreset(presetId, true);
+        saveSoundSelections();
+        saveSoundLabels();
         ClientMessageLogger.chatSuccess("gd656killicon.client.sound.reset_success", presetId);
 
         if (presetId.equals(ConfigManager.getCurrentPresetId())) {
@@ -858,6 +861,9 @@ public class ExternalSoundManager {
                 ClientMessageLogger.info("Async sound reset started for preset %s.", presetId);
                 ensureCommonSoundFiles(false);
                 ensureSoundFilesForPreset(presetId, true);
+                resetSoundSelectionDataForPreset(presetId, true);
+                saveSoundSelections();
+                saveSoundLabels();
                 
                 ClientMessageLogger.info("Async sound reset success for preset %s.", presetId);
 
@@ -874,8 +880,12 @@ public class ExternalSoundManager {
         ensureCommonSoundFiles(true);
         Set<String> presets = ConfigManager.getPresetIds();
         for (String presetId : presets) {
-            resetSounds(presetId);
+            ensureSoundFilesForPreset(presetId, true);
+            resetSoundSelectionDataForPreset(presetId, true);
         }
+        saveSoundSelections();
+        saveSoundLabels();
+        reload();
     }
 
     public static void resetAllSoundsAsync() {
@@ -887,7 +897,10 @@ public class ExternalSoundManager {
                 
                 for (String presetId : presets) {
                     ensureSoundFilesForPreset(presetId, true);
+                    resetSoundSelectionDataForPreset(presetId, true);
                 }
+                saveSoundSelections();
+                saveSoundLabels();
                 
                 ClientMessageLogger.info("Async sound reset success for all presets.");
                 
@@ -896,6 +909,44 @@ public class ExternalSoundManager {
                 ClientMessageLogger.error("Async sound reset failed: %s", e.getMessage());
             }
         });
+    }
+
+    private static void resetSoundSelectionDataForPreset(String presetId, boolean deleteCustomFiles) {
+        if (presetId == null || presetId.isEmpty()) {
+            return;
+        }
+        Map<String, String> defaults = new HashMap<>();
+        for (String slotId : SOUND_SLOT_IDS) {
+            String def = getDefaultSoundBaseName(presetId, slotId);
+            if (def != null) {
+                defaults.put(slotId, def);
+            }
+        }
+        SOUND_SELECTIONS.put(presetId, defaults);
+        SOUND_LABELS.remove(presetId);
+        if (!deleteCustomFiles) {
+            return;
+        }
+        Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
+        try {
+            if (Files.exists(presetDir)) {
+                try (java.util.stream.Stream<Path> paths = Files.list(presetDir)) {
+                    paths.forEach(path -> {
+                        String name = path.getFileName().toString();
+                        if (name.startsWith(CUSTOM_SOUND_PREFIX) && (name.endsWith(".ogg") || name.endsWith(".wav"))) {
+                            try {
+                                Files.deleteIfExists(path);
+                            } catch (IOException ignored) {
+                            }
+                        }
+                    });
+                }
+                Files.deleteIfExists(presetDir.resolve(CUSTOM_SOUND_LABELS_FILE));
+            }
+        } catch (IOException ignored) {
+        }
+        clearPendingSoundReplacementsForPreset(presetId);
+        PENDING_CUSTOM_SOUNDS.remove(presetId);
     }
 
     private static int loadSoundsForPreset(String presetId) {

@@ -131,7 +131,7 @@ public class HelpTab extends ConfigTabContent {
             for (String bonusName : bonusNames) {
                  String nameKey = "gd656killicon.bonus." + bonusName + ".name";
                  String descKey = "gd656killicon.bonus." + bonusName + ".desc";
-                 if (!I18n.exists(descKey)) {
+                 if (!org.mods.gd656killicon.client.util.I18nCompat.exists(descKey)) {
                      descKey = "gd656killicon.client.gui.help.bonus.default_desc"; 
                  }
                  int bonusType = BonusType.getTypeByName(bonusName);
@@ -190,8 +190,8 @@ public class HelpTab extends ConfigTabContent {
     }
 
     private void addIndentedHelpEntry(String titleKey, String descKey, int contentWidth) {
-        String title = I18n.exists(titleKey) ? I18n.get(titleKey) : titleKey;
-        String desc = I18n.exists(descKey) ? I18n.get(descKey) : descKey;
+        String title = org.mods.gd656killicon.client.util.I18nCompat.exists(titleKey) ? I18n.get(titleKey) : titleKey;
+        String desc = org.mods.gd656killicon.client.util.I18nCompat.exists(descKey) ? I18n.get(descKey) : descKey;
         
         title = "    " + title;
         
@@ -203,8 +203,8 @@ public class HelpTab extends ConfigTabContent {
     }
 
     private void addHelpEntry(String titleKey, String descKey, int contentWidth) {
-        String title = I18n.exists(titleKey) ? I18n.get(titleKey) : titleKey;
-        String desc = I18n.exists(descKey) ? I18n.get(descKey) : descKey;
+        String title = org.mods.gd656killicon.client.util.I18nCompat.exists(titleKey) ? I18n.get(titleKey) : titleKey;
+        String desc = org.mods.gd656killicon.client.util.I18nCompat.exists(descKey) ? I18n.get(descKey) : descKey;
         
         HelpTextEntry entry = new HelpTextEntry(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, title, desc);
         int height = entry.getRequiredHeight(contentWidth);
@@ -214,8 +214,8 @@ public class HelpTab extends ConfigTabContent {
     }
 
     private void addPrefixedBonusHelpEntry(int bonusType, String bonusName, String titleKey, String descKey, int contentWidth) {
-        String title = I18n.exists(titleKey) ? I18n.get(titleKey) : titleKey;
-        String desc = I18n.exists(descKey) ? I18n.get(descKey) : descKey;
+        String title = org.mods.gd656killicon.client.util.I18nCompat.exists(titleKey) ? I18n.get(titleKey) : titleKey;
+        String desc = org.mods.gd656killicon.client.util.I18nCompat.exists(descKey) ? I18n.get(descKey) : descKey;
         List<GDTextRenderer.ColoredText> titleParts = new ArrayList<>();
         String prefix = "[" + bonusType + "] ";
         titleParts.add(new GDTextRenderer.ColoredText(prefix, GuiConstants.COLOR_GRAY));

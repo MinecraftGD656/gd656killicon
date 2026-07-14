@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import net.minecraftforge.fml.ModList;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.pingwheel.DummyPingWheelHandler;
 import org.mods.gd656killicon.server.logic.pingwheel.IPingWheelHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
@@ -24,7 +24,7 @@ public class PingWheelIntegration {
         }
         initialized = true;
         try {
-            if (ModList.get().isLoaded("pingwheel")) {
+            if (ServerBridge.loader().isModLoaded("pingwheel")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.pingwheel.PingWheelEventHandler");
                 handler = (IPingWheelHandler) handlerClass.getDeclaredConstructor().newInstance();
                 handler.init();

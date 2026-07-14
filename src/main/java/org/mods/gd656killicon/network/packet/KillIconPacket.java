@@ -2,16 +2,15 @@ package org.mods.gd656killicon.network.packet;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.impl.ComboIconRenderer;
 import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
 import org.mods.gd656killicon.common.KillType;
 import org.mods.gd656killicon.network.IPacket;
+import org.mods.gd656killicon.network.PacketContext;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.function.Supplier;
 
 public class KillIconPacket implements IPacket {
     private static final long VEHICLE_PRIORITY_DELAY_MS = 700L;
@@ -102,8 +101,8 @@ public class KillIconPacket implements IPacket {
     }
 
     @Override
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> {
+    public void handle(PacketContext context) {
+        context.enqueueWork(() -> {
             ComboIconRenderer.updateServerComboWindowSeconds(this.comboWindowSeconds);
             long now = System.currentTimeMillis();
             if (this.killType == KillType.DESTROY_VEHICLE) {
@@ -122,7 +121,7 @@ public class KillIconPacket implements IPacket {
                 processTrigger(this, now);
             }
         });
-        context.get().setPacketHandled(true);
+        context.setPacketHandled(true);
     }
 
     public static void processPendingTriggers() {

@@ -1,6 +1,7 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import net.minecraftforge.fml.ModList;
+import net.minecraft.world.entity.LivingEntity;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.spotting.DummySpottingHandler;
 import org.mods.gd656killicon.server.logic.spotting.ISpottingHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
@@ -24,7 +25,7 @@ public class SpottingIntegration {
         }
         initialized = true;
         try {
-            if (ModList.get().isLoaded("spotting")) {
+            if (ServerBridge.loader().isModLoaded("spotting")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.spotting.SpottingEventHandler");
                 handler = (ISpottingHandler) handlerClass.getDeclaredConstructor().newInstance();
                 handler.init();
@@ -40,5 +41,9 @@ public class SpottingIntegration {
 
     public void tick() {
         handler.tick();
+    }
+
+    public void onLivingDeath(LivingEntity victim, LivingEntity killer) {
+        handler.onLivingDeath(victim, killer);
     }
 }

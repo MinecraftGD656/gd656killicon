@@ -35,19 +35,19 @@ public final class ServerPacketDispatcher {
     public static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, double comboWindowSeconds, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance) {
         boolean recordStats = killType != KillType.ASSIST && killType != KillType.DESTROY_VEHICLE;
 
-        dispatch(player, ServerPacketType.KILL_ICON_SCROLLING, () -> new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, recordStats));
-        dispatch(player, ServerPacketType.KILL_ICON_VALORANT, () -> new KillIconPacket("kill_icon", "valorant", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false));
+        dispatch(player, ServerPacketType.KILL_ICON_SCROLLING, () -> new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, recordStats, distance));
+        dispatch(player, ServerPacketType.KILL_ICON_VALORANT, () -> new KillIconPacket("kill_icon", "valorant", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
 
         if (combo > 0) {
-            dispatch(player, ServerPacketType.KILL_ICON_COMBO, () -> new KillIconPacket("kill_icon", "combo", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false));
+            dispatch(player, ServerPacketType.KILL_ICON_COMBO, () -> new KillIconPacket("kill_icon", "combo", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
         }
-        dispatch(player, ServerPacketType.KILL_ICON_CARD, () -> new KillIconPacket("kill_icon", "card", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false));
-        dispatch(player, ServerPacketType.KILL_ICON_CARD_BAR, () -> new KillIconPacket("kill_icon", "card_bar", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false));
-        dispatch(player, ServerPacketType.KILL_ICON_BATTLEFIELD1, () -> new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false));
+        dispatch(player, ServerPacketType.KILL_ICON_CARD, () -> new KillIconPacket("kill_icon", "card", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
+        dispatch(player, ServerPacketType.KILL_ICON_CARD_BAR, () -> new KillIconPacket("kill_icon", "card_bar", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
+        dispatch(player, ServerPacketType.KILL_ICON_BATTLEFIELD1, () -> new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
 
         dispatch(player, ServerPacketType.SUBTITLE_KILL_FEED, () -> new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
         if ((combo > 0 || killType == KillType.ASSIST) && killType != KillType.DESTROY_VEHICLE) {
-            dispatch(player, ServerPacketType.SUBTITLE_COMBO, () -> new KillIconPacket("subtitle", "combo", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false));
+            dispatch(player, ServerPacketType.SUBTITLE_COMBO, () -> new KillIconPacket("subtitle", "combo", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
         }
     }
 }

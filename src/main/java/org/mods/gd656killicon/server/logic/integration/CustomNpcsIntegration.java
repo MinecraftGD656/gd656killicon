@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.server.logic.integration;
 
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraftforge.fml.ModList;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.util.ServerLog;
 
 public class CustomNpcsIntegration {
@@ -21,7 +21,7 @@ public class CustomNpcsIntegration {
             return;
         }
         initialized = true;
-        loaded = ModList.get().isLoaded("customnpcs");
+        loaded = ServerBridge.loader().isModLoaded("customnpcs");
         if (!loaded) {
             return;
         }

@@ -8,6 +8,7 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.Util;
+import org.mods.gd656killicon.client.KeyBindings;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.gui.elements.GDButton;
@@ -179,6 +180,37 @@ public class MainConfigScreen extends Screen {
     }
 
     @Override
+    public void tick() {
+        super.tick();
+    }
+
+    public boolean shouldCloseQuickScoreboardOnRelease() {
+        if (!quickScoreboardMode || showExitConfirmation) {
+            return false;
+        }
+        ConfigTabContent activeTab = header.getSelectedTabContent();
+        if (activeTab == null) {
+            return true;
+        }
+        if (!(activeTab instanceof org.mods.gd656killicon.client.gui.tabs.ScoreboardTab)) {
+            return false;
+        }
+        if (activeTab.getChoiceListDialog().isVisible()) {
+            return false;
+        }
+        if (activeTab.getTextInputDialog().isVisible()) {
+            return false;
+        }
+        if (activeTab.getColorPickerDialog().isVisible()) {
+            return false;
+        }
+        if (activeTab.getPromptDialog().isVisible()) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
     public boolean shouldCloseOnEsc() {
         if (showExitConfirmation) return false;
         return !quickScoreboardMode;
@@ -329,6 +361,10 @@ public class MainConfigScreen extends Screen {
         }
         ConfigTabContent activeTab = header.getSelectedTabContent();
         if (activeTab != null && activeTab.keyPressed(keyCode, scanCode, modifiers)) {
+            return true;
+        }
+        if (quickScoreboardMode && keyCode == 256) {
+            onClose();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

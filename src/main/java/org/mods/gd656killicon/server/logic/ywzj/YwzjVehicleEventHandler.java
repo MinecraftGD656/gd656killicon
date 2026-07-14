@@ -1,7 +1,6 @@
 package org.mods.gd656killicon.server.logic.ywzj;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -10,7 +9,9 @@ import org.mods.gd656killicon.common.KillType;
 import org.mods.gd656killicon.network.NetworkHandler;
 import org.mods.gd656killicon.network.packet.KillIconPacket;
 import org.mods.gd656killicon.server.ServerCore;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.data.ServerData;
+import org.mods.gd656killicon.server.logic.ywzj.IYwzjVehicleHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
 import org.ywzj.vehicle.api.event.HitVehicleEvent;
 import org.ywzj.vehicle.api.event.VehicleAttackEvent;
@@ -24,7 +25,7 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
 
     @Override
     public void init() {
-        MinecraftForge.EVENT_BUS.register(this);
+        ServerBridge.loader().registerForgeEventBusSubscriber(this);
         ServerLog.info("YWZJ Vehicle event handler registered.");
     }
 
@@ -38,11 +39,12 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
 
         if (vehicle.isDestroyed()) return;
 
+        VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
+        tracker.recordDamage(player.getUUID(), event.damage, true);
+
         if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
             ServerCore.BONUS.add(player, BonusType.HIT_VEHICLE_ARMOR, event.damage, null);
         }
-
-        combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
     }
 
     @SubscribeEvent
@@ -91,11 +93,7 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         boolean isPlayer = attacker instanceof ServerPlayer;
         UUID attackerUuid = isPlayer ? attacker.getUUID() : null;
 
-        tracker.lastAttackTime = System.currentTimeMillis();
-        tracker.lastAttackerWasPlayer = isPlayer;
-        if (attackerUuid != null) {
-            tracker.lastAttackerUuid = attackerUuid;
-        }
+        tracker.recordDamage(attackerUuid, 0.0f, isPlayer);
 
         if (event.getVehicle().getControllingPassenger() instanceof ServerPlayer player) {
         }
@@ -173,10 +171,11 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
                 if (ServerData.get().isBonusEnabled(BonusType.VALUE_TARGET_DESTROYED)) {
                     ServerCore.BONUS.add(killer, BonusType.VALUE_TARGET_DESTROYED, tracker.accumulatedDamageDealt, null);
                 }
-            } else {
             }
+
+            awardVehicleDestroyAssistBonuses(vehicle, tracker, killer);
             
-            org.mods.gd656killicon.server.data.PlayerDataManager.get().addKill(killer.getUUID(), 1);
+            ServerData.get().addKill(killer, 1);
 
             sendKillEffects(killer, KillType.DESTROY_VEHICLE, 0, vehicle.getId(), extraInfo);
         }
@@ -202,12 +201,51 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
     }
 
+    private void awardVehicleDestroyAssistBonuses(AbstractVehicle vehicle, VehicleCombatTracker tracker, ServerPlayer killer) {
+        if (!ServerData.get().isBonusEnabled(BonusType.VEHICLE_DESTROY_ASSIST)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        UUID killerUuid = killer.getUUID();
+        tracker.damageByAttacker.forEach((attackerUuid, damage) -> {
+            if (attackerUuid == null || attackerUuid.equals(killerUuid) || damage <= 0.0f) {
+                return;
+            }
+            Long lastContributionTime = tracker.lastContributionTimeByAttacker.get(attackerUuid);
+            if (lastContributionTime == null || now - lastContributionTime > ServerData.get().getAssistTimeoutMs()) {
+                return;
+            }
+            if (tracker.lastDriverUuid != null && tracker.lastDriverUuid.equals(attackerUuid)) {
+                return;
+            }
+            ServerPlayer assister = ServerCore.getServer().getPlayerList().getPlayer(attackerUuid);
+            if (assister == null) {
+                return;
+            }
+            ServerCore.BONUS.add(assister, BonusType.VEHICLE_DESTROY_ASSIST, damage, null, vehicle.getId(), vehicle.getType().getDescriptionId());
+        });
+    }
+
     private static class VehicleCombatTracker {
         UUID lastAttackerUuid;
         UUID lastDriverUuid;
         long lastAttackTime;
         boolean lastAttackerWasPlayer = false;
         float accumulatedDamageDealt = 0;
+        Map<UUID, Float> damageByAttacker = new HashMap<>();
+        Map<UUID, Long> lastContributionTimeByAttacker = new HashMap<>();
+
+        void recordDamage(UUID attackerUuid, float amount, boolean isPlayer) {
+            if (attackerUuid != null) {
+                lastAttackerUuid = attackerUuid;
+                if (amount > 0.0f) {
+                    damageByAttacker.merge(attackerUuid, amount, Float::sum);
+                    lastContributionTimeByAttacker.put(attackerUuid, System.currentTimeMillis());
+                }
+            }
+            lastAttackTime = System.currentTimeMillis();
+            lastAttackerWasPlayer = isPlayer;
+        }
     }
 
 }

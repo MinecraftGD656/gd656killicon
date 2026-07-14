@@ -30,7 +30,10 @@ public class ElementTextureDefinition {
             "explosion", 
             "crit", 
             "destroy_vehicle", 
-            "assist"
+            "assist",
+            "capture",
+            "vehicle_destroy_assist",
+            "medic"
         ));
         
         map.put("kill_icon/combo", Arrays.asList(
@@ -189,9 +192,20 @@ public class ElementTextureDefinition {
             return switch (textureKey) {
                 case "headshot" -> "killicon_battlefield5_headshot.png";
                 case "assist" -> "killicon_battlefield5_assist.png";
+                case "capture" -> "killicon_battlefield5_capture.png";
                 case "destroy_vehicle" -> "killicon_battlefield5_destroyvehicle.png";
+                case "vehicle_destroy_assist" -> "killicon_battlefield5_vehicle_destroy_assist.png";
+                case "medic" -> "killicon_battlefield5_medic.png";
                 case "explosion", "crit", "default" -> "killicon_battlefield5_default.png";
                 default -> "killicon_battlefield5_default.png";
+            };
+        }
+        if ("00001".equals(presetId)) {
+            return switch (textureKey) {
+                case "vehicle_destroy_assist" -> "killicon_df_vehicle_destroy_assist.png";
+                case "medic" -> "killicon_df_medic.png";
+                case "capture" -> "killicon_df_capture.png";
+                default -> "killicon_scrolling_" + normalizeDestroyVehicle(textureKey) + ".png";
             };
         }
         if ("00008".equals(presetId)) {
@@ -199,9 +213,15 @@ public class ElementTextureDefinition {
                 case "headshot" -> "killicon_df_headshot.png";
                 case "destroy_vehicle" -> "killicon_df_destroyvehicle.png";
                 case "assist" -> "killicon_scrolling_assist.png";
+                case "capture" -> "killicon_df_capture.png";
+                case "vehicle_destroy_assist" -> "killicon_df_vehicle_destroy_assist.png";
+                case "medic" -> "killicon_df_medic.png";
                 case "explosion", "crit", "default" -> "killicon_df_default.png";
                 default -> "killicon_df_default.png";
             };
+        }
+        if ("capture".equals(textureKey)) {
+            return "killicon_df_capture.png";
         }
         return "killicon_scrolling_" + normalizeDestroyVehicle(textureKey) + ".png";
     }

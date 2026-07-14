@@ -7,14 +7,15 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.event.EventNetworkChannel;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.server.ServerCore;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.data.ServerData;
+import org.mods.gd656killicon.server.logic.pingwheel.IPingWheelHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
 
 import java.lang.reflect.Field;
@@ -34,7 +35,7 @@ public class PingWheelEventHandler implements IPingWheelHandler {
 
     @Override
     public void init() {
-        MinecraftForge.EVENT_BUS.register(this);
+        ServerBridge.loader().registerForgeEventBusSubscriber(this);
         registerPingListener();
         ServerLog.info("Ping Wheel event handler registered.");
     }

@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import net.minecraftforge.fml.ModList;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.immersiveaircraft.DummyImmersiveAircraftHandler;
 import org.mods.gd656killicon.server.logic.immersiveaircraft.IImmersiveAircraftHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
@@ -28,7 +28,7 @@ public class ImmersiveAircraftIntegration {
         }
         initialized = true;
         try {
-            if (ModList.get().isLoaded("immersive_aircraft")) {
+            if (ServerBridge.loader().isModLoaded("immersive_aircraft")) {
                 Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.immersiveaircraft.ImmersiveAircraftEventHandler");
                 handler = (IImmersiveAircraftHandler) handlerClass.getDeclaredConstructor().newInstance();
                 handler.init();

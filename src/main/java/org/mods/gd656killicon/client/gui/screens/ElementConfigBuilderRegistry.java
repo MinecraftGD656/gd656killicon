@@ -372,11 +372,11 @@ public class ElementConfigBuilderRegistry {
                 String nameKey = "gd656killicon.client.gui.config.element." + elementId.replace("/", ".") + "." + key;
                 String displayName;
                 
-                if (I18n.exists(nameKey)) {
+                if (org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey)) {
                     displayName = I18n.get(nameKey);
                 } else {
                     String genericKey = "gd656killicon.client.gui.config.generic." + key;
-                    if (I18n.exists(genericKey)) {
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(genericKey)) {
                         displayName = I18n.get(genericKey);
                     } else if (key.startsWith("anim_")) {
                         String matchingTexture = null;
@@ -391,7 +391,7 @@ public class ElementConfigBuilderRegistry {
                             String prefix = "anim_" + matchingTexture + "_";
                             String actualProperty = key.substring(prefix.length());
                             String animGenericKey = "gd656killicon.client.gui.config.generic." + actualProperty;
-                            if (I18n.exists(animGenericKey)) {
+                            if (org.mods.gd656killicon.client.util.I18nCompat.exists(animGenericKey)) {
                                 displayName = I18n.get(animGenericKey);
                             } else {
                                 displayName = key;
@@ -406,25 +406,25 @@ public class ElementConfigBuilderRegistry {
                 
                 if (key.startsWith("texture_style_")) {
                     String styleKey = "gd656killicon.client.gui.config.generic.official_texture_select";
-                    if (I18n.exists(styleKey)) {
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(styleKey)) {
                         displayName = I18n.get(styleKey);
                     }
                 }
                 if (key.startsWith("custom_texture_")) {
                     String customKey = "gd656killicon.client.gui.config.generic.custom_texture_select";
-                    if (I18n.exists(customKey)) {
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(customKey)) {
                         displayName = I18n.get(customKey);
                     }
                 }
                 if (key.startsWith("texture_mode_")) {
                     String modeKey = "gd656killicon.client.gui.config.generic.texture_select_mode";
-                    if (I18n.exists(modeKey)) {
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(modeKey)) {
                         displayName = I18n.get(modeKey);
                     }
                 }
                 if (key.startsWith("vanilla_texture_")) {
                     String vanillaKey = "gd656killicon.client.gui.config.generic.vanilla_texture_select";
-                    if (I18n.exists(vanillaKey)) {
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(vanillaKey)) {
                         displayName = I18n.get(vanillaKey);
                     }
                 }
@@ -576,7 +576,7 @@ public class ElementConfigBuilderRegistry {
                         for (String fileName : ExternalTextureManager.getAllTextureFileNames()) {
                             String baseName = fileName.endsWith(".png") ? fileName.substring(0, fileName.length() - 4) : fileName;
                             String labelKey = "gd656killicon.client.gui.texture.file." + baseName;
-                            String label = I18n.exists(labelKey) ? I18n.get(labelKey) : baseName;
+                            String label = org.mods.gd656killicon.client.util.I18nCompat.exists(labelKey) ? I18n.get(labelKey) : baseName;
                             choices.add(new FixedChoiceConfigEntry.Choice(fileName, label));
                         }
                         FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(

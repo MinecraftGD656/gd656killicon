@@ -11,22 +11,14 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.living.LivingDamageEvent;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.level.BlockEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.event.server.ServerStoppingEvent;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.core.ServerBonusSwitches;
 import org.mods.gd656killicon.server.ServerCore;
 import org.mods.gd656killicon.server.data.PlayerDataManager;
@@ -37,7 +29,10 @@ import org.mods.gd656killicon.server.util.ServerLog;
 import java.util.*;
 import java.util.concurrent.*;
 
-final class ServerCombatEngine {
+public final class ServerCombatEngine {
+    private static final String CONQUEST_SQUAD_BEACON_CLASS = "org.mods.gd656conquest.common.entity.SquadDeployBeaconEntity";
+    private static final String CONQUEST_MEDICAL_BOX_CLASS = "org.mods.gd656conquest.common.entity.MedicalBoxEntity";
+    private static final String CONQUEST_AMMO_BOX_CLASS = "org.mods.gd656conquest.common.entity.AmmoBoxEntity";
     private static final Map<UUID, Float> lastDamage = new ConcurrentHashMap<>();
     private static final Map<UUID, Integer> lastDamageType = new ConcurrentHashMap<>();
     private static final Map<UUID, List<DamageRecord>> damageHistory = new ConcurrentHashMap<>();
@@ -88,16 +83,16 @@ final class ServerCombatEngine {
         return ServerCore.CUSTOM_NPCS.resolveVictimDisplayName(victim, baseName);
     }
 
-    static void onBlockBreak(BlockEvent.BreakEvent event) {
-        if (event.getPlayer() instanceof ServerPlayer player) {
-            addBonus(player, BonusType.DESTROY_BLOCK, 1.0f, "");
-        }
+    public static void onBlockBreak(ServerPlayer player) {
+        if (player == null) return;
+        addBonus(player, BonusType.DESTROY_BLOCK, 1.0f, "");
     }
 
-    static void onStarting(ServerStartingEvent event) {
+    public static void onStarting(MinecraftServer server) {
+        if (server == null) return;
         ServerLog.info("Initializing server data...");
-        ServerData.get().init(event.getServer());
-        PlayerDataManager.get().init(event.getServer());
+        ServerData.get().init(server);
+        PlayerDataManager.get().init(server);
         ServerCore.TACZ.init();
         ServerCore.YWZJ_VEHICLE.init();
         ServerCore.SUPERB_WARFARE.init();
@@ -105,10 +100,11 @@ final class ServerCombatEngine {
         ServerCore.SPOTTING.init();
         ServerCore.PING_WHEEL.init();
         ServerCore.CUSTOM_NPCS.init();
+        ServerCore.CONQUEST_BATTLEFIELD.init();
         startScoreboardRefreshTask();
     }
 
-    static void onStopping(ServerStoppingEvent event) {
+    public static void onStopping(MinecraftServer server) {
         ServerLog.info("Saving server data...");
         ServerData.get().saveAll();
         ServerData.get().shutdown();
@@ -129,7 +125,7 @@ final class ServerCombatEngine {
 
         scoreboardRefreshExecutor.scheduleAtFixedRate(
             () -> {
-                MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+                MinecraftServer server = ServerBridge.loader().getCurrentServer();
                 if (server != null) {
                     ServerData.get().refreshScoreboard(server);
                 }
@@ -154,10 +150,8 @@ final class ServerCombatEngine {
         }
     }
 
-    static void onTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
-
-        ServerCore.BONUS.tick(ServerLifecycleHooks.getCurrentServer());
+    public static void onTick() {
+        ServerCore.BONUS.tick(ServerBridge.loader().getCurrentServer());
 
         ServerCore.TACZ.tick();
         ServerCore.SUPERB_WARFARE.tick();
@@ -165,6 +159,7 @@ final class ServerCombatEngine {
         ServerCore.IMMERSIVE_AIRCRAFT.tick();
         ServerCore.SPOTTING.tick();
         ServerCore.PING_WHEEL.tick();
+        ServerCore.CONQUEST_BATTLEFIELD.tick();
 
         explosionKillCounter.clear();
 
@@ -191,27 +186,24 @@ final class ServerCombatEngine {
         ServerCore.SUPERB_WARFARE.tick();
     }
 
-    static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
-            PlayerDataManager.get().updateLastLoginName(player.getUUID(), player.getScoreboardName());
-            ServerData.get().syncScoreToPlayer(player);
-            lastSelectedSlot.put(player.getUUID(), player.getInventory().selected);
-            lastSprintPositions.put(player.getUUID(), player.position());
-        }
+    public static void onPlayerJoin(ServerPlayer player) {
+        if (player == null) return;
+        PlayerDataManager.get().updateLastLoginName(player.getUUID(), player.getScoreboardName());
+        ServerData.get().syncScoreToPlayer(player);
+        lastSelectedSlot.put(player.getUUID(), player.getInventory().selected);
+        lastSprintPositions.put(player.getUUID(), player.position());
     }
 
-    static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
-            UUID playerId = player.getUUID();
-            lastSprintPositions.remove(playerId);
-            sprintDistances.remove(playerId);
-        }
+    public static void onPlayerLogout(ServerPlayer player) {
+        if (player == null) return;
+        UUID playerId = player.getUUID();
+        PlayerDataManager.get().forceSave(playerId);
+        lastSprintPositions.remove(playerId);
+        sprintDistances.remove(playerId);
     }
 
-    static void onPlayerTick(TickEvent.PlayerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
-        if (event.player.level().isClientSide) return;
-        if (!(event.player instanceof ServerPlayer player)) return;
+    public static void onPlayerTick(ServerPlayer player) {
+        if (player == null || player.level().isClientSide) return;
 
         if (player.getAbilities().flying || player.isSpectator()) {
             lastSprintPositions.put(player.getUUID(), player.position());
@@ -246,9 +238,9 @@ final class ServerCombatEngine {
         sprintDistances.put(playerId, total);
     }
 
-    static void onItemSwitch(LivingEquipmentChangeEvent event) {
-        if (event.getEntity().level().isClientSide) return;
-        if (event.getEntity() instanceof ServerPlayer player && event.getSlot().getType() == net.minecraft.world.entity.EquipmentSlot.Type.HAND) {
+    public static void onItemSwitch(ServerPlayer player, net.minecraft.world.entity.EquipmentSlot slot, ItemStack from, ItemStack to) {
+        if (player == null || player.level().isClientSide) return;
+        if (slot != null && slot.getType() == net.minecraft.world.entity.EquipmentSlot.Type.HAND) {
             int currentSlot = player.getInventory().selected;
             Integer lastSlot = lastSelectedSlot.get(player.getUUID());
             lastSelectedSlot.put(player.getUUID(), currentSlot);
@@ -260,28 +252,25 @@ final class ServerCombatEngine {
             if (lastSlot != currentSlot) {
                 lastItemSwitchTime.put(player.getUUID(), System.currentTimeMillis());
             } else {
-                if (!net.minecraft.world.item.ItemStack.isSameItem(event.getFrom(), event.getTo())) {
+                if (!ItemStack.isSameItem(from, to)) {
                     lastItemSwitchTime.put(player.getUUID(), System.currentTimeMillis());
                 }
             }
         }
     }
 
-    static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
-        if (event.getLevel().isClientSide) return;
-        if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!(event.getTarget() instanceof LivingEntity victim)) return;
-        if (!event.getItemStack().is(Items.FLINT_AND_STEEL) && !event.getItemStack().is(Items.FIRE_CHARGE)) return;
+    public static void onEntityInteract(ServerPlayer player, LivingEntity victim, ItemStack itemStack, boolean levelIsClientSide) {
+        if (levelIsClientSide) return;
+        if (player == null || victim == null || itemStack == null) return;
+        if (!itemStack.is(Items.FLINT_AND_STEEL) && !itemStack.is(Items.FIRE_CHARGE)) return;
         ServerCombatAttribution.recordFireAttribution(fireAttribution, victim.getUUID(), player.getUUID());
     }
 
-    static void onDamage(LivingDamageEvent event) {
-        if (event.getEntity().level().isClientSide || event.getAmount() <= 0) return;
+    public static void onDamage(LivingEntity victim, DamageSource src, float amt) {
+        if (victim == null || src == null || victim.level().isClientSide || amt <= 0) return;
+        if (isConquestTacticalGadget(victim)) return;
 
-        DamageSource src = event.getSource();
-        LivingEntity victim = event.getEntity();
         UUID victimId = victim.getUUID();
-        float amt = event.getAmount();
 
         LivingEntity resolvedAttacker = resolveLivingAttacker(src, victim);
         if (resolvedAttacker instanceof ServerPlayer player && player.getUUID().equals(victimId)) {
@@ -320,13 +309,11 @@ final class ServerCombatEngine {
         }
     }
 
-    static void onDeath(LivingDeathEvent event) {
-        if (event.getEntity().level().isClientSide) return;
+    public static void onDeath(LivingEntity victim, DamageSource src) {
+        if (victim == null || src == null || victim.level().isClientSide) return;
+        if (isConquestTacticalGadget(victim)) return;
 
-        LivingEntity victim = event.getEntity();
         UUID victimId = victim.getUUID();
-
-        DamageSource src = event.getSource();
 
         if (victim instanceof ServerPlayer player) {
             UUID playerId = player.getUUID();
@@ -343,6 +330,9 @@ final class ServerCombatEngine {
         }
 
         LivingEntity attacker = resolveLivingAttacker(src, victim);
+        if (attacker != null) {
+            ServerCore.SPOTTING.onLivingDeath(victim, attacker);
+        }
         if (attacker != null) {
             killHistory.computeIfAbsent(victimId, k -> new ConcurrentHashMap<>())
                 .put(attacker.getUUID(), System.currentTimeMillis());
@@ -549,7 +539,7 @@ final class ServerCombatEngine {
                 return;
             }
             if (totalDamage > 0) {
-                ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(playerId);
+                ServerPlayer player = ServerBridge.loader().getCurrentServer().getPlayerList().getPlayer(playerId);
                 if (player != null) {
                     addBonus(player, BonusType.ASSIST, (float) totalDamage, "", victimIdInt, finalVictimName);
                     sendKillEffects(player, KillType.ASSIST, 0, victimIdInt, hasHelmet, finalVictimName, isVictimPlayer, 0.0f);
@@ -875,5 +865,13 @@ final class ServerCombatEngine {
         boolean isMovingCleanly = !player.isInWater() && !player.onClimbable();
         double heightDiff = player.getY() - victim.getY();
         return !isGliding && isFalling && isMovingCleanly && heightDiff > 2.0;
+    }
+
+    private static boolean isConquestTacticalGadget(LivingEntity entity) {
+        if (entity == null) return false;
+        String className = entity.getClass().getName();
+        return CONQUEST_SQUAD_BEACON_CLASS.equals(className)
+                || CONQUEST_MEDICAL_BOX_CLASS.equals(className)
+                || CONQUEST_AMMO_BOX_CLASS.equals(className);
     }
 }

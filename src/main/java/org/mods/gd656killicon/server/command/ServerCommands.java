@@ -1,6 +1,7 @@
 package org.mods.gd656killicon.server.command;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -9,10 +10,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.server.data.ServerData;
 import org.mods.gd656killicon.server.util.ServerLog;
@@ -22,14 +19,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Mod.EventBusSubscriber(modid = Gd656killicon.MODID)
 public class ServerCommands {
     private static final String[] SCOREBOARD_DEBUG_PREFIXES = {"Pro", "Noob", "God", "Master", "Legend", "Ghost", "Shadow", "Flame", "Ice", "Storm"};
     private static final String[] SCOREBOARD_DEBUG_SUFFIXES = {"Hunter", "Killer", "Player", "Warrior", "Seeker", "X", "Alpha", "Omega", "King", "Lord"};
     
-    @SubscribeEvent
-    public static void register(RegisterCommandsEvent event) {
-        event.getDispatcher().register(
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(
             Commands.literal("gd656killicon").then(Commands.literal("server")
                 .then(Commands.literal("bonus")
                     .then(Commands.literal("turnon")

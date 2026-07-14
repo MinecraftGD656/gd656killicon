@@ -102,10 +102,11 @@ public class Battlefield1Renderer implements IHudRenderer {
         );
 
         ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), soundSlot);
+        String extraData = context.extraData() == null ? "" : context.extraData();
 
         if (this.killType == KillType.DESTROY_VEHICLE) {
-            if (context.extraData() != null && context.extraData().contains("|")) {
-                String[] parts = context.extraData().split("\\|", 2);
+            if (!extraData.isEmpty() && extraData.contains("|")) {
+                String[] parts = extraData.split("\\|", 2);
                 if (parts.length > 0) {
                     this.victimName = net.minecraft.client.resources.language.I18n.get(parts[0]);
                 } else {
@@ -148,8 +149,8 @@ public class Battlefield1Renderer implements IHudRenderer {
             }
 
             String nameOverride = null;
-            if (context.extraData() != null && !context.extraData().isEmpty()) {
-                 String extra = context.extraData();
+            if (!extraData.isEmpty()) {
+                 String extra = extraData;
                  if (extra.contains("|")) {
                      nameOverride = extra.substring(0, extra.indexOf("|"));
                  } else {

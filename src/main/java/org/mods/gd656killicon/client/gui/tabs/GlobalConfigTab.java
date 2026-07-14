@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fml.ModList;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.entries.BooleanConfigEntry;
 import org.mods.gd656killicon.client.gui.elements.entries.FixedChoiceConfigEntry;
@@ -112,40 +112,6 @@ public class GlobalConfigTab extends ConfigTabContent {
             this.getColorPickerDialog()
         ));
 
-        this.configRows.add(new HexColorConfigEntry(
-            0, 0, 0, 0,
-            GuiConstants.COLOR_BG,
-            (GuiConstants.COLOR_BG >>> 24) / 255.0f,
-            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_secondary"),
-            "gui_theme_color_secondary",
-            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_secondary.desc"),
-            ClientConfigManager.getGuiThemeColorSecondary(),
-            "#F29B3D",
-            (value) -> {
-                ClientConfigManager.setGuiThemeColorSecondary(value);
-                showGuiReloadPrompt();
-            },
-            this.getTextInputDialog(),
-            this.getColorPickerDialog()
-        ));
-
-        this.configRows.add(new HexColorConfigEntry(
-            0, 0, 0, 0,
-            GuiConstants.COLOR_BG,
-            (GuiConstants.COLOR_BG >>> 24) / 255.0f,
-            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_tertiary"),
-            "gui_theme_color_tertiary",
-            I18n.get("gd656killicon.client.gui.config.global.gui_theme_color_tertiary.desc"),
-            ClientConfigManager.getGuiThemeColorTertiary(),
-            "#E49A1C",
-            (value) -> {
-                ClientConfigManager.setGuiThemeColorTertiary(value);
-                showGuiReloadPrompt();
-            },
-            this.getTextInputDialog(),
-            this.getColorPickerDialog()
-        ));
-
         this.configRows.add(new FixedChoiceConfigEntry(
             0, 0, 0, 0,
             GuiConstants.COLOR_BG,
@@ -173,7 +139,7 @@ public class GlobalConfigTab extends ConfigTabContent {
             ClientConfigManager.isDisableTaczKillSound(),
             false,
             ClientConfigManager::setDisableTaczKillSound,
-            () -> ModList.get().isLoaded("tacz")
+            () -> ClientBridge.loader().isModLoaded("tacz")
         ));
 
         this.configRows.add(new BooleanConfigEntry(

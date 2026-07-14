@@ -3,7 +3,7 @@ package org.mods.gd656killicon.client.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import net.minecraftforge.fml.loading.FMLPaths;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
@@ -19,7 +19,7 @@ import java.util.Set;
 
 public class ElementConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final File CONFIG_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon").toFile();
+    private static final File CONFIG_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon").toFile();
     private static final File CONFIG_FILE = new File(CONFIG_DIR, "element_config.json");
 
     private static final Map<String, ElementPreset> PRESETS = new HashMap<>();
@@ -133,7 +133,7 @@ public class ElementConfigManager {
         ElementPreset preset = new ElementPreset();
         
         String defaultNameKey = "gd656killicon.client.config.preset.new_preset_default_name";
-        String defaultName = net.minecraft.client.resources.language.I18n.exists(defaultNameKey) 
+        String defaultName = org.mods.gd656killicon.client.util.I18nCompat.exists(defaultNameKey) 
                 ? net.minecraft.client.resources.language.I18n.get(defaultNameKey) 
                 : "New Custom Preset";
         
@@ -179,7 +179,7 @@ public class ElementConfigManager {
     }
 
     private static boolean isLocalizationReady() {
-        return net.minecraft.client.resources.language.I18n.exists("gd656killicon.client.format.normal");
+        return org.mods.gd656killicon.client.util.I18nCompat.exists("gd656killicon.client.format.normal");
     }
 
     private static boolean localizeAllPresets() {
@@ -199,7 +199,7 @@ public class ElementConfigManager {
             com.google.gson.JsonElement element = config.get(key);
             if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
                 String value = element.getAsString();
-                if (net.minecraft.client.resources.language.I18n.exists(value)) {
+                if (org.mods.gd656killicon.client.util.I18nCompat.exists(value)) {
                     String localized = net.minecraft.client.resources.language.I18n.get(value);
                     if (!localized.equals(value)) {
                         config.addProperty(key, localized);

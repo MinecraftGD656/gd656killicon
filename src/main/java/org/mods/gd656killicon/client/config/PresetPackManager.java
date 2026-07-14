@@ -3,7 +3,7 @@ package org.mods.gd656killicon.client.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import net.minecraftforge.fml.loading.FMLPaths;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
 
 import org.mods.gd656killicon.client.config.ElementConfigManager.ElementPreset;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
@@ -21,7 +21,7 @@ import java.util.zip.ZipOutputStream;
 
 public class PresetPackManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path CONFIG_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon");
+    private static final Path CONFIG_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon");
     private static final Path EXPORT_DIR = CONFIG_DIR.resolve("export");
     private static final Path ASSETS_DIR = CONFIG_DIR.resolve("assets");
 

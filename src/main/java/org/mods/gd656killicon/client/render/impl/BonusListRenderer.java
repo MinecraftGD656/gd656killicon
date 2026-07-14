@@ -90,6 +90,7 @@ public class BonusListRenderer implements IHudRenderer {
         registerConfig(BonusType.POTATO_AIM, "format_potato_aim", "gd656killicon.client.format.bonus_potato_aim");
         registerConfig(BonusType.HIT_VEHICLE_ARMOR, "format_hit_vehicle_armor", "gd656killicon.client.format.bonus_hit_vehicle_armor");
         registerConfig(BonusType.DESTROY_VEHICLE, "format_destroy_vehicle", "gd656killicon.client.format.bonus_destroy_vehicle");
+        registerConfig(BonusType.VEHICLE_DESTROY_ASSIST, "format_vehicle_destroy_assist", "gd656killicon.client.format.bonus_vehicle_destroy_assist");
         registerConfig(BonusType.VALUE_TARGET_DESTROYED, "format_value_target_destroyed", "gd656killicon.client.format.bonus_value_target_destroyed");
         registerConfig(BonusType.VEHICLE_REPAIR, "format_vehicle_repair", "gd656killicon.client.format.bonus_vehicle_repair");
         registerConfig(BonusType.LOCKED_TARGET, "format_locked_target", "gd656killicon.client.format.bonus_locked_target");
@@ -100,6 +101,20 @@ public class BonusListRenderer implements IHudRenderer {
         registerConfig(BonusType.SPOTTING, "format_spotting", "gd656killicon.client.format.bonus_spotting");
         registerConfig(BonusType.SPOTTING_KILL, "format_spotting_kill", "gd656killicon.client.format.bonus_spotting_kill");
         registerConfig(BonusType.SPOTTING_TEAM_ASSIST, "format_spotting_team_assist", "gd656killicon.client.format.bonus_spotting_team_assist");
+        registerConfig(BonusType.CONQUEST_CAPTURE_PROGRESS, "format_conquest_capture_progress", "gd656killicon.client.format.bonus_conquest_capture_progress");
+        registerConfig(BonusType.CONQUEST_CAPTURE_NEUTRALIZE, "format_conquest_capture_neutralize", "gd656killicon.client.format.bonus_conquest_capture_neutralize");
+        registerConfig(BonusType.CONQUEST_CAPTURE_CONTROL, "format_conquest_capture_control", "gd656killicon.client.format.bonus_conquest_capture_control");
+        registerConfig(BonusType.SQUAD_DEPLOY_ON_YOU, "format_squad_deploy_on_you", "gd656killicon.client.format.bonus_squad_deploy_on_you");
+        registerConfig(BonusType.SQUAD_LAST_MEMBER_KILL, "format_squad_last_member_kill", "gd656killicon.client.format.bonus_squad_last_member_kill");
+        registerConfig(BonusType.EMERGENCY_REINFORCEMENT, "format_emergency_reinforcement", "gd656killicon.client.format.bonus_emergency_reinforcement");
+        registerConfig(BonusType.SQUAD_WIPE_COMPLETION, "format_squad_wipe_completion", "gd656killicon.client.format.bonus_squad_wipe_completion");
+        registerConfig(BonusType.TACTICAL_GADGET_DESTROYED, "format_tactical_gadget_destroyed", "gd656killicon.client.format.bonus_tactical_gadget_destroyed");
+        registerConfig(BonusType.SQUAD_BEACON_DEPLOY, "format_squad_beacon_deploy", "gd656killicon.client.format.bonus_squad_beacon_deploy");
+        registerConfig(BonusType.VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY, "format_value_objective_support_beacon_deploy", "gd656killicon.client.format.bonus_value_objective_support_beacon_deploy");
+        registerConfig(BonusType.FRIENDLY_DEPLOY_ON_YOUR_VEHICLE, "format_friendly_deploy_on_your_vehicle", "gd656killicon.client.format.bonus_friendly_deploy_on_your_vehicle");
+        registerConfig(BonusType.HEALING, "format_healing", "gd656killicon.client.format.bonus_healing");
+        registerConfig(BonusType.AMMO_SUPPLY, "format_ammo_supply", "gd656killicon.client.format.bonus_ammo_supply");
+        registerConfig(BonusType.REVIVE, "format_revive", "gd656killicon.client.format.bonus_revive");
     }
 
     private static void registerConfig(int type, String configKey, String defaultFormatKey) {
@@ -922,8 +937,11 @@ public class BonusListRenderer implements IHudRenderer {
                 if ("<weapon>".equals(tag)) {
                     root.append(Component.literal(this.weaponName).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
                 } else if ("<target>".equals(tag)) {
-                    String translatedVName = net.minecraft.client.resources.language.I18n.get(this.victimName);
-                    root.append(Component.literal(translatedVName).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(this.killFeedVictimColorVal))));
+                    String displayVName = this.victimName;
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(displayVName)) {
+                        displayVName = net.minecraft.client.resources.language.I18n.get(displayVName);
+                    }
+                    root.append(Component.literal(displayVName).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(this.killFeedVictimColorVal))));
                 } else if ("<score>".equals(tag)) {
                     String scoreStr;
                     if (Math.abs(score) < 1.0f && Math.abs(score) > 0.001f) {
@@ -1036,7 +1054,7 @@ public class BonusListRenderer implements IHudRenderer {
         if (isChinese) {
              return switch (n) {
                 case 1 -> "一";
-                case 2 -> "双";
+                case 2 -> "二";
                 case 3 -> "三";
                 case 4 -> "四";
                 case 5 -> "五";

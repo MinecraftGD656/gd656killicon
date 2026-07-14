@@ -409,19 +409,21 @@ public abstract class ConfigTabContent {
     }
 
     protected void updateSubtitle(int x1, int y1, int x2) {
-        String key = title.getContents().toString();
         String translationKey = "";
         if (title.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc) {
             translationKey = tc.getKey();
         }
         
         String subKey = translationKey + ".subtitle";
-        Component subtitle = Component.translatable(subKey);
+        String subtitleText = org.mods.gd656killicon.client.util.I18nCompat.exists(subKey)
+                ? net.minecraft.client.resources.language.I18n.get(subKey)
+                : "";
         
         if (subtitleRenderer == null) {
-            subtitleRenderer = new GDTextRenderer(subtitle.getString(), x1, y1, x2, y1 + 100, 1.0f, GuiConstants.COLOR_GRAY, true);
+            subtitleRenderer = new GDTextRenderer(subtitleText, x1, y1, x2, y1 + 100, 1.0f, GuiConstants.COLOR_GRAY, true);
         } else {
             subtitleRenderer.setX1(x1); subtitleRenderer.setY1(y1); subtitleRenderer.setX2(x2);
+            subtitleRenderer.setText(subtitleText);
         }
     }
 

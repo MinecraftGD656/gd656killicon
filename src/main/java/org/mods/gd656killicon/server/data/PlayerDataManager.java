@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
 import org.mods.gd656killicon.network.NetworkHandler;
 import org.mods.gd656killicon.network.packet.ScoreboardSyncPacket;
+import org.mods.gd656killicon.server.logic.conquest.ConquestScoreboardAdapter;
 import org.mods.gd656killicon.server.util.ServerLog;
 
 import java.io.IOException;
@@ -12,13 +13,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class PlayerDataManager {
@@ -26,13 +30,19 @@ public class PlayerDataManager {
 
     private static final String PLAYERDATA_DIR = "playerdata";
     private static final long AUTO_SAVE_INTERVAL_MINUTES = 5;
+    private static final int SCOREBOARD_PAGE_LIMIT_MAX = 100;
+    private static final String[] DEFAULT_PANEL_TEAMS = new String[]{"", "", "", ""};
     private final Map<UUID, PlayerData> playerDataCache;
+    private final Set<UUID> dirtyPlayers;
+    private final Set<UUID> pendingRemovalPlayers;
     private Path playerdataDir;
     private ScheduledExecutorService autoSaveExecutor;
     private boolean initialized = false;
 
     private PlayerDataManager() {
         this.playerDataCache = new ConcurrentHashMap<>();
+        this.dirtyPlayers = ConcurrentHashMap.newKeySet();
+        this.pendingRemovalPlayers = ConcurrentHashMap.newKeySet();
     }
 
     public static PlayerDataManager get() {
@@ -77,6 +87,8 @@ public class PlayerDataManager {
         }
         saveAllPlayerData();
         playerDataCache.clear();
+        dirtyPlayers.clear();
+        pendingRemovalPlayers.clear();
         initialized = false;
     }
 
@@ -91,11 +103,16 @@ public class PlayerDataManager {
             return thread;
         });
 
-        autoSaveExecutor.scheduleAtFixedRate(
-                this::saveAllPlayerData,
-                AUTO_SAVE_INTERVAL_MINUTES,
-                AUTO_SAVE_INTERVAL_MINUTES,
-                TimeUnit.MINUTES
+        autoSaveExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    flushDirtyPlayerData();
+                } catch (Exception e) {
+                    ServerLog.error("Failed to flush dirty player data: %s", e.getMessage());
+                }
+            },
+            AUTO_SAVE_INTERVAL_MINUTES,
+            AUTO_SAVE_INTERVAL_MINUTES,
+            TimeUnit.MINUTES
         );
     }
 
@@ -130,7 +147,7 @@ public class PlayerDataManager {
 
     private void saveAllPlayerData() {
         playerDataCache.forEach((uuid, playerData) -> {
-            if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
+            if (hasTrackedStats(playerData)) {
                 savePlayerData(uuid);
             } else {
                 removePlayerData(uuid);
@@ -138,9 +155,27 @@ public class PlayerDataManager {
         });
     }
 
+    private void flushDirtyPlayerData() {
+        if (dirtyPlayers.isEmpty() && pendingRemovalPlayers.isEmpty()) {
+            return;
+        }
+
+        Set<UUID> dirtySnapshot = new HashSet<>(dirtyPlayers);
+        for (UUID uuid : dirtySnapshot) {
+            savePlayerData(uuid);
+        }
+
+        Set<UUID> removalSnapshot = new HashSet<>(pendingRemovalPlayers);
+        for (UUID uuid : removalSnapshot) {
+            removePlayerData(uuid);
+        }
+    }
+
     private void savePlayerData(UUID uuid) {
         PlayerData playerData = playerDataCache.get(uuid);
         if (playerData == null) {
+            dirtyPlayers.remove(uuid);
+            pendingRemovalPlayers.remove(uuid);
             return;
         }
 
@@ -149,6 +184,8 @@ public class PlayerDataManager {
             Files.createDirectories(file.getParent());
             String json = playerData.toJson();
             Files.writeString(file, json, StandardCharsets.UTF_8);
+            dirtyPlayers.remove(uuid);
+            pendingRemovalPlayers.remove(uuid);
         } catch (IOException e) {
             ServerLog.error("Failed to save player data for %s", uuid.toString());
         }
@@ -172,33 +209,15 @@ public class PlayerDataManager {
     }
 
     public void setScore(UUID uuid, float score) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.setScore(score);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.setScore(score));
     }
 
     public void addScore(UUID uuid, float amount) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.addScore(amount);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.addScore(amount));
     }
 
     public void reduceScore(UUID uuid, float amount) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.reduceScore(amount);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.reduceScore(amount));
     }
 
     public int getKill(UUID uuid) {
@@ -218,33 +237,15 @@ public class PlayerDataManager {
     }
 
     public void setKill(UUID uuid, int kill) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.setKill(kill);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.setKill(kill));
     }
 
     public void addKill(UUID uuid, int amount) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.addKill(amount);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.addKill(amount));
     }
 
     public void reduceKill(UUID uuid, int amount) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.reduceKill(amount);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.reduceKill(amount));
     }
 
     public int getDeath(UUID uuid) {
@@ -264,33 +265,15 @@ public class PlayerDataManager {
     }
 
     public void setDeath(UUID uuid, int death) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.setDeath(death);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.setDeath(death));
     }
 
     public void addDeath(UUID uuid, int amount) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.addDeath(amount);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.addDeath(amount));
     }
 
     public void reduceDeath(UUID uuid, int amount) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.reduceDeath(amount);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.reduceDeath(amount));
     }
 
     public int getAssist(UUID uuid) {
@@ -310,33 +293,43 @@ public class PlayerDataManager {
     }
 
     public void setAssist(UUID uuid, int assist) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.setAssist(assist);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.setAssist(assist));
     }
 
     public void addAssist(UUID uuid, int amount) {
-        PlayerData playerData = getPlayerData(uuid);
-        playerData.addAssist(amount);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        mutateTrackedStats(uuid, playerData -> playerData.addAssist(amount));
     }
 
     public void reduceAssist(UUID uuid, int amount) {
+        mutateTrackedStats(uuid, playerData -> playerData.reduceAssist(amount));
+    }
+
+    public int getRevive(UUID uuid) {
         PlayerData playerData = getPlayerData(uuid);
-        playerData.reduceAssist(amount);
-        if (playerData.getScore() > 0 || playerData.getKill() > 0 || playerData.getDeath() > 0 || playerData.getAssist() > 0) {
-            savePlayerData(uuid);
-        } else {
-            removePlayerData(uuid);
-        }
+        return playerData.getRevive();
+    }
+
+    public Map<UUID, Integer> getAllRevives() {
+        Map<UUID, Integer> revives = new java.util.concurrent.ConcurrentHashMap<>();
+        playerDataCache.forEach((uuid, data) -> {
+            int revive = data.getRevive();
+            if (revive > 0) {
+                revives.put(uuid, revive);
+            }
+        });
+        return revives;
+    }
+
+    public void setRevive(UUID uuid, int revive) {
+        mutateTrackedStats(uuid, playerData -> playerData.setRevive(revive));
+    }
+
+    public void addRevive(UUID uuid, int amount) {
+        mutateTrackedStats(uuid, playerData -> playerData.addRevive(amount));
+    }
+
+    public void reduceRevive(UUID uuid, int amount) {
+        mutateTrackedStats(uuid, playerData -> playerData.reduceRevive(amount));
     }
 
     public void updateLastLoginName(UUID uuid, String name) {
@@ -364,6 +357,8 @@ public class PlayerDataManager {
     }
 
     public void removePlayerData(UUID uuid) {
+        dirtyPlayers.remove(uuid);
+        pendingRemovalPlayers.remove(uuid);
         playerDataCache.remove(uuid);
         Path file = getPlayerDataFile(uuid);
         try {
@@ -375,6 +370,8 @@ public class PlayerDataManager {
 
     public void clearAllPlayerData() {
         playerDataCache.clear();
+        dirtyPlayers.clear();
+        pendingRemovalPlayers.clear();
         if (Files.exists(playerdataDir)) {
             try (Stream<Path> paths = Files.walk(playerdataDir, 1)) {
                 paths.filter(Files::isRegularFile)
@@ -408,18 +405,100 @@ public class PlayerDataManager {
         savePlayerData(uuid);
     }
 
+    private void mutateTrackedStats(UUID uuid, Consumer<PlayerData> mutation) {
+        PlayerData playerData = getPlayerData(uuid);
+        mutation.accept(playerData);
+        if (hasTrackedStats(playerData)) {
+            dirtyPlayers.add(uuid);
+            pendingRemovalPlayers.remove(uuid);
+        } else {
+            dirtyPlayers.remove(uuid);
+            pendingRemovalPlayers.add(uuid);
+        }
+    }
+
     /**
      * 处理客户端发来的排行榜请求
      * 使用快照缓存优化高频请求
      */
     public void handleScoreboardRequest(ServerPlayer player, int offset, int limit, long requestId) {
-        List<ScoreboardSyncPacket.Entry> allEntries = buildScoreboardEntries(player.server);
+        if (player == null || player.server == null) {
+            return;
+        }
+        ResolvedScoreboardData resolved = resolveScoreboardData(player);
+        ScoreboardPage page = buildScoreboardPage(resolved.entries(), offset, limit);
+        NetworkHandler.sendToPlayer(new ScoreboardSyncPacket(
+            page.entries(),
+            page.offset(),
+            resolved.entries().size(),
+            requestId,
+            resolved.columns(),
+            resolved.panelTeams()
+        ), player);
+    }
+
+    private ResolvedScoreboardData resolveScoreboardData(ServerPlayer requester) {
+        ConquestScoreboardAdapter.Result conquestResult = ConquestScoreboardAdapter.resolve(requester);
+        if (conquestResult != null) {
+            return new ResolvedScoreboardData(
+                buildPrioritizedEntries(requester, new ArrayList<>(conquestResult.entries())),
+                conquestResult.columns(),
+                conquestResult.panelTeams()
+            );
+        }
+        return new ResolvedScoreboardData(
+            buildPrioritizedEntries(requester, buildScoreboardEntries(requester.server)),
+            1,
+            DEFAULT_PANEL_TEAMS
+        );
+    }
+
+    private ScoreboardPage buildScoreboardPage(List<ScoreboardSyncPacket.Entry> allEntries, int offset, int limit) {
         int safeOffset = Math.max(0, offset);
-        int safeLimit = Math.max(1, limit);
+        int safeLimit = Math.max(1, Math.min(SCOREBOARD_PAGE_LIMIT_MAX, limit));
         int fromIndex = Math.min(safeOffset, allEntries.size());
         int toIndex = Math.min(fromIndex + safeLimit, allEntries.size());
-        List<ScoreboardSyncPacket.Entry> pageEntries = new ArrayList<>(allEntries.subList(fromIndex, toIndex));
-        NetworkHandler.sendToPlayer(new ScoreboardSyncPacket(pageEntries, safeOffset, allEntries.size(), requestId), player);
+        return new ScoreboardPage(new ArrayList<>(allEntries.subList(fromIndex, toIndex)), safeOffset);
+    }
+
+    private List<ScoreboardSyncPacket.Entry> buildPrioritizedEntries(ServerPlayer requester, List<ScoreboardSyncPacket.Entry> allEntries) {
+        if (requester == null || allEntries.isEmpty()) {
+            return allEntries;
+        }
+        List<ScoreboardSyncPacket.Entry> prioritized = new ArrayList<>(allEntries.size());
+        java.util.Set<UUID> added = new java.util.HashSet<>();
+        ScoreboardSyncPacket.Entry self = null;
+        for (ScoreboardSyncPacket.Entry entry : allEntries) {
+            if (entry.uuid.equals(requester.getUUID())) {
+                self = entry;
+                break;
+            }
+        }
+        if (self != null) {
+            prioritized.add(self);
+            added.add(self.uuid);
+        }
+        String requesterTeam = requester.getTeam() == null ? "" : requester.getTeam().getName();
+        if (!requesterTeam.isEmpty()) {
+            for (ScoreboardSyncPacket.Entry entry : allEntries) {
+                if (!added.contains(entry.uuid) && requesterTeam.equals(entry.teamName)) {
+                    prioritized.add(entry);
+                    added.add(entry.uuid);
+                }
+            }
+        }
+        for (ScoreboardSyncPacket.Entry entry : allEntries) {
+            if (!added.contains(entry.uuid) && entry.online) {
+                prioritized.add(entry);
+                added.add(entry.uuid);
+            }
+        }
+        for (ScoreboardSyncPacket.Entry entry : allEntries) {
+            if (!added.contains(entry.uuid)) {
+                prioritized.add(entry);
+            }
+        }
+        return prioritized;
     }
 
     /**
@@ -439,10 +518,13 @@ public class PlayerDataManager {
                     uuid,
                     name,
                     (lastLoginName != null && !lastLoginName.isEmpty()) ? lastLoginName : (isOnline ? onlinePlayer.getScoreboardName() : ""),
+                    resolveTeamName(server, onlinePlayer, name),
+                    "",
                     Math.round(data.getScore()),
                     data.getKill(),
                     data.getDeath(),
                     data.getAssist(),
+                    data.getRevive(),
                     isOnline ? onlinePlayer.latency : -1,
                     isOnline,
                     isOnline && onlinePlayer.isSpectator()                 ));
@@ -456,5 +538,36 @@ public class PlayerDataManager {
             return a.uuid.compareTo(b.uuid);
         });
         return entries;
+    }
+
+    private String resolveTeamName(MinecraftServer server, ServerPlayer onlinePlayer, String scoreHolderName) {
+        if (onlinePlayer != null && onlinePlayer.getTeam() != null) {
+            return onlinePlayer.getTeam().getName();
+        }
+        if (server != null && scoreHolderName != null && !scoreHolderName.isEmpty()) {
+            var team = server.getScoreboard().getPlayersTeam(scoreHolderName);
+            if (team != null) {
+                return team.getName();
+            }
+        }
+        return "";
+    }
+
+    private boolean hasTrackedStats(PlayerData playerData) {
+        return playerData.getScore() > 0
+            || playerData.getKill() > 0
+            || playerData.getDeath() > 0
+            || playerData.getAssist() > 0
+            || playerData.getRevive() > 0;
+    }
+
+    private record ResolvedScoreboardData(List<ScoreboardSyncPacket.Entry> entries, int columns, String[] panelTeams) {
+        private ResolvedScoreboardData {
+            entries = entries == null ? List.of() : entries;
+            panelTeams = panelTeams == null ? DEFAULT_PANEL_TEAMS : panelTeams;
+        }
+    }
+
+    private record ScoreboardPage(List<ScoreboardSyncPacket.Entry> entries, int offset) {
     }
 }

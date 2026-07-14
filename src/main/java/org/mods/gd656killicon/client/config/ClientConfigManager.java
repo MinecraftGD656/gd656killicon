@@ -3,7 +3,7 @@ package org.mods.gd656killicon.client.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import net.minecraftforge.fml.loading.FMLPaths;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
@@ -14,7 +14,7 @@ import java.io.IOException;
 
 public class ClientConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final File CONFIG_DIR = FMLPaths.CONFIGDIR.get().resolve("gd656killicon").toFile();
+    private static final File CONFIG_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon").toFile();
     private static final File GLOBAL_CONFIG_FILE = new File(CONFIG_DIR, "client_config.json");
 
     private static final String DEFAULT_CURRENT_PRESET = "00001";
@@ -35,8 +35,6 @@ public class ClientConfigManager {
     private static final String DEFAULT_LAST_LANGUAGE = "";
     private static final String DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE = "scroll";
     private static final String DEFAULT_GUI_THEME_COLOR_PRIMARY = "#FFB840";
-    private static final String DEFAULT_GUI_THEME_COLOR_SECONDARY = "#F29B3D";
-    private static final String DEFAULT_GUI_THEME_COLOR_TERTIARY = "#E49A1C";
     private static final String DEFAULT_GUI_BACKGROUND_MATERIAL = "minecraft:cut_copper";
 
     private static String currentPresetId = DEFAULT_CURRENT_PRESET;
@@ -59,8 +57,6 @@ public class ClientConfigManager {
     private static String lastModVersion = "";
     private static String singleLineSubtitleCompressionMode = DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
     private static String guiThemeColorPrimary = DEFAULT_GUI_THEME_COLOR_PRIMARY;
-    private static String guiThemeColorSecondary = DEFAULT_GUI_THEME_COLOR_SECONDARY;
-    private static String guiThemeColorTertiary = DEFAULT_GUI_THEME_COLOR_TERTIARY;
     private static String guiBackgroundMaterial = DEFAULT_GUI_BACKGROUND_MATERIAL;
 
     private static String tempCurrentPresetId = null;
@@ -73,8 +69,6 @@ public class ClientConfigManager {
     private static Boolean tempEnableIconAntialiasing = null;
     private static String tempSingleLineSubtitleCompressionMode = null;
     private static String tempGuiThemeColorPrimary = null;
-    private static String tempGuiThemeColorSecondary = null;
-    private static String tempGuiThemeColorTertiary = null;
     private static String tempGuiBackgroundMaterial = null;
     private static boolean isEditing = false;
 
@@ -89,8 +83,6 @@ public class ClientConfigManager {
         tempEnableIconAntialiasing = enableIconAntialiasing;
         tempSingleLineSubtitleCompressionMode = singleLineSubtitleCompressionMode;
         tempGuiThemeColorPrimary = guiThemeColorPrimary;
-        tempGuiThemeColorSecondary = guiThemeColorSecondary;
-        tempGuiThemeColorTertiary = guiThemeColorTertiary;
         tempGuiBackgroundMaterial = guiBackgroundMaterial;
         isEditing = true;
     }
@@ -107,8 +99,6 @@ public class ClientConfigManager {
             enableIconAntialiasing = tempEnableIconAntialiasing != null ? tempEnableIconAntialiasing : enableIconAntialiasing;
             singleLineSubtitleCompressionMode = tempSingleLineSubtitleCompressionMode == null ? singleLineSubtitleCompressionMode : normalizeSingleLineSubtitleCompressionMode(tempSingleLineSubtitleCompressionMode);
             guiThemeColorPrimary = tempGuiThemeColorPrimary == null ? guiThemeColorPrimary : normalizeHexColor(tempGuiThemeColorPrimary, DEFAULT_GUI_THEME_COLOR_PRIMARY);
-            guiThemeColorSecondary = tempGuiThemeColorSecondary == null ? guiThemeColorSecondary : normalizeHexColor(tempGuiThemeColorSecondary, DEFAULT_GUI_THEME_COLOR_SECONDARY);
-            guiThemeColorTertiary = tempGuiThemeColorTertiary == null ? guiThemeColorTertiary : normalizeHexColor(tempGuiThemeColorTertiary, DEFAULT_GUI_THEME_COLOR_TERTIARY);
             guiBackgroundMaterial = tempGuiBackgroundMaterial == null ? guiBackgroundMaterial : normalizeGuiBackgroundMaterial(tempGuiBackgroundMaterial);
             isEditing = false;
             applyGuiThemeColors();
@@ -124,8 +114,6 @@ public class ClientConfigManager {
             tempEnableIconAntialiasing = null;
             tempSingleLineSubtitleCompressionMode = null;
             tempGuiThemeColorPrimary = null;
-            tempGuiThemeColorSecondary = null;
-            tempGuiThemeColorTertiary = null;
             tempGuiBackgroundMaterial = null;
         }
     }
@@ -143,8 +131,6 @@ public class ClientConfigManager {
             tempEnableIconAntialiasing = null;
             tempSingleLineSubtitleCompressionMode = null;
             tempGuiThemeColorPrimary = null;
-            tempGuiThemeColorSecondary = null;
-            tempGuiThemeColorTertiary = null;
             tempGuiBackgroundMaterial = null;
             applyGuiThemeColors();
         }
@@ -162,8 +148,6 @@ public class ClientConfigManager {
         if (tempEnableIconAntialiasing != null && !tempEnableIconAntialiasing.equals(enableIconAntialiasing)) return true;
         if (tempSingleLineSubtitleCompressionMode != null && !tempSingleLineSubtitleCompressionMode.equals(singleLineSubtitleCompressionMode)) return true;
         if (tempGuiThemeColorPrimary != null && !tempGuiThemeColorPrimary.equals(guiThemeColorPrimary)) return true;
-        if (tempGuiThemeColorSecondary != null && !tempGuiThemeColorSecondary.equals(guiThemeColorSecondary)) return true;
-        if (tempGuiThemeColorTertiary != null && !tempGuiThemeColorTertiary.equals(guiThemeColorTertiary)) return true;
         if (tempGuiBackgroundMaterial != null && !tempGuiBackgroundMaterial.equals(guiBackgroundMaterial)) return true;
         return false;
     }
@@ -213,8 +197,6 @@ public class ClientConfigManager {
             lastModVersion = json.has("last_mod_version") ? json.get("last_mod_version").getAsString() : "";
             singleLineSubtitleCompressionMode = json.has("single_line_subtitle_compression_mode") ? normalizeSingleLineSubtitleCompressionMode(json.get("single_line_subtitle_compression_mode").getAsString()) : DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
             guiThemeColorPrimary = json.has("gui_theme_color_primary") ? normalizeHexColor(json.get("gui_theme_color_primary").getAsString(), DEFAULT_GUI_THEME_COLOR_PRIMARY) : DEFAULT_GUI_THEME_COLOR_PRIMARY;
-            guiThemeColorSecondary = json.has("gui_theme_color_secondary") ? normalizeHexColor(json.get("gui_theme_color_secondary").getAsString(), DEFAULT_GUI_THEME_COLOR_SECONDARY) : DEFAULT_GUI_THEME_COLOR_SECONDARY;
-            guiThemeColorTertiary = json.has("gui_theme_color_tertiary") ? normalizeHexColor(json.get("gui_theme_color_tertiary").getAsString(), DEFAULT_GUI_THEME_COLOR_TERTIARY) : DEFAULT_GUI_THEME_COLOR_TERTIARY;
             guiBackgroundMaterial = json.has("gui_background_material") ? normalizeGuiBackgroundMaterial(json.get("gui_background_material").getAsString()) : DEFAULT_GUI_BACKGROUND_MATERIAL;
             applyGuiThemeColors();
         } catch (Exception e) {
@@ -240,8 +222,6 @@ public class ClientConfigManager {
             lastModVersion = "";
             singleLineSubtitleCompressionMode = DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
             guiThemeColorPrimary = DEFAULT_GUI_THEME_COLOR_PRIMARY;
-            guiThemeColorSecondary = DEFAULT_GUI_THEME_COLOR_SECONDARY;
-            guiThemeColorTertiary = DEFAULT_GUI_THEME_COLOR_TERTIARY;
             guiBackgroundMaterial = DEFAULT_GUI_BACKGROUND_MATERIAL;
             applyGuiThemeColors();
         }
@@ -269,8 +249,6 @@ public class ClientConfigManager {
         json.addProperty("last_mod_version", GuiConstants.MOD_VERSION);
         json.addProperty("single_line_subtitle_compression_mode", DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE);
         json.addProperty("gui_theme_color_primary", DEFAULT_GUI_THEME_COLOR_PRIMARY);
-        json.addProperty("gui_theme_color_secondary", DEFAULT_GUI_THEME_COLOR_SECONDARY);
-        json.addProperty("gui_theme_color_tertiary", DEFAULT_GUI_THEME_COLOR_TERTIARY);
         json.addProperty("gui_background_material", DEFAULT_GUI_BACKGROUND_MATERIAL);
         
         currentPresetId = DEFAULT_CURRENT_PRESET;
@@ -293,8 +271,6 @@ public class ClientConfigManager {
         lastModVersion = GuiConstants.MOD_VERSION;
         singleLineSubtitleCompressionMode = DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
         guiThemeColorPrimary = DEFAULT_GUI_THEME_COLOR_PRIMARY;
-        guiThemeColorSecondary = DEFAULT_GUI_THEME_COLOR_SECONDARY;
-        guiThemeColorTertiary = DEFAULT_GUI_THEME_COLOR_TERTIARY;
         guiBackgroundMaterial = DEFAULT_GUI_BACKGROUND_MATERIAL;
         applyGuiThemeColors();
 
@@ -328,8 +304,6 @@ public class ClientConfigManager {
         root.addProperty("last_mod_version", lastModVersion);
         root.addProperty("single_line_subtitle_compression_mode", singleLineSubtitleCompressionMode);
         root.addProperty("gui_theme_color_primary", guiThemeColorPrimary);
-        root.addProperty("gui_theme_color_secondary", guiThemeColorSecondary);
-        root.addProperty("gui_theme_color_tertiary", guiThemeColorTertiary);
         root.addProperty("gui_background_material", guiBackgroundMaterial);
 
         try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
@@ -503,33 +477,11 @@ public class ClientConfigManager {
     }
 
     public static String getGuiThemeColorSecondary() {
-        return isEditing && tempGuiThemeColorSecondary != null ? tempGuiThemeColorSecondary : guiThemeColorSecondary;
-    }
-
-    public static void setGuiThemeColorSecondary(String color) {
-        String normalized = normalizeHexColor(color, DEFAULT_GUI_THEME_COLOR_SECONDARY);
-        if (isEditing) {
-            tempGuiThemeColorSecondary = normalized;
-        } else {
-            guiThemeColorSecondary = normalized;
-            saveGlobalConfig();
-        }
-        applyGuiThemeColors();
+        return deriveSecondaryThemeColor(getGuiThemeColorPrimary());
     }
 
     public static String getGuiThemeColorTertiary() {
-        return isEditing && tempGuiThemeColorTertiary != null ? tempGuiThemeColorTertiary : guiThemeColorTertiary;
-    }
-
-    public static void setGuiThemeColorTertiary(String color) {
-        String normalized = normalizeHexColor(color, DEFAULT_GUI_THEME_COLOR_TERTIARY);
-        if (isEditing) {
-            tempGuiThemeColorTertiary = normalized;
-        } else {
-            guiThemeColorTertiary = normalized;
-            saveGlobalConfig();
-        }
-        applyGuiThemeColors();
+        return deriveTertiaryThemeColor(getGuiThemeColorPrimary());
     }
 
     public static String getGuiBackgroundMaterial() {
@@ -551,8 +503,6 @@ public class ClientConfigManager {
             return false;
         }
         if (tempGuiThemeColorPrimary != null && !tempGuiThemeColorPrimary.equals(guiThemeColorPrimary)) return true;
-        if (tempGuiThemeColorSecondary != null && !tempGuiThemeColorSecondary.equals(guiThemeColorSecondary)) return true;
-        if (tempGuiThemeColorTertiary != null && !tempGuiThemeColorTertiary.equals(guiThemeColorTertiary)) return true;
         if (tempGuiBackgroundMaterial != null && !tempGuiBackgroundMaterial.equals(guiBackgroundMaterial)) return true;
         return false;
     }
@@ -723,6 +673,28 @@ public class ClientConfigManager {
         } catch (Exception ignored) {
             return fallback;
         }
+    }
+
+    private static String deriveSecondaryThemeColor(String primary) {
+        return scaleThemeColor(primary, 0.9490196f, 0.8423913f, 0.9531250f, "#F29B3D");
+    }
+
+    private static String deriveTertiaryThemeColor(String primary) {
+        return scaleThemeColor(primary, 0.8941176f, 0.8369565f, 0.4375000f, "#E49A1C");
+    }
+
+    private static String scaleThemeColor(String primary, float rScale, float gScale, float bScale, String fallback) {
+        String normalized = normalizeHexColor(primary, null);
+        if (normalized == null) {
+            return fallback;
+        }
+        int r = Integer.parseInt(normalized.substring(1, 3), 16);
+        int g = Integer.parseInt(normalized.substring(3, 5), 16);
+        int b = Integer.parseInt(normalized.substring(5, 7), 16);
+        int rr = Math.max(0, Math.min(255, Math.round(r * rScale)));
+        int gg = Math.max(0, Math.min(255, Math.round(g * gScale)));
+        int bb = Math.max(0, Math.min(255, Math.round(b * bScale)));
+        return String.format("#%02X%02X%02X", rr, gg, bb);
     }
 
     private static void applyGuiThemeColors() {

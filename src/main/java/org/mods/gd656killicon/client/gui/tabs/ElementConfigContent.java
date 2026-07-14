@@ -126,7 +126,9 @@ public class ElementConfigContent extends ConfigTabContent {
             KillType.EXPLOSION,
             KillType.CRIT,
             KillType.ASSIST,
-            KillType.DESTROY_VEHICLE
+            KillType.DESTROY_VEHICLE,
+            KillType.VEHICLE_DESTROY_ASSIST,
+            KillType.MEDIC
     };
     private static final long PREVIEW_COMBO_TRIGGER_INTERVAL_MS = 1200L;
     private static final long PREVIEW_VALORANT_TRIGGER_INTERVAL_MS = 1350L;
@@ -336,7 +338,7 @@ public class ElementConfigContent extends ConfigTabContent {
         boolean expanded = generalFolderExpanded.getOrDefault(categoryId, false);
         String arrow = expanded ? "▼" : "▶";
         String key = "gd656killicon.client.gui.config.folder.general." + categoryId;
-        String label = I18n.exists(key) ? I18n.get(key) : categoryId;
+        String label = org.mods.gd656killicon.client.util.I18nCompat.exists(key) ? I18n.get(key) : categoryId;
         row.addColumn(" " + label, -1, GuiConstants.COLOR_GOLD, true, false, (button) -> {
             generalFolderExpanded.put(categoryId, !generalFolderExpanded.getOrDefault(categoryId, false));
             refreshVisibleRows();
@@ -541,7 +543,7 @@ public class ElementConfigContent extends ConfigTabContent {
         }
 
         String nameKey = "gd656killicon.element.name." + elementId.replace("/", ".");
-        String elementName = I18n.exists(nameKey) ? I18n.get(nameKey) : elementId;
+        String elementName = org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey) ? I18n.get(nameKey) : elementId;
 
         List<GDTextRenderer.ColoredText> elementTexts = new ArrayList<>();
         elementTexts.add(new GDTextRenderer.ColoredText(I18n.get("gd656killicon.client.gui.config.generic.current_element"), GuiConstants.COLOR_WHITE));
@@ -786,6 +788,9 @@ public class ElementConfigContent extends ConfigTabContent {
             else if ("crit".equals(tex)) killType = KillType.CRIT;
             else if ("destroy_vehicle".equals(tex)) killType = KillType.DESTROY_VEHICLE;
             else if ("assist".equals(tex)) killType = KillType.ASSIST;
+            else if ("capture".equals(tex)) killType = KillType.CAPTURE;
+            else if ("vehicle_destroy_assist".equals(tex)) killType = KillType.VEHICLE_DESTROY_ASSIST;
+            else if ("medic".equals(tex)) killType = KillType.MEDIC;
             
             if (killType != -1) {
                 if (!previewPaused && now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
@@ -1895,13 +1900,13 @@ public class ElementConfigContent extends ConfigTabContent {
         }
 
         String generalKey = "gd656killicon.client.gui.config.tab.general";
-        String generalLabel = I18n.exists(generalKey) ? I18n.get(generalKey) : "General";
+        String generalLabel = org.mods.gd656killicon.client.util.I18nCompat.exists(generalKey) ? I18n.get(generalKey) : "General";
         secondaryTabs.add(new SecondaryTab("general", generalLabel));
         
         List<String> textures = ElementTextureDefinition.getTextures(elementId);
         for (String texture : textures) {
             String key = "gd656killicon.client.gui.config.tab.texture." + texture;
-            String label = I18n.exists(key) ? I18n.get(key) : texture;
+            String label = org.mods.gd656killicon.client.util.I18nCompat.exists(key) ? I18n.get(key) : texture;
             secondaryTabs.add(new SecondaryTab(texture, label));
         }
 
@@ -1912,7 +1917,7 @@ public class ElementConfigContent extends ConfigTabContent {
 
     private String getElementDisplayName(String id) {
         String nameKey = "gd656killicon.element.name." + id.replace("/", ".");
-        return I18n.exists(nameKey) ? I18n.get(nameKey) : id;
+        return org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey) ? I18n.get(nameKey) : id;
     }
 
     private void renderSecondaryTabs(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {

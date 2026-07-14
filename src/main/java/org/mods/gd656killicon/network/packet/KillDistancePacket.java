@@ -1,10 +1,8 @@
 package org.mods.gd656killicon.network.packet;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
 import org.mods.gd656killicon.network.IPacket;
-
-import java.util.function.Supplier;
+import org.mods.gd656killicon.network.PacketContext;
 
 public class KillDistancePacket implements IPacket {
     private final double distance;
@@ -23,10 +21,10 @@ public class KillDistancePacket implements IPacket {
     }
 
     @Override
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> {
+    public void handle(PacketContext context) {
+        context.enqueueWork(() -> {
             org.mods.gd656killicon.client.stats.ClientStatsManager.recordKillDistance(this.distance);
         });
-        context.get().setPacketHandled(true);
+        context.setPacketHandled(true);
     }
 }

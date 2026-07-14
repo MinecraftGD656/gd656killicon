@@ -9,19 +9,20 @@ import com.tacz.guns.entity.EntityKineticBullet;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.server.ServerCore;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
+import org.mods.gd656killicon.server.logic.tacz.ITaczHandler;
 
 import java.util.Map;
 import java.util.Set;
@@ -43,7 +44,7 @@ public class TaczEventHandler implements ITaczHandler {
 
     @Override
     public void init() {
-        MinecraftForge.EVENT_BUS.register(this);
+        ServerBridge.loader().registerForgeEventBusSubscriber(this);
     }
 
     @Override
@@ -194,13 +195,19 @@ public class TaczEventHandler implements ITaczHandler {
             bulletShooters.put(bulletId, shooterId);
         }
         if (shooterId == null) return null;
-        var server = ServerLifecycleHooks.getCurrentServer();
+        var server = ServerBridge.loader().getCurrentServer();
         return server == null ? null : server.getPlayerList().getPlayer(shooterId);
+    }
+
+    private boolean isValidCoordinate(Vec3 vec) {
+        if (vec == null) return false;
+        if (!Double.isFinite(vec.x) || !Double.isFinite(vec.y) || !Double.isFinite(vec.z)) return false;
+        return Math.abs(vec.x) < 3.0E7 && Math.abs(vec.y) < 3.0E7 && Math.abs(vec.z) < 3.0E7;
     }
 
     private void updateFireSuppressionTracking() {
         if (trackedBullets.isEmpty()) return;
-        var server = ServerLifecycleHooks.getCurrentServer();
+        var server = ServerBridge.loader().getCurrentServer();
         if (server == null) return;
 
         for (var entry : trackedBullets.entrySet()) {
@@ -219,10 +226,23 @@ public class TaczEventHandler implements ITaczHandler {
             Vec3 currentPos;
             if (lastPos == null) {
                 currentPos = bullet.position();
+                if (!isValidCoordinate(currentPos)) {
+                    trackedBullets.remove(bulletId);
+                    continue;
+                }
                 bulletLastPositions.put(bulletId, currentPos);
                 continue;
             } else {
-                currentPos = lastPos.add(bullet.getDeltaMovement());
+                Vec3 delta = bullet.getDeltaMovement();
+                if (!isValidCoordinate(delta)) {
+                    trackedBullets.remove(bulletId);
+                    continue;
+                }
+                currentPos = lastPos.add(delta);
+                if (!isValidCoordinate(currentPos)) {
+                    trackedBullets.remove(bulletId);
+                    continue;
+                }
                 bulletLastPositions.put(bulletId, currentPos);
             }
             if (countedBullets.contains(bulletId)) continue;
@@ -247,6 +267,8 @@ public class TaczEventHandler implements ITaczHandler {
     }
 
     private boolean isBulletSuppressing(ServerPlayer shooter, EntityKineticBullet bullet, Vec3 start, Vec3 end) {
+        if (!isValidCoordinate(start) || !isValidCoordinate(end)) return false;
+        
         AABB area = new AABB(start, end).inflate(2.0);
         var entities = bullet.level().getEntitiesOfClass(LivingEntity.class, area, LivingEntity::isAlive);
         if (entities.isEmpty()) return false;
@@ -254,6 +276,7 @@ public class TaczEventHandler implements ITaczHandler {
         for (LivingEntity target : entities) {
             if (target == shooter) continue;
             if (target.isPassengerOfSameVehicle(shooter)) continue;
+            if (!isSuppressionTarget(target)) continue;
             if (target instanceof Player targetPlayer) {
                 if (shooter.getTeam() != null && targetPlayer.getTeam() != null && shooter.getTeam() == targetPlayer.getTeam()) {
                     continue;
@@ -265,5 +288,12 @@ public class TaczEventHandler implements ITaczHandler {
             }
         }
         return false;
+    }
+
+    private boolean isSuppressionTarget(LivingEntity target) {
+        if (target instanceof Player) {
+            return true;
+        }
+        return target instanceof Mob mob && !mob.isNoAi();
     }
 }

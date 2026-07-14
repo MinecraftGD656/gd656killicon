@@ -2,13 +2,13 @@ package org.mods.gd656killicon.client.command;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraftforge.client.event.RegisterClientCommandsEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
+import org.mods.gd656killicon.forge.client.ForgeClientCommandEvents;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
@@ -299,8 +299,8 @@ public class ClientCommand {
         }
     }
 
-    public static void register(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal("gd656killicon")
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("gd656killicon")
             .then(Commands.literal("client")
                 .then(Commands.literal("info").executes(ClientCommand::info))
                 .then(Commands.literal("debug")
@@ -392,11 +392,6 @@ public class ClientCommand {
     }
 
     public static void init() {
-        MinecraftForge.EVENT_BUS.register(ClientCommand.class);
-    }
-    
-    @SubscribeEvent
-    public static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
-        register(event);
+        ClientBridge.loader().registerForgeEventBusSubscriber(ForgeClientCommandEvents.class);
     }
 }

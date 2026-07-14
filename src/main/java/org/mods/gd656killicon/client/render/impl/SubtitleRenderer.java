@@ -50,6 +50,7 @@ public class SubtitleRenderer implements IHudRenderer {
     private boolean enableCritKill = true;
     private boolean enableAssistKill = true;
     private boolean enableDestroyVehicleKill = true;
+    private boolean enableCaptureKill = true;
 
     private boolean enableStacking = false;
     private int maxLines = 5;
@@ -99,9 +100,22 @@ public class SubtitleRenderer implements IHudRenderer {
         Minecraft mc = Minecraft.getInstance();
         String vName;
         
-        if (context.extraData() != null && !context.extraData().isEmpty()) {
-            String extra = context.extraData();
-            if (type == KillType.DESTROY_VEHICLE) {
+        String rawExtra = context.extraData() == null ? "" : context.extraData();
+        String captureWeaponToken = "";
+        if (!rawExtra.isEmpty()) {
+            String extra = rawExtra;
+            if (type == KillType.CAPTURE) {
+                String[] parts = extra.split("\\|", 2);
+                captureWeaponToken = parts.length > 0 ? parts[0].trim() : "";
+                String captureTarget = parts.length > 1 ? parts[1].trim() : "";
+                if (!captureTarget.isEmpty()) {
+                    vName = captureTarget;
+                } else if (!captureWeaponToken.isEmpty()) {
+                    vName = captureWeaponToken;
+                } else {
+                    vName = net.minecraft.client.resources.language.I18n.get("gd656killicon.client.text.unknown");
+                }
+            } else if (type == KillType.DESTROY_VEHICLE) {
                 if (extra.contains("|")) {
                     String[] parts = extra.split("\\|", 2);
                     vName = parts[0];
@@ -124,7 +138,12 @@ public class SubtitleRenderer implements IHudRenderer {
 
         ItemStack itemStack = ItemStack.EMPTY;
         String wName;
-        if (mc.player != null) {
+        if (type == KillType.CAPTURE) {
+            itemStack = ItemStack.EMPTY;
+            wName = captureWeaponToken == null || captureWeaponToken.isEmpty()
+                ? net.minecraft.client.resources.language.I18n.get("gd656killicon.client.text.unknown")
+                : captureWeaponToken;
+        } else if (mc.player != null) {
             if (mc.player.getVehicle() != null) {
                 itemStack = ItemStack.EMPTY;
                 wName = mc.player.getVehicle().getDisplayName().getString();
@@ -145,7 +164,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
         String normalFormat = config.has("format_normal") ? config.get("format_normal").getAsString() : "gd656killicon.client.format.normal";
         String resolvedFormat = config.has(formatKey) ? config.get(formatKey).getAsString() : normalFormat;
-        if (net.minecraft.client.resources.language.I18n.exists(resolvedFormat)) {
+        if (org.mods.gd656killicon.client.util.I18nCompat.exists(resolvedFormat)) {
             resolvedFormat = net.minecraft.client.resources.language.I18n.get(resolvedFormat);
         }
 
@@ -212,7 +231,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
         String normalFormat = config.has("format_normal") ? config.get("format_normal").getAsString() : "gd656killicon.client.format.normal";
         String resolvedFormat = config.has(formatKey) ? config.get(formatKey).getAsString() : normalFormat;
-        if (net.minecraft.client.resources.language.I18n.exists(resolvedFormat)) {
+        if (org.mods.gd656killicon.client.util.I18nCompat.exists(resolvedFormat)) {
             resolvedFormat = net.minecraft.client.resources.language.I18n.get(resolvedFormat);
         }
 
@@ -555,6 +574,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.enableCritKill = !config.has("enable_crit_kill") || config.get("enable_crit_kill").getAsBoolean();
             this.enableAssistKill = !config.has("enable_assist_kill") || config.get("enable_assist_kill").getAsBoolean();
             this.enableDestroyVehicleKill = !config.has("enable_destroy_vehicle_kill") || config.get("enable_destroy_vehicle_kill").getAsBoolean();
+            this.enableCaptureKill = !config.has("enable_capture_kill") || config.get("enable_capture_kill").getAsBoolean();
 
             this.enableStacking = config.has("enable_stacking") && config.get("enable_stacking").getAsBoolean();
             this.maxLines = config.has("max_lines") ? config.get("max_lines").getAsInt() : 5;
@@ -568,7 +588,7 @@ public class SubtitleRenderer implements IHudRenderer {
                     : "#008B8B";
             
             this.format = normalFormat;
-            if (net.minecraft.client.resources.language.I18n.exists(this.format)) {
+            if (org.mods.gd656killicon.client.util.I18nCompat.exists(this.format)) {
                 this.format = net.minecraft.client.resources.language.I18n.get(this.format);
             }
 
@@ -583,13 +603,14 @@ public class SubtitleRenderer implements IHudRenderer {
             this.displayDuration = 3000L;
             this.scale = 1.0f;
             this.format = "gd656killicon.client.format.normal";
-            if (net.minecraft.client.resources.language.I18n.exists(this.format)) {
+            if (org.mods.gd656killicon.client.util.I18nCompat.exists(this.format)) {
                 this.format = net.minecraft.client.resources.language.I18n.get(this.format);
             }
             this.placeholderColor = DEFAULT_PLACEHOLDER_COLOR;
             this.enablePlaceholderBold = false;
             this.enableScaleAnimation = true;
             this.enableNormalKill = true;
+            this.enableCaptureKill = true;
             this.enableStacking = false;
             this.normalTextColor = 0xFFFFFFFF;
         }
@@ -603,6 +624,7 @@ public class SubtitleRenderer implements IHudRenderer {
             case KillType.CRIT -> enableCritKill;
             case KillType.ASSIST -> enableAssistKill;
             case KillType.DESTROY_VEHICLE -> enableDestroyVehicleKill;
+            case KillType.CAPTURE -> enableCaptureKill;
             default -> true;
         };
     }
@@ -695,7 +717,9 @@ public class SubtitleRenderer implements IHudRenderer {
             } else if (type.equals("target")) {
                 int targetColor = pColor & 0x00FFFFFF;
                 int interpolatedColor = interpolateFromWhite(targetColor, colorProgress);
-                String translatedVName = net.minecraft.client.resources.language.I18n.get(vName);
+                String translatedVName = org.mods.gd656killicon.client.util.I18nCompat.exists(vName)
+                    ? net.minecraft.client.resources.language.I18n.get(vName)
+                    : vName;
                 fullText.getSiblings().add(Component.literal(translatedVName).withStyle(style -> 
                     style.withColor(interpolatedColor & 0x00FFFFFF).withBold(this.enablePlaceholderBold)));
                 tempFormat = tempFormat.substring(firstIdx + "<target>".length());
@@ -739,6 +763,7 @@ public class SubtitleRenderer implements IHudRenderer {
             case KillType.CRIT -> "format_crit";
             case KillType.ASSIST -> "format_assist";
             case KillType.DESTROY_VEHICLE -> "format_destroy_vehicle";
+            case KillType.CAPTURE -> "format_capture";
             default -> "format_normal";
         };
     }
@@ -753,6 +778,7 @@ public class SubtitleRenderer implements IHudRenderer {
             case KillType.CRIT -> "color_crit_placeholder";
             case KillType.ASSIST -> "color_assist_placeholder";
             case KillType.DESTROY_VEHICLE -> "color_destroy_vehicle_placeholder";
+            case KillType.CAPTURE -> "color_capture_placeholder";
             default -> "color_normal_placeholder";
         };
     }
@@ -764,6 +790,7 @@ public class SubtitleRenderer implements IHudRenderer {
             case KillType.CRIT -> "color_crit_emphasis";
             case KillType.ASSIST -> "color_assist_emphasis";
             case KillType.DESTROY_VEHICLE -> "color_destroy_vehicle_emphasis";
+            case KillType.CAPTURE -> "color_capture_emphasis";
             default -> "color_normal_emphasis";
         };
     }
@@ -824,4 +851,5 @@ public class SubtitleRenderer implements IHudRenderer {
 
         return (alpha) | (r << 16) | (g << 8) | b;
     }
+
 }
