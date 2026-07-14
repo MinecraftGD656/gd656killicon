@@ -1,6 +1,5 @@
 package org.mods.gd656killicon.server.logic.superbwarfare;
 
-import com.google.gson.JsonObject;
 import com.atsuishio.superbwarfare.api.event.ProjectileHitEvent;
 import com.atsuishio.superbwarfare.api.event.ShootEvent;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
@@ -20,17 +19,12 @@ import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.mods.gd656killicon.common.BonusType;
-import org.mods.gd656killicon.common.KillType;
-import org.mods.gd656killicon.network.NetworkHandler;
-import org.mods.gd656killicon.network.packet.KillIconPacket;
 import org.mods.gd656killicon.server.ServerCore;
 import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.data.ServerData;
+import org.mods.gd656killicon.server.logic.core.VehicleRewardHelper;
 import org.mods.gd656killicon.server.util.ServerLog;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -44,10 +38,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     private static final float MIN_EFFECTIVE_DAMAGE = 0.01f;
     private static final long OBSERVED_DAMAGE_WINDOW_MS = 1500L;
     private static volatile SuperbWarfareEventHandler ACTIVE_INSTANCE;
-    private static final HttpClient DEBUG_HTTP = HttpClient.newHttpClient();
-    private static final String DEBUG_URL = "http://127.0.0.1:7777/event";
-    private static final String DEBUG_SESSION = "vehicle-bonus-missing";
-    private static final String DEBUG_RUN = "post-fix";
 
     private final Map<VehicleEntity, VehicleCombatTracker> combatTrackerMap = new WeakHashMap<>();
     private final Map<VehicleEntity, VehicleStateSnapshot> vehicleStateMap = new WeakHashMap<>();
@@ -67,12 +57,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         } catch (Exception ignored) {
             ServerBridge.loader().registerForgeEventBusSubscriber(this);
         }
-        // #region debug-point B:handler-init
-        JsonObject debugData = new JsonObject();
-        debugData.addProperty("activeInstance", ACTIVE_INSTANCE != null);
-        debugData.addProperty("loaderHasSuperbWarfare", ServerBridge.loader().isModLoaded("superbwarfare"));
-        reportDebug("B", "SuperbWarfareEventHandler.init", "[DEBUG] superb warfare handler initialized", debugData);
-        // #endregion
         ServerLog.info("SuperbWarfare event handler registered.");
     }
 
@@ -116,28 +100,12 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         if (vehicle.level().isClientSide()) {
             return;
         }
-
-        // #region debug-point C:damage-applied
-        JsonObject damageData = new JsonObject();
-        damageData.addProperty("vehicleType", vehicle.getType().toString());
-        damageData.addProperty("actualDamage", actualDamage);
-        damageData.addProperty("sourceType", source == null ? "null" : String.valueOf(source.typeHolder().unwrapKey().map(Object::toString).orElse(null)));
-        damageData.addProperty("sourceEntity", source == null || source.getEntity() == null ? "null" : source.getEntity().getType().toString());
-        damageData.addProperty("directEntity", source == null || source.getDirectEntity() == null ? "null" : source.getDirectEntity().getType().toString());
-        reportDebug("C", "SuperbWarfareEventHandler.handleVehicleDamageApplied", "[DEBUG] vehicle damage callback reached", damageData);
-        // #endregion
         if (actualDamage <= MIN_EFFECTIVE_DAMAGE) {
             return;
         }
 
         VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, ignored -> new VehicleCombatTracker());
         ServerPlayer attacker = resolveResponsiblePlayer(vehicle, source);
-        // #region debug-point D:attacker-resolution
-        JsonObject attackerData = new JsonObject();
-        attackerData.addProperty("resolved", attacker != null);
-        attackerData.addProperty("attacker", attacker == null ? "null" : attacker.getGameProfile().getName());
-        reportDebug("D", "SuperbWarfareEventHandler.handleVehicleDamageApplied", "[DEBUG] vehicle attacker resolved", attackerData);
-        // #endregion
         if (attacker == null) {
             return;
         }
@@ -146,13 +114,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         vehicle.getEntityData().set(VehicleEntity.LAST_ATTACKER_UUID, attacker.getStringUUID());
 
         if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
-            // #region debug-point E:bonus-hit-vehicle
-            JsonObject bonusData = new JsonObject();
-            bonusData.addProperty("bonusType", "HIT_VEHICLE_ARMOR");
-            bonusData.addProperty("amount", actualDamage);
-            bonusData.addProperty("player", attacker.getGameProfile().getName());
-            reportDebug("E", "SuperbWarfareEventHandler.handleVehicleDamageApplied", "[DEBUG] issuing hit vehicle armor bonus", bonusData);
-            // #endregion
             ServerCore.BONUS.add(attacker, BonusType.HIT_VEHICLE_ARMOR, actualDamage, null);
         }
     }
@@ -370,14 +331,6 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
             return;
         }
         if (ServerData.get().isBonusEnabled(BonusType.VEHICLE_REPAIR)) {
-            // #region debug-point E:bonus-vehicle-repair
-            JsonObject repairData = new JsonObject();
-            repairData.addProperty("player", player.getGameProfile().getName());
-            repairData.addProperty("vehicleType", vehicle.getType().toString());
-            repairData.addProperty("health", vehicle.getHealth());
-            repairData.addProperty("maxHealth", vehicle.getMaxHealth());
-            reportDebug("E", "SuperbWarfareEventHandler.onShootRepair", "[DEBUG] issuing vehicle repair bonus", repairData);
-            // #endregion
             ServerCore.BONUS.add(player, BonusType.VEHICLE_REPAIR, 1.0f, null);
         }
         lastRepairBonusTimeMap.put(player, now);
@@ -460,22 +413,16 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     }
 
     private void processVehicleDestruction(VehicleEntity vehicle, VehicleCombatTracker tracker) {
-        long now = System.currentTimeMillis();
-        ServerPlayer killer = null;
-        if (tracker.lastAttackerWasPlayer && tracker.lastAttackerUuid != null
-                && now - tracker.lastAttackTime < ServerData.get().getAssistTimeoutMs()) {
-            killer = ServerCore.getServer().getPlayerList().getPlayer(tracker.lastAttackerUuid);
-        }
-
         float maxHealth = vehicle.getMaxHealth();
         String vehicleNameKey = vehicle.getType().getDescriptionId();
         String extraInfo = vehicleNameKey + "|" + (int) maxHealth;
-        if (killer != null) {
-            UUID lastDriverUuid = parseUuid(vehicle.getEntityData().get(LAST_DRIVER_UUID));
-            if (lastDriverUuid != null && lastDriverUuid.equals(killer.getUUID())) {
-                killer = null;
-            }
-        }
+        UUID lastDriverUuid = parseUuid(vehicle.getEntityData().get(LAST_DRIVER_UUID));
+        ServerPlayer killer = VehicleRewardHelper.resolveRecentKiller(
+                tracker.lastAttackerUuid,
+                tracker.lastAttackerWasPlayer,
+                tracker.lastAttackTime,
+                lastDriverUuid
+        );
 
         if (killer == null) {
             return;
@@ -484,74 +431,23 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
         int score = (int) Math.ceil(maxHealth * multiplier);
         if (score > 0) {
-            // #region debug-point E:bonus-destroy-vehicle
-            JsonObject destroyData = new JsonObject();
-            destroyData.addProperty("killer", killer.getGameProfile().getName());
-            destroyData.addProperty("vehicleType", vehicleNameKey);
-            destroyData.addProperty("score", score);
-            destroyData.addProperty("accumulatedDamageDealt", tracker.accumulatedDamageDealt);
-            reportDebug("E", "SuperbWarfareEventHandler.processVehicleDestruction", "[DEBUG] issuing destroy vehicle bonus", destroyData);
-            // #endregion
             ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null, vehicle.getId(), vehicleNameKey);
         }
         if (tracker.accumulatedDamageDealt > 0 && ServerData.get().isBonusEnabled(BonusType.VALUE_TARGET_DESTROYED)) {
-            // #region debug-point E:bonus-value-target-destroyed
-            JsonObject valueData = new JsonObject();
-            valueData.addProperty("killer", killer.getGameProfile().getName());
-            valueData.addProperty("vehicleType", vehicleNameKey);
-            valueData.addProperty("amount", tracker.accumulatedDamageDealt);
-            reportDebug("E", "SuperbWarfareEventHandler.processVehicleDestruction", "[DEBUG] issuing value target destroyed bonus", valueData);
-            // #endregion
             ServerCore.BONUS.add(killer, BonusType.VALUE_TARGET_DESTROYED, tracker.accumulatedDamageDealt, null);
         }
-        awardVehicleDestroyAssistBonuses(vehicle, tracker, killer);
+        VehicleRewardHelper.awardDestroyAssistBonuses(
+                killer.getUUID(),
+                lastDriverUuid,
+                vehicle.getId(),
+                vehicleNameKey,
+                MIN_EFFECTIVE_DAMAGE,
+                tracker.damageByAttacker,
+                tracker.lastContributionTimeByAttacker
+        );
 
         ServerData.get().addKill(killer, 1);
-        sendKillEffects(killer, KillType.DESTROY_VEHICLE, 0, vehicle.getId(), extraInfo);
-    }
-
-    private void awardVehicleDestroyAssistBonuses(VehicleEntity vehicle, VehicleCombatTracker tracker, ServerPlayer killer) {
-        if (!ServerData.get().isBonusEnabled(BonusType.VEHICLE_DESTROY_ASSIST)) {
-            return;
-        }
-        UUID killerUuid = killer.getUUID();
-        UUID lastDriverUuid = parseUuid(vehicle.getEntityData().get(LAST_DRIVER_UUID));
-        long now = System.currentTimeMillis();
-        tracker.damageByAttacker.forEach((attackerUuid, damage) -> {
-            if (attackerUuid == null || attackerUuid.equals(killerUuid) || damage <= MIN_EFFECTIVE_DAMAGE) {
-                return;
-            }
-            Long lastContributionTime = tracker.lastContributionTimeByAttacker.get(attackerUuid);
-            if (lastContributionTime == null || now - lastContributionTime > ServerData.get().getAssistTimeoutMs()) {
-                return;
-            }
-            if (lastDriverUuid != null && lastDriverUuid.equals(attackerUuid)) {
-                return;
-            }
-            ServerPlayer assister = ServerCore.getServer().getPlayerList().getPlayer(attackerUuid);
-            if (assister == null) {
-                return;
-            }
-            ServerCore.BONUS.add(assister, BonusType.VEHICLE_DESTROY_ASSIST, damage, null, vehicle.getId(), vehicle.getType().getDescriptionId());
-        });
-    }
-
-    private void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, String victimName) {
-        double window = ServerData.get().getComboWindowSeconds();
-        boolean hasHelmet = false;
-
-        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName), player);
-        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "valorant", killType, combo, victimId, window, hasHelmet, victimName), player);
-        if (combo > 0) {
-            NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
-        }
-        if (killType != KillType.DESTROY_VEHICLE) {
-            NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "card", killType, combo, victimId, window, hasHelmet, victimName), player);
-            NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "card_bar", killType, combo, victimId, window, hasHelmet, victimName), player);
-        }
-        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, window, hasHelmet, victimName), player);
-        NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
-        NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
+        VehicleRewardHelper.sendDestroyVehicleEffects(killer, vehicle.getId(), extraInfo);
     }
 
     private static class VehicleCombatTracker {
@@ -622,24 +518,5 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
 
     private static DamageSource makeObservedDamageSource(ServerPlayer attacker) {
         return attacker.damageSources().playerAttack(attacker);
-    }
-
-    public static void reportDebug(String hypothesisId, String location, String msg, JsonObject data) {
-        try {
-            JsonObject payload = new JsonObject();
-            payload.addProperty("sessionId", DEBUG_SESSION);
-            payload.addProperty("runId", DEBUG_RUN);
-            payload.addProperty("hypothesisId", hypothesisId);
-            payload.addProperty("location", location);
-            payload.addProperty("msg", msg);
-            payload.add("data", data == null ? new JsonObject() : data);
-            payload.addProperty("ts", System.currentTimeMillis());
-            HttpRequest request = HttpRequest.newBuilder(URI.create(DEBUG_URL))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(payload.toString()))
-                    .build();
-            DEBUG_HTTP.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.discarding());
-        } catch (Exception ignored) {
-        }
     }
 }

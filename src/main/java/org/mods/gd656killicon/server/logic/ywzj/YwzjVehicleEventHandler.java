@@ -5,12 +5,10 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.mods.gd656killicon.common.BonusType;
-import org.mods.gd656killicon.common.KillType;
-import org.mods.gd656killicon.network.NetworkHandler;
-import org.mods.gd656killicon.network.packet.KillIconPacket;
 import org.mods.gd656killicon.server.ServerCore;
 import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.data.ServerData;
+import org.mods.gd656killicon.server.logic.core.VehicleRewardHelper;
 import org.mods.gd656killicon.server.logic.ywzj.IYwzjVehicleHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
 import org.ywzj.vehicle.api.event.HitVehicleEvent;
@@ -143,22 +141,15 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
     }
 
     private void handleVehicleDestruction(AbstractVehicle vehicle, VehicleCombatTracker tracker) {
-        long now = System.currentTimeMillis();
-        
-        ServerPlayer killer = null;
-        if (tracker.lastAttackerWasPlayer && tracker.lastAttackerUuid != null) {
-            if (now - tracker.lastAttackTime < ServerData.get().getAssistTimeoutMs()) {
-                killer = ServerCore.getServer().getPlayerList().getPlayer(tracker.lastAttackerUuid);
-            }
-        }
-
         float maxHealth = vehicle.getMaxHealth();
         String vehicleNameKey = vehicle.getType().getDescriptionId();
-        String extraInfo = vehicleNameKey + "|" + (int)maxHealth;
-
-        if (killer != null && tracker.lastDriverUuid != null && tracker.lastDriverUuid.equals(killer.getUUID())) {
-            killer = null;
-        }
+        String extraInfo = vehicleNameKey + "|" + (int) maxHealth;
+        ServerPlayer killer = VehicleRewardHelper.resolveRecentKiller(
+                tracker.lastAttackerUuid,
+                tracker.lastAttackerWasPlayer,
+                tracker.lastAttackTime,
+                tracker.lastDriverUuid
+        );
 
         if (killer != null) {
             double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
@@ -173,57 +164,19 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
                 }
             }
 
-            awardVehicleDestroyAssistBonuses(vehicle, tracker, killer);
+            VehicleRewardHelper.awardDestroyAssistBonuses(
+                    killer.getUUID(),
+                    tracker.lastDriverUuid,
+                    vehicle.getId(),
+                    vehicleNameKey,
+                    0.0f,
+                    tracker.damageByAttacker,
+                    tracker.lastContributionTimeByAttacker
+            );
             
             ServerData.get().addKill(killer, 1);
-
-            sendKillEffects(killer, KillType.DESTROY_VEHICLE, 0, vehicle.getId(), extraInfo);
+            VehicleRewardHelper.sendDestroyVehicleEffects(killer, vehicle.getId(), extraInfo);
         }
-    }
-
-    private void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, String victimName) {
-        double window = ServerData.get().getComboWindowSeconds();
-        boolean hasHelmet = false;
-        
-        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, window, hasHelmet, victimName), player);
-        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "valorant", killType, combo, victimId, window, hasHelmet, victimName), player);
-        if (combo > 0) {
-            NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "combo", killType, combo, victimId, window, hasHelmet, victimName), player);
-        }
-        
-        if (killType != KillType.DESTROY_VEHICLE) {
-            NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "card", killType, combo, victimId, window, hasHelmet, victimName), player);
-            NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "card_bar", killType, combo, victimId, window, hasHelmet, victimName), player);
-        }
-        
-        NetworkHandler.sendToPlayer(new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, window, hasHelmet, victimName), player);
-        
-        NetworkHandler.sendToPlayer(new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, window, hasHelmet, victimName), player);
-    }
-
-    private void awardVehicleDestroyAssistBonuses(AbstractVehicle vehicle, VehicleCombatTracker tracker, ServerPlayer killer) {
-        if (!ServerData.get().isBonusEnabled(BonusType.VEHICLE_DESTROY_ASSIST)) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        UUID killerUuid = killer.getUUID();
-        tracker.damageByAttacker.forEach((attackerUuid, damage) -> {
-            if (attackerUuid == null || attackerUuid.equals(killerUuid) || damage <= 0.0f) {
-                return;
-            }
-            Long lastContributionTime = tracker.lastContributionTimeByAttacker.get(attackerUuid);
-            if (lastContributionTime == null || now - lastContributionTime > ServerData.get().getAssistTimeoutMs()) {
-                return;
-            }
-            if (tracker.lastDriverUuid != null && tracker.lastDriverUuid.equals(attackerUuid)) {
-                return;
-            }
-            ServerPlayer assister = ServerCore.getServer().getPlayerList().getPlayer(attackerUuid);
-            if (assister == null) {
-                return;
-            }
-            ServerCore.BONUS.add(assister, BonusType.VEHICLE_DESTROY_ASSIST, damage, null, vehicle.getId(), vehicle.getType().getDescriptionId());
-        });
     }
 
     private static class VehicleCombatTracker {

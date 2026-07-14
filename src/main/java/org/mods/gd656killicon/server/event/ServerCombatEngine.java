@@ -52,7 +52,6 @@ public final class ServerCombatEngine {
     private static final Map<UUID, FireAttribution> fireAttribution = new ConcurrentHashMap<>();
 
     private static final List<PendingKill> pendingKills = new ArrayList<>();
-    private static ScheduledExecutorService scoreboardRefreshExecutor;
 
     private static final int TYPE_NORMAL = 0;
     private static final int TYPE_EXPLOSION = 1;
@@ -61,6 +60,9 @@ public final class ServerCombatEngine {
     private static final long LOCKED_TARGET_WINDOW_MS = 10000;
     private static final double HOLD_POSITION_MAX_DISTANCE = 1.0;
     private static final long FIRE_ATTRIBUTION_TIMEOUT_MS = 15000;
+    private static final long SCOREBOARD_REFRESH_INTERVAL_MS = 60000L;
+
+    private static long nextScoreboardRefreshAt = 0L;
 
     private ServerCombatEngine() {}
 
@@ -101,7 +103,7 @@ public final class ServerCombatEngine {
         ServerCore.PING_WHEEL.init();
         ServerCore.CUSTOM_NPCS.init();
         ServerCore.CONQUEST_BATTLEFIELD.init();
-        startScoreboardRefreshTask();
+        nextScoreboardRefreshAt = System.currentTimeMillis() + SCOREBOARD_REFRESH_INTERVAL_MS;
     }
 
     public static void onStopping(MinecraftServer server) {
@@ -109,49 +111,12 @@ public final class ServerCombatEngine {
         ServerData.get().saveAll();
         ServerData.get().shutdown();
         PlayerDataManager.get().shutdown();
-        stopScoreboardRefreshTask();
-    }
-
-    private static void startScoreboardRefreshTask() {
-        if (scoreboardRefreshExecutor != null) {
-            scoreboardRefreshExecutor.shutdownNow();
-        }
-
-        scoreboardRefreshExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread thread = new Thread(r, "Scoreboard-Refresh");
-            thread.setDaemon(true);
-            return thread;
-        });
-
-        scoreboardRefreshExecutor.scheduleAtFixedRate(
-            () -> {
-                MinecraftServer server = ServerBridge.loader().getCurrentServer();
-                if (server != null) {
-                    ServerData.get().refreshScoreboard(server);
-                }
-            },
-            1,
-            1,
-            TimeUnit.MINUTES
-        );
-    }
-
-    private static void stopScoreboardRefreshTask() {
-        if (scoreboardRefreshExecutor != null) {
-            scoreboardRefreshExecutor.shutdown();
-            try {
-                if (!scoreboardRefreshExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    scoreboardRefreshExecutor.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                scoreboardRefreshExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
+        nextScoreboardRefreshAt = 0L;
     }
 
     public static void onTick() {
-        ServerCore.BONUS.tick(ServerBridge.loader().getCurrentServer());
+        MinecraftServer server = ServerBridge.loader().getCurrentServer();
+        ServerCore.BONUS.tick(server);
 
         ServerCore.TACZ.tick();
         ServerCore.SUPERB_WARFARE.tick();
@@ -164,6 +129,7 @@ public final class ServerCombatEngine {
         explosionKillCounter.clear();
 
         long now = System.currentTimeMillis();
+        tickScoreboardRefresh(server, now);
         activeCombats.values().forEach(map -> map.values().removeIf(cs -> now - cs.lastInteractionTime > 30000));
         activeCombats.values().removeIf(Map::isEmpty);
 
@@ -181,9 +147,14 @@ public final class ServerCombatEngine {
         fireAttribution.values().removeIf(record -> now - record.timestamp() > FIRE_ATTRIBUTION_TIMEOUT_MS);
 
         processPendingKills();
+    }
 
-        ServerCore.TACZ.tick();
-        ServerCore.SUPERB_WARFARE.tick();
+    private static void tickScoreboardRefresh(MinecraftServer server, long now) {
+        if (server == null || nextScoreboardRefreshAt == 0L || now < nextScoreboardRefreshAt) {
+            return;
+        }
+        ServerData.get().refreshScoreboard(server);
+        nextScoreboardRefreshAt = now + SCOREBOARD_REFRESH_INTERVAL_MS;
     }
 
     public static void onPlayerJoin(ServerPlayer player) {

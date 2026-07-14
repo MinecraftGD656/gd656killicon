@@ -11,26 +11,17 @@ import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.event.EventNetworkChannel;
-import org.mods.gd656killicon.common.BonusType;
-import org.mods.gd656killicon.server.ServerCore;
 import org.mods.gd656killicon.server.bridge.ServerBridge;
-import org.mods.gd656killicon.server.data.ServerData;
+import org.mods.gd656killicon.server.logic.core.SpottingRewardTracker;
 import org.mods.gd656killicon.server.logic.pingwheel.IPingWheelHandler;
 import org.mods.gd656killicon.server.util.ServerLog;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class PingWheelEventHandler implements IPingWheelHandler {
-    private static final long SPOTTING_BONUS_WINDOW_MS = 60000L;
-    private static final long SPOTTING_LOCK_WINDOW_MS = 7000L;
-    private final Map<UUID, Map<UUID, Long>> spottedTargets = new ConcurrentHashMap<>();
-    private final Map<UUID, Deque<Long>> spottingBonusTimes = new ConcurrentHashMap<>();
+    private final SpottingRewardTracker rewardTracker = new SpottingRewardTracker();
     private boolean listenerRegistered = false;
 
     @Override
@@ -42,56 +33,12 @@ public class PingWheelEventHandler implements IPingWheelHandler {
 
     @Override
     public void tick() {
-        long now = System.currentTimeMillis();
-        spottedTargets.entrySet().removeIf(entry -> {
-            Map<UUID, Long> spotters = entry.getValue();
-            spotters.entrySet().removeIf(item -> item.getValue() <= now);
-            return spotters.isEmpty();
-        });
-        spottingBonusTimes.entrySet().removeIf(entry -> {
-            Deque<Long> times = entry.getValue();
-            synchronized (times) {
-                while (!times.isEmpty() && now - times.peekFirst() > SPOTTING_BONUS_WINDOW_MS) {
-                    times.pollFirst();
-                }
-                return times.isEmpty();
-            }
-        });
+        rewardTracker.tick();
     }
 
     @SubscribeEvent
     public void onLivingDeath(LivingDeathEvent event) {
-        if (event.getEntity().level().isClientSide) return;
-        LivingEntity victim = event.getEntity();
-        Map<UUID, Long> spotters = spottedTargets.get(victim.getUUID());
-        if (spotters == null || spotters.isEmpty()) return;
-        long now = System.currentTimeMillis();
-        spotters.entrySet().removeIf(entry -> entry.getValue() <= now);
-        if (spotters.isEmpty()) {
-            spottedTargets.remove(victim.getUUID());
-            return;
-        }
-        ServerPlayer killer = resolveKiller(event);
-        if (killer == null) {
-            spottedTargets.remove(victim.getUUID());
-            return;
-        }
-        if (spotters.containsKey(killer.getUUID())) {
-            if (ServerData.get().isBonusEnabled(BonusType.SPOTTING_KILL)) {
-                ServerCore.BONUS.add(killer, BonusType.SPOTTING_KILL, 1.0f, "");
-            }
-            spottedTargets.remove(victim.getUUID());
-            return;
-        }
-        for (UUID spotterId : spotters.keySet()) {
-            ServerPlayer spotter = killer.getServer().getPlayerList().getPlayer(spotterId);
-            if (spotter != null && isSameTeam(spotter, killer)) {
-                if (ServerData.get().isBonusEnabled(BonusType.SPOTTING_TEAM_ASSIST)) {
-                    ServerCore.BONUS.add(spotter, BonusType.SPOTTING_TEAM_ASSIST, 1.0f, "");
-                }
-            }
-        }
-        spottedTargets.remove(victim.getUUID());
+        rewardTracker.handleTargetKilled(event.getEntity(), resolveKiller(event));
     }
 
     private void registerPingListener() {
@@ -149,12 +96,7 @@ public class PingWheelEventHandler implements IPingWheelHandler {
         if (spotter == null || targetId == null) return;
         if (spotter.level().isClientSide) return;
         LivingEntity target = findLivingEntity(spotter.getServer(), targetId);
-        if (target == null) return;
-        long expireAt = System.currentTimeMillis() + SPOTTING_LOCK_WINDOW_MS;
-        spottedTargets.computeIfAbsent(target.getUUID(), k -> new ConcurrentHashMap<>()).put(spotter.getUUID(), expireAt);
-        if (ServerData.get().isBonusEnabled(BonusType.SPOTTING) && tryConsumeSpottingBonus(spotter)) {
-            ServerCore.BONUS.add(spotter, BonusType.SPOTTING, 1.0f, "");
-        }
+        rewardTracker.recordSpot(spotter, target);
     }
 
     private LivingEntity findLivingEntity(MinecraftServer server, UUID targetId) {
@@ -166,25 +108,6 @@ public class PingWheelEventHandler implements IPingWheelHandler {
             }
         }
         return null;
-    }
-
-    private boolean tryConsumeSpottingBonus(ServerPlayer player) {
-        long now = System.currentTimeMillis();
-        Deque<Long> times = spottingBonusTimes.computeIfAbsent(player.getUUID(), k -> new ArrayDeque<>());
-        synchronized (times) {
-            while (!times.isEmpty() && now - times.peekFirst() > SPOTTING_BONUS_WINDOW_MS) {
-                times.pollFirst();
-            }
-            if (times.size() >= 2) {
-                return false;
-            }
-            times.addLast(now);
-            return true;
-        }
-    }
-
-    private boolean isSameTeam(ServerPlayer a, ServerPlayer b) {
-        return a.getTeam() != null && b.getTeam() != null && a.getTeam().getName().equals(b.getTeam().getName());
     }
 
     private ServerPlayer resolveKiller(LivingDeathEvent event) {
