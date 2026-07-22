@@ -9,7 +9,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.mods.gd656killicon.Gd656killicon;
 
 public final class ForgeNetworkTransport {
-    private static final String PROTOCOL_VERSION = "2";
+    private static final String PROTOCOL_VERSION = "3";
     private static SimpleChannel INSTANCE;
     private static int packetId = 0;
 

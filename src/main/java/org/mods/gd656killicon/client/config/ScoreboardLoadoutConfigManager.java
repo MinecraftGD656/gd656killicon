@@ -153,6 +153,9 @@ public final class ScoreboardLoadoutConfigManager {
         if (!inGame) {
             return 1;
         }
+        if (isServerForcingSoloMode()) {
+            return 1;
+        }
         DisplayMode mode = getDisplayMode();
         return switch (mode) {
             case SINGLE -> 1;
@@ -169,11 +172,18 @@ public final class ScoreboardLoadoutConfigManager {
         if (!inGame) {
             return TEAM_ALL;
         }
+        if (isServerForcingSoloMode()) {
+            return panelIndex == 0 ? TEAM_ALL : "";
+        }
         DisplayMode mode = getDisplayMode();
         if (mode == DisplayMode.AUTO) {
             return normalizeTeam(serverSuggestedPanelTeams[panelIndex]);
         }
         return getPanelTeamBinding(panelIndex);
+    }
+
+    public static boolean isServerForcingSoloMode() {
+        return serverSuggestedColumns == 1 && TEAM_ALL.equals(normalizeTeam(serverSuggestedPanelTeams[0]));
     }
 
     private static void ensureContextLoaded() {

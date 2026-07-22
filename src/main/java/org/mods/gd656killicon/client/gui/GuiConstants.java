@@ -17,6 +17,7 @@ public class GuiConstants {
     public static final int COLOR_HOVER_BORDER = 0x40808080;     
     public static int COLOR_BLACK = 0xFF444444;     
     public static final int COLOR_RED = 0xFFFF0000;     
+    public static final int COLOR_SOFT_RED = 0xFFCC7777;
     public static final int COLOR_GREEN = 0xFF00FF00;     
     public static final int COLOR_DARK_RED = 0xFF8B0000;     
     public static final int COLOR_SKY_BLUE = 0xFF87CEEB; 

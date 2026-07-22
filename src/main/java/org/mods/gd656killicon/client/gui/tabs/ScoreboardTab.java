@@ -924,6 +924,7 @@ public class ScoreboardTab extends ConfigTabContent {
         boolean isTeammate = false;
         boolean isSelf = minecraft.player != null && entry.uuid.equals(minecraft.player.getUUID());
         boolean isConquestMatchRowColor = isConquestMatchScoreboardJoined();
+        boolean isSoloMatch = isConquestSoloMatchScoreboardJoined();
         String selfTeamName = getSelfTeamName();
         String selfSquadLabel = getSelfSquadLabel();
         boolean isSameTeamAsSelf = !selfTeamName.isBlank() && selfTeamName.equals(entry.teamName);
@@ -938,8 +939,15 @@ public class ScoreboardTab extends ConfigTabContent {
             } else if (isSameTeamAsSelf) {
                 isTeammate = true;
             }
+            if (isSoloMatch) {
+                isTeammate = false;
+                isSameSquadAsSelf = false;
+            }
             if (isSelf) {
-                if (isConquestMatchRowColor) {
+                if (isSoloMatch) {
+                    rowBgColor = 0xCC6666;
+                    alpha = oddRow ? 0.22f : 0.28f;
+                } else if (isConquestMatchRowColor) {
                     rowBgColor = 0x9ACD32;
                     alpha = oddRow ? 0.17f : 0.23f;
                 } else {
@@ -1014,6 +1022,9 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     private boolean isConquestMatchScoreboardJoined() {
+        if (isConquestSoloMatchScoreboardJoined()) {
+            return true;
+        }
         if (minecraft.player == null || ScoreboardLoadoutConfigManager.getEffectiveColumns(true) != 2) {
             return false;
         }
@@ -1031,6 +1042,26 @@ public class ScoreboardTab extends ConfigTabContent {
             return false;
         }
         return selfTeamName.equals(leftTeam) || selfTeamName.equals(rightTeam);
+    }
+
+    private boolean isConquestSoloMatchScoreboardJoined() {
+        if (ScoreboardLoadoutConfigManager.isServerForcingSoloMode()) {
+            return true;
+        }
+        if (minecraft.player == null || ScoreboardLoadoutConfigManager.getEffectiveColumns(true) != 1) {
+            return false;
+        }
+        String teamBind = ScoreboardLoadoutConfigManager.getEffectivePanelTeamBinding(0, true);
+        if (!ScoreboardLoadoutConfigManager.TEAM_ALL.equals(teamBind)) {
+            return false;
+        }
+        for (ScoreboardSyncPacket.Entry item : leaderboardData) {
+            String normalized = item.teamName == null ? "" : item.teamName.toLowerCase(java.util.Locale.ROOT);
+            if (normalized.startsWith("room_") && normalized.contains("_camp_")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isConquestRuntimeTeamName(String teamName) {
@@ -1204,6 +1235,18 @@ public class ScoreboardTab extends ConfigTabContent {
             texts.add(new GDTextRenderer.ColoredText(" " + I18n.get("gd656killicon.client.gui.config.tab.scoreboard.no_team"), GuiConstants.COLOR_GRAY));
             return texts;
         }
+        if (isConquestSoloMatchScoreboardJoined()) {
+            String title = I18n.exists("gd656conquest.scoreboard.solo_all") ? I18n.get("gd656conquest.scoreboard.solo_all") : "单人枪神竞技";
+            texts.add(new GDTextRenderer.ColoredText(" " + title + " ", GuiConstants.COLOR_SOFT_RED));
+            int onlineMembers = 0;
+            for (ScoreboardSyncPacket.Entry entry : leaderboardData) {
+                if (entry.online && (!hideOffline || entry.online)) {
+                    onlineMembers++;
+                }
+            }
+            texts.add(new GDTextRenderer.ColoredText(String.valueOf(onlineMembers), GuiConstants.COLOR_GOLD));
+            return texts;
+        }
         net.minecraft.world.scores.PlayerTeam team;
         if (ScoreboardLoadoutConfigManager.TEAM_ALL.equals(bind)) {
             team = minecraft.player == null ? null : minecraft.level.getScoreboard().getPlayersTeam(minecraft.player.getScoreboardName());
@@ -1254,6 +1297,9 @@ public class ScoreboardTab extends ConfigTabContent {
 
     private int getBoundTeamColor(String bind) {
         if (minecraft.level == null || bind == null || ScoreboardLoadoutConfigManager.TEAM_ALL.equals(bind)) {
+            if (isConquestSoloMatchScoreboardJoined()) {
+                return GuiConstants.COLOR_SOFT_RED;
+            }
             return GuiConstants.COLOR_GOLD;
         }
         String boundTeamName = resolveBoundTeamName(bind);
