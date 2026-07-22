@@ -16,6 +16,7 @@ import java.util.Locale;
 
 public final class ScoreboardLoadoutConfigManager {
     public static final String TEAM_ALL = "__all__";
+    public static final String TEAM_CONQUEST_SOLO = "__conquest_solo__";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String CONQUEST_MOD_ID = "gd656conquest";
 
@@ -183,7 +184,7 @@ public final class ScoreboardLoadoutConfigManager {
     }
 
     public static boolean isServerForcingSoloMode() {
-        return serverSuggestedColumns == 1 && TEAM_ALL.equals(normalizeTeam(serverSuggestedPanelTeams[0]));
+        return serverSuggestedColumns == 1 && TEAM_CONQUEST_SOLO.equals(normalizeTeam(serverSuggestedPanelTeams[0]));
     }
 
     private static void ensureContextLoaded() {

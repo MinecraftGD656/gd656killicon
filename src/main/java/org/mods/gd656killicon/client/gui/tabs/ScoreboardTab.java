@@ -1044,6 +1044,10 @@ public class ScoreboardTab extends ConfigTabContent {
         return selfTeamName.equals(leftTeam) || selfTeamName.equals(rightTeam);
     }
 
+    private boolean isTeamAll(String bind) {
+        return ScoreboardLoadoutConfigManager.TEAM_ALL.equals(bind) || ScoreboardLoadoutConfigManager.TEAM_CONQUEST_SOLO.equals(bind);
+    }
+
     private boolean isConquestSoloMatchScoreboardJoined() {
         if (ScoreboardLoadoutConfigManager.isServerForcingSoloMode()) {
             return true;
@@ -1052,7 +1056,7 @@ public class ScoreboardTab extends ConfigTabContent {
             return false;
         }
         String teamBind = ScoreboardLoadoutConfigManager.getEffectivePanelTeamBinding(0, true);
-        if (!ScoreboardLoadoutConfigManager.TEAM_ALL.equals(teamBind)) {
+        if (!isTeamAll(teamBind)) {
             return false;
         }
         for (ScoreboardSyncPacket.Entry item : leaderboardData) {
@@ -1198,7 +1202,7 @@ public class ScoreboardTab extends ConfigTabContent {
             if (hideOffline && !entry.online) {
                 continue;
             }
-            if (!ScoreboardLoadoutConfigManager.TEAM_ALL.equals(bind) && !boundTeamName.equals(entry.teamName)) {
+            if (!isTeamAll(bind) && !boundTeamName.equals(entry.teamName)) {
                 continue;
             }
             list.add(entry);
@@ -1248,7 +1252,7 @@ public class ScoreboardTab extends ConfigTabContent {
             return texts;
         }
         net.minecraft.world.scores.PlayerTeam team;
-        if (ScoreboardLoadoutConfigManager.TEAM_ALL.equals(bind)) {
+        if (isTeamAll(bind)) {
             team = minecraft.player == null ? null : minecraft.level.getScoreboard().getPlayersTeam(minecraft.player.getScoreboardName());
         } else {
             team = minecraft.level.getScoreboard().getPlayerTeam(boundTeamName);
@@ -1296,7 +1300,7 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     private int getBoundTeamColor(String bind) {
-        if (minecraft.level == null || bind == null || ScoreboardLoadoutConfigManager.TEAM_ALL.equals(bind)) {
+        if (minecraft.level == null || bind == null || isTeamAll(bind)) {
             if (isConquestSoloMatchScoreboardJoined()) {
                 return GuiConstants.COLOR_SOFT_RED;
             }
@@ -1339,7 +1343,7 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     private String resolveBoundTeamName(String bind) {
-        if (bind == null || bind.isBlank() || ScoreboardLoadoutConfigManager.TEAM_ALL.equals(bind)) {
+        if (bind == null || bind.isBlank() || isTeamAll(bind)) {
             return bind;
         }
         int separator = bind.indexOf('|');
@@ -1428,7 +1432,7 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     private ItemStack getPanelIconByTeam(String bind) {
-        if (minecraft.level == null || bind == null || ScoreboardLoadoutConfigManager.TEAM_ALL.equals(bind)) {
+        if (minecraft.level == null || bind == null || isTeamAll(bind)) {
             return Items.GOLDEN_CARROT.getDefaultInstance();
         }
         net.minecraft.world.scores.PlayerTeam team = minecraft.level.getScoreboard().getPlayerTeam(bind);
