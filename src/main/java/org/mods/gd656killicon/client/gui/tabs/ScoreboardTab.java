@@ -93,6 +93,7 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     public static void updateData(List<ScoreboardSyncPacket.Entry> entries, int offset, int totalCount, long requestId, int serverLayoutColumns, String[] serverPanelTeams) {
+        ScoreboardLoadoutConfigManager.clearServerSuggestions();
         if (offset <= 0) {
             leaderboardData = new ArrayList<>(entries);
         } else {
@@ -149,6 +150,7 @@ public class ScoreboardTab extends ConfigTabContent {
         pendingPageOffset = -1;
         refreshChecking = false;
         refreshStatusLocked = false;
+        ScoreboardLoadoutConfigManager.clearServerSuggestions();
         requestPage(0, nextRequestId());
     }
 

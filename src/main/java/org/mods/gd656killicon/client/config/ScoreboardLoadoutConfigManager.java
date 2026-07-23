@@ -187,6 +187,13 @@ public final class ScoreboardLoadoutConfigManager {
         return serverSuggestedColumns == 1 && TEAM_CONQUEST_SOLO.equals(normalizeTeam(serverSuggestedPanelTeams[0]));
     }
 
+    public static void clearServerSuggestions() {
+        serverSuggestedColumns = 1;
+        for (int i = 0; i < 4; i++) {
+            serverSuggestedPanelTeams[i] = TEAM_ALL;
+        }
+    }
+
     private static void ensureContextLoaded() {
         String contextId = resolveContextId();
         if (contextId == null) {
