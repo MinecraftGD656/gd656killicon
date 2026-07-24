@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.client.resources.language.I18n;
+import org.mods.gd656killicon.client.cache.LocalLeaderboardCache;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ScoreboardLoadoutConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
@@ -116,6 +117,9 @@ public class ScoreboardTab extends ConfigTabContent {
         lastPacketOffset = offset;
         lastPacketRequestId = requestId;
         lastRefreshTime = System.currentTimeMillis();
+
+        // 将服务端数据合并到本地缓存
+        LocalLeaderboardCache.mergeAndSave(leaderboardData);
     }
 
     private void handleHeaderClick(int panelIndex, SortType type, int button) {
@@ -151,6 +155,16 @@ public class ScoreboardTab extends ConfigTabContent {
         refreshChecking = false;
         refreshStatusLocked = false;
         ScoreboardLoadoutConfigManager.clearServerSuggestions();
+
+        // 优先加载本地缓存
+        String serverKey = LocalLeaderboardCache.resolveServerKey();
+        List<ScoreboardSyncPacket.Entry> cached = LocalLeaderboardCache.load(serverKey);
+        if (!cached.isEmpty()) {
+            leaderboardData = new ArrayList<>(cached);
+            serverTotalCount = cached.size();
+            lastRefreshTime = System.currentTimeMillis();
+        }
+
         requestPage(0, nextRequestId());
     }
 
@@ -1062,6 +1076,9 @@ public class ScoreboardTab extends ConfigTabContent {
             return false;
         }
         for (ScoreboardSyncPacket.Entry item : leaderboardData) {
+            if (!item.online) {
+                continue;
+            }
             String normalized = item.teamName == null ? "" : item.teamName.toLowerCase(java.util.Locale.ROOT);
             if (normalized.startsWith("room_") && normalized.contains("_camp_")) {
                 return true;
