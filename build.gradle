@@ -204,6 +204,42 @@ tasks.named('jar', Jar).configure {
     finalizedBy 'reobfJar'  // 打包后执行重新混淆任务
 }
 
+tasks.register('noResourcesJar', Jar) {
+    archiveClassifier = 'nores'
+    dependsOn tasks.named('classes')
+    from(sourceSets.main.output)
+    exclude 'assets/**'
+    manifest {
+        attributes([
+                "Specification-Title": mod_id,
+                "Specification-Vendor": mod_authors,
+                "Specification-Version": "1",
+                "Implementation-Title": project.name,
+                "Implementation-Version": project.version,
+                "Implementation-Vendor": mod_authors,
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+    finalizedBy 'reobfNoResourcesJar'
+}
+
+reobf {
+    noResourcesJar {}
+}
+
+tasks.named('assemble').configure {
+    dependsOn tasks.named('noResourcesJar'), tasks.named('resourcesZip')
+}
+
+tasks.register('resourcesZip', Zip) {
+    archiveClassifier = 'resources'
+    dependsOn tasks.named('processResources')
+    from(layout.buildDirectory.dir('resources/main')) {
+        include 'assets/**'
+    }
+    destinationDirectory = layout.buildDirectory.dir('libs')
+}
+
 // Java编译配置
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'  // 设置编译编码为UTF-8
