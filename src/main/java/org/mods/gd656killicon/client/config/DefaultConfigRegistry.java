@@ -295,6 +295,7 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("format_friendly_deploy_on_your_vehicle", "gd656killicon.client.format.bonus_friendly_deploy_on_your_vehicle");
         bonusList.addProperty("format_healing", "gd656killicon.client.format.bonus_healing");
         bonusList.addProperty("format_revive", "gd656killicon.client.format.bonus_revive");
+        bonusList.addProperty("format_ground_sensor_scan", "gd656killicon.client.format.bonus_ground_sensor_scan");
         bonusList.addProperty("format_kill_combo", "gd656killicon.client.format.bonus_combo");
         bonusList.addProperty("enable_special_streak_subtitles", false);
         bonusList.addProperty("enable_text_scrolling", false);

@@ -48,12 +48,12 @@ public class SuperbWarfareIntegration {
         handler.tick();
     }
 
-    public boolean isHeadshotKill(UUID victimId) {
-        return handler.isHeadshotKill(victimId);
+    public boolean isHeadshotKill(UUID attackerId, UUID victimId) {
+        return handler.isHeadshotKill(attackerId, victimId);
     }
 
-    public boolean isHeadshotDamage(UUID victimId) {
-        return handler.isHeadshotDamage(victimId);
+    public boolean isHeadshotDamage(UUID attackerId, UUID victimId) {
+        return handler.isHeadshotDamage(attackerId, victimId);
     }
 
     public boolean isGunKill(UUID victimId) {

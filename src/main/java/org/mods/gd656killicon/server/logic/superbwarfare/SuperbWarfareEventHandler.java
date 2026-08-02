@@ -42,8 +42,8 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     private final Map<VehicleEntity, VehicleCombatTracker> combatTrackerMap = new WeakHashMap<>();
     private final Map<VehicleEntity, VehicleStateSnapshot> vehicleStateMap = new WeakHashMap<>();
     private final Map<ServerPlayer, Long> lastRepairBonusTimeMap = new WeakHashMap<>();
-    private final Map<UUID, Long> headshotVictims = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> headshotDamageVictims = new ConcurrentHashMap<>();
+    private final Map<String, Long> headshotVictims = new ConcurrentHashMap<>();
+    private final Map<String, Long> headshotDamageVictims = new ConcurrentHashMap<>();
     private final Set<UUID> gunKillVictims = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     @Override
@@ -70,13 +70,15 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     }
 
     @Override
-    public boolean isHeadshotKill(UUID victimId) {
-        return headshotVictims.remove(victimId) != null;
+    public boolean isHeadshotKill(UUID attackerId, UUID victimId) {
+        String key = attackerId.toString() + ":" + victimId.toString();
+        return headshotVictims.remove(key) != null;
     }
 
     @Override
-    public boolean isHeadshotDamage(UUID victimId) {
-        return headshotDamageVictims.remove(victimId) != null;
+    public boolean isHeadshotDamage(UUID attackerId, UUID victimId) {
+        String key = attackerId.toString() + ":" + victimId.toString();
+        return headshotDamageVictims.remove(key) != null;
     }
 
     @Override
@@ -245,8 +247,10 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         if (!(target instanceof LivingEntity living)) {
             return;
         }
-        if (event.isHeadshot()) {
-            headshotDamageVictims.put(living.getUUID(), System.currentTimeMillis());
+        if (event.isHeadshot() && event.getOwner() != null) {
+            UUID attackerId = event.getOwner().getUUID();
+            String key = attackerId.toString() + ":" + living.getUUID().toString();
+            headshotDamageVictims.put(key, System.currentTimeMillis());
         }
     }
 
@@ -282,7 +286,12 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         UUID victimId = victim.getUUID();
         gunKillVictims.add(victimId);
         if (DamageTypeTool.isHeadshotDamage(source)) {
-            headshotVictims.put(victimId, System.currentTimeMillis());
+            Entity attackerEntity = source.getEntity();
+            if (attackerEntity != null) {
+                UUID attackerId = attackerEntity.getUUID();
+                String key = attackerId.toString() + ":" + victimId.toString();
+                headshotVictims.put(key, System.currentTimeMillis());
+            }
         }
     }
 
@@ -425,6 +434,9 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         );
 
         if (killer == null) {
+            return;
+        }
+        if (!VehicleRewardHelper.shouldAwardDestroyVehicleRewards(killer, lastDriverUuid)) {
             return;
         }
 

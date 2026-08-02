@@ -1,6 +1,7 @@
 package org.mods.gd656killicon.server.logic.core;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.scores.Team;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
 import org.mods.gd656killicon.server.ServerCore;
@@ -32,6 +33,27 @@ public final class VehicleRewardHelper {
             return null;
         }
         return killer;
+    }
+
+    public static boolean shouldAwardDestroyVehicleRewards(ServerPlayer killer, UUID vehicleDriverUuid) {
+        if (killer == null || vehicleDriverUuid == null || ServerCore.getServer() == null) {
+            return false;
+        }
+        if (vehicleDriverUuid.equals(killer.getUUID())) {
+            return false;
+        }
+
+        ServerPlayer vehicleDriver = ServerCore.getServer().getPlayerList().getPlayer(vehicleDriverUuid);
+        if (vehicleDriver == null) {
+            return false;
+        }
+
+        Team killerTeam = killer.getTeam();
+        Team vehicleTeam = vehicleDriver.getTeam();
+        if (killerTeam == null || vehicleTeam == null) {
+            return false;
+        }
+        return !killerTeam.getName().equals(vehicleTeam.getName());
     }
 
     public static void awardDestroyAssistBonuses(

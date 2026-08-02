@@ -130,6 +130,7 @@ public class ServerData {
         defaultExpressions.put(BonusType.REVIVE, "100");
         defaultExpressions.put(BonusType.VEHICLE_DESTROY_ASSIST, "1");
         defaultExpressions.put(BonusType.FRIENDLY_DEPLOY_ON_YOUR_VEHICLE, "10");
+        defaultExpressions.put(BonusType.GROUND_SENSOR_SCAN, "5");
     
         defaultExpressions.put(BonusType.DAMAGE, "1");
         defaultExpressions.put(BonusType.HEADSHOT, "1");

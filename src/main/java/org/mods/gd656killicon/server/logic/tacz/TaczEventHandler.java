@@ -31,8 +31,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TaczEventHandler implements ITaczHandler {
     private static final long COMBAT_FLAG_TTL_MS = 5000L;
-    private final Map<UUID, Long> headshotVictims = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> headshotDamageVictims = new ConcurrentHashMap<>();
+    private final Map<String, Long> headshotVictims = new ConcurrentHashMap<>();
+    private final Map<String, Long> headshotDamageVictims = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastBulletVictims = new ConcurrentHashMap<>();
     private final Map<UUID, Long> gunKillVictims = new ConcurrentHashMap<>();
     private final Map<UUID, EntityKineticBullet> trackedBullets = new ConcurrentHashMap<>();
@@ -58,13 +58,13 @@ public class TaczEventHandler implements ITaczHandler {
     }
 
     @Override
-    public boolean isHeadshotKill(UUID victimId) {
-        return consumeRecent(headshotVictims, victimId);
+    public boolean isHeadshotKill(UUID attackerId, UUID victimId) {
+        return consumeRecent(headshotVictims, attackerId, victimId);
     }
 
     @Override
-    public boolean isHeadshotDamage(UUID victimId) {
-        return consumeRecent(headshotDamageVictims, victimId);
+    public boolean isHeadshotDamage(UUID attackerId, UUID victimId) {
+        return consumeRecent(headshotDamageVictims, attackerId, victimId);
     }
 
     @Override
@@ -85,8 +85,9 @@ public class TaczEventHandler implements ITaczHandler {
 
         markCombatFlag(gunKillVictims, victimId);
 
-        if (event.isHeadShot()) {
-            markCombatFlag(headshotVictims, victimId);
+        if (event.isHeadShot() && event.getAttacker() != null) {
+            UUID attackerId = event.getAttacker().getUUID();
+            markCombatFlag(headshotVictims, attackerId, victimId);
         }
 
         checkLastBullet(event);
@@ -101,8 +102,9 @@ public class TaczEventHandler implements ITaczHandler {
             hitBullets.add(bullet.getUUID());
         }
 
-        if (event.isHeadShot()) {
-            markCombatFlag(headshotDamageVictims, victim.getUUID());
+        if (event.isHeadShot() && event.getAttacker() != null) {
+            UUID attackerId = event.getAttacker().getUUID();
+            markCombatFlag(headshotDamageVictims, attackerId, victim.getUUID());
         }
     }
 
@@ -179,12 +181,22 @@ public class TaczEventHandler implements ITaczHandler {
         map.put(victimId, System.currentTimeMillis());
     }
 
+    private void markCombatFlag(Map<String, Long> map, UUID attackerId, UUID victimId) {
+        map.put(attackerId.toString() + ":" + victimId.toString(), System.currentTimeMillis());
+    }
+
     private boolean consumeRecent(Map<UUID, Long> map, UUID victimId) {
         Long ts = map.remove(victimId);
         return ts != null && System.currentTimeMillis() - ts <= COMBAT_FLAG_TTL_MS;
     }
 
-    private void cleanupExpired(Map<UUID, Long> map, long now) {
+    private boolean consumeRecent(Map<String, Long> map, UUID attackerId, UUID victimId) {
+        String key = attackerId.toString() + ":" + victimId.toString();
+        Long ts = map.remove(key);
+        return ts != null && System.currentTimeMillis() - ts <= COMBAT_FLAG_TTL_MS;
+    }
+
+    private void cleanupExpired(Map<?, Long> map, long now) {
         map.entrySet().removeIf(entry -> now - entry.getValue() > COMBAT_FLAG_TTL_MS);
     }
 

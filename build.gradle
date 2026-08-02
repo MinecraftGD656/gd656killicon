@@ -236,6 +236,7 @@ tasks.register('resourcesZip', Zip) {
     dependsOn tasks.named('processResources')
     from(layout.buildDirectory.dir('resources/main')) {
         include 'assets/**'
+        include 'pack.mcmeta'
     }
     destinationDirectory = layout.buildDirectory.dir('libs')
 }

@@ -23,6 +23,7 @@ public final class BonusType {
     public static final int REVIVE = 65;
     public static final int VEHICLE_DESTROY_ASSIST = 66;
     public static final int FRIENDLY_DEPLOY_ON_YOUR_VEHICLE = 67;
+    public static final int GROUND_SENSOR_SCAN = 68;
 
     private static final Map<String, Integer> NAME_TO_TYPE = new HashMap<>();
     private static final Map<Integer, String> TYPE_TO_NAME = new HashMap<>();
@@ -96,6 +97,7 @@ public final class BonusType {
         register("REVIVE", REVIVE);
         register("VEHICLE_DESTROY_ASSIST", VEHICLE_DESTROY_ASSIST);
         register("FRIENDLY_DEPLOY_ON_YOUR_VEHICLE", FRIENDLY_DEPLOY_ON_YOUR_VEHICLE);
+        register("GROUND_SENSOR_SCAN", GROUND_SENSOR_SCAN);
     }
 
     private static void register(String name, int type) {

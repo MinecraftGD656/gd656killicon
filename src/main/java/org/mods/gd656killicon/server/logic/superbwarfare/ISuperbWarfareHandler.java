@@ -7,9 +7,9 @@ public interface ISuperbWarfareHandler {
 
     void tick();
 
-    boolean isHeadshotKill(UUID victimId);
+    boolean isHeadshotKill(UUID attackerId, UUID victimId);
 
-    boolean isHeadshotDamage(UUID victimId);
+    boolean isHeadshotDamage(UUID attackerId, UUID victimId);
 
     boolean isGunKill(UUID victimId);
 }

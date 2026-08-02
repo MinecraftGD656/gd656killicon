@@ -31,10 +31,11 @@ import java.util.concurrent.*;
 
 public final class ServerCombatEngine {
     private static final String CONQUEST_SQUAD_BEACON_CLASS = "org.mods.gd656conquest.common.entity.SquadDeployBeaconEntity";
+    private static final String CONQUEST_GROUND_SENSOR_CLASS = "org.mods.gd656conquest.common.entity.GroundSensorEntity";
     private static final String CONQUEST_MEDICAL_BOX_CLASS = "org.mods.gd656conquest.common.entity.MedicalBoxEntity";
     private static final String CONQUEST_AMMO_BOX_CLASS = "org.mods.gd656conquest.common.entity.AmmoBoxEntity";
     private static final Map<UUID, Float> lastDamage = new ConcurrentHashMap<>();
-    private static final Map<UUID, Integer> lastDamageType = new ConcurrentHashMap<>();
+    private static final Map<UUID, Map<UUID, Integer>> lastDamageType = new ConcurrentHashMap<>();
     private static final Map<UUID, List<DamageRecord>> damageHistory = new ConcurrentHashMap<>();
     private static final Map<UUID, Map<UUID, Long>> killHistory = new ConcurrentHashMap<>();
     private static final Map<UUID, Map<UUID, CombatState>> activeCombats = new ConcurrentHashMap<>();
@@ -266,7 +267,7 @@ public final class ServerCombatEngine {
         ServerCore.CRIT.updateCrit(player, victimId, isMeleeCrit);
 
         int type = determineDamageType(player, victimId, src);
-        lastDamageType.put(victimId, type);
+        lastDamageType.computeIfAbsent(victimId, k -> new ConcurrentHashMap<>()).put(player.getUUID(), type);
 
         float effectiveAmt = Math.min(amt, victim.getHealth());
         int roundedAmt = Math.round(effectiveAmt);
@@ -383,9 +384,10 @@ public final class ServerCombatEngine {
     }
 
     private static int determineDamageType(ServerPlayer player, UUID victimId, DamageSource src) {
-        if (ServerCore.TACZ.isHeadshotDamage(victimId) || ServerCore.SUPERB_WARFARE.isHeadshotDamage(victimId)) return TYPE_HEADSHOT;
+        UUID attackerId = player.getUUID();
+        if (ServerCore.TACZ.isHeadshotDamage(attackerId, victimId) || ServerCore.SUPERB_WARFARE.isHeadshotDamage(attackerId, victimId)) return TYPE_HEADSHOT;
         if (src.is(DamageTypeTags.IS_EXPLOSION)) return TYPE_EXPLOSION;
-        if (ServerCore.CRIT.isRecentCrit(player.getUUID(), victimId)) return TYPE_CRIT;
+        if (ServerCore.CRIT.isRecentCrit(attackerId, victimId)) return TYPE_CRIT;
         return TYPE_NORMAL;
     }
 
@@ -409,7 +411,7 @@ public final class ServerCombatEngine {
         if (player.getUUID().equals(victimId)) {
             return;
         }
-        int type = lastDamageType.getOrDefault(victimId, TYPE_NORMAL);
+        int type = getLastDamageType(victimId, player.getUUID());
 
         ServerData.get().addKill(player, 1);
 
@@ -549,10 +551,16 @@ public final class ServerCombatEngine {
     }
 
     private static int determineKillType(PendingKill pk) {
-        if (ServerCore.TACZ.isHeadshotKill(pk.victimId) || ServerCore.SUPERB_WARFARE.isHeadshotKill(pk.victimId) || pk.damageType == TYPE_HEADSHOT) return KillType.HEADSHOT;
+        UUID attackerId = pk.player.getUUID();
+        if (ServerCore.TACZ.isHeadshotKill(attackerId, pk.victimId) || ServerCore.SUPERB_WARFARE.isHeadshotKill(attackerId, pk.victimId) || pk.damageType == TYPE_HEADSHOT) return KillType.HEADSHOT;
         if (pk.damageType == TYPE_EXPLOSION) return KillType.EXPLOSION;
-        if (ServerCore.CRIT.consumeCrit(pk.player.getUUID(), pk.victimId) || pk.damageType == TYPE_CRIT) return KillType.CRIT;
+        if (ServerCore.CRIT.consumeCrit(attackerId, pk.victimId) || pk.damageType == TYPE_CRIT) return KillType.CRIT;
         return KillType.NORMAL;
+    }
+
+    private static int getLastDamageType(UUID victimId, UUID attackerId) {
+        Map<UUID, Integer> victimMap = lastDamageType.get(victimId);
+        return victimMap != null ? victimMap.getOrDefault(attackerId, TYPE_NORMAL) : TYPE_NORMAL;
     }
 
     private static int mapKillTypeToBonus(int killType, int damageType) {
@@ -842,6 +850,7 @@ public final class ServerCombatEngine {
         if (entity == null) return false;
         String className = entity.getClass().getName();
         return CONQUEST_SQUAD_BEACON_CLASS.equals(className)
+                || CONQUEST_GROUND_SENSOR_CLASS.equals(className)
                 || CONQUEST_MEDICAL_BOX_CLASS.equals(className)
                 || CONQUEST_AMMO_BOX_CLASS.equals(className);
     }

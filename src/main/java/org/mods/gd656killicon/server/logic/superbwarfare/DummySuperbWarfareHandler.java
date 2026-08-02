@@ -12,12 +12,12 @@ public class DummySuperbWarfareHandler implements ISuperbWarfareHandler {
     }
 
     @Override
-    public boolean isHeadshotKill(UUID victimId) {
+    public boolean isHeadshotKill(UUID attackerId, UUID victimId) {
         return false;
     }
 
     @Override
-    public boolean isHeadshotDamage(UUID victimId) {
+    public boolean isHeadshotDamage(UUID attackerId, UUID victimId) {
         return false;
     }
 

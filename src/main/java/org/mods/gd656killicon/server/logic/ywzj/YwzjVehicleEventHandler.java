@@ -38,6 +38,7 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         if (vehicle.isDestroyed()) return;
 
         VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
+        updateLastDriver(vehicle, tracker);
         tracker.recordDamage(player.getUUID(), event.damage, true);
 
         if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
@@ -86,6 +87,7 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         if (event.getVehicle().isDestroyed()) return;
 
         VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(event.getVehicle(), v -> new VehicleCombatTracker());
+        updateLastDriver(event.getVehicle(), tracker);
         
         net.minecraft.world.entity.Entity attacker = event.getSource().getEntity();
         boolean isPlayer = attacker instanceof ServerPlayer;
@@ -106,6 +108,7 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
             Map.Entry<AbstractVehicle, VehicleCombatTracker> entry = iterator.next();
             AbstractVehicle vehicle = entry.getKey();
             VehicleCombatTracker tracker = entry.getValue();
+            updateLastDriver(vehicle, tracker);
 
             if (vehicle.isDestroyed()) {
                 handleVehicleDestruction(vehicle, tracker);
@@ -140,6 +143,12 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         }
     }
 
+    private void updateLastDriver(AbstractVehicle vehicle, VehicleCombatTracker tracker) {
+        if (vehicle != null && tracker != null && vehicle.getControllingPassenger() instanceof ServerPlayer driver) {
+            tracker.lastDriverUuid = driver.getUUID();
+        }
+    }
+
     private void handleVehicleDestruction(AbstractVehicle vehicle, VehicleCombatTracker tracker) {
         float maxHealth = vehicle.getMaxHealth();
         String vehicleNameKey = vehicle.getType().getDescriptionId();
@@ -152,6 +161,9 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
         );
 
         if (killer != null) {
+            if (!VehicleRewardHelper.shouldAwardDestroyVehicleRewards(killer, tracker.lastDriverUuid)) {
+                return;
+            }
             double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
             int score = (int) Math.ceil(maxHealth * multiplier);
             if (score > 0) {

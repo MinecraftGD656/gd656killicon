@@ -10,10 +10,10 @@ public class DummyTaczHandler implements ITaczHandler {
     public void tick() {}
 
     @Override
-    public boolean isHeadshotKill(UUID victimId) { return false; }
+    public boolean isHeadshotKill(UUID attackerId, UUID victimId) { return false; }
 
     @Override
-    public boolean isHeadshotDamage(UUID victimId) { return false; }
+    public boolean isHeadshotDamage(UUID attackerId, UUID victimId) { return false; }
 
     @Override
     public boolean isLastBulletKill(UUID victimId) { return false; }

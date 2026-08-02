@@ -115,6 +115,7 @@ public class BonusListRenderer implements IHudRenderer {
         registerConfig(BonusType.HEALING, "format_healing", "gd656killicon.client.format.bonus_healing");
         registerConfig(BonusType.AMMO_SUPPLY, "format_ammo_supply", "gd656killicon.client.format.bonus_ammo_supply");
         registerConfig(BonusType.REVIVE, "format_revive", "gd656killicon.client.format.bonus_revive");
+        registerConfig(BonusType.GROUND_SENSOR_SCAN, "format_ground_sensor_scan", "gd656killicon.client.format.bonus_ground_sensor_scan");
     }
 
     private static void registerConfig(int type, String configKey, String defaultFormatKey) {

@@ -5,8 +5,8 @@ import java.util.UUID;
 public interface ITaczHandler {
     void init();
     void tick();
-    boolean isHeadshotKill(UUID victimId);
-    boolean isHeadshotDamage(UUID victimId);
+    boolean isHeadshotKill(UUID attackerId, UUID victimId);
+    boolean isHeadshotDamage(UUID attackerId, UUID victimId);
     boolean isLastBulletKill(UUID victimId);
     boolean isGunKill(UUID victimId);
 }

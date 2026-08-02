@@ -61,6 +61,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
             float amount = event.getAmount();
             
             VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
+            updateLastDriver(vehicle, tracker);
             tracker.recordDamage(player.getUUID(), amount, true);
             
             if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
@@ -78,6 +79,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
             Map.Entry<VehicleEntity, VehicleCombatTracker> entry = iterator.next();
             VehicleEntity vehicle = entry.getKey();
             VehicleCombatTracker tracker = entry.getValue();
+            updateLastDriver(vehicle, tracker);
             
             if (vehicle.isRemoved() || vehicle.getHealth() <= 0) {
                 processVehicleDestruction(vehicle, tracker);
@@ -108,6 +110,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         if (event.getEntity() instanceof ServerPlayer player) {
             if (player.getAbilities().instabuild) {
                 VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
+                updateLastDriver(vehicle, tracker);
                 tracker.recordDamage(player.getUUID(), vehicle.getHealth(), true);
                 
                 processVehicleDestruction(vehicle, tracker);
@@ -116,6 +119,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
             }
 
             VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
+            updateLastDriver(vehicle, tracker);
             tracker.recordDamage(player.getUUID(), DEFAULT_TRACKING_DAMAGE, true);
             
             if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
@@ -139,6 +143,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         
         if (owner instanceof ServerPlayer player) {
             VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
+            updateLastDriver(vehicle, tracker);
             tracker.recordDamage(player.getUUID(), DEFAULT_TRACKING_DAMAGE, true);
             
             if (ServerData.get().isBonusEnabled(BonusType.HIT_VEHICLE_ARMOR)) {
@@ -158,6 +163,7 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         for (Entity entity : event.getAffectedEntities()) {
             if (entity instanceof VehicleEntity vehicle) {
                 VehicleCombatTracker tracker = combatTrackerMap.computeIfAbsent(vehicle, v -> new VehicleCombatTracker());
+                updateLastDriver(vehicle, tracker);
                 tracker.recordDamage(attackerUuid, 0.5f, isPlayer);
                 
                 if (isPlayer) {
@@ -171,7 +177,8 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
 
     private void processVehicleDestruction(VehicleEntity vehicle, VehicleCombatTracker tracker) {
         if (tracker == null) return;
-        UUID driverUuid = vehicle.getControllingPassenger() instanceof ServerPlayer driver ? driver.getUUID() : null;
+        updateLastDriver(vehicle, tracker);
+        UUID driverUuid = tracker.lastDriverUuid;
         ServerPlayer killer = VehicleRewardHelper.resolveRecentKiller(
                 tracker.lastAttackerUuid,
                 tracker.lastAttackerWasPlayer,
@@ -180,6 +187,9 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         );
 
         if (killer != null) {
+            if (!VehicleRewardHelper.shouldAwardDestroyVehicleRewards(killer, driverUuid)) {
+                return;
+            }
             double multiplier = ServerData.get().getBonusMultiplier(BonusType.DESTROY_VEHICLE);
             int score = (int) (DEFAULT_SCORE_BASE * multiplier);
             
@@ -235,8 +245,15 @@ public class ImmersiveAircraftEventHandler implements IImmersiveAircraftHandler 
         }
     }
 
+    private void updateLastDriver(VehicleEntity vehicle, VehicleCombatTracker tracker) {
+        if (vehicle != null && tracker != null && vehicle.getControllingPassenger() instanceof ServerPlayer driver) {
+            tracker.lastDriverUuid = driver.getUUID();
+        }
+    }
+
     private static class VehicleCombatTracker {
         UUID lastAttackerUuid;
+        UUID lastDriverUuid;
         long lastAttackTime;
         boolean lastAttackerWasPlayer = false;
         Map<UUID, Float> damageByAttacker = new java.util.HashMap<>();
