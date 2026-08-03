@@ -30,6 +30,9 @@ public class SubtitleRenderer implements IHudRenderer {
     private static final int DEFAULT_EMPHASIS_COLOR = 0xFFFFFFFF;
     private static final long SCORE_CACHE_WINDOW_MS = 10000L;
     private static final int PREVIEW_SCORE_VICTIM_ID = -9999;
+    private static final String RUSH_BOMB_PLANTED_CAPTURE_FORMAT = "format_rush_bomb_planted_capture";
+    private static final String RUSH_BOMB_DEFUSED_CAPTURE_FORMAT = "format_rush_bomb_defused_capture";
+    private static final String RUSH_OBJECTIVE_DESTROYED_CAPTURE_FORMAT = "format_rush_objective_destroyed_capture";
     private static final Map<Integer, ScoreEntry> RECENT_SCORES = new ConcurrentHashMap<>();
     private static final java.util.Deque<ScoreEntry> RECENT_SCORE_QUEUE = new java.util.ArrayDeque<>();
     private static final int SCORE_QUEUE_MAX = 50;
@@ -64,6 +67,7 @@ public class SubtitleRenderer implements IHudRenderer {
     private int currentKillType = KillType.NORMAL;
     private int victimId = -1;
     private int currentVictimId = -1;
+    private String currentScoreOverride = null;
     private String victimName = "";
     private ItemStack heldItem = ItemStack.EMPTY;
     private String currentWeaponName = "";
@@ -102,13 +106,23 @@ public class SubtitleRenderer implements IHudRenderer {
         
         String rawExtra = context.extraData() == null ? "" : context.extraData();
         String captureWeaponToken = "";
+        String captureFormatOverride = null;
+        String captureScoreOverride = null;
         if (!rawExtra.isEmpty()) {
             String extra = rawExtra;
             if (type == KillType.CAPTURE) {
-                String[] parts = extra.split("\\|", 2);
+                String[] parts = extra.split("\\|", 3);
                 captureWeaponToken = parts.length > 0 ? parts[0].trim() : "";
                 String captureTarget = parts.length > 1 ? parts[1].trim() : "";
-                if (!captureTarget.isEmpty()) {
+                captureFormatOverride = resolveRushCaptureFormat(captureWeaponToken);
+                if (captureFormatOverride != null) {
+                    captureScoreOverride = isNumericToken(captureTarget) ? captureTarget : null;
+                    captureWeaponToken = "";
+                }
+                String captureDisplayTarget = parts.length > 2 ? parts[2].trim() : captureTarget;
+                if (!captureDisplayTarget.isEmpty() && !isNumericToken(captureDisplayTarget)) {
+                    vName = captureDisplayTarget;
+                } else if (!captureTarget.isEmpty() && !isNumericToken(captureTarget)) {
                     vName = captureTarget;
                 } else if (!captureWeaponToken.isEmpty()) {
                     vName = captureWeaponToken;
@@ -142,7 +156,9 @@ public class SubtitleRenderer implements IHudRenderer {
             itemStack = ItemStack.EMPTY;
             wName = captureWeaponToken == null || captureWeaponToken.isEmpty()
                 ? net.minecraft.client.resources.language.I18n.get("gd656killicon.client.text.unknown")
-                : captureWeaponToken;
+                : org.mods.gd656killicon.client.util.I18nCompat.exists(captureWeaponToken)
+                    ? net.minecraft.client.resources.language.I18n.get(captureWeaponToken)
+                    : captureWeaponToken;
         } else if (mc.player != null) {
             if (mc.player.getVehicle() != null) {
                 itemStack = ItemStack.EMPTY;
@@ -167,6 +183,12 @@ public class SubtitleRenderer implements IHudRenderer {
         if (org.mods.gd656killicon.client.util.I18nCompat.exists(resolvedFormat)) {
             resolvedFormat = net.minecraft.client.resources.language.I18n.get(resolvedFormat);
         }
+        if (captureFormatOverride != null && config.has(captureFormatOverride)) {
+            resolvedFormat = config.get(captureFormatOverride).getAsString();
+            if (org.mods.gd656killicon.client.util.I18nCompat.exists(resolvedFormat)) {
+                resolvedFormat = net.minecraft.client.resources.language.I18n.get(resolvedFormat);
+            }
+        }
 
         String normalColorHex = config.has("color_normal_placeholder") ? config.get("color_normal_placeholder").getAsString() : "#008B8B";
         String chosenColorHex = config.has(colorKey) ? config.get(colorKey).getAsString() : normalColorHex;
@@ -178,11 +200,12 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(type) ? context.distance() : 0.0f;
 
         if (this.enableStacking) {
-            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId);
+            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId, captureScoreOverride);
         } else {
             this.currentKillType = type;
             this.victimId = entityId;
             this.currentVictimId = entityId;
+            this.currentScoreOverride = captureScoreOverride;
             this.victimName = vName;
             this.heldItem = itemStack;
             this.currentWeaponName = wName;
@@ -245,7 +268,7 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(killType) ? 50.0f : 0.0f;
 
         if (this.enableStacking) {
-             addItemToStack(resolvedFormat, pColor, eColor, this.currentWeaponName, this.victimName, this.displayDuration, dist, PREVIEW_SCORE_VICTIM_ID);
+             addItemToStack(resolvedFormat, pColor, eColor, this.currentWeaponName, this.victimName, this.displayDuration, dist, PREVIEW_SCORE_VICTIM_ID, null);
         } else {
             this.format = resolvedFormat;
             this.placeholderColor = pColor;
@@ -262,8 +285,8 @@ public class SubtitleRenderer implements IHudRenderer {
         }
     }
 
-    private void addItemToStack(String format, int pColor, int eColor, String wName, String vName, long duration, float distance, int victimId) {
-        SubtitleItem newItem = new SubtitleItem(format, pColor, eColor, wName, vName, 0, duration, distance, victimId);         
+    private void addItemToStack(String format, int pColor, int eColor, String wName, String vName, long duration, float distance, int victimId, String scoreOverride) {
+        SubtitleItem newItem = new SubtitleItem(format, pColor, eColor, wName, vName, 0, duration, distance, victimId, scoreOverride);
         if (this.pendingQueue.size() >= 10) {
             return;
         }
@@ -289,7 +312,7 @@ public class SubtitleRenderer implements IHudRenderer {
         } else {
             RenderState state = resolveRenderState();
             if (state == null) return;
-            renderInternal(guiGraphics, font, centerX, textY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.startTime);
+            renderInternal(guiGraphics, font, centerX, textY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.startTime);
         }
     }
 
@@ -306,7 +329,7 @@ public class SubtitleRenderer implements IHudRenderer {
         } else {
             RenderState state = resolveRenderState();
             if (state == null) return;
-            renderInternal(guiGraphics, font, resolvedCenterX, resolvedTextY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.startTime);
+            renderInternal(guiGraphics, font, resolvedCenterX, resolvedTextY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.startTime);
         }
     }
 
@@ -394,7 +417,7 @@ public class SubtitleRenderer implements IHudRenderer {
             
             RenderState state = new RenderState(now - item.spawnTime, itemAlpha, this.scale);
             
-            renderInternal(guiGraphics, font, centerX, drawY, state, item.format, item.pColor, item.eColor, item.wName, item.vName, item.distance, item.victimId, item.spawnTime);
+            renderInternal(guiGraphics, font, centerX, drawY, state, item.format, item.pColor, item.eColor, item.wName, item.vName, item.distance, item.victimId, item.scoreOverride, item.spawnTime);
         }
     }
 
@@ -426,9 +449,11 @@ public class SubtitleRenderer implements IHudRenderer {
     private boolean enableScaleAnimation = false;
 
     private void renderInternal(GuiGraphics guiGraphics, Font font, int centerX, int textY, RenderState state, 
-                              String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, long referenceTime) {
+                              String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, String scoreOverride, long referenceTime) {
         float colorProgress = getColorProgress(state.elapsed);
-        String scoreStr = resolveScoreString(victimId, referenceTime);
+        String scoreStr = scoreOverride == null || scoreOverride.isBlank()
+            ? resolveScoreString(victimId, referenceTime)
+            : scoreOverride;
         Component fullText = buildFullText(fmt, pColor, eColor, wName, vName, scoreStr, colorProgress, distance);
 
         int textWidth = font.width(fullText);
@@ -483,8 +508,9 @@ public class SubtitleRenderer implements IHudRenderer {
         long duration;
         float currentRelY;         float distance;
         int victimId;
+        String scoreOverride;
         
-        public SubtitleItem(String format, int pColor, int eColor, String wName, String vName, long spawnTime, long duration, float distance, int victimId) {
+        public SubtitleItem(String format, int pColor, int eColor, String wName, String vName, long spawnTime, long duration, float distance, int victimId, String scoreOverride) {
             this.format = format;
             this.pColor = pColor;
             this.eColor = eColor;
@@ -494,6 +520,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.duration = duration;
             this.currentRelY = 0;             this.distance = distance;
             this.victimId = victimId;
+            this.scoreOverride = scoreOverride;
         }
     }
 
@@ -766,6 +793,30 @@ public class SubtitleRenderer implements IHudRenderer {
             case KillType.CAPTURE -> "format_capture";
             default -> "format_normal";
         };
+    }
+
+    private static String resolveRushCaptureFormat(String token) {
+        if (token == null || token.isEmpty()) {
+            return null;
+        }
+        return switch (token) {
+            case "rush_bomb_planted" -> RUSH_BOMB_PLANTED_CAPTURE_FORMAT;
+            case "rush_bomb_defused" -> RUSH_BOMB_DEFUSED_CAPTURE_FORMAT;
+            case "rush_objective_destroyed" -> RUSH_OBJECTIVE_DESTROYED_CAPTURE_FORMAT;
+            default -> null;
+        };
+    }
+
+    private static boolean isNumericToken(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        try {
+            Double.parseDouble(token);
+            return true;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
     }
 
     /**

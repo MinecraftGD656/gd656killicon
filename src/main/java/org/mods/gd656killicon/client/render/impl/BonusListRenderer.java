@@ -116,6 +116,9 @@ public class BonusListRenderer implements IHudRenderer {
         registerConfig(BonusType.AMMO_SUPPLY, "format_ammo_supply", "gd656killicon.client.format.bonus_ammo_supply");
         registerConfig(BonusType.REVIVE, "format_revive", "gd656killicon.client.format.bonus_revive");
         registerConfig(BonusType.GROUND_SENSOR_SCAN, "format_ground_sensor_scan", "gd656killicon.client.format.bonus_ground_sensor_scan");
+        registerConfig(BonusType.RUSH_BOMB_DEFUSED, "format_rush_bomb_defused", "gd656killicon.client.format.bonus_rush_bomb_defused");
+        registerConfig(BonusType.RUSH_BOMB_PLANTED, "format_rush_bomb_planted", "gd656killicon.client.format.bonus_rush_bomb_planted");
+        registerConfig(BonusType.RUSH_OBJECTIVE_DESTROYED, "format_rush_objective_destroyed", "gd656killicon.client.format.bonus_rush_objective_destroyed");
     }
 
     private static void registerConfig(int type, String configKey, String defaultFormatKey) {
@@ -666,7 +669,6 @@ public class BonusListRenderer implements IHudRenderer {
             this.isFading = false;
             this.spawnTime = PreviewRenderTimeContext.currentTimeMillis();
             this.specialColor = specialColor;
-            
             this.isKillBonus = type == BonusType.KILL || type == BonusType.KILL_HEADSHOT || 
                                type == BonusType.KILL_CRIT || type == BonusType.KILL_EXPLOSION;
             
@@ -1085,4 +1087,5 @@ public class BonusListRenderer implements IHudRenderer {
         
         return (r << 16) | (g << 8) | b;
     }
+
 }

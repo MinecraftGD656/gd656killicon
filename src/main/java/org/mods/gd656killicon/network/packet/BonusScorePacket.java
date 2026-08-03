@@ -88,6 +88,7 @@ public class BonusScorePacket implements IPacket {
 
             ScoreSubtitleRenderer.getInstance().addScore(this.score);
             SubtitleRenderer.recordBonusScore(this.bonusType, this.score, this.victimId);
+            triggerRushBombKillFeed();
             
             StringBuilder dataBuilder = new StringBuilder();
             dataBuilder.append(this.score);
@@ -108,6 +109,50 @@ public class BonusScorePacket implements IPacket {
             recordStatistics();
         });
         context.setPacketHandled(true);
+    }
+
+    private void triggerRushBombKillFeed() {
+        String payloadType = switch (this.bonusType) {
+            case org.mods.gd656killicon.common.BonusType.RUSH_BOMB_PLANTED -> "rush_bomb_planted";
+            case org.mods.gd656killicon.common.BonusType.RUSH_BOMB_DEFUSED -> "rush_bomb_defused";
+            default -> null;
+        };
+        if (payloadType == null) {
+            return;
+        }
+        org.mods.gd656killicon.client.sounds.SoundTriggerManager.tryPlaySound(
+            "kill_icon",
+            "scrolling",
+            org.mods.gd656killicon.common.KillType.CAPTURE,
+            0,
+            false,
+            false
+        );
+        HudElementManager.trigger(
+            "kill_icon",
+            "scrolling",
+            org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(
+                org.mods.gd656killicon.common.KillType.CAPTURE,
+                this.victimId
+            )
+        );
+        HudElementManager.trigger(
+            "subtitle",
+            "kill_feed",
+            org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(
+                org.mods.gd656killicon.common.KillType.CAPTURE,
+                this.victimId,
+                0,
+                payloadType + "|" + formatScoreValue(this.score)
+            )
+        );
+    }
+
+    private String formatScoreValue(float value) {
+        if (Math.abs(value) < 1.0f && Math.abs(value) > 0.001f) {
+            return String.format("%.1f", value);
+        }
+        return String.valueOf(Math.round(value));
     }
 
     private void triggerScrollingBonusIcons() {

@@ -178,6 +178,9 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("format_destroy_vehicle", "gd656killicon.client.format.destroy_vehicle");
         killFeed.addProperty("color_destroy_vehicle_placeholder", "#D4B800");
         killFeed.addProperty("format_capture", "gd656killicon.client.format.capture");
+        killFeed.addProperty("format_rush_bomb_planted_capture", "gd656killicon.client.format.rush_bomb_planted_capture");
+        killFeed.addProperty("format_rush_bomb_defused_capture", "gd656killicon.client.format.rush_bomb_defused_capture");
+        killFeed.addProperty("format_rush_objective_destroyed_capture", "gd656killicon.client.format.rush_objective_destroyed_capture");
         killFeed.addProperty("color_capture_placeholder", "#008B8B");
         killFeed.addProperty("color_normal_text", "#FFFFFF");
         killFeed.addProperty("enable_placeholder_bold", false);
@@ -296,6 +299,9 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("format_healing", "gd656killicon.client.format.bonus_healing");
         bonusList.addProperty("format_revive", "gd656killicon.client.format.bonus_revive");
         bonusList.addProperty("format_ground_sensor_scan", "gd656killicon.client.format.bonus_ground_sensor_scan");
+        bonusList.addProperty("format_rush_bomb_defused", "gd656killicon.client.format.bonus_rush_bomb_defused");
+        bonusList.addProperty("format_rush_bomb_planted", "gd656killicon.client.format.bonus_rush_bomb_planted");
+        bonusList.addProperty("format_rush_objective_destroyed", "gd656killicon.client.format.bonus_rush_objective_destroyed");
         bonusList.addProperty("format_kill_combo", "gd656killicon.client.format.bonus_combo");
         bonusList.addProperty("enable_special_streak_subtitles", false);
         bonusList.addProperty("enable_text_scrolling", false);
