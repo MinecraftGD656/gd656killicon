@@ -17,7 +17,8 @@ public class ClientConfigManager {
     private static final File CONFIG_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon").toFile();
     private static final File GLOBAL_CONFIG_FILE = new File(CONFIG_DIR, "client_config.json");
 
-    private static final String DEFAULT_CURRENT_PRESET = "00001";
+    /** 默认预设: 首次启动按客户端语言决定(中文→00007 战地五中文, 其它→00036 战地五英文) */
+    private static final String DEFAULT_CURRENT_PRESET = "00036";
     private static final boolean DEFAULT_ENABLE_SOUND = true;
     private static final boolean DEFAULT_SHOW_BONUS_MESSAGE = false;
     private static final int DEFAULT_SOUND_VOLUME = 100;
@@ -36,8 +37,24 @@ public class ClientConfigManager {
     private static final String DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE = "scroll";
     private static final String DEFAULT_GUI_THEME_COLOR_PRIMARY = "#FFB840";
     private static final String DEFAULT_GUI_BACKGROUND_MATERIAL = "minecraft:cut_copper";
+    private static final int DEFAULT_BONUS_FORMAT_MIGRATED = 0;
 
     private static String currentPresetId = DEFAULT_CURRENT_PRESET;
+
+    /**
+     * 首次启动的默认预设：按客户端语言决定。
+     * 简体/繁体中文 → 战地五中文(00007)；其余语言(含英文/文言/其它) → 战地五英文(00036)。
+     */
+    public static String getInitialPresetByLanguage() {
+        try {
+            String lang = net.minecraft.client.Minecraft.getInstance().options.languageCode;
+            if ("zh_cn".equals(lang) || "zh_tw".equals(lang) || "lzh".equals(lang)) {
+                return "00007";
+            }
+        } catch (Exception ignored) {
+        }
+        return "00036";
+    }
     private static boolean enableSound = DEFAULT_ENABLE_SOUND;
     private static boolean showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
     private static int soundVolume = DEFAULT_SOUND_VOLUME;
@@ -58,6 +75,7 @@ public class ClientConfigManager {
     private static String singleLineSubtitleCompressionMode = DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
     private static String guiThemeColorPrimary = DEFAULT_GUI_THEME_COLOR_PRIMARY;
     private static String guiBackgroundMaterial = DEFAULT_GUI_BACKGROUND_MATERIAL;
+    private static int bonusFormatMigrated = DEFAULT_BONUS_FORMAT_MIGRATED;
 
     private static String tempCurrentPresetId = null;
     private static Boolean tempEnableSound = null;
@@ -174,7 +192,7 @@ public class ClientConfigManager {
 
         try (FileReader reader = new FileReader(GLOBAL_CONFIG_FILE)) {
             JsonObject json = GSON.fromJson(reader, JsonObject.class);
-            currentPresetId = json.has("current_preset") ? json.get("current_preset").getAsString() : DEFAULT_CURRENT_PRESET;
+            currentPresetId = json.has("current_preset") ? json.get("current_preset").getAsString() : getInitialPresetByLanguage();
             enableSound = json.has("enable_sound") ? json.get("enable_sound").getAsBoolean() : DEFAULT_ENABLE_SOUND;
             showBonusMessage = json.has("show_bonus_message") ? json.get("show_bonus_message").getAsBoolean() : DEFAULT_SHOW_BONUS_MESSAGE;
             soundVolume = json.has("sound_volume") ? clampSoundVolume(json.get("sound_volume").getAsInt()) : DEFAULT_SOUND_VOLUME;
@@ -198,11 +216,11 @@ public class ClientConfigManager {
             singleLineSubtitleCompressionMode = json.has("single_line_subtitle_compression_mode") ? normalizeSingleLineSubtitleCompressionMode(json.get("single_line_subtitle_compression_mode").getAsString()) : DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
             guiThemeColorPrimary = json.has("gui_theme_color_primary") ? normalizeHexColor(json.get("gui_theme_color_primary").getAsString(), DEFAULT_GUI_THEME_COLOR_PRIMARY) : DEFAULT_GUI_THEME_COLOR_PRIMARY;
             guiBackgroundMaterial = json.has("gui_background_material") ? normalizeGuiBackgroundMaterial(json.get("gui_background_material").getAsString()) : DEFAULT_GUI_BACKGROUND_MATERIAL;
+            bonusFormatMigrated = json.has("bonus_format_version") ? json.get("bonus_format_version").getAsInt() : DEFAULT_BONUS_FORMAT_MIGRATED;
             applyGuiThemeColors();
         } catch (Exception e) {
             ClientMessageLogger.error("gd656killicon.client.config.load_fail", e.getMessage());
-            e.printStackTrace();
-            currentPresetId = DEFAULT_CURRENT_PRESET;
+            currentPresetId = getInitialPresetByLanguage();
             enableSound = DEFAULT_ENABLE_SOUND;
             showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
             soundVolume = DEFAULT_SOUND_VOLUME;
@@ -229,7 +247,7 @@ public class ClientConfigManager {
 
     public static void createDefaultConfig() {
         JsonObject json = new JsonObject();
-        json.addProperty("current_preset", DEFAULT_CURRENT_PRESET);
+        json.addProperty("current_preset", getInitialPresetByLanguage());
         json.addProperty("enable_sound", DEFAULT_ENABLE_SOUND);
         json.addProperty("show_bonus_message", DEFAULT_SHOW_BONUS_MESSAGE);
         json.addProperty("sound_volume", DEFAULT_SOUND_VOLUME);
@@ -250,8 +268,9 @@ public class ClientConfigManager {
         json.addProperty("single_line_subtitle_compression_mode", DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE);
         json.addProperty("gui_theme_color_primary", DEFAULT_GUI_THEME_COLOR_PRIMARY);
         json.addProperty("gui_background_material", DEFAULT_GUI_BACKGROUND_MATERIAL);
+        json.addProperty("bonus_format_version", DEFAULT_BONUS_FORMAT_MIGRATED);
         
-        currentPresetId = DEFAULT_CURRENT_PRESET;
+        currentPresetId = getInitialPresetByLanguage();
         enableSound = DEFAULT_ENABLE_SOUND;
         showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
         soundVolume = DEFAULT_SOUND_VOLUME;
@@ -278,7 +297,6 @@ public class ClientConfigManager {
             GSON.toJson(json, writer);
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.config.save_fail", e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -305,6 +323,7 @@ public class ClientConfigManager {
         root.addProperty("single_line_subtitle_compression_mode", singleLineSubtitleCompressionMode);
         root.addProperty("gui_theme_color_primary", guiThemeColorPrimary);
         root.addProperty("gui_background_material", guiBackgroundMaterial);
+        root.addProperty("bonus_format_version", bonusFormatMigrated);
 
         try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
             GSON.toJson(root, writer);
@@ -496,6 +515,15 @@ public class ClientConfigManager {
             guiBackgroundMaterial = normalized;
             saveGlobalConfig();
         }
+    }
+
+    public static int getBonusFormatMigrated() {
+        return bonusFormatMigrated;
+    }
+
+    public static void setBonusFormatMigrated(int version) {
+        bonusFormatMigrated = version;
+        saveGlobalConfig();
     }
 
     public static boolean isGuiConfigChangedInEdit() {

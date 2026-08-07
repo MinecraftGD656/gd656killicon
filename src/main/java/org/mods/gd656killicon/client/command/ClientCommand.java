@@ -10,6 +10,7 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.forge.client.ForgeClientCommandEvents;
 import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.BonusFormatMigrator;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
@@ -65,6 +66,18 @@ public class ClientCommand {
         ConfigManager.loadConfig();
         ExternalTextureManager.reloadAsync();
         ExternalSoundManager.reloadAsync();
+        return 1;
+    }
+
+    /** 手动触发加分项系统大清洗升级器（通常由 loadConfig 自动执行一次）。 */
+    public static int migrateBonusFormat(CommandContext<CommandSourceStack> context) {
+        boolean changed = BonusFormatMigrator.migrate();
+        ClientConfigManager.setBonusFormatMigrated(BonusFormatMigrator.TARGET_VERSION);
+        if (changed) {
+            ClientMessageLogger.chatSuccess("gd656killicon.client.command.bonus_migrate_success");
+        } else {
+            ClientMessageLogger.chatInfo("gd656killicon.client.command.bonus_migrate_noop");
+        }
         return 1;
     }
 
@@ -313,6 +326,7 @@ public class ClientCommand {
                 )
                 .then(Commands.literal("config")
                     .then(Commands.literal("reload").executes(ClientCommand::reload))
+                    .then(Commands.literal("migrate").executes(ClientCommand::migrateBonusFormat))
                     .then(Commands.literal("global")
                         .then(Commands.argument("key", StringArgumentType.word())
                             .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"current_preset", "enable_sound", "sound_volume", "show_bonus_message"}, builder))

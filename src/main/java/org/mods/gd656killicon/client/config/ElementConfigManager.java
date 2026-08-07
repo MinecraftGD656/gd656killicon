@@ -6,11 +6,14 @@ import com.google.gson.JsonObject;
 import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.InputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,10 +23,12 @@ import java.util.Set;
 public class ElementConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File CONFIG_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon").toFile();
-    private static final File CONFIG_FILE = new File(CONFIG_DIR, "element_config.json");
+    /** 预设存储目录: 每预设一个 json 文件(官方+用户同目录, ID 区分) */
+    private static final File PRESETS_DIR = new File(CONFIG_DIR, "presets");
+    /** 预设文件格式版本: 数据变更时提升, 触发官方预设重新生成覆盖(玩家同版本修改保留) */
+    private static final int FORMAT_VERSION = 1;
 
     private static final Map<String, ElementPreset> PRESETS = new HashMap<>();
-    private static boolean pendingLocalization = false;
     
 
     private static Map<String, ElementPreset> TEMP_PRESETS = null;
@@ -34,7 +39,8 @@ public class ElementConfigManager {
         TEMP_PRESETS = new HashMap<>();
         for (Map.Entry<String, ElementPreset> entry : PRESETS.entrySet()) {
             ElementPreset preset = new ElementPreset();
-            preset.setDisplayName(entry.getValue().getDisplayName());             for (Map.Entry<String, JsonObject> elementEntry : entry.getValue().elementConfigs.entrySet()) {
+            preset.setDisplayName(entry.getValue().getDisplayName());
+            for (Map.Entry<String, JsonObject> elementEntry : entry.getValue().elementConfigs.entrySet()) {
                 preset.addElementConfig(elementEntry.getKey(), elementEntry.getValue().deepCopy());
             }
             TEMP_PRESETS.put(entry.getKey(), preset);
@@ -168,116 +174,181 @@ public class ElementConfigManager {
         loadConfig();
     }
 
-    public static void tryApplyLocalization() {
-        if (!pendingLocalization) return;
-        if (!isLocalizationReady()) return;
-        boolean changed = localizeAllPresets();
-        if (changed) {
-            saveConfig();
-        }
-        pendingLocalization = false;
-    }
-
-    private static boolean isLocalizationReady() {
-        return org.mods.gd656killicon.client.util.I18nCompat.exists("gd656killicon.client.format.normal");
-    }
-
-    private static boolean localizeAllPresets() {
-        boolean changed = false;
-        for (ElementPreset preset : PRESETS.values()) {
-            for (JsonObject config : preset.elementConfigs.values()) {
-                changed |= localizeConfig(config);
-            }
-        }
-        return changed;
-    }
-
-    private static boolean localizeConfig(JsonObject config) {
-        boolean changed = false;
-        for (String key : config.keySet()) {
-            if (!isTranslatableKey(key)) continue;
-            com.google.gson.JsonElement element = config.get(key);
-            if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
-                String value = element.getAsString();
-                if (org.mods.gd656killicon.client.util.I18nCompat.exists(value)) {
-                    String localized = net.minecraft.client.resources.language.I18n.get(value);
-                    if (!localized.equals(value)) {
-                        config.addProperty(key, localized);
-                        changed = true;
-                    }
-                }
-            }
-        }
-        return changed;
-    }
-
-    private static boolean isTranslatableKey(String key) {
-        return key.startsWith("format_") || key.equals("kill_feed_format");
-    }
-
     public static void loadConfig() {
-        if (!CONFIG_FILE.exists()) {
+        if (!PRESETS_DIR.exists()) {
+            PRESETS_DIR.mkdirs();
+        }
+        File[] existingFiles = PRESETS_DIR.listFiles((dir, name) -> name.endsWith(".json"));
+        if (existingFiles == null || existingFiles.length == 0) {
+            migrateLegacySingleFile();
+        }
+        ensureOfficialPresetFiles();
+
+        PRESETS.clear();
+        File[] files = PRESETS_DIR.listFiles((dir, name) -> name.endsWith(".json"));
+        if (files == null || files.length == 0) {
             createDefaultConfig();
             return;
         }
 
-        try (FileReader reader = new FileReader(CONFIG_FILE)) {
+        for (File file : files) {
+            String presetId = file.getName().substring(0, file.getName().length() - 5);
+            try (FileReader reader = new FileReader(file)) {
+                JsonObject presetJson = GSON.fromJson(reader, JsonObject.class);
+                PRESETS.put(presetId, parsePresetJson(presetJson, presetId));
+            } catch (com.google.gson.JsonSyntaxException e) {
+                ClientMessageLogger.error("gd656killicon.client.config.element.load_fail_json");
+                ClientMessageLogger.chatWarn("gd656killicon.client.config.element.preset_skipped", presetId, e.getMessage());
+            } catch (Exception e) {
+                ClientMessageLogger.error("gd656killicon.client.config.element.load_fail", e.getMessage());
+            }
+        }
+
+        if (PRESETS.isEmpty()) {
+            createDefaultConfig();
+            return;
+        }
+
+        boolean restored = false;
+        for (String officialId : DefaultConfigRegistry.getOfficialPresetIds()) {
+            if (!PRESETS.containsKey(officialId)) {
+                ElementPreset officialPreset = loadOfficialPresetFromJar(officialId);
+                if (officialPreset != null) {
+                    PRESETS.put(officialId, officialPreset);
+                    restored = true;
+                    ClientMessageLogger.info("gd656killicon.client.config.element.restored_official", officialId);
+                }
+            }
+        }
+
+        // 加分项系统大清洗升级器：必须在 normalizePresets 之前执行（旧键先搬家，否则会被默认集合删掉）
+        if (ClientConfigManager.getBonusFormatMigrated() < BonusFormatMigrator.TARGET_VERSION) {
+            BonusFormatMigrator.migrate();
+            ClientConfigManager.setBonusFormatMigrated(BonusFormatMigrator.TARGET_VERSION);
+        }
+
+        boolean normalized = normalizePresets();
+        if (normalized || restored) {
+            saveConfig();
+        }
+        for (String presetId : PRESETS.keySet()) {
+            ensurePresetAssets(presetId);
+        }
+        ClientMessageLogger.info("gd656killicon.client.config.element.load_success");
+    }
+
+    /** 解析单个预设文件内容(跳过 format_version / display_name 元数据键)。 */
+    private static ElementPreset parsePresetJson(JsonObject presetJson, String presetId) {
+        ElementPreset preset = new ElementPreset();
+        if (presetJson != null && presetJson.has("display_name")) {
+            preset.setDisplayName(presetJson.get("display_name").getAsString());
+        } else {
+            preset.setDisplayName(DefaultConfigRegistry.getOfficialPresetDisplayName(presetId));
+        }
+        if (presetJson == null) {
+            return preset;
+        }
+        for (Map.Entry<String, com.google.gson.JsonElement> elementEntry : presetJson.entrySet()) {
+            String elementKey = elementEntry.getKey();
+            if (elementKey.equals("display_name") || elementKey.equals("format_version")) {
+                continue;
+            }
+            if (elementEntry.getValue().isJsonObject()) {
+                preset.addElementConfig(elementKey, elementEntry.getValue().getAsJsonObject());
+            }
+        }
+        return preset;
+    }
+
+    /** 保障官方预设文件存在: 缺失/损坏/显式版本落后 → 从 jar 资源解包覆盖(资源缺失则该官方预设不落地)。 */
+    private static void ensureOfficialPresetFiles() {
+        for (String officialId : DefaultConfigRegistry.getOfficialPresetIds()) {
+            File file = new File(PRESETS_DIR, officialId + ".json");
+            if (!needsRegenerate(file)) {
+                continue;
+            }
+            String jarContent = readJarResource("/assets/gd656killicon/presets/official/" + officialId + ".json");
+            if (jarContent == null) {
+                continue;
+            }
+            try (FileWriter writer = new FileWriter(file)) {
+                writer.write(jarContent);
+            } catch (IOException e) {
+                ClientMessageLogger.error("gd656killicon.client.config.element.save_fail", officialId, e.getMessage());
+            }
+            ClientMessageLogger.info("gd656killicon.client.config.element.restored_official", officialId);
+        }
+    }
+
+    /** 是否需要重新生成: 文件缺失、损坏、或显式 format_version 落后(无版本字段的旧文件保留玩家数据)。 */
+    private static boolean needsRegenerate(File file) {
+        if (!file.exists()) {
+            return true;
+        }
+        int fileVersion = 0;
+        try (FileReader reader = new FileReader(file)) {
             JsonObject json = GSON.fromJson(reader, JsonObject.class);
-            PRESETS.clear();
-            
-            json.entrySet().forEach(entry -> {
-                String presetId = entry.getKey();
-                JsonObject presetJson = entry.getValue().getAsJsonObject();
-                ElementPreset preset = new ElementPreset();
-                
-                if (presetJson.has("display_name")) {
-                    preset.setDisplayName(presetJson.get("display_name").getAsString());
-                } else {
-                    preset.setDisplayName(DefaultConfigRegistry.getOfficialPresetDisplayName(presetId));
-                }
-                
-                presetJson.entrySet().forEach(elementEntry -> {
-                    String elementKey = elementEntry.getKey();                     if (elementKey.equals("display_name")) return; 
-                    JsonObject elementConfig = elementEntry.getValue().getAsJsonObject();
-                    preset.addElementConfig(elementKey, elementConfig);
-                });
-                
-                PRESETS.put(presetId, preset);
-            });
-            
-            boolean restored = false;
-            for (String officialId : DefaultConfigRegistry.getOfficialPresetIds()) {
-                if (!PRESETS.containsKey(officialId)) {
-                    ElementPreset officialPreset = createOfficialPreset(officialId);
-                    if (officialPreset != null) {
-                        PRESETS.put(officialId, officialPreset);
-                        restored = true;
-                        ClientMessageLogger.info("gd656killicon.client.config.element.restored_official", officialId);
-                    }
-                }
+            if (json != null && json.has("format_version")) {
+                fileVersion = json.get("format_version").getAsInt();
             }
-            
-            boolean normalized = normalizePresets();
-            if (normalized || restored) {
-                saveConfig();
+        } catch (Exception ignored) {
+            return true; // 损坏
+        }
+        return fileVersion > 0 && fileVersion < FORMAT_VERSION;
+    }
+
+    /** 从 jar 资源读取官方预设(唯一数据源); 资源缺失返回 null。 */
+    private static ElementPreset loadOfficialPresetFromJar(String presetId) {
+        String content = readJarResource("/assets/gd656killicon/presets/official/" + presetId + ".json");
+        if (content == null) {
+            return null;
+        }
+        JsonObject json = GSON.fromJson(content, JsonObject.class);
+        return parsePresetJson(json, presetId);
+    }
+
+    /** 读取 jar 内资源文本; 不存在或读取失败返回 null。 */
+    private static String readJarResource(String path) {
+        try (InputStream in = ElementConfigManager.class.getResourceAsStream(path)) {
+            if (in == null) {
+                return null;
             }
-            for (String presetId : PRESETS.keySet()) {
-                ensurePresetAssets(presetId);
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            byte[] data = new byte[8192];
+            int n;
+            while ((n = in.read(data)) != -1) {
+                buffer.write(data, 0, n);
             }
-            ClientMessageLogger.info("gd656killicon.client.config.element.load_success");
-        } catch (com.google.gson.JsonSyntaxException e) {
-            ClientMessageLogger.error("gd656killicon.client.config.element.load_fail_json");
-            ClientMessageLogger.chatError("gd656killicon.client.config.element.load_fail_json");
-            if (e.getMessage().contains("Unterminated object")) {
-                 ClientMessageLogger.chatWarn("gd656killicon.client.config.element.missing_brace_or_comma");
-            } else if (e.getMessage().contains("Expected name")) {
-                 ClientMessageLogger.chatWarn("gd656killicon.client.config.element.invalid_key");
-            } else {
-                 ClientMessageLogger.chatWarn("gd656killicon.client.config.element.detail", e.getMessage());
-            }
+            return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            ClientMessageLogger.error("gd656killicon.client.config.element.load_fail", e.getMessage());
-            e.printStackTrace();
+            return null;
+        }
+    }
+
+
+    /** 一次性迁移: 旧版单文件 element_config.json → presets/ 目录拆分(仅在 presets/ 为空时触发)。 */
+    private static void migrateLegacySingleFile() {
+        File legacyFile = new File(CONFIG_DIR, "element_config.json");
+        if (!legacyFile.exists()) {
+            return;
+        }
+        try (FileReader reader = new FileReader(legacyFile)) {
+            JsonObject json = GSON.fromJson(reader, JsonObject.class);
+            if (json == null) {
+                return;
+            }
+            for (Map.Entry<String, com.google.gson.JsonElement> entry : json.entrySet()) {
+                if (!entry.getValue().isJsonObject()) {
+                    continue;
+                }
+                writePresetFile(new File(PRESETS_DIR, entry.getKey() + ".json"),
+                        parsePresetJson(entry.getValue().getAsJsonObject(), entry.getKey()));
+            }
+            // 迁移成功后改名留档(不再参与加载; 防误操作, 可手动删除)
+            legacyFile.renameTo(new File(CONFIG_DIR, "element_config.json.migrated"));
+            ClientMessageLogger.info("gd656killicon.client.config.element.legacy_migrated");
+        } catch (Exception e) {
+            ClientMessageLogger.error("gd656killicon.client.config.element.legacy_migrate_fail", e.getMessage());
         }
     }
 
@@ -285,6 +356,10 @@ public class ElementConfigManager {
         boolean changed = false;
         for (Map.Entry<String, ElementPreset> presetEntry : PRESETS.entrySet()) {
             String presetId = presetEntry.getKey();
+            // 官方预设 = jar 资源唯一数据源(完整快照), 不做默认键修正, 仅处理用户/自定义预设
+            if (isOfficialPreset(presetId)) {
+                continue;
+            }
             ElementPreset preset = presetEntry.getValue();
             java.util.Iterator<Map.Entry<String, JsonObject>> elementIterator = preset.elementConfigs.entrySet().iterator();
             while (elementIterator.hasNext()) {
@@ -496,29 +571,20 @@ public class ElementConfigManager {
         return false;
     }
 
-    private static ElementPreset createOfficialPreset(String presetId) {
-        if (!DefaultConfigRegistry.isOfficialPreset(presetId)) return null;
-
-        ElementPreset preset = new ElementPreset();
-        preset.setDisplayName(DefaultConfigRegistry.getOfficialPresetDisplayName(presetId));
-        
-        Set<String> elementIds = DefaultConfigRegistry.getOfficialPresetElements(presetId);
-        for (String elementId : elementIds) {
-            JsonObject config = DefaultConfigRegistry.getDefaultConfig(presetId, elementId);
-            preset.addElementConfig(elementId, config);
-        }
-        
-        return preset;
-    }
-
     public static void createDefaultConfig() {
         PRESETS.clear();
         for (String officialId : DefaultConfigRegistry.getOfficialPresetIds()) {
-            PRESETS.put(officialId, createOfficialPreset(officialId));
+            ElementPreset preset = loadOfficialPresetFromJar(officialId);
+            if (preset != null) {
+                PRESETS.put(officialId, preset);
+            }
         }
-        pendingLocalization = true;
         saveConfig();
-        loadConfig();     }
+        // 重新加载以同步文件(无官方预设时跳过, 避免递归)
+        if (!PRESETS.isEmpty()) {
+            loadConfig();
+        }
+    }
 
     public static void resetPresetConfig(String presetId) {
         ElementPreset currentPreset = getActivePresets().get(presetId);
@@ -579,32 +645,16 @@ public class ElementConfigManager {
         return DefaultConfigRegistry.getGlobalDefault(name);
     }
     
-    public static JsonObject getElementConfigWithFallback(String presetId, String elementId) {
-        JsonObject config = getElementConfig(presetId, elementId);
-        JsonObject safeDefaults = getDefaultElementConfig(presetId, elementId);
-        
-        if (config == null) {
-            return safeDefaults;
-        }
-        
-        JsonObject result = config.deepCopy();
-        for (Map.Entry<String, com.google.gson.JsonElement> entry : safeDefaults.entrySet()) {
-            String key = entry.getKey();
-            if (!result.has(key)) {
-                result.add(key, entry.getValue());
-            }
-        }
-        
-        return result;
-    }
-
     public static void resetConfig() {
-        if (CONFIG_FILE.exists()) {
-            if (CONFIG_FILE.delete()) {
-                ClientMessageLogger.info("gd656killicon.client.config.element.delete_old_success");
-            } else {
-                ClientMessageLogger.chatError("gd656killicon.client.config.element.delete_old_fail_occupied");
-                ClientMessageLogger.error("gd656killicon.client.config.element.delete_old_fail");
+        if (PRESETS_DIR.exists()) {
+            File[] files = PRESETS_DIR.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (!file.delete()) {
+                        ClientMessageLogger.chatError("gd656killicon.client.config.element.delete_old_fail_occupied");
+                        ClientMessageLogger.error("gd656killicon.client.config.element.delete_old_fail", file.getName());
+                    }
+                }
             }
         }
         createDefaultConfig();
@@ -615,7 +665,7 @@ public class ElementConfigManager {
             ClientMessageLogger.chatError("gd656killicon.client.config.element.reset_unofficial_fail", presetId);
             return;
         }
-        ElementPreset preset = createOfficialPreset(presetId);
+        ElementPreset preset = loadOfficialPresetFromJar(presetId);
         if (preset == null) {
             ClientMessageLogger.chatError("gd656killicon.client.config.element.reset_preset_fail", presetId);
             return;
@@ -641,26 +691,62 @@ public class ElementConfigManager {
     }
 
     public static void saveConfig() {
-        JsonObject root = new JsonObject();
-        PRESETS.forEach((presetId, preset) -> {
-            JsonObject presetJson = new JsonObject();
-            if (preset.getDisplayName() != null && !preset.getDisplayName().isEmpty()) {
-                presetJson.addProperty("display_name", preset.getDisplayName());
+        for (Map.Entry<String, ElementPreset> entry : PRESETS.entrySet()) {
+            writePresetFile(new File(PRESETS_DIR, entry.getKey() + ".json"), entry.getValue());
+        }
+        // 清理孤儿文件: presets/ 下不在 PRESETS 中的预设文件(处理 rename/delete)
+        File[] files = PRESETS_DIR.listFiles((dir, name) -> name.endsWith(".json"));
+        if (files != null) {
+            for (File file : files) {
+                String id = file.getName().substring(0, file.getName().length() - 5);
+                if (!PRESETS.containsKey(id)) {
+                    file.delete();
+                }
             }
-            preset.elementConfigs.forEach(presetJson::add);
-            root.add(presetId, presetJson);
-        });
+        }
+    }
 
-        try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
-            GSON.toJson(root, writer);
+    /** 写入单个预设文件(带 format_version + display_name + 元素配置)。 */
+    private static void writePresetFile(File file, ElementPreset preset) {
+        JsonObject presetJson = new JsonObject();
+        presetJson.addProperty("format_version", FORMAT_VERSION);
+        if (preset.getDisplayName() != null && !preset.getDisplayName().isEmpty()) {
+            presetJson.addProperty("display_name", preset.getDisplayName());
+        }
+        preset.elementConfigs.forEach(presetJson::add);
+        try (FileWriter writer = new FileWriter(file)) {
+            GSON.toJson(presetJson, writer);
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.config.element.save_fail", e.getMessage());
-            e.printStackTrace();
         }
-    }    public static JsonObject getElementConfig(String presetId, String elementId) {
+    }
+
+    public static JsonObject getElementConfig(String presetId, String elementId) {
         ElementPreset preset = getPreset(presetId);
         if (preset == null) return null;
         return preset.getConfig(elementId);
+    }
+
+    /**
+     * 配置项重置/默认比较的数据源(单行重置按钮与元素级重置专用)：
+     * 官方预设 → 该预设自身 json 数据(预设里存什么, 重置就是什么);
+     * 自定义预设 → 按客户端语言从基准官方预设获取(中文四语言 zh_cn/zh_tw/lzh → 00007, 其它 → 00036);
+     * 元素或键缺失时以注册表默认补齐(保证条目完整)。
+     */
+    public static JsonObject getResetDefaultConfig(String presetId, String elementId) {
+        String sourcePreset = isOfficialPreset(presetId) ? presetId : ClientConfigManager.getInitialPresetByLanguage();
+        JsonObject source = getElementConfig(sourcePreset, elementId);
+        JsonObject registryDefault = getDefaultElementConfig(presetId, elementId);
+        if (source == null) {
+            return registryDefault;
+        }
+        JsonObject result = source.deepCopy();
+        for (Map.Entry<String, com.google.gson.JsonElement> entry : registryDefault.entrySet()) {
+            if (!result.has(entry.getKey())) {
+                result.add(entry.getKey(), entry.getValue());
+            }
+        }
+        return result;
     }
     
     public static Set<String> getAllElementTypes() {
@@ -754,7 +840,10 @@ public class ElementConfigManager {
             return;
         }
         ElementPreset preset = new ElementPreset();
-        preset.setDisplayName("新自定义预设");
+        String defaultNameKey = "gd656killicon.client.config.preset.new_preset_default_name";
+        preset.setDisplayName(org.mods.gd656killicon.client.util.I18nCompat.exists(defaultNameKey)
+                ? net.minecraft.client.resources.language.I18n.get(defaultNameKey)
+                : "New Custom Preset");
         getActivePresets().put(presetId, preset);
         ensurePresetAssets(presetId);
         if (!isEditing) {
@@ -777,10 +866,6 @@ public class ElementConfigManager {
         }
     }
 
-    public static void setElementConfigImmediate(String presetId, String elementId, JsonObject config) {
-        setElementConfig(presetId, elementId, config);
-    }
-
     public static void updateConfigValue(String presetId, String elementId, String key, String value) {
         ElementPreset preset = getActivePresets().get(presetId);
         if (preset == null) return;
@@ -796,13 +881,8 @@ public class ElementConfigManager {
                     config.addProperty(key, Boolean.parseBoolean(value));
                 } else if (defaultVal.getAsJsonPrimitive().isNumber()) {
                     try {
-                        double d = Double.parseDouble(value);
-                        if (defaultVal.getAsNumber().doubleValue() == Math.ceil(defaultVal.getAsNumber().doubleValue())) {
-                             config.addProperty(key, d);
-                        } else {
-                             config.addProperty(key, d);
-                        }
-                    } catch (NumberFormatException e) {
+                        config.addProperty(key, Double.parseDouble(value));
+                    } catch (NumberFormatException ignored) {
                     }
                 } else {
                     config.addProperty(key, value);

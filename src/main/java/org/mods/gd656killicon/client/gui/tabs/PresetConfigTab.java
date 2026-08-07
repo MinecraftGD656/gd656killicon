@@ -37,7 +37,10 @@ import com.google.gson.JsonObject;
 
 public class PresetConfigTab extends ConfigTabContent {
     private enum PanelState {
-        HIDDEN,         PEEK,           OPEN        }
+        HIDDEN,
+        PEEK,
+        OPEN
+    }
 
     private final Map<String, ElementPreview> previewElements = new HashMap<>();
     private PanelState state = PanelState.HIDDEN;
@@ -389,7 +392,7 @@ public class PresetConfigTab extends ConfigTabContent {
         }
         try {
             int id = Integer.parseInt(presetId);
-            return id == 4 || id == 5 || id == 7;
+            return id == 4 || id == 5 || id == 7 || id == 36;
         } catch (NumberFormatException e) {
             return false;
         }

@@ -13,6 +13,8 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import org.mods.gd656killicon.common.bonus.BonusDefinition;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.conquest.ConquestRuntimeStatsAdapter;
@@ -54,7 +56,6 @@ public class ServerData {
     private String reviveboardDisplayName = DEFAULT_REVIVEBOARD_DISPLAY_NAME;
     private final Set<Integer> disabledBonusTypes = ConcurrentHashMap.newKeySet();
     private final Map<Integer, String> bonusExpressions = new ConcurrentHashMap<>();
-    private final Map<Integer, String> defaultExpressions = new HashMap<>();
 
     private Path configPath;
     private boolean loaded = false;
@@ -64,81 +65,8 @@ public class ServerData {
     }
 
     private void initDefaults() {
-        disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
-
-        defaultExpressions.put(BonusType.KILL, "5");
-        defaultExpressions.put(BonusType.KILL_HEADSHOT, "5");
-        defaultExpressions.put(BonusType.KILL_EXPLOSION, "5");
-        defaultExpressions.put(BonusType.KILL_CRIT, "5");
-        defaultExpressions.put(BonusType.KILL_LONG_DISTANCE, "1");
-        defaultExpressions.put(BonusType.KILL_COMBO, "8");
-        defaultExpressions.put(BonusType.ONE_BULLET_MULTI_KILL, "8");
-        defaultExpressions.put(BonusType.SHOCKWAVE, "20");
-        defaultExpressions.put(BonusType.LAST_BULLET_KILL, "30");
-        defaultExpressions.put(BonusType.EFFORTLESS_KILL, "8");
-        defaultExpressions.put(BonusType.BRAVE_RETURN, "12");
-        defaultExpressions.put(BonusType.BERSERKER, "3");
-        defaultExpressions.put(BonusType.KILL_INVISIBLE, "10");
-        defaultExpressions.put(BonusType.DESPERATE_COUNTERATTACK, "12");
-        defaultExpressions.put(BonusType.ABSOLUTE_AIR_CONTROL, "20");
-        defaultExpressions.put(BonusType.JUSTICE_FROM_ABOVE, "10");
-        defaultExpressions.put(BonusType.BACKSTAB_MELEE_KILL, "15");
-        defaultExpressions.put(BonusType.BACKSTAB_KILL, "8");
-        defaultExpressions.put(BonusType.BLIND_KILL, "12");
-        defaultExpressions.put(BonusType.BOTH_BUFF_DEBUFF_KILL, "10");
-        defaultExpressions.put(BonusType.BUFF_KILL, "5");
-        defaultExpressions.put(BonusType.DEBUFF_KILL, "7");
-        defaultExpressions.put(BonusType.AVENGE, "25");
-        defaultExpressions.put(BonusType.ASSIST, "1");
-        defaultExpressions.put(BonusType.INTERRUPTED_STREAK, "6");
-        defaultExpressions.put(BonusType.LEAVE_IT_TO_ME, "20");
-        defaultExpressions.put(BonusType.SAVIOR, "10");
-        defaultExpressions.put(BonusType.SLAY_THE_LEADER, "18");
-        defaultExpressions.put(BonusType.PURGE, "30");
-        defaultExpressions.put(BonusType.QUICK_SWITCH, "3");
-        defaultExpressions.put(BonusType.SEIZE_OPPORTUNITY, "5");
-        defaultExpressions.put(BonusType.BLOODTHIRSTY, "5");
-        defaultExpressions.put(BonusType.MERCILESS, "10");
-        defaultExpressions.put(BonusType.VALIANT, "15");
-        defaultExpressions.put(BonusType.FIERCE, "20");
-        defaultExpressions.put(BonusType.SAVAGE, "25");
-        defaultExpressions.put(BonusType.POTATO_AIM, "5");
-        defaultExpressions.put(BonusType.HIT_VEHICLE_ARMOR, "1.5");
-        defaultExpressions.put(BonusType.DESTROY_VEHICLE, "1.5");
-        defaultExpressions.put(BonusType.VEHICLE_REPAIR, "10");
-        defaultExpressions.put(BonusType.VALUE_TARGET_DESTROYED, "1");
-        defaultExpressions.put(BonusType.LOCKED_TARGET, "12");
-        defaultExpressions.put(BonusType.HOLD_POSITION, "10");
-        defaultExpressions.put(BonusType.CHARGE_ASSAULT, "15");
-        defaultExpressions.put(BonusType.FIRE_SUPPRESSION, "15");
-        defaultExpressions.put(BonusType.DESTROY_BLOCK, "1");
-        defaultExpressions.put(BonusType.SPOTTING, "5");
-        defaultExpressions.put(BonusType.SPOTTING_KILL, "30");
-        defaultExpressions.put(BonusType.SPOTTING_TEAM_ASSIST, "15");
-        defaultExpressions.put(BonusType.CONQUEST_CAPTURE_PROGRESS, "2");
-        defaultExpressions.put(BonusType.CONQUEST_CAPTURE_NEUTRALIZE, "10");
-        defaultExpressions.put(BonusType.CONQUEST_CAPTURE_CONTROL, "20");
-        defaultExpressions.put(BonusType.SQUAD_DEPLOY_ON_YOU, "10");
-        defaultExpressions.put(BonusType.SQUAD_LAST_MEMBER_KILL, "15");
-        defaultExpressions.put(BonusType.EMERGENCY_REINFORCEMENT, "20");
-        defaultExpressions.put(BonusType.SQUAD_WIPE_COMPLETION, "40");
-        defaultExpressions.put(BonusType.TACTICAL_GADGET_DESTROYED, "20");
-        defaultExpressions.put(BonusType.SQUAD_BEACON_DEPLOY, "20");
-        defaultExpressions.put(BonusType.VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY, "5");
-        defaultExpressions.put(BonusType.HEALING, "10");
-        defaultExpressions.put(BonusType.AMMO_SUPPLY, "10");
-        defaultExpressions.put(BonusType.REVIVE, "100");
-        defaultExpressions.put(BonusType.VEHICLE_DESTROY_ASSIST, "1");
-        defaultExpressions.put(BonusType.FRIENDLY_DEPLOY_ON_YOUR_VEHICLE, "10");
-        defaultExpressions.put(BonusType.GROUND_SENSOR_SCAN, "5");
-        defaultExpressions.put(BonusType.RUSH_BOMB_DEFUSED, "200");
-        defaultExpressions.put(BonusType.RUSH_BOMB_PLANTED, "200");
-        defaultExpressions.put(BonusType.RUSH_OBJECTIVE_DESTROYED, "500");
-    
-        defaultExpressions.put(BonusType.DAMAGE, "1");
-        defaultExpressions.put(BonusType.HEADSHOT, "1");
-        defaultExpressions.put(BonusType.EXPLOSION, "1");
-        defaultExpressions.put(BonusType.CRIT, "1");
+        // 默认倍率与默认禁用集合均由 BonusRegistry 提供（唯一数据源）
+        resetDisabledBonusTypes();
     }
 
     public static ServerData get() { return INSTANCE; }
@@ -279,7 +207,11 @@ public class ServerData {
     }
     
     public String getBonusExpression(int type) {
-        return bonusExpressions.getOrDefault(type, defaultExpressions.getOrDefault(type, "0"));
+        BonusDefinition def = BonusRegistry.get(type);
+        if (def == null) {
+            return "0";
+        }
+        return bonusExpressions.getOrDefault(type, def.scoreExpression());
     }
 
     public void setBonusExpression(int type, String expression) {
@@ -306,14 +238,14 @@ public class ServerData {
         assistboardDisplayName = "鐜╁鍔╂敾";
         reviveboardDisplayName = "玩家救援";
         disabledBonusTypes.clear();
-        disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
+        resetDisabledBonusTypes();
         bonusExpressions.clear();
         saveConfig();
     }
     
     public void resetBonusConfig() {
         disabledBonusTypes.clear();
-        disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
+        resetDisabledBonusTypes();
         bonusExpressions.clear();
         saveConfig();
     }
@@ -328,8 +260,17 @@ public class ServerData {
         assistboardDisplayName = DEFAULT_ASSISTBOARD_DISPLAY_NAME;
         reviveboardDisplayName = DEFAULT_REVIVEBOARD_DISPLAY_NAME;
         disabledBonusTypes.clear();
-        disabledBonusTypes.add(BonusType.DESTROY_BLOCK);
+        resetDisabledBonusTypes();
         bonusExpressions.clear();
+    }
+
+    /** 默认禁用集合由 BonusRegistry 驱动（disabledByDefault），唯一数据源。 */
+    private void resetDisabledBonusTypes() {
+        for (BonusDefinition def : BonusRegistry.getAll()) {
+            if (def.disabledByDefault()) {
+                disabledBonusTypes.add(def.type());
+            }
+        }
     }
 
     private boolean tryRouteConquestRuntimeStats(ServerPlayer player, float scoreDelta, int killDelta, int deathDelta, int assistDelta, int reviveDelta) {

@@ -8,6 +8,7 @@ import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.textures.ModTextures;
 import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 
 import java.util.List;
 
@@ -182,17 +183,7 @@ public class InfiniteGridWidget {
     }
 
     private static String getTextureKey(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> "headshot";
-            case KillType.EXPLOSION -> "explosion";
-            case KillType.CRIT -> "crit";
-            case KillType.ASSIST -> "assist";
-            case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
-            case KillType.VEHICLE_DESTROY_ASSIST -> "vehicle_destroy_assist";
-            case KillType.MEDIC -> "medic";
-            case KillType.NORMAL -> "default";
-            default -> "default";
-        };
+        return KillTypeRegistry.get(killType).textureKey();
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {

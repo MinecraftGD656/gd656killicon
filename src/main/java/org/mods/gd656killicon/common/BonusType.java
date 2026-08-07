@@ -1,9 +1,18 @@
 package org.mods.gd656killicon.common;
 
+import org.mods.gd656killicon.common.bonus.BonusDefinition;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * 加分项类型编号（常量保留，兼容全部编译期引用）。
+ *
+ * <p>编号与名称映射由 {@link BonusRegistry} 驱动（注册表是唯一数据源），
+ * 本类的常量仅供编译期引用与序列化编号。</p>
+ */
 public final class BonusType {
     public static final int DAMAGE = 0;
     public static final int KILL = 1;
@@ -61,108 +70,24 @@ public final class BonusType {
     public static final int CONQUEST_CAPTURE_PROGRESS = 53;
     public static final int CONQUEST_CAPTURE_NEUTRALIZE = 54;
     public static final int CONQUEST_CAPTURE_CONTROL = 55;
-    public static final int SQUAD_DEPLOY_ON_YOU = 56;
-    public static final int SQUAD_LAST_MEMBER_KILL = 57;
-    public static final int EMERGENCY_REINFORCEMENT = 58;
-    public static final int SQUAD_WIPE_COMPLETION = 59;
-    public static final int TACTICAL_GADGET_DESTROYED = 60;
-    public static final int SQUAD_BEACON_DEPLOY = 61;
-    public static final int VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY = 62;
-    public static final int HEALING = 63;
-    public static final int AMMO_SUPPLY = 64;
-    public static final int REVIVE = 65;
     public static final int VEHICLE_DESTROY_ASSIST = 66;
-    public static final int FRIENDLY_DEPLOY_ON_YOUR_VEHICLE = 67;
-    public static final int GROUND_SENSOR_SCAN = 68;
-    public static final int RUSH_BOMB_DEFUSED = 69;
-    public static final int RUSH_BOMB_PLANTED = 70;
-    public static final int RUSH_OBJECTIVE_DESTROYED = 71;
 
     private static final Map<String, Integer> NAME_TO_TYPE = new HashMap<>();
     private static final Map<Integer, String> TYPE_TO_NAME = new HashMap<>();
 
     static {
-        register("DAMAGE", DAMAGE);
-        register("KILL", KILL);
-        register("EXPLOSION", EXPLOSION);
-        register("HEADSHOT", HEADSHOT);
-        register("CRIT", CRIT);
-        register("KILL_EXPLOSION", KILL_EXPLOSION);
-        register("KILL_HEADSHOT", KILL_HEADSHOT);
-        register("KILL_CRIT", KILL_CRIT);
-        register("KILL_COMBO", KILL_COMBO);
-        register("KILL_LONG_DISTANCE", KILL_LONG_DISTANCE);
-        register("KILL_INVISIBLE", KILL_INVISIBLE);
-        register("ASSIST", ASSIST);
-        register("DESPERATE_COUNTERATTACK", DESPERATE_COUNTERATTACK);
-        register("AVENGE", AVENGE);
-        register("SHOCKWAVE", SHOCKWAVE);
-        register("BLIND_KILL", BLIND_KILL);
-        register("BUFF_KILL", BUFF_KILL);
-        register("DEBUFF_KILL", DEBUFF_KILL);
-        register("BOTH_BUFF_DEBUFF_KILL", BOTH_BUFF_DEBUFF_KILL);
-        register("LAST_BULLET_KILL", LAST_BULLET_KILL);
-        register("ONE_BULLET_MULTI_KILL", ONE_BULLET_MULTI_KILL);
-        register("EFFORTLESS_KILL", EFFORTLESS_KILL);
-        register("BACKSTAB_KILL", BACKSTAB_KILL);
-        register("BACKSTAB_MELEE_KILL", BACKSTAB_MELEE_KILL);
-        register("BRAVE_RETURN", BRAVE_RETURN);
-        register("JUSTICE_FROM_ABOVE", JUSTICE_FROM_ABOVE);
-        register("ABSOLUTE_AIR_CONTROL", ABSOLUTE_AIR_CONTROL);
-        register("BERSERKER", BERSERKER);
-        register("INTERRUPTED_STREAK", INTERRUPTED_STREAK);
-        register("LEAVE_IT_TO_ME", LEAVE_IT_TO_ME);
-        register("SAVIOR", SAVIOR);
-        register("SLAY_THE_LEADER", SLAY_THE_LEADER);
-        register("PURGE", PURGE);
-        register("QUICK_SWITCH", QUICK_SWITCH);
-        register("SEIZE_OPPORTUNITY", SEIZE_OPPORTUNITY);
-        register("BLOODTHIRSTY", BLOODTHIRSTY);
-        register("MERCILESS", MERCILESS);
-        register("VALIANT", VALIANT);
-        register("FIERCE", FIERCE);
-        register("SAVAGE", SAVAGE);
-        register("POTATO_AIM", POTATO_AIM);
-        register("HIT_VEHICLE_ARMOR", HIT_VEHICLE_ARMOR);
-        register("DESTROY_VEHICLE", DESTROY_VEHICLE);
-        register("VEHICLE_REPAIR", VEHICLE_REPAIR);
-        register("VALUE_TARGET_DESTROYED", VALUE_TARGET_DESTROYED);
-        register("LOCKED_TARGET", LOCKED_TARGET);
-        register("HOLD_POSITION", HOLD_POSITION);
-        register("CHARGE_ASSAULT", CHARGE_ASSAULT);
-        register("FIRE_SUPPRESSION", FIRE_SUPPRESSION);
-        register("DESTROY_BLOCK", DESTROY_BLOCK);
-        register("SPOTTING", SPOTTING);
-        register("SPOTTING_KILL", SPOTTING_KILL);
-        register("SPOTTING_TEAM_ASSIST", SPOTTING_TEAM_ASSIST);
-        register("CONQUEST_CAPTURE_PROGRESS", CONQUEST_CAPTURE_PROGRESS);
-        register("CONQUEST_CAPTURE_NEUTRALIZE", CONQUEST_CAPTURE_NEUTRALIZE);
-        register("CONQUEST_CAPTURE_CONTROL", CONQUEST_CAPTURE_CONTROL);
-        register("SQUAD_DEPLOY_ON_YOU", SQUAD_DEPLOY_ON_YOU);
-        register("SQUAD_LAST_MEMBER_KILL", SQUAD_LAST_MEMBER_KILL);
-        register("EMERGENCY_REINFORCEMENT", EMERGENCY_REINFORCEMENT);
-        register("SQUAD_WIPE_COMPLETION", SQUAD_WIPE_COMPLETION);
-        register("TACTICAL_GADGET_DESTROYED", TACTICAL_GADGET_DESTROYED);
-        register("SQUAD_BEACON_DEPLOY", SQUAD_BEACON_DEPLOY);
-        register("VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY", VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY);
-        register("HEALING", HEALING);
-        register("AMMO_SUPPLY", AMMO_SUPPLY);
-        register("REVIVE", REVIVE);
-        register("VEHICLE_DESTROY_ASSIST", VEHICLE_DESTROY_ASSIST);
-        register("FRIENDLY_DEPLOY_ON_YOUR_VEHICLE", FRIENDLY_DEPLOY_ON_YOUR_VEHICLE);
-        register("GROUND_SENSOR_SCAN", GROUND_SENSOR_SCAN);
-        register("RUSH_BOMB_DEFUSED", RUSH_BOMB_DEFUSED);
-        register("RUSH_BOMB_PLANTED", RUSH_BOMB_PLANTED);
-        register("RUSH_OBJECTIVE_DESTROYED", RUSH_OBJECTIVE_DESTROYED);
+        for (BonusDefinition def : BonusRegistry.getAll()) {
+            register(def.id(), def.type());
+        }
     }
 
     private static void register(String name, int type) {
-        NAME_TO_TYPE.put(name.toUpperCase(), type);
-        TYPE_TO_NAME.put(type, name.toUpperCase());
+        NAME_TO_TYPE.put(name, type);
+        TYPE_TO_NAME.put(type, name);
     }
 
     public static int getTypeByName(String name) {
-        return NAME_TO_TYPE.getOrDefault(name.toUpperCase(), -1);
+        return NAME_TO_TYPE.getOrDefault(name, -1);
     }
 
     public static String getNameByType(int type) {

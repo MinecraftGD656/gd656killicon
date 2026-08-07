@@ -129,19 +129,7 @@ public class MainConfigScreen extends Screen {
     }
 
     private String resolveOnlineVersionUrl() {
-        String url = "";
-        try {
-            java.lang.reflect.Field field = GuiConstants.class.getField("MOD_ONLINE_VERSION");
-            Object value = field.get(null);
-            if (value != null) {
-                url = value.toString();
-            }
-        } catch (Exception ignored) {
-        }
-        if (url.isEmpty()) {
-            url = "https://modrinth.com/mod/gd656killicon/version/1.1.0.015-1.20.1-forge";
-        }
-        return url;
+        return GuiConstants.MOD_ONLINE_VERSION;
     }
 
     private String getVersionColorText(String version) {

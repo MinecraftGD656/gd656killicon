@@ -5,10 +5,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 import net.minecraft.client.resources.language.I18n;
+import org.mods.gd656killicon.common.bonus.BonusDefinition;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
+import org.mods.gd656killicon.common.killtype.KillTypeDefinition;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 
 public class DefaultConfigRegistry {
     private static final Map<String, JsonObject> GLOBAL_DEFAULTS = new HashMap<>();
-    private static final Map<String, Map<String, JsonObject>> PRESET_OVERRIDES = new HashMap<>();
 
     private static final Map<String, java.util.Set<String>> OFFICIAL_PRESET_STRUCTURE = new HashMap<>();
     private static final Map<String, String> OFFICIAL_PRESET_NAMES = new HashMap<>();
@@ -29,13 +32,15 @@ public class DefaultConfigRegistry {
 
     private static void registerOfficialNames() {
         OFFICIAL_PRESET_NAMES.put("00001", "六五六自制预设");
-        OFFICIAL_PRESET_NAMES.put("00002", "CF杩炴潃鍥炬爣妯″紡");
-        OFFICIAL_PRESET_NAMES.put("00003", "CS2鍗＄墝妯″紡");
-        OFFICIAL_PRESET_NAMES.put("00004", "Battlefield 1妯″紡");
-        OFFICIAL_PRESET_NAMES.put("00005", "Battlefield 4妯″紡");
-        OFFICIAL_PRESET_NAMES.put("00006", "PUBG娣樻卑瀛楀箷妯″紡");
-        OFFICIAL_PRESET_NAMES.put("00007", "Battlefield 5妯″紡");
-        OFFICIAL_PRESET_NAMES.put("00008", "涓夎娲茶鍔細鍏ㄩ潰鎴樺満妯″紡");
+        OFFICIAL_PRESET_NAMES.put("00002", "CF连杀图标模式");
+        OFFICIAL_PRESET_NAMES.put("00003", "CS2卡片模式");
+        OFFICIAL_PRESET_NAMES.put("00004", "Battlefield 1模式");
+        OFFICIAL_PRESET_NAMES.put("00005", "Battlefield 4模式");
+        OFFICIAL_PRESET_NAMES.put("00006", "PUBG淘汰字幕模式");
+        OFFICIAL_PRESET_NAMES.put("00007", "Battlefield 5模式");
+        OFFICIAL_PRESET_NAMES.put("00008", "三角洲行动：全面战场模式");
+        OFFICIAL_PRESET_NAMES.put("00035", "Custom Preset (EN)");
+        OFFICIAL_PRESET_NAMES.put("00036", "Battlefield 5 (EN)");
         for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
             OFFICIAL_PRESET_NAMES.put(definition.presetId(), "VALORANT " + definition.displayName());
         }
@@ -106,6 +111,20 @@ public class DefaultConfigRegistry {
         p00008.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00008", p00008);
 
+        java.util.Set<String> p00035 = new java.util.HashSet<>();
+        p00035.add("subtitle/kill_feed");
+        p00035.add("subtitle/score");
+        p00035.add("subtitle/bonus_list");
+        p00035.add("kill_icon/scrolling");
+        OFFICIAL_PRESET_STRUCTURE.put("00035", p00035);
+
+        java.util.Set<String> p00036 = new java.util.HashSet<>();
+        p00036.add("subtitle/kill_feed");
+        p00036.add("subtitle/score");
+        p00036.add("subtitle/bonus_list");
+        p00036.add("kill_icon/scrolling");
+        OFFICIAL_PRESET_STRUCTURE.put("00036", p00036);
+
         for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
             java.util.Set<String> valorantPreset = new java.util.HashSet<>();
             valorantPreset.add("kill_icon/valorant");
@@ -114,16 +133,11 @@ public class DefaultConfigRegistry {
     }
 
     public static JsonObject getDefaultConfig(String presetId, String elementId) {
-        JsonObject config;
-        if (PRESET_OVERRIDES.containsKey(presetId) && PRESET_OVERRIDES.get(presetId).containsKey(elementId)) {
-            config = PRESET_OVERRIDES.get(presetId).get(elementId).deepCopy();
-        } else if (GLOBAL_DEFAULTS.containsKey(elementId)) {
-            config = GLOBAL_DEFAULTS.get(elementId).deepCopy();
-        } else {
-            config = new JsonObject();
-        }
+        JsonObject config = GLOBAL_DEFAULTS.containsKey(elementId)
+                ? GLOBAL_DEFAULTS.get(elementId).deepCopy()
+                : new JsonObject();
         
-        localizeConfig(config);
+        injectFormatDefaults(elementId, config);
         return config;
     }
     
@@ -135,26 +149,35 @@ public class DefaultConfigRegistry {
             config = new JsonObject();
         }
         
-        localizeConfig(config);
+        injectFormatDefaults(elementId, config);
         return config;
     }
 
-    private static void localizeConfig(JsonObject config) {
-        for (String key : config.keySet()) {
-            if (isTranslatableKey(key)) {
-                com.google.gson.JsonElement element = config.get(key);
-                if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
-                    String value = element.getAsString();
-                    if (net.minecraft.client.resources.language.I18n.exists(value)) {
-                         config.addProperty(key, net.minecraft.client.resources.language.I18n.get(value));
-                    }
+    /**
+     * 运行时注入格式默认值：
+     * subtitle/bonus_list 注入加分项 format；subtitle/kill_feed 注入击杀类型 format。
+     * 仅为缺失的键补注册表默认格式文本，不覆盖已有键
+     * （玩家自定义均保留），无需 lang 文件。
+     */
+    private static void injectFormatDefaults(String elementId, JsonObject config) {
+        if (config == null) {
+            return;
+        }
+        if ("subtitle/bonus_list".equals(elementId)) {
+            for (BonusDefinition def : BonusRegistry.getAll()) {
+                String key = def.formatConfigKey();
+                if (!config.has(key)) {
+                    config.addProperty(key, def.format());
+                }
+            }
+        } else if ("subtitle/kill_feed".equals(elementId)) {
+            for (KillTypeDefinition def : KillTypeRegistry.getAll()) {
+                String key = def.formatKey();
+                if (!config.has(key)) {
+                    config.addProperty(key, def.format());
                 }
             }
         }
-    }
-
-    public static boolean isTranslatableKey(String key) {
-        return key.startsWith("format_") || key.equals("kill_feed_format");
     }
 
     private static void registerDefaults() {
@@ -165,22 +188,15 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("x_offset", 0);
         killFeed.addProperty("y_offset", 100);
         killFeed.addProperty("display_duration", 3.0);
-        killFeed.addProperty("format_normal", "gd656killicon.client.format.normal");
         killFeed.addProperty("color_normal_placeholder", "#008B8B");
-        killFeed.addProperty("format_headshot", "gd656killicon.client.format.headshot");
         killFeed.addProperty("color_headshot_placeholder", "#D4B800");
-        killFeed.addProperty("format_explosion", "gd656killicon.client.format.explosion");
         killFeed.addProperty("color_explosion_placeholder", "#F77F00");
-        killFeed.addProperty("format_crit", "gd656killicon.client.format.crit");
         killFeed.addProperty("color_crit_placeholder", "#9CCC65");
-        killFeed.addProperty("format_assist", "gd656killicon.client.format.assist");
         killFeed.addProperty("color_assist_placeholder", "#008B8B");
-        killFeed.addProperty("format_destroy_vehicle", "gd656killicon.client.format.destroy_vehicle");
         killFeed.addProperty("color_destroy_vehicle_placeholder", "#D4B800");
-        killFeed.addProperty("format_capture", "gd656killicon.client.format.capture");
-        killFeed.addProperty("format_rush_bomb_planted_capture", "gd656killicon.client.format.rush_bomb_planted_capture");
-        killFeed.addProperty("format_rush_bomb_defused_capture", "gd656killicon.client.format.rush_bomb_defused_capture");
-        killFeed.addProperty("format_rush_objective_destroyed_capture", "gd656killicon.client.format.rush_objective_destroyed_capture");
+        killFeed.addProperty("format_rush_bomb_planted_capture", "安装炸弹 +<score>");
+        killFeed.addProperty("format_rush_bomb_defused_capture", "拆除炸弹 +<score>");
+        killFeed.addProperty("format_rush_objective_destroyed_capture", "成功炸毁通讯设施 <target>");
         killFeed.addProperty("color_capture_placeholder", "#008B8B");
         killFeed.addProperty("color_normal_text", "#FFFFFF");
         killFeed.addProperty("enable_placeholder_bold", false);
@@ -240,69 +256,6 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("max_lines", 4);
         bonusList.addProperty("display_duration", 3.0);
         bonusList.addProperty("fade_out_interval", 0.2);
-        bonusList.addProperty("format_damage", "gd656killicon.client.format.bonus_damage");
-        bonusList.addProperty("format_kill", "gd656killicon.client.format.bonus_kill");
-        bonusList.addProperty("format_explosion_damage", "gd656killicon.client.format.bonus_explosion");
-        bonusList.addProperty("format_headshot_damage", "gd656killicon.client.format.bonus_headshot");
-        bonusList.addProperty("format_crit_damage", "gd656killicon.client.format.bonus_crit");
-        bonusList.addProperty("format_kill_explosion", "gd656killicon.client.format.bonus_kill_explosion");
-        bonusList.addProperty("format_kill_headshot", "gd656killicon.client.format.bonus_kill_headshot");
-        bonusList.addProperty("format_kill_crit", "gd656killicon.client.format.bonus_kill_crit");
-        bonusList.addProperty("format_combo", "gd656killicon.client.format.bonus_combo");
-        bonusList.addProperty("format_kill_long_distance", "gd656killicon.client.format.bonus_kill_long_distance");
-        bonusList.addProperty("format_kill_invisible", "gd656killicon.client.format.bonus_kill_invisible");
-        bonusList.addProperty("format_assist", "gd656killicon.client.format.bonus_assist");
-        bonusList.addProperty("format_desperate_counterattack", "gd656killicon.client.format.bonus_desperate_counterattack");
-        bonusList.addProperty("format_avenge", "gd656killicon.client.format.bonus_avenge");
-        bonusList.addProperty("format_shockwave", "gd656killicon.client.format.bonus_shockwave");
-        bonusList.addProperty("format_blind_kill", "gd656killicon.client.format.bonus_blind_kill");
-        bonusList.addProperty("format_buff_kill", "gd656killicon.client.format.bonus_buff_kill");
-        bonusList.addProperty("format_debuff_kill", "gd656killicon.client.format.bonus_debuff_kill");
-        bonusList.addProperty("format_both_buff_debuff_kill", "gd656killicon.client.format.bonus_both_buff_debuff_kill");
-        bonusList.addProperty("format_last_bullet_kill", "gd656killicon.client.format.bonus_last_bullet_kill");
-        bonusList.addProperty("format_one_bullet_multi_kill", "gd656killicon.client.format.bonus_one_bullet_multi_kill");
-        bonusList.addProperty("format_seven_in_seven_out", "gd656killicon.client.format.bonus_seven_in_seven_out");
-        bonusList.addProperty("format_berserker", "gd656killicon.client.format.bonus_berserker");
-        bonusList.addProperty("format_interrupted_streak", "gd656killicon.client.format.bonus_interrupted_streak");
-        bonusList.addProperty("format_leave_it_to_me", "gd656killicon.client.format.bonus_leave_it_to_me");
-        bonusList.addProperty("format_savior", "gd656killicon.client.format.bonus_savior");
-        bonusList.addProperty("format_slay_the_leader", "gd656killicon.client.format.bonus_slay_the_leader");
-        bonusList.addProperty("format_purge", "gd656killicon.client.format.bonus_purge");
-        bonusList.addProperty("format_quick_switch", "gd656killicon.client.format.bonus_quick_switch");
-        bonusList.addProperty("format_seize_opportunity", "gd656killicon.client.format.bonus_seize_opportunity");
-        bonusList.addProperty("format_bloodthirsty", "gd656killicon.client.format.bonus_bloodthirsty");
-        bonusList.addProperty("format_merciless", "gd656killicon.client.format.bonus_merciless");
-        bonusList.addProperty("format_valiant", "gd656killicon.client.format.bonus_valiant");
-        bonusList.addProperty("format_fierce", "gd656killicon.client.format.bonus_fierce");
-        bonusList.addProperty("format_savage", "gd656killicon.client.format.bonus_savage");
-        bonusList.addProperty("format_potato_aim", "gd656killicon.client.format.bonus_potato_aim");
-        bonusList.addProperty("format_locked_target", "gd656killicon.client.format.bonus_locked_target");
-        bonusList.addProperty("format_hold_position", "gd656killicon.client.format.bonus_hold_position");
-        bonusList.addProperty("format_charge_assault", "gd656killicon.client.format.bonus_charge_assault");
-        bonusList.addProperty("format_fire_suppression", "gd656killicon.client.format.bonus_fire_suppression");
-        bonusList.addProperty("format_destroy_block", "gd656killicon.client.format.bonus_destroy_block");
-        bonusList.addProperty("format_spotting", "gd656killicon.client.format.bonus_spotting");
-        bonusList.addProperty("format_spotting_kill", "gd656killicon.client.format.bonus_spotting_kill");
-        bonusList.addProperty("format_spotting_team_assist", "gd656killicon.client.format.bonus_spotting_team_assist");
-        bonusList.addProperty("format_conquest_capture_progress", "gd656killicon.client.format.bonus_conquest_capture_progress");
-        bonusList.addProperty("format_conquest_capture_neutralize", "gd656killicon.client.format.bonus_conquest_capture_neutralize");
-        bonusList.addProperty("format_conquest_capture_control", "gd656killicon.client.format.bonus_conquest_capture_control");
-        bonusList.addProperty("format_squad_deploy_on_you", "gd656killicon.client.format.bonus_squad_deploy_on_you");
-        bonusList.addProperty("format_squad_last_member_kill", "gd656killicon.client.format.bonus_squad_last_member_kill");
-        bonusList.addProperty("format_emergency_reinforcement", "gd656killicon.client.format.bonus_emergency_reinforcement");
-        bonusList.addProperty("format_squad_wipe_completion", "gd656killicon.client.format.bonus_squad_wipe_completion");
-        bonusList.addProperty("format_tactical_gadget_destroyed", "gd656killicon.client.format.bonus_tactical_gadget_destroyed");
-        bonusList.addProperty("format_squad_beacon_deploy", "gd656killicon.client.format.bonus_squad_beacon_deploy");
-        bonusList.addProperty("format_value_objective_support_beacon_deploy", "gd656killicon.client.format.bonus_value_objective_support_beacon_deploy");
-        bonusList.addProperty("format_vehicle_destroy_assist", "gd656killicon.client.format.bonus_vehicle_destroy_assist");
-        bonusList.addProperty("format_friendly_deploy_on_your_vehicle", "gd656killicon.client.format.bonus_friendly_deploy_on_your_vehicle");
-        bonusList.addProperty("format_healing", "gd656killicon.client.format.bonus_healing");
-        bonusList.addProperty("format_revive", "gd656killicon.client.format.bonus_revive");
-        bonusList.addProperty("format_ground_sensor_scan", "gd656killicon.client.format.bonus_ground_sensor_scan");
-        bonusList.addProperty("format_rush_bomb_defused", "gd656killicon.client.format.bonus_rush_bomb_defused");
-        bonusList.addProperty("format_rush_bomb_planted", "gd656killicon.client.format.bonus_rush_bomb_planted");
-        bonusList.addProperty("format_rush_objective_destroyed", "gd656killicon.client.format.bonus_rush_objective_destroyed");
-        bonusList.addProperty("format_kill_combo", "gd656killicon.client.format.bonus_combo");
         bonusList.addProperty("enable_special_streak_subtitles", false);
         bonusList.addProperty("enable_text_scrolling", false);
         bonusList.addProperty("text_scrolling_duration_multiplier", 1.2f);
@@ -314,7 +267,6 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("align_left", false);
         bonusList.addProperty("align_right", false);
         bonusList.addProperty("merge_window_duration", 0.5f);
-        bonusList.addProperty("animation_speed", 7.0f);         
         bonusList.addProperty("animation_speed", 10.0f);
         bonusList.addProperty("enable_text_sweep_animation", false);
         bonusList.addProperty("enter_animation_duration", 0.2f);
@@ -448,7 +400,6 @@ public class DefaultConfigRegistry {
         valorant.addProperty("anim_blade_texture_scale", 0.60f);
         injectTextureSelectionConfigs("00009", "kill_icon/valorant", valorant);
         registerGlobal("kill_icon/valorant", valorant);
-        registerValorantPresetOverrides(valorant);
 
         JsonObject cardBar = new JsonObject();
         cardBar.addProperty("visible", true);
@@ -507,304 +458,6 @@ public class DefaultConfigRegistry {
         registerGlobal("kill_icon/battlefield1", bf1);
 
 
-        JsonObject score00004 = score.deepCopy();
-        score00004.addProperty("x_offset", 35);
-        score00004.addProperty("y_offset", 86);
-        score00004.addProperty("format_score", "+\u003cscore\u003e");         score00004.addProperty("color_high_score", "#FFFFFF");
-        score00004.addProperty("align_left", true);
-        registerOverride("00004", "subtitle/score", score00004);
-
-        JsonObject bonusList00004 = bonusList.deepCopy();
-        bonusList00004.addProperty("x_offset", 30);
-        bonusList00004.addProperty("y_offset", 90);
-        bonusList00004.addProperty("align_right", true);
-        bonusList00004.addProperty("animation_speed", 15.0f);
-        registerOverride("00004", "subtitle/bonus_list", bonusList00004);
-
-        JsonObject score00005 = score.deepCopy();
-        score00005.addProperty("x_offset", 30);
-        score00005.addProperty("y_offset", 80);
-        score00005.addProperty("color_high_score", "#FFFFFF");
-        score00005.addProperty("enable_flash", false);
-        score00005.addProperty("align_left", true);
-        score00005.addProperty("enable_score_scaling_effect", true);
-        score00005.addProperty("enable_digital_scroll", false);
-        score00005.addProperty("enable_glow_effect", true);
-        score00005.addProperty("glow_intensity", 0.3f);
-        score00005.addProperty("display_duration", 4.5f);
-        registerOverride("00005", "subtitle/score", score00005);
-
-        JsonObject bonusList00005 = bonusList.deepCopy();
-        bonusList00005.addProperty("x_offset", 20);
-        bonusList00005.addProperty("y_offset", 80);
-        bonusList00005.addProperty("max_lines", 5);
-        bonusList00005.addProperty("align_right", true);
-        bonusList00005.addProperty("enable_text_sweep_animation", true);
-        bonusList00005.addProperty("animation_speed", 40.0f);
-        bonusList00005.addProperty("enable_kill_feed", true);
-        bonusList00005.addProperty("enable_digital_scroll", false);
-        bonusList00005.addProperty("enable_glow_effect", true);
-        bonusList00005.addProperty("glow_intensity", 0.3f);
-        bonusList00005.addProperty("kill_bonus_scale", 1.2f);
-        registerOverride("00005", "subtitle/bonus_list", bonusList00005);
-
-        JsonObject comboSubtitle00006 = comboSubtitle.deepCopy();
-        comboSubtitle00006.addProperty("format_kill_single", "gd656killicon.client.format.preset_00006.combo.kill_single");
-        comboSubtitle00006.addProperty("format_kill_multi", "gd656killicon.client.format.preset_00006.combo.kill_multi");
-        comboSubtitle00006.addProperty("format_assist_single", "gd656killicon.client.format.preset_00006.combo.assist_single");
-        comboSubtitle00006.addProperty("format_assist_multi", "gd656killicon.client.format.preset_00006.combo.assist_multi");
-        comboSubtitle00006.addProperty("reset_kill_combo", "death");
-        comboSubtitle00006.addProperty("reset_assist_combo", "death");
-        registerOverride("00006", "subtitle/combo", comboSubtitle00006);
-
-        JsonObject killFeed00006 = killFeed.deepCopy();
-        killFeed00006.addProperty("y_offset", 88.0);
-        killFeed00006.addProperty("display_duration", 5.0);
-        killFeed00006.addProperty("format_normal", "gd656killicon.client.format.preset_00006.kill_feed.normal");
-        killFeed00006.addProperty("color_normal_placeholder", "#FFFFFF");
-        killFeed00006.addProperty("format_headshot", "gd656killicon.client.format.preset_00006.kill_feed.headshot");
-        killFeed00006.addProperty("color_headshot_placeholder", "#FFFFFF");
-        killFeed00006.addProperty("format_explosion", "gd656killicon.client.format.preset_00006.kill_feed.explosion");
-        killFeed00006.addProperty("color_explosion_placeholder", "#FFFFFF");
-        killFeed00006.addProperty("format_crit", "gd656killicon.client.format.preset_00006.kill_feed.crit");
-        killFeed00006.addProperty("color_crit_placeholder", "#FFFFFF");
-        killFeed00006.addProperty("format_assist", "gd656killicon.client.format.preset_00006.kill_feed.assist");
-        killFeed00006.addProperty("color_assist_placeholder", "#FFFFFF");
-        killFeed00006.addProperty("format_destroy_vehicle", "gd656killicon.client.format.preset_00006.kill_feed.destroy_vehicle");
-        killFeed00006.addProperty("color_destroy_vehicle_placeholder", "#D4B800");
-        killFeed00006.addProperty("enable_placeholder_bold", false);
-        killFeed00006.addProperty("enable_scale_animation", false);
-        killFeed00006.addProperty("enable_destroy_vehicle_kill", false);
-        killFeed00006.addProperty("color_normal_emphasis", "#FF3500");
-        killFeed00006.addProperty("color_headshot_emphasis", "#FF3500");
-        killFeed00006.addProperty("color_explosion_emphasis", "#FF3500");
-        killFeed00006.addProperty("color_crit_emphasis", "#FF3500");
-        killFeed00006.addProperty("color_assist_emphasis", "#FFD700");
-        killFeed00006.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
-        killFeed00006.addProperty("enable_stacking", true);
-        killFeed00006.addProperty("max_lines", 5);
-        registerOverride("00006", "subtitle/kill_feed", killFeed00006);
-
-        JsonObject killFeed00007 = killFeed.deepCopy();
-        killFeed00007.addProperty("x_offset", -1.0);
-        killFeed00007.addProperty("y_offset", 103.0);
-        killFeed00007.addProperty("format_normal", "<target> [<weapon>]+<score>");
-        killFeed00007.addProperty("color_normal_placeholder", "#FFFFFF");
-        killFeed00007.addProperty("format_headshot", "<target> [<weapon>]+<score>");
-        killFeed00007.addProperty("color_headshot_placeholder", "#FFFFFF");
-        killFeed00007.addProperty("format_explosion", "<target> [<weapon>]+<score>");
-        killFeed00007.addProperty("color_explosion_placeholder", "#FFFFFF");
-        killFeed00007.addProperty("format_crit", "<target> [<weapon>]+<score>");
-        killFeed00007.addProperty("color_crit_placeholder", "#FFFFFF");
-        killFeed00007.addProperty("format_assist", "助攻击杀 +<score>");
-        killFeed00007.addProperty("color_assist_placeholder", "#FFFFFF");
-        killFeed00007.addProperty("format_destroy_vehicle", "载具已摧毁 +<score>");
-        killFeed00007.addProperty("color_destroy_vehicle_placeholder", "#FFFFFF");
-        killFeed00007.addProperty("format_capture", "gd656killicon.client.format.preset_00007.kill_feed.capture");
-        killFeed00007.addProperty("color_capture_placeholder", "#FFFFFF");
-        killFeed00007.addProperty("color_normal_emphasis", "#FFFFFF");
-        killFeed00007.addProperty("color_headshot_emphasis", "#FFFFFF");
-        killFeed00007.addProperty("color_explosion_emphasis", "#FFFFFF");
-        killFeed00007.addProperty("color_crit_emphasis", "#FFFFFF");
-        killFeed00007.addProperty("color_assist_emphasis", "#FFFFFF");
-        killFeed00007.addProperty("color_destroy_vehicle_emphasis", "#FFFFFF");
-        killFeed00007.addProperty("color_capture_emphasis", "#FFFFFF");
-        registerOverride("00007", "subtitle/kill_feed", killFeed00007);
-
-        JsonObject score00007 = score.deepCopy();
-        score00007.addProperty("y_offset", 90.0);
-        score00007.addProperty("color_high_score", "#FFFFFF");
-        score00007.addProperty("color_flash", "#FFFFFF");
-        score00007.addProperty("enable_number_segmentation", true);
-        score00007.addProperty("enable_flash", false);
-        registerOverride("00007", "subtitle/score", score00007);
-
-        JsonObject bonusList00007 = bonusList.deepCopy();
-        bonusList00007.addProperty("y_offset", 76.0);
-        bonusList00007.addProperty("line_spacing", 10);
-        bonusList00007.addProperty("format_damage", "造成伤害 +<score>");
-        bonusList00007.addProperty("format_kill", "击杀 +<score>");
-        bonusList00007.addProperty("format_explosion_damage", "爆炸伤害 +<score>");
-        bonusList00007.addProperty("format_headshot_damage", "爆头伤害 +<score>");
-        bonusList00007.addProperty("format_crit_damage", "暴击伤害 +<score>");
-        bonusList00007.addProperty("format_kill_explosion", "爆炸击杀 +<score>");
-        bonusList00007.addProperty("format_kill_headshot", "精确击败 +<score>");
-        bonusList00007.addProperty("format_kill_crit", "暴击击败 +<score>");
-        bonusList00007.addProperty("format_combo", "<combo> 连续击败 +<score>");
-        bonusList00007.addProperty("format_kill_long_distance", "远距离击败 <distance> +<score>");
-        bonusList00007.addProperty("format_kill_invisible", "不见其人 +<score>");
-        bonusList00007.addProperty("format_assist", "助攻 +<score>");
-        bonusList00007.addProperty("format_desperate_counterattack", "绝境反击 +<score>");
-        bonusList00007.addProperty("format_avenge", "一雪前耻 +<score>");
-        bonusList00007.addProperty("format_shockwave", "冲击波 +<score>");
-        bonusList00007.addProperty("format_blind_kill", "无睹而中 +<score>");
-        bonusList00007.addProperty("format_buff_kill", "凭效诛敌 +<score>");
-        bonusList00007.addProperty("format_debuff_kill", "逆效制敌 +<score>");
-        bonusList00007.addProperty("format_both_buff_debuff_kill", "损益同斩 +<score>");
-        bonusList00007.addProperty("format_last_bullet_kill", "末弹酬勇 +<score>");
-        bonusList00007.addProperty("format_one_bullet_multi_kill", "一箭<multi_kill>雕 +<score>");
-        bonusList00007.addProperty("format_seven_in_seven_out", "七进七出 +<score>");
-        bonusList00007.addProperty("format_berserker", "狂战士 +<score>");
-        bonusList00007.addProperty("format_interrupted_streak", "已中止敌方 <streak> 连杀 +<score>");
-        bonusList00007.addProperty("format_leave_it_to_me", "交给我 +<score>");
-        bonusList00007.addProperty("format_savior", "救星 +<score>");
-        bonusList00007.addProperty("format_slay_the_leader", "枪打出头鸟 +<score>");
-        bonusList00007.addProperty("format_purge", "肃清 +<score>");
-        bonusList00007.addProperty("format_quick_switch", "切枪制人 +<score>");
-        bonusList00007.addProperty("format_seize_opportunity", "机不可失 +<score>");
-        bonusList00007.addProperty("format_bloodthirsty", "嗜血 +<score>");
-        bonusList00007.addProperty("format_merciless", "无情 +<score>");
-        bonusList00007.addProperty("format_valiant", "勇猛 +<score>");
-        bonusList00007.addProperty("format_fierce", "凶狠 +<score>");
-        bonusList00007.addProperty("format_savage", "野蛮 +<score>");
-        bonusList00007.addProperty("format_potato_aim", "马枪怪 +<score>");
-        bonusList00007.addProperty("format_locked_target", "锁定目标 +<score>");
-        bonusList00007.addProperty("format_hold_position", "坚守阵地 +<score>");
-        bonusList00007.addProperty("format_charge_assault", "冲锋陷阵 +<score>");
-        bonusList00007.addProperty("format_fire_suppression", "火力压制 +<score>");
-        bonusList00007.addProperty("format_destroy_block", "摧毁道具 +<score>");
-        bonusList00007.addProperty("format_kill_combo", "<combo> 连续击败 +<score>");
-        registerOverride("00007", "subtitle/bonus_list", bonusList00007);
-
-        JsonObject scrolling00007 = scrolling.deepCopy();
-        scrolling00007.addProperty("scale", 0.35f);
-        scrolling00007.addProperty("y_offset", 118.0f);
-        scrolling00007.addProperty("start_scale", 5.0f);
-        scrolling00007.addProperty("icon_spacing", 1.0f);
-        scrolling00007.addProperty("enable_ring_effect_crit", false);
-        scrolling00007.addProperty("enable_ring_effect_explosion", false);
-        scrolling00007.addProperty("ring_effect_headshot_color", "#F77F00");
-        scrolling00007.addProperty("ring_effect_headshot_thickness", 5.0f);
-        scrolling00007.addProperty("ring_effect_explosion_color", "#F77F00");
-        scrolling00007.addProperty("ring_effect_explosion_thickness", 5.4f);
-        scrolling00007.addProperty("ring_effect_crit_color", "#9CCC65");
-        scrolling00007.addProperty("ring_effect_crit_thickness", 1.8f);
-        scrolling00007.addProperty("anim_default_texture_frame_width_ratio", 1);
-        scrolling00007.addProperty("anim_default_texture_frame_height_ratio", 1);
-        scrolling00007.addProperty("anim_headshot_texture_frame_width_ratio", 1);
-        scrolling00007.addProperty("anim_headshot_texture_frame_height_ratio", 1);
-        scrolling00007.addProperty("anim_explosion_texture_frame_width_ratio", 1);
-        scrolling00007.addProperty("anim_explosion_texture_frame_height_ratio", 1);
-        scrolling00007.addProperty("anim_crit_texture_frame_width_ratio", 1);
-        scrolling00007.addProperty("anim_crit_texture_frame_height_ratio", 1);
-        scrolling00007.addProperty("anim_destroy_vehicle_texture_frame_width_ratio", 1);
-        scrolling00007.addProperty("anim_destroy_vehicle_texture_frame_height_ratio", 1);
-        scrolling00007.addProperty("anim_assist_texture_frame_width_ratio", 1);
-        scrolling00007.addProperty("anim_assist_texture_frame_height_ratio", 1);
-        injectTextureSelectionConfigs("00007", "kill_icon/scrolling", scrolling00007);
-        registerOverride("00007", "kill_icon/scrolling", scrolling00007);
-
-        JsonObject score00008 = score00007.deepCopy();
-        score00008.addProperty("y_offset", 92.0);
-        score00008.addProperty("color_high_score", "#FFAE4B");
-        score00008.addProperty("color_flash", "#D0D0D0");
-        score00008.addProperty("enable_flash", false);
-        score00008.addProperty("enable_number_segmentation", false);
-        score00008.addProperty("enable_score_scaling_effect", false);
-        score00008.addProperty("enable_digital_scroll", true);
-        score00008.addProperty("enable_glow_effect", false);
-        score00008.addProperty("glow_intensity", 0.5f);
-        registerOverride("00008", "subtitle/score", score00008);
-
-        JsonObject bonusList00008 = bonusList00007.deepCopy();
-        bonusList00008.addProperty("y_offset", 75.0);
-        bonusList00008.addProperty("line_spacing", 10);
-        bonusList00008.addProperty("max_lines", 4);
-        bonusList00008.addProperty("display_duration", 3.0f);
-        bonusList00008.addProperty("fade_out_interval", 0.2f);
-        bonusList00008.addProperty("format_damage", "造成伤害 +<score>");
-        bonusList00008.addProperty("format_kill", "击杀 +<score>");
-        bonusList00008.addProperty("format_explosion_damage", "爆炸伤害 +<score>");
-        bonusList00008.addProperty("format_headshot_damage", "爆头伤害 +<score>");
-        bonusList00008.addProperty("format_crit_damage", "暴击伤害 +<score>");
-        bonusList00008.addProperty("format_kill_explosion", "爆炸击杀 +<score>");
-        bonusList00008.addProperty("format_kill_headshot", "精确击败 +<score>");
-        bonusList00008.addProperty("format_kill_crit", "暴击击败 +<score>");
-        bonusList00008.addProperty("format_combo", "<combo> 连续击败 +<score>");
-        bonusList00008.addProperty("format_kill_long_distance", "远距离击败 <distance> +<score>");
-        bonusList00008.addProperty("format_kill_invisible", "不见其人 +<score>");
-        bonusList00008.addProperty("format_assist", "助攻 +<score>");
-        bonusList00008.addProperty("format_desperate_counterattack", "绝境反击 +<score>");
-        bonusList00008.addProperty("format_avenge", "一雪前耻 +<score>");
-        bonusList00008.addProperty("format_shockwave", "冲击波 +<score>");
-        bonusList00008.addProperty("format_blind_kill", "无睹而中 +<score>");
-        bonusList00008.addProperty("format_buff_kill", "凭效诛敌 +<score>");
-        bonusList00008.addProperty("format_debuff_kill", "逆效制敌 +<score>");
-        bonusList00008.addProperty("format_both_buff_debuff_kill", "损益同斩 +<score>");
-        bonusList00008.addProperty("format_last_bullet_kill", "末弹酬勇 +<score>");
-        bonusList00008.addProperty("format_one_bullet_multi_kill", "一箭<multi_kill>雕 +<score>");
-        bonusList00008.addProperty("format_seven_in_seven_out", "七进七出 +<score>");
-        bonusList00008.addProperty("format_berserker", "狂战士 +<score>");
-        bonusList00008.addProperty("format_interrupted_streak", "已中止敌方 <streak> 连杀 +<score>");
-        bonusList00008.addProperty("format_leave_it_to_me", "交给我 +<score>");
-        bonusList00008.addProperty("format_savior", "救星 +<score>");
-        bonusList00008.addProperty("format_slay_the_leader", "枪打出头鸟 +<score>");
-        bonusList00008.addProperty("format_purge", "肃清 +<score>");
-        bonusList00008.addProperty("format_quick_switch", "切枪制人 +<score>");
-        bonusList00008.addProperty("format_seize_opportunity", "机不可失 +<score>");
-        bonusList00008.addProperty("format_bloodthirsty", "嗜血 +<score>");
-        bonusList00008.addProperty("format_merciless", "无情 +<score>");
-        bonusList00008.addProperty("format_valiant", "勇猛 +<score>");
-        bonusList00008.addProperty("format_fierce", "凶狠 +<score>");
-        bonusList00008.addProperty("format_savage", "野蛮 +<score>");
-        bonusList00008.addProperty("format_potato_aim", "马枪怪 +<score>");
-        bonusList00008.addProperty("format_locked_target", "锁定目标 +<score>");
-        bonusList00008.addProperty("format_hold_position", "坚守阵地 +<score>");
-        bonusList00008.addProperty("format_charge_assault", "冲锋陷阵 +<score>");
-        bonusList00008.addProperty("format_fire_suppression", "火力压制 +<score>");
-        bonusList00008.addProperty("format_destroy_block", "摧毁道具 +<score>");
-        bonusList00008.addProperty("format_spotting", "索敌 +<score>");
-        bonusList00008.addProperty("format_spotting_kill", "标记击杀 +<score>");
-        bonusList00008.addProperty("format_spotting_team_assist", "标记小队助攻 +<score>");
-        bonusList00008.addProperty("format_kill_combo", "<combo> 连续击败 +<score>");
-        bonusList00008.addProperty("enable_special_streak_subtitles", false);
-        bonusList00008.addProperty("enable_text_scrolling", false);
-        bonusList00008.addProperty("text_scrolling_duration_multiplier", 1.2f);
-        bonusList00008.addProperty("text_scrolling_refresh_rate", 0.02f);
-        bonusList00008.addProperty("color_special_placeholder", "#D4B800");
-        bonusList00008.addProperty("animation_duration", 0.5f);
-        bonusList00008.addProperty("animation_refresh_rate", 0.01f);
-        bonusList00008.addProperty("align_left", false);
-        bonusList00008.addProperty("align_right", false);
-        bonusList00008.addProperty("merge_window_duration", 1.0f);
-        bonusList00008.addProperty("animation_speed", 8.0f);
-        bonusList00008.addProperty("enable_text_sweep_animation", false);
-        bonusList00008.addProperty("enter_animation_duration", 0.2f);
-        bonusList00008.addProperty("kill_bonus_scale", 1.0f);
-        bonusList00008.addProperty("enable_kill_feed", false);
-        bonusList00008.addProperty("kill_feed_format", "[<weapon>] <target> +<score>");
-        bonusList00008.addProperty("kill_feed_victim_color", "#FF0000");
-        bonusList00008.addProperty("enable_digital_scroll", true);
-        bonusList00008.addProperty("enable_glow_effect", false);
-        bonusList00008.addProperty("glow_intensity", 0.5f);
-        registerOverride("00008", "subtitle/bonus_list", bonusList00008);
-
-        JsonObject scrolling00008 = scrolling00007.deepCopy();
-        scrolling00008.addProperty("scale", 0.32f);
-        scrolling00008.addProperty("y_offset", 107.0f);
-        scrolling00008.addProperty("display_duration", 3.25f);
-        scrolling00008.addProperty("enable_ring_effect_crit", false);
-        scrolling00008.addProperty("enable_ring_effect_headshot", true);
-        scrolling00008.addProperty("enable_ring_effect_explosion", false);
-        scrolling00008.addProperty("animation_duration", 0.3f);
-        scrolling00008.addProperty("fade_out_duration", 0.1f);
-        scrolling00008.addProperty("position_animation_duration", 0.3f);
-        scrolling00008.addProperty("start_scale", 4.0f);
-        scrolling00008.addProperty("icon_spacing", 1.0f);
-        scrolling00008.addProperty("max_visible_icons", 7);
-        scrolling00008.addProperty("display_interval_ms", 100);
-        scrolling00008.addProperty("max_pending_icons", 30);
-        scrolling00008.addProperty("ring_effect_crit_color", "#9CCC65");
-        scrolling00008.addProperty("ring_effect_crit_radius", 42.0f);
-        scrolling00008.addProperty("ring_effect_crit_thickness", 1.8f);
-        scrolling00008.addProperty("ring_effect_headshot_color", "#FFAE4B");
-        scrolling00008.addProperty("ring_effect_headshot_radius", 42.0f);
-        scrolling00008.addProperty("ring_effect_headshot_thickness", 3.0f);
-        scrolling00008.addProperty("ring_effect_explosion_color", "#FFFFFF");
-        scrolling00008.addProperty("ring_effect_explosion_radius", 42.0f);
-        scrolling00008.addProperty("ring_effect_explosion_thickness", 5.4f);
-        injectTextureSelectionConfigs("00008", "kill_icon/scrolling", scrolling00008);
-        registerOverride("00008", "kill_icon/scrolling", scrolling00008);
     }
 
     private static void registerGlobal(String elementId, JsonObject config) {
@@ -863,87 +516,6 @@ public class DefaultConfigRegistry {
         config.addProperty(prefix + "texture_x_offset", 0);
         config.addProperty(prefix + "texture_y_offset", 0);
     }
-
-    private static void registerOverride(String presetId, String elementId, JsonObject config) {
-        PRESET_OVERRIDES.computeIfAbsent(presetId, k -> new HashMap<>()).put(elementId, config);
-    }
-
-    private static void registerValorantPresetOverrides(JsonObject baseConfig) {
-        for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
-            JsonObject override = baseConfig.deepCopy();
-            override.addProperty("enable_blade_effect", ValorantStyleCatalog.usesBlade(definition.styleId()));
-            override.addProperty("anim_base_particle_texture_y_offset", 45);
-            if (!ValorantStyleCatalog.usesBlade(definition.styleId())) {
-                override.addProperty("anim_blade_texture_scale", 0.7f);
-            }
-            applyValorantPresetTuning(definition.presetId(), override);
-            override.addProperty("color_base_particle", String.format("#%06X", definition.accentColor() & 0xFFFFFF));
-            override.addProperty("color_hero_flame", String.format("#%06X", definition.accentColor() & 0xFFFFFF));
-            override.addProperty("color_large_sparks", String.format("#%06X", definition.accentColor() & 0xFFFFFF));
-            injectTextureSelectionConfigs(definition.presetId(), "kill_icon/valorant", override);
-            registerOverride(definition.presetId(), "kill_icon/valorant", override);
-        }
-    }
-
-    private static void applyValorantPresetTuning(String presetId, JsonObject override) {
-        if (presetId == null || presetId.length() != 5) {
-            return;
-        }
-        int id;
-        try {
-            id = Integer.parseInt(presetId);
-        } catch (NumberFormatException e) {
-            return;
-        }
-
-        if (id >= 11 && id <= 13) {
-            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
-            override.addProperty("anim_emblem_texture_scale", 0.9f);
-        }
-        if (id >= 9 && id <= 13) {
-            override.addProperty("enable_hero_flame", false);
-        }
-        if (id == 10) {
-            override.addProperty("halo_ring_radius", 25.0f);
-        }
-        if (id >= 14 && id <= 17) {
-            override.addProperty("bar_radius_offset", 4);
-            override.addProperty("anim_emblem_texture_scale", 0.9f);
-        }
-        if (id >= 18 && id <= 21) {
-            override.addProperty("anim_emblem_texture_scale", 0.55f);
-            override.addProperty("anim_base_particle_texture_y_offset", 55);
-            override.addProperty("anim_base_particle_texture_scale", 1.20f);
-        }
-        if (id == 22) {
-            override.addProperty("anim_emblem_texture_scale", 0.6f);
-            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
-        }
-        if (id >= 23 && id <= 25) {
-            override.addProperty("anim_emblem_texture_scale", 0.5f);
-            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
-            override.addProperty("bar_radius_offset", 9);
-        }
-        if (id >= 26 && id <= 29) {
-            override.addProperty("halo_ring_radius", 25.0f);
-            override.addProperty("anim_emblem_texture_scale", 0.4f);
-            override.addProperty("anim_base_particle_texture_scale", 0.9f);
-        }
-        if (id == 30) {
-            override.addProperty("halo_ring_radius", 25.0f);
-            override.addProperty("anim_emblem_texture_scale", 0.5f);
-            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
-        }
-        if (id >= 31 && id <= 34) {
-            override.addProperty("halo_ring_radius", 25.0f);
-            override.addProperty("anim_emblem_texture_scale", 0.35f);
-            override.addProperty("anim_frame_texture_frame_width_ratio", 0.8f);
-        }
-        if (id >= 18 && id <= 34) {
-            override.addProperty("anim_large_sparks_texture_scale", 2.2f);
-        }
-    }
-
     private static void injectTextureAnimationConfigs(String elementId, JsonObject config) {
         if (!ElementTextureDefinition.hasTextures(elementId)) return;
         

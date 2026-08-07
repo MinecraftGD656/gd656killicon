@@ -8,6 +8,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.common.killtype.KillTypeDefinition;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
@@ -41,19 +43,14 @@ public class SubtitleRenderer implements IHudRenderer {
     private int configXOffset = 0;
     private int configYOffset = 20;
     private long displayDuration = 3000L;
-    private String format = "gd656killicon.client.format.normal";
+    private String format = "";
     private int placeholderColor = DEFAULT_PLACEHOLDER_COLOR;
     private boolean enablePlaceholderBold = false;
     private float scale = 1.0f;
     private int emphasisColor = DEFAULT_EMPHASIS_COLOR;
     
-    private boolean enableNormalKill = true;
-    private boolean enableHeadshotKill = true;
-    private boolean enableExplosionKill = true;
-    private boolean enableCritKill = true;
-    private boolean enableAssistKill = true;
-    private boolean enableDestroyVehicleKill = true;
-    private boolean enableCaptureKill = true;
+    /** 击杀类型启用开关（KillTypeRegistry.enableKey 驱动；无开关键的类型无条目） */
+    private final java.util.Map<String, Boolean> killTypeEnableFlags = new java.util.HashMap<>();
 
     private boolean enableStacking = false;
     private int maxLines = 5;
@@ -178,16 +175,12 @@ public class SubtitleRenderer implements IHudRenderer {
         String colorKey = placeholderColorKeyForType(type);
         String emphasisColorKey = emphasisColorKeyForType(type);
 
-        String normalFormat = config.has("format_normal") ? config.get("format_normal").getAsString() : "gd656killicon.client.format.normal";
+        // 配置值即实际文本(所见即所得); 缺键兜底 = 击杀类型注册表当前语言默认(替代已删除的 lang key)
+        String normalFormat = config.has("format_normal") ? config.get("format_normal").getAsString()
+                : KillTypeRegistry.get(type).format();
         String resolvedFormat = config.has(formatKey) ? config.get(formatKey).getAsString() : normalFormat;
-        if (org.mods.gd656killicon.client.util.I18nCompat.exists(resolvedFormat)) {
-            resolvedFormat = net.minecraft.client.resources.language.I18n.get(resolvedFormat);
-        }
         if (captureFormatOverride != null && config.has(captureFormatOverride)) {
             resolvedFormat = config.get(captureFormatOverride).getAsString();
-            if (org.mods.gd656killicon.client.util.I18nCompat.exists(resolvedFormat)) {
-                resolvedFormat = net.minecraft.client.resources.language.I18n.get(resolvedFormat);
-            }
         }
 
         String normalColorHex = config.has("color_normal_placeholder") ? config.get("color_normal_placeholder").getAsString() : "#008B8B";
@@ -252,11 +245,9 @@ public class SubtitleRenderer implements IHudRenderer {
         String colorKey = placeholderColorKeyForType(killType);
         String emphasisColorKey = emphasisColorKeyForType(killType);
 
-        String normalFormat = config.has("format_normal") ? config.get("format_normal").getAsString() : "gd656killicon.client.format.normal";
+        String normalFormat = config.has("format_normal") ? config.get("format_normal").getAsString()
+                : KillTypeRegistry.get(killType).format();
         String resolvedFormat = config.has(formatKey) ? config.get(formatKey).getAsString() : normalFormat;
-        if (org.mods.gd656killicon.client.util.I18nCompat.exists(resolvedFormat)) {
-            resolvedFormat = net.minecraft.client.resources.language.I18n.get(resolvedFormat);
-        }
 
         String normalColorHex = config.has("color_normal_placeholder") ? config.get("color_normal_placeholder").getAsString() : "#008B8B";
         String chosenColorHex = config.has(colorKey) ? config.get(colorKey).getAsString() : normalColorHex;
@@ -595,13 +586,14 @@ public class SubtitleRenderer implements IHudRenderer {
             this.scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
             this.enableScaleAnimation = !config.has("enable_scale_animation") || config.get("enable_scale_animation").getAsBoolean();
 
-            this.enableNormalKill = !config.has("enable_normal_kill") || config.get("enable_normal_kill").getAsBoolean();
-            this.enableHeadshotKill = !config.has("enable_headshot_kill") || config.get("enable_headshot_kill").getAsBoolean();
-            this.enableExplosionKill = !config.has("enable_explosion_kill") || config.get("enable_explosion_kill").getAsBoolean();
-            this.enableCritKill = !config.has("enable_crit_kill") || config.get("enable_crit_kill").getAsBoolean();
-            this.enableAssistKill = !config.has("enable_assist_kill") || config.get("enable_assist_kill").getAsBoolean();
-            this.enableDestroyVehicleKill = !config.has("enable_destroy_vehicle_kill") || config.get("enable_destroy_vehicle_kill").getAsBoolean();
-            this.enableCaptureKill = !config.has("enable_capture_kill") || config.get("enable_capture_kill").getAsBoolean();
+            this.killTypeEnableFlags.clear();
+            this.killTypeEnableFlags.put("enable_normal_kill", !config.has("enable_normal_kill") || config.get("enable_normal_kill").getAsBoolean());
+            this.killTypeEnableFlags.put("enable_headshot_kill", !config.has("enable_headshot_kill") || config.get("enable_headshot_kill").getAsBoolean());
+            this.killTypeEnableFlags.put("enable_explosion_kill", !config.has("enable_explosion_kill") || config.get("enable_explosion_kill").getAsBoolean());
+            this.killTypeEnableFlags.put("enable_crit_kill", !config.has("enable_crit_kill") || config.get("enable_crit_kill").getAsBoolean());
+            this.killTypeEnableFlags.put("enable_assist_kill", !config.has("enable_assist_kill") || config.get("enable_assist_kill").getAsBoolean());
+            this.killTypeEnableFlags.put("enable_destroy_vehicle_kill", !config.has("enable_destroy_vehicle_kill") || config.get("enable_destroy_vehicle_kill").getAsBoolean());
+            this.killTypeEnableFlags.put("enable_capture_kill", !config.has("enable_capture_kill") || config.get("enable_capture_kill").getAsBoolean());
 
             this.enableStacking = config.has("enable_stacking") && config.get("enable_stacking").getAsBoolean();
             this.maxLines = config.has("max_lines") ? config.get("max_lines").getAsInt() : 5;
@@ -609,15 +601,12 @@ public class SubtitleRenderer implements IHudRenderer {
 
             String normalFormat = config.has("format_normal")
                     ? config.get("format_normal").getAsString()
-                    : "gd656killicon.client.format.normal";
+                    : KillTypeRegistry.get(KillType.NORMAL).format();
             String normalColorHex = config.has("color_normal_placeholder")
                     ? config.get("color_normal_placeholder").getAsString()
                     : "#008B8B";
             
             this.format = normalFormat;
-            if (org.mods.gd656killicon.client.util.I18nCompat.exists(this.format)) {
-                this.format = net.minecraft.client.resources.language.I18n.get(this.format);
-            }
 
             this.placeholderColor = parseColorHexOrDefault(normalColorHex, DEFAULT_PLACEHOLDER_COLOR);
             this.enablePlaceholderBold = config.has("enable_placeholder_bold") && config.get("enable_placeholder_bold").getAsBoolean();
@@ -629,31 +618,24 @@ public class SubtitleRenderer implements IHudRenderer {
             this.configYOffset = 100;
             this.displayDuration = 3000L;
             this.scale = 1.0f;
-            this.format = "gd656killicon.client.format.normal";
-            if (org.mods.gd656killicon.client.util.I18nCompat.exists(this.format)) {
-                this.format = net.minecraft.client.resources.language.I18n.get(this.format);
-            }
+            this.format = KillTypeRegistry.get(KillType.NORMAL).format();
             this.placeholderColor = DEFAULT_PLACEHOLDER_COLOR;
             this.enablePlaceholderBold = false;
             this.enableScaleAnimation = true;
-            this.enableNormalKill = true;
-            this.enableCaptureKill = true;
+            this.killTypeEnableFlags.clear();
+            this.killTypeEnableFlags.put("enable_normal_kill", true);
+            this.killTypeEnableFlags.put("enable_capture_kill", true);
             this.enableStacking = false;
             this.normalTextColor = 0xFFFFFFFF;
         }
     }
 
     private boolean isKillTypeEnabled(int type) {
-        return switch (type) {
-            case KillType.NORMAL -> enableNormalKill;
-            case KillType.HEADSHOT -> enableHeadshotKill;
-            case KillType.EXPLOSION -> enableExplosionKill;
-            case KillType.CRIT -> enableCritKill;
-            case KillType.ASSIST -> enableAssistKill;
-            case KillType.DESTROY_VEHICLE -> enableDestroyVehicleKill;
-            case KillType.CAPTURE -> enableCaptureKill;
-            default -> true;
-        };
+        KillTypeDefinition def = KillTypeRegistry.get(type);
+        if (def == null || def.enableKey() == null) {
+            return true;
+        }
+        return killTypeEnableFlags.getOrDefault(def.enableKey(), true);
     }
 
     /**
@@ -784,15 +766,7 @@ public class SubtitleRenderer implements IHudRenderer {
      * Returns the config key for the format string based on kill type.
      */
     private static String formatKeyForType(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> "format_headshot";
-            case KillType.EXPLOSION -> "format_explosion";
-            case KillType.CRIT -> "format_crit";
-            case KillType.ASSIST -> "format_assist";
-            case KillType.DESTROY_VEHICLE -> "format_destroy_vehicle";
-            case KillType.CAPTURE -> "format_capture";
-            default -> "format_normal";
-        };
+        return KillTypeRegistry.get(killType).formatKey();
     }
 
     private static String resolveRushCaptureFormat(String token) {
@@ -823,27 +797,11 @@ public class SubtitleRenderer implements IHudRenderer {
      * Returns the config key for the placeholder color based on kill type.
      */
     private static String placeholderColorKeyForType(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> "color_headshot_placeholder";
-            case KillType.EXPLOSION -> "color_explosion_placeholder";
-            case KillType.CRIT -> "color_crit_placeholder";
-            case KillType.ASSIST -> "color_assist_placeholder";
-            case KillType.DESTROY_VEHICLE -> "color_destroy_vehicle_placeholder";
-            case KillType.CAPTURE -> "color_capture_placeholder";
-            default -> "color_normal_placeholder";
-        };
+        return KillTypeRegistry.get(killType).placeholderColorKey();
     }
 
     private static String emphasisColorKeyForType(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> "color_headshot_emphasis";
-            case KillType.EXPLOSION -> "color_explosion_emphasis";
-            case KillType.CRIT -> "color_crit_emphasis";
-            case KillType.ASSIST -> "color_assist_emphasis";
-            case KillType.DESTROY_VEHICLE -> "color_destroy_vehicle_emphasis";
-            case KillType.CAPTURE -> "color_capture_emphasis";
-            default -> "color_normal_emphasis";
-        };
+        return KillTypeRegistry.get(killType).emphasisColorKey();
     }
 
     private boolean isNormalKillType(int type) {

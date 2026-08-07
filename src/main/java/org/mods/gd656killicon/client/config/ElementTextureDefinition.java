@@ -88,10 +88,6 @@ public class ElementTextureDefinition {
         return ELEMENT_TEXTURES.containsKey(elementId);
     }
 
-    public static String getTextureFileName(String elementId, String textureKey) {
-        return getTextureFileName(ConfigManager.getCurrentPresetId(), elementId, textureKey);
-    }
-
     public static String getTextureFileName(String presetId, String elementId, String textureKey) {
         if (elementId == null || textureKey == null) {
             return null;
@@ -165,10 +161,6 @@ public class ElementTextureDefinition {
             }
         }
         return getTextureFileName(presetId, elementId, textureKey);
-    }
-
-    public static String getTextureStyleKey(String textureKey) {
-        return "texture_style_" + textureKey;
     }
 
     public static String getOfficialTextureKey(String textureKey) {

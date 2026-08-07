@@ -499,43 +499,9 @@ public final class ValorantStyleCatalog {
         return getOfficialPresetSpecs();
     }
 
-    public static StyleSpec getByPresetId(String presetId) {
-        return getPresetSpec(presetId);
-    }
-
-    public static StyleSpec getByStyleId(String styleId) {
-        return getStyleSpec(styleId);
-    }
-
     public static String getDefaultStyleForPreset(String presetId) {
         StyleSpec spec = getPresetSpec(presetId);
         return spec != null ? spec.styleId() : STYLE_PRIME;
-    }
-
-    public static String getTextureFileName(String styleId, String textureKey) {
-        StyleSpec spec = getStyleSpec(styleId);
-        if (spec == null || textureKey == null) {
-            return null;
-        }
-        return spec.texture(normalizeTextureKey(textureKey));
-    }
-
-    public static String getDisplayName(String styleId) {
-        StyleSpec spec = getStyleSpec(styleId);
-        return spec != null ? spec.displayName() : "Prime";
-    }
-
-    public static boolean isBuiltInStyle(String styleId) {
-        return STYLE_SPECS.containsKey(normalizeStyleId(styleId));
-    }
-
-    public static List<String> getBuiltInStyleIds() {
-        return new ArrayList<>(STYLE_SPECS.keySet());
-    }
-
-    public static int getAccentColor(String styleId) {
-        StyleSpec spec = getStyleSpec(styleId);
-        return spec != null ? spec.accentColor() : 0x908CCD;
     }
 
     public static int getHeadshotOffsetX(String styleId) {

@@ -35,10 +35,10 @@ public class ComboSubtitleRenderer implements IHudRenderer {
     private int yOffset = 150;
     private int colorKillCombo = 0xFF0000;
     private int colorAssistCombo = 0xFFD700;
-    private String formatKillSingle = "gd656killicon.client.format.combo_kill_single";
-    private String formatKillMulti = "gd656killicon.client.format.combo_kill_multi";
-    private String formatAssistSingle = "gd656killicon.client.format.combo_assist_single";
-    private String formatAssistMulti = "gd656killicon.client.format.combo_assist_multi";
+    private String formatKillSingle = "";
+    private String formatKillMulti = "";
+    private String formatAssistSingle = "";
+    private String formatAssistMulti = "";
     private boolean enableAnimation = true;
     private boolean enableLightEffect = true;
     private boolean enableBold = true;
@@ -335,9 +335,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             formatKey = this.currentCombo > 1 ? this.formatKillMulti : this.formatKillSingle;
         }
         
-        String format = org.mods.gd656killicon.client.util.I18nCompat.exists(formatKey) 
-            ? net.minecraft.client.resources.language.I18n.get(formatKey) 
-            : formatKey;
+        String format = formatKey;
             
         String text = format.replace("<combo>", String.valueOf(this.currentCombo));
         int color = this.isAssist ? this.colorAssistCombo : this.colorKillCombo;
@@ -452,10 +450,10 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             this.colorKillCombo = parseColor(config, "color_kill_combo", 0xFF0000);
             this.colorAssistCombo = parseColor(config, "color_assist_combo", 0xFFD700);
             
-            this.formatKillSingle = getFormat(config, "format_kill_single", "gd656killicon.client.format.combo_kill_single");
-            this.formatKillMulti = getFormat(config, "format_kill_multi", "gd656killicon.client.format.combo_kill_multi");
-            this.formatAssistSingle = getFormat(config, "format_assist_single", "gd656killicon.client.format.combo_assist_single");
-            this.formatAssistMulti = getFormat(config, "format_assist_multi", "gd656killicon.client.format.combo_assist_multi");
+            this.formatKillSingle = getFormat(config, "format_kill_single", "");
+            this.formatKillMulti = getFormat(config, "format_kill_multi", "");
+            this.formatAssistSingle = getFormat(config, "format_assist_single", "");
+            this.formatAssistMulti = getFormat(config, "format_assist_multi", "");
             
             this.enableAnimation = config.has("enable_animation") ? config.get("enable_animation").getAsBoolean() : true;
             this.enableLightEffect = config.has("enable_light_effect") ? config.get("enable_light_effect").getAsBoolean() : true;

@@ -82,7 +82,6 @@ public class PresetPackManager {
             return true;
         } catch (Exception e) {
             ClientMessageLogger.chatError("gd656killicon.client.config.export.fail", e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -170,7 +169,6 @@ public class PresetPackManager {
             return true;
         } catch (Exception e) {
             ClientMessageLogger.chatError("gd656killicon.client.config.import.fail", e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }

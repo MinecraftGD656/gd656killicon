@@ -17,7 +17,6 @@ public class ClientEvents {
     private static final ResourceLocation TACZ_KILL_SOUND = ResourceLocation.fromNamespaceAndPath("tacz", "kill");
 
     public static void onClientTickEnd() {
-        ElementConfigManager.tryApplyLocalization();
         while (KeyBindings.OPEN_CONFIG.consumeClick()) {
             Minecraft.getInstance().setScreen(new MainConfigScreen(Minecraft.getInstance().screen));
         }

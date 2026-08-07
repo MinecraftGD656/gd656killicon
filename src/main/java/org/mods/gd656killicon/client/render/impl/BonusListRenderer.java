@@ -6,6 +6,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -18,6 +19,8 @@ import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.DigitalScrollEffect;
 import org.mods.gd656killicon.client.render.effect.TextScrambleEffect;
+import org.mods.gd656killicon.common.bonus.BonusDefinition;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
 import org.mods.gd656killicon.common.BonusType;
 
 import java.util.*;
@@ -42,88 +45,6 @@ public class BonusListRenderer implements IHudRenderer {
 
     private static final BonusListRenderer INSTANCE = new BonusListRenderer();
     
-    private static final Map<Integer, FormatConfig> TYPE_CONFIGS = new HashMap<>();
-    
-    private record FormatConfig(String configKey, String defaultLangKey) {}
-    
-    static {
-        registerConfig(BonusType.DAMAGE, "format_damage", "gd656killicon.client.format.bonus_damage");
-        registerConfig(BonusType.KILL, "format_kill", "gd656killicon.client.format.bonus_kill");
-        registerConfig(BonusType.EXPLOSION, "format_explosion_damage", "gd656killicon.client.format.bonus_explosion");
-        registerConfig(BonusType.HEADSHOT, "format_headshot_damage", "gd656killicon.client.format.bonus_headshot");
-        registerConfig(BonusType.CRIT, "format_crit_damage", "gd656killicon.client.format.bonus_crit");
-        registerConfig(BonusType.KILL_EXPLOSION, "format_kill_explosion", "gd656killicon.client.format.bonus_kill_explosion");
-        registerConfig(BonusType.KILL_HEADSHOT, "format_kill_headshot", "gd656killicon.client.format.bonus_kill_headshot");
-        registerConfig(BonusType.KILL_CRIT, "format_kill_crit", "gd656killicon.client.format.bonus_kill_crit");
-        registerConfig(BonusType.KILL_COMBO, "format_combo", "gd656killicon.client.format.bonus_combo");
-        registerConfig(BonusType.KILL_LONG_DISTANCE, "format_kill_long_distance", "gd656killicon.client.format.bonus_kill_long_distance");
-        registerConfig(BonusType.KILL_INVISIBLE, "format_kill_invisible", "gd656killicon.client.format.bonus_kill_invisible");
-        registerConfig(BonusType.ASSIST, "format_assist", "gd656killicon.client.format.bonus_assist");
-        registerConfig(BonusType.DESPERATE_COUNTERATTACK, "format_desperate_counterattack", "gd656killicon.client.format.bonus_desperate_counterattack");
-        registerConfig(BonusType.AVENGE, "format_avenge", "gd656killicon.client.format.bonus_avenge");
-        registerConfig(BonusType.SHOCKWAVE, "format_shockwave", "gd656killicon.client.format.bonus_shockwave");
-        registerConfig(BonusType.BLIND_KILL, "format_blind_kill", "gd656killicon.client.format.bonus_blind_kill");
-        registerConfig(BonusType.BUFF_KILL, "format_buff_kill", "gd656killicon.client.format.bonus_buff_kill");
-        registerConfig(BonusType.DEBUFF_KILL, "format_debuff_kill", "gd656killicon.client.format.bonus_debuff_kill");
-        registerConfig(BonusType.BOTH_BUFF_DEBUFF_KILL, "format_both_buff_debuff_kill", "gd656killicon.client.format.bonus_both_buff_debuff_kill");
-        registerConfig(BonusType.LAST_BULLET_KILL, "format_last_bullet_kill", "gd656killicon.client.format.bonus_last_bullet_kill");
-        registerConfig(BonusType.ONE_BULLET_MULTI_KILL, "format_one_bullet_multi_kill", "gd656killicon.client.format.bonus_one_bullet_multi_kill");
-        registerConfig(BonusType.EFFORTLESS_KILL, "format_effortless_kill", "gd656killicon.client.format.bonus_effortless_kill");
-        registerConfig(BonusType.BACKSTAB_KILL, "format_backstab", "gd656killicon.client.format.bonus_backstab");
-        registerConfig(BonusType.BACKSTAB_MELEE_KILL, "format_backstab_melee", "gd656killicon.client.format.bonus_backstab_melee");
-        registerConfig(BonusType.BRAVE_RETURN, "format_brave_return", "gd656killicon.client.format.bonus_brave_return");
-        registerConfig(BonusType.BERSERKER, "format_berserker", "gd656killicon.client.format.bonus_berserker");
-        registerConfig(BonusType.INTERRUPTED_STREAK, "format_interrupted_streak", "gd656killicon.client.format.bonus_interrupted_streak");
-        registerConfig(BonusType.LEAVE_IT_TO_ME, "format_leave_it_to_me", "gd656killicon.client.format.bonus_leave_it_to_me");
-        registerConfig(BonusType.JUSTICE_FROM_ABOVE, "format_justice_from_above", "gd656killicon.client.format.bonus_justice_from_above");
-        registerConfig(BonusType.ABSOLUTE_AIR_CONTROL, "format_absolute_air_control", "gd656killicon.client.format.bonus_absolute_air_control");
-        registerConfig(BonusType.SAVIOR, "format_savior", "gd656killicon.client.format.bonus_savior");
-        registerConfig(BonusType.SLAY_THE_LEADER, "format_slay_the_leader", "gd656killicon.client.format.bonus_slay_the_leader");
-        registerConfig(BonusType.PURGE, "format_purge", "gd656killicon.client.format.bonus_purge");
-        registerConfig(BonusType.QUICK_SWITCH, "format_quick_switch", "gd656killicon.client.format.bonus_quick_switch");
-        registerConfig(BonusType.SEIZE_OPPORTUNITY, "format_seize_opportunity", "gd656killicon.client.format.bonus_seize_opportunity");
-        registerConfig(BonusType.BLOODTHIRSTY, "format_bloodthirsty", "gd656killicon.client.format.bonus_bloodthirsty");
-        registerConfig(BonusType.MERCILESS, "format_merciless", "gd656killicon.client.format.bonus_merciless");
-        registerConfig(BonusType.VALIANT, "format_valiant", "gd656killicon.client.format.bonus_valiant");
-        registerConfig(BonusType.FIERCE, "format_fierce", "gd656killicon.client.format.bonus_fierce");
-        registerConfig(BonusType.SAVAGE, "format_savage", "gd656killicon.client.format.bonus_savage");
-        registerConfig(BonusType.POTATO_AIM, "format_potato_aim", "gd656killicon.client.format.bonus_potato_aim");
-        registerConfig(BonusType.HIT_VEHICLE_ARMOR, "format_hit_vehicle_armor", "gd656killicon.client.format.bonus_hit_vehicle_armor");
-        registerConfig(BonusType.DESTROY_VEHICLE, "format_destroy_vehicle", "gd656killicon.client.format.bonus_destroy_vehicle");
-        registerConfig(BonusType.VEHICLE_DESTROY_ASSIST, "format_vehicle_destroy_assist", "gd656killicon.client.format.bonus_vehicle_destroy_assist");
-        registerConfig(BonusType.VALUE_TARGET_DESTROYED, "format_value_target_destroyed", "gd656killicon.client.format.bonus_value_target_destroyed");
-        registerConfig(BonusType.VEHICLE_REPAIR, "format_vehicle_repair", "gd656killicon.client.format.bonus_vehicle_repair");
-        registerConfig(BonusType.LOCKED_TARGET, "format_locked_target", "gd656killicon.client.format.bonus_locked_target");
-        registerConfig(BonusType.HOLD_POSITION, "format_hold_position", "gd656killicon.client.format.bonus_hold_position");
-        registerConfig(BonusType.CHARGE_ASSAULT, "format_charge_assault", "gd656killicon.client.format.bonus_charge_assault");
-        registerConfig(BonusType.FIRE_SUPPRESSION, "format_fire_suppression", "gd656killicon.client.format.bonus_fire_suppression");
-        registerConfig(BonusType.DESTROY_BLOCK, "format_destroy_block", "gd656killicon.client.format.bonus_destroy_block");
-        registerConfig(BonusType.SPOTTING, "format_spotting", "gd656killicon.client.format.bonus_spotting");
-        registerConfig(BonusType.SPOTTING_KILL, "format_spotting_kill", "gd656killicon.client.format.bonus_spotting_kill");
-        registerConfig(BonusType.SPOTTING_TEAM_ASSIST, "format_spotting_team_assist", "gd656killicon.client.format.bonus_spotting_team_assist");
-        registerConfig(BonusType.CONQUEST_CAPTURE_PROGRESS, "format_conquest_capture_progress", "gd656killicon.client.format.bonus_conquest_capture_progress");
-        registerConfig(BonusType.CONQUEST_CAPTURE_NEUTRALIZE, "format_conquest_capture_neutralize", "gd656killicon.client.format.bonus_conquest_capture_neutralize");
-        registerConfig(BonusType.CONQUEST_CAPTURE_CONTROL, "format_conquest_capture_control", "gd656killicon.client.format.bonus_conquest_capture_control");
-        registerConfig(BonusType.SQUAD_DEPLOY_ON_YOU, "format_squad_deploy_on_you", "gd656killicon.client.format.bonus_squad_deploy_on_you");
-        registerConfig(BonusType.SQUAD_LAST_MEMBER_KILL, "format_squad_last_member_kill", "gd656killicon.client.format.bonus_squad_last_member_kill");
-        registerConfig(BonusType.EMERGENCY_REINFORCEMENT, "format_emergency_reinforcement", "gd656killicon.client.format.bonus_emergency_reinforcement");
-        registerConfig(BonusType.SQUAD_WIPE_COMPLETION, "format_squad_wipe_completion", "gd656killicon.client.format.bonus_squad_wipe_completion");
-        registerConfig(BonusType.TACTICAL_GADGET_DESTROYED, "format_tactical_gadget_destroyed", "gd656killicon.client.format.bonus_tactical_gadget_destroyed");
-        registerConfig(BonusType.SQUAD_BEACON_DEPLOY, "format_squad_beacon_deploy", "gd656killicon.client.format.bonus_squad_beacon_deploy");
-        registerConfig(BonusType.VALUE_OBJECTIVE_SUPPORT_BEACON_DEPLOY, "format_value_objective_support_beacon_deploy", "gd656killicon.client.format.bonus_value_objective_support_beacon_deploy");
-        registerConfig(BonusType.FRIENDLY_DEPLOY_ON_YOUR_VEHICLE, "format_friendly_deploy_on_your_vehicle", "gd656killicon.client.format.bonus_friendly_deploy_on_your_vehicle");
-        registerConfig(BonusType.HEALING, "format_healing", "gd656killicon.client.format.bonus_healing");
-        registerConfig(BonusType.AMMO_SUPPLY, "format_ammo_supply", "gd656killicon.client.format.bonus_ammo_supply");
-        registerConfig(BonusType.REVIVE, "format_revive", "gd656killicon.client.format.bonus_revive");
-        registerConfig(BonusType.GROUND_SENSOR_SCAN, "format_ground_sensor_scan", "gd656killicon.client.format.bonus_ground_sensor_scan");
-        registerConfig(BonusType.RUSH_BOMB_DEFUSED, "format_rush_bomb_defused", "gd656killicon.client.format.bonus_rush_bomb_defused");
-        registerConfig(BonusType.RUSH_BOMB_PLANTED, "format_rush_bomb_planted", "gd656killicon.client.format.bonus_rush_bomb_planted");
-        registerConfig(BonusType.RUSH_OBJECTIVE_DESTROYED, "format_rush_objective_destroyed", "gd656killicon.client.format.bonus_rush_objective_destroyed");
-    }
-
-    private static void registerConfig(int type, String configKey, String defaultFormatKey) {
-        TYPE_CONFIGS.put(type, new FormatConfig(configKey, defaultFormatKey));
-    }
 
     private final List<BonusItem> items = new ArrayList<>();
     private final Deque<BonusItem> pendingQueue = new ArrayDeque<>();
@@ -165,28 +86,22 @@ public class BonusListRenderer implements IHudRenderer {
         if (type == BonusType.KILL_COMBO && config != null && config.has("enable_special_streak_subtitles") && config.get("enable_special_streak_subtitles").getAsBoolean()) {
             try {
                 int combo = Integer.parseInt(extraData);
-                if (combo >= 2 && combo <= 8) {
-                    String format = "gd656killicon.client.format.bonus_combo_" + combo;
-                    if (net.minecraft.client.resources.language.I18n.exists(format)) {
-                        return net.minecraft.client.resources.language.I18n.get(format);
+                BonusDefinition def = BonusRegistry.get(type);
+                if (def != null) {
+                    String subtitle = def.streakSubtitle(combo);
+                    if (subtitle != null) {
+                        return I18n.get(subtitle);
                     }
-                    return format;
                 }
             } catch (NumberFormatException ignored) {}
         }
 
-        String format;
-        FormatConfig fmtConfig = TYPE_CONFIGS.get(type);
-        if (fmtConfig != null) {
-            format = (config != null && config.has(fmtConfig.configKey)) ? config.get(fmtConfig.configKey).getAsString() : fmtConfig.defaultLangKey;
-        } else {
-            format = "Bonus +<score>";
+        String configValue = null;
+        BonusDefinition def = BonusRegistry.get(type);
+        if (def != null && config != null && config.has(def.formatConfigKey())) {
+            configValue = config.get(def.formatConfigKey()).getAsString();
         }
-
-        if (net.minecraft.client.resources.language.I18n.exists(format)) {
-            format = net.minecraft.client.resources.language.I18n.get(format);
-        }
-        return format;
+        return BonusRegistry.resolveFormat(type, configValue);
     }
 
     @Override

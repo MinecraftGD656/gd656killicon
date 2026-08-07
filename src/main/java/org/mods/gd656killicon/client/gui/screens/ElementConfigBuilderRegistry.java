@@ -12,6 +12,8 @@ import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.tabs.ElementConfigContent;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
@@ -154,14 +156,14 @@ public class ElementConfigBuilderRegistry {
             
             Set<String> configKeys = ElementConfigManager.getConfigKeys(presetId, elementId);
             JsonObject currentConfig = ElementConfigManager.getElementConfig(presetId, elementId);
-            JsonObject defaultConfig = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+            JsonObject defaultConfig = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
             
             if (currentConfig == null) currentConfig = new JsonObject();
             
             java.util.function.Function<String, Boolean> getConfigBoolean = (k) -> {
                 JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
                 if (liveConfig != null && liveConfig.has(k)) return liveConfig.get(k).getAsBoolean();
-                JsonObject liveDefault = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+                JsonObject liveDefault = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
                 return liveDefault != null && liveDefault.has(k) && liveDefault.get(k).getAsBoolean();
             };
 
@@ -193,7 +195,7 @@ public class ElementConfigBuilderRegistry {
                          
                          if (k.equals("combo_reset_timeout")) {
                              JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
-                             JsonObject liveDefault = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+                             JsonObject liveDefault = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
                              
                              String killReset = liveConfig != null && liveConfig.has("reset_kill_combo") ? liveConfig.get("reset_kill_combo").getAsString() 
                                                 : (liveDefault != null && liveDefault.has("reset_kill_combo") ? liveDefault.get("reset_kill_combo").getAsString() : "death");
@@ -215,9 +217,6 @@ public class ElementConfigBuilderRegistry {
                                 return mathEnabled;
                             }
                         }
-                         
-                         if (elementId.equals("kill_icon/battlefield1")) {
-                         }
                          
                          if (k.startsWith("anim_")) {
                              String matchingTexture = null;
@@ -283,7 +282,7 @@ public class ElementConfigBuilderRegistry {
                      
                      if (k.equals("combo_reset_timeout")) {
                          JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
-                         JsonObject liveDefault = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+                         JsonObject liveDefault = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
                          
                          String killReset = liveConfig != null && liveConfig.has("reset_kill_combo") ? liveConfig.get("reset_kill_combo").getAsString() 
                                             : (liveDefault != null && liveDefault.has("reset_kill_combo") ? liveDefault.get("reset_kill_combo").getAsString() : "death");
@@ -350,9 +349,6 @@ public class ElementConfigBuilderRegistry {
             java.util.Collections.sort(sortedKeys);
             
             for (String key : sortedKeys) {
-                if (key.equals("enable_icon_effect")) {
-                    continue;
-                }
                 if ("kill_icon/valorant".equals(elementId) && key.equals("display_duration")) {
                     continue;
                 }
@@ -369,38 +365,49 @@ public class ElementConfigBuilderRegistry {
                 String finalElementId = elementId;
                 String finalKey = key;
                 
-                String nameKey = "gd656killicon.client.gui.config.element." + elementId.replace("/", ".") + "." + key;
+                boolean isFormatConfigKey = BonusRegistry.isFormatKey(key);
+                int formatBonusType = isFormatConfigKey ? BonusRegistry.getTypeByFormatKey(key) : -1;
+                int killFeedType = "subtitle/kill_feed".equals(elementId) ? KillTypeRegistry.getKillTypeByFormatKey(key) : -1;
+
                 String displayName;
-                
-                if (org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey)) {
-                    displayName = I18n.get(nameKey);
+                if (isFormatConfigKey) {
+                    // 加分项格式键：显示名 = lang 键（gd656killicon.bonus.<ID>.name）
+                    displayName = I18n.get(BonusRegistry.nameKey(formatBonusType));
+                } else if (killFeedType != -1) {
+                    // kill_feed 格式键：显示名 = lang 键（gd656killicon.killtype.<ID>.name）
+                    displayName = I18n.get(KillTypeRegistry.get(killFeedType).displayName());
                 } else {
-                    String genericKey = "gd656killicon.client.gui.config.generic." + key;
-                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(genericKey)) {
-                        displayName = I18n.get(genericKey);
-                    } else if (key.startsWith("anim_")) {
-                        String matchingTexture = null;
-                        for (String texture : ElementTextureDefinition.getTextures(elementId)) {
-                            if (key.startsWith("anim_" + texture + "_")) {
-                                matchingTexture = texture;
-                                break;
+                    String nameKey = "gd656killicon.client.gui.config.element." + elementId.replace("/", ".") + "." + key;
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey)) {
+                        displayName = I18n.get(nameKey);
+                    } else {
+                        String genericKey = "gd656killicon.client.gui.config.generic." + key;
+                        if (org.mods.gd656killicon.client.util.I18nCompat.exists(genericKey)) {
+                            displayName = I18n.get(genericKey);
+                        } else if (key.startsWith("anim_")) {
+                            String matchingTexture = null;
+                            for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+                                if (key.startsWith("anim_" + texture + "_")) {
+                                    matchingTexture = texture;
+                                    break;
+                                }
                             }
-                        }
-                        
-                        if (matchingTexture != null) {
-                            String prefix = "anim_" + matchingTexture + "_";
-                            String actualProperty = key.substring(prefix.length());
-                            String animGenericKey = "gd656killicon.client.gui.config.generic." + actualProperty;
-                            if (org.mods.gd656killicon.client.util.I18nCompat.exists(animGenericKey)) {
-                                displayName = I18n.get(animGenericKey);
+                            
+                            if (matchingTexture != null) {
+                                String prefix = "anim_" + matchingTexture + "_";
+                                String actualProperty = key.substring(prefix.length());
+                                String animGenericKey = "gd656killicon.client.gui.config.generic." + actualProperty;
+                                if (org.mods.gd656killicon.client.util.I18nCompat.exists(animGenericKey)) {
+                                    displayName = I18n.get(animGenericKey);
+                                } else {
+                                    displayName = key;
+                                }
                             } else {
                                 displayName = key;
                             }
                         } else {
                             displayName = key;
                         }
-                    } else {
-                        displayName = key;
                     }
                 }
                 
@@ -490,10 +497,14 @@ public class ElementConfigBuilderRegistry {
                         content.getConfigRows().add(entry);
                     }
                 } else if (primitive.isString()) {
+                    // 所见即所得：输入框直接显示 config 中的实际数据（不解析、不转换）
                     String defaultValue = primitive.getAsString();
                     String currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsString() : defaultValue;
                     final String resolvedDefaultValue = defaultValue;
                     final String resolvedCurrentValue = currentValue;
+                    final String resolvedDescription = isFormatConfigKey
+                        ? I18n.get(BonusRegistry.descKey(formatBonusType))
+                        : "gd656killicon.config.desc." + key;
 
                     boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(resolvedDefaultValue).matches();
 
@@ -646,7 +657,7 @@ public class ElementConfigBuilderRegistry {
                             0.3f,
                             displayName,
                             key,
-                            "gd656killicon.config.desc." + key,
+                            resolvedDescription,
                             resolvedCurrentValue,
                             resolvedDefaultValue,
                             choices,
@@ -668,7 +679,7 @@ public class ElementConfigBuilderRegistry {
                              0.3f,
                              displayName,
                              key,
-                             "gd656killicon.config.desc." + key,
+                             resolvedDescription,
                              resolvedCurrentValue,
                              resolvedDefaultValue,
                              choices,
@@ -692,7 +703,7 @@ public class ElementConfigBuilderRegistry {
                              0.3f,
                              displayName,
                              key,
-                             "gd656killicon.config.desc." + key,
+                             resolvedDescription,
                              resolvedCurrentValue,
                              resolvedDefaultValue,
                              choices,
@@ -724,7 +735,7 @@ public class ElementConfigBuilderRegistry {
                              0.3f,
                              displayName,
                              key,
-                             "gd656killicon.config.desc." + key,
+                             resolvedDescription,
                              resolvedCurrentValue,
                              resolvedDefaultValue,
                              choices,
@@ -742,7 +753,7 @@ public class ElementConfigBuilderRegistry {
                             0.3f,
                             displayName,
                             key,
-                            "gd656killicon.config.desc." + key,
+                            resolvedDescription,
                             resolvedCurrentValue,
                             resolvedDefaultValue,
                             (newValue) -> {
@@ -760,10 +771,11 @@ public class ElementConfigBuilderRegistry {
                             0.3f,
                             displayName,
                             key,
-                            "gd656killicon.config.desc." + key,
+                            resolvedDescription,
                             resolvedCurrentValue,
                             resolvedDefaultValue,
                             (newValue) -> {
+                                // 所见即所得：输入什么存什么
                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
                             },
                             content.getTextInputDialog(),

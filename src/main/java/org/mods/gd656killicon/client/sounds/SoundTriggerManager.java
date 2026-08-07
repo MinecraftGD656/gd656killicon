@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
+import org.mods.gd656killicon.common.killtype.KillTypeDefinition;
 
 public class SoundTriggerManager {
     public static void tryPlaySound(String category, String name, int killType, int comboCount, boolean hasHelmet, boolean isVictimPlayer) {
@@ -57,21 +59,9 @@ public class SoundTriggerManager {
                     ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), slotId);
                 }
             } else {
-                if (killType == KillType.HEADSHOT) {
-                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_HEADSHOT);
-                } else if (killType == KillType.DESTROY_VEHICLE) {
-                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_VEHICLE);
-                } else if (killType == KillType.EXPLOSION) {
-                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_EXPLOSION);
-                } else if (killType == KillType.CRIT) {
-                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_CRIT);
-                } else if (killType == KillType.ASSIST
-                    || killType == KillType.CAPTURE
-                    || killType == KillType.VEHICLE_DESTROY_ASSIST
-                    || killType == KillType.MEDIC) {
-                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_ASSIST);
-                } else {
-                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), ExternalSoundManager.SLOT_SCROLLING_DEFAULT);
+                KillTypeDefinition def = KillTypeRegistry.get(killType);
+                if (def != null) {
+                    ExternalSoundManager.playConfiguredSound(ConfigManager.getCurrentPresetId(), def.scrollingSoundSlotId());
                 }
             }
         }

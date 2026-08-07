@@ -834,7 +834,7 @@ public class ExternalSoundManager {
                 refreshSoundCache(presetId, baseName);
                 return true;
             } catch (IOException e) {
-                e.printStackTrace();
+                ClientMessageLogger.error("gd656killicon.client.sound.replace_fail", e.getMessage());
                 return false;
             }
         }
@@ -984,7 +984,7 @@ public class ExternalSoundManager {
             }
             return new SoundData(buffer.toByteArray(), format);
         } catch (Exception e) {
-            e.printStackTrace();
+            ClientMessageLogger.error("gd656killicon.client.sound.load_fail", e.getMessage());
             return null;
         }
     }
@@ -1020,7 +1020,7 @@ public class ExternalSoundManager {
                 return new SoundData(pcmBytes, format);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            ClientMessageLogger.error("gd656killicon.client.sound.load_fail", e.getMessage());
             return null;
         } finally {
             if (vorbisBuffer != null) {
@@ -1549,7 +1549,7 @@ public class ExternalSoundManager {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            ClientMessageLogger.error("gd656killicon.client.sound.extract_fail", e.getMessage());
         }
         return count;
     }

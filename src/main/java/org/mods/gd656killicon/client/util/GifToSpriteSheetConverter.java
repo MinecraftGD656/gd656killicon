@@ -18,6 +18,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 public class GifToSpriteSheetConverter {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("gd656killicon-client");
 
     public static class ConversionResult {
         public final File outputPng;
@@ -87,7 +88,7 @@ public class GifToSpriteSheetConverter {
             return new ConversionResult(outputFile, numFrames, avgInterval, width, height);
 
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error("GIF conversion failed", e);
             return new ConversionResult(false);
         }
     }

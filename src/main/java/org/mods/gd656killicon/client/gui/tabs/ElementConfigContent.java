@@ -45,6 +45,7 @@ import org.mods.gd656killicon.client.render.impl.ValorantIconRenderer;
 import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -64,6 +65,7 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public class ElementConfigContent extends ConfigTabContent {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("gd656killicon-gui");
     private final String presetId;
     private final String elementId;
     private final ElementConfigBuilder builder;
@@ -781,16 +783,7 @@ public class ElementConfigContent extends ConfigTabContent {
         
         if (isSpecific) {
             String tex = selectedSecondaryTab.elementId;
-            int killType = -1;
-            if ("default".equals(tex)) killType = KillType.NORMAL;
-            else if ("headshot".equals(tex)) killType = KillType.HEADSHOT;
-            else if ("explosion".equals(tex)) killType = KillType.EXPLOSION;
-            else if ("crit".equals(tex)) killType = KillType.CRIT;
-            else if ("destroy_vehicle".equals(tex)) killType = KillType.DESTROY_VEHICLE;
-            else if ("assist".equals(tex)) killType = KillType.ASSIST;
-            else if ("capture".equals(tex)) killType = KillType.CAPTURE;
-            else if ("vehicle_destroy_assist".equals(tex)) killType = KillType.VEHICLE_DESTROY_ASSIST;
-            else if ("medic".equals(tex)) killType = KillType.MEDIC;
+            int killType = KillTypeRegistry.getKillTypeByTextureKey(tex);
             
             if (killType != -1) {
                 if (!previewPaused && now - lastPreviewTriggerTime >= PREVIEW_TRIGGER_INTERVAL_MS) {
@@ -1264,7 +1257,8 @@ public class ElementConfigContent extends ConfigTabContent {
             return true;
         }
 
-        if (keyCode == 256) {             closeContent();
+        if (keyCode == 256) {
+            closeContent();
             return true;
         }
         return false;
@@ -1291,7 +1285,7 @@ public class ElementConfigContent extends ConfigTabContent {
         if (resetButton == null) {
             resetButton = new GDButton(x1, row1Y, row1ButtonWidth, buttonHeight, Component.translatable("gd656killicon.client.gui.config.button.reset_element"), (btn) -> {
                 if (isConfirmingReset) {
-                    JsonObject safeDefaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+                    JsonObject safeDefaults = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
                     if (!safeDefaults.entrySet().isEmpty()) {
                         ElementConfigManager.setElementConfig(presetId, elementId, safeDefaults);
                         ExternalTextureManager.resetTexturesForElement(presetId, elementId);
@@ -1605,7 +1599,7 @@ public class ElementConfigContent extends ConfigTabContent {
                 promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_convert_fail"), PromptDialog.PromptType.ERROR, null);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error("GIF conversion failed", e);
             promptDialog.show(I18n.get("gd656killicon.client.gui.prompt.gif_convert_fail") + ": " + e.getMessage(), PromptDialog.PromptType.ERROR, null);
         }
     }
@@ -1648,7 +1642,7 @@ public class ElementConfigContent extends ConfigTabContent {
         if (textureKey == null) {
             return;
         }
-        JsonObject defaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+        JsonObject defaults = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
         if (defaults == null) {
             return;
         }
@@ -1681,7 +1675,7 @@ public class ElementConfigContent extends ConfigTabContent {
         if (textureKey == null) {
             return;
         }
-        JsonObject defaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+        JsonObject defaults = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
         if (defaults == null) {
             return;
         }
@@ -1803,7 +1797,7 @@ public class ElementConfigContent extends ConfigTabContent {
         if (textureKey == null) {
             return;
         }
-        JsonObject defaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+        JsonObject defaults = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
         if (defaults == null) {
             return;
         }
@@ -2072,7 +2066,7 @@ public class ElementConfigContent extends ConfigTabContent {
         if (textureKey == null) {
             return false;
         }
-        JsonObject defaults = ElementConfigManager.getDefaultElementConfig(presetId, elementId);
+        JsonObject defaults = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
         if (defaults == null) {
             return false;
         }

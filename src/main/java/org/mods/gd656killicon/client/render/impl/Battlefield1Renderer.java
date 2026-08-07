@@ -21,6 +21,7 @@ import org.mods.gd656killicon.client.sounds.ExternalSoundManager;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -195,13 +196,7 @@ public class Battlefield1Renderer implements IHudRenderer {
     }
 
     private String getTextureKey(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> "headshot";
-            case KillType.EXPLOSION -> "explosion";
-            case KillType.CRIT -> "crit";
-            case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
-            default -> "default";
-        };
+        return KillTypeRegistry.get(killType).bf1TextureKey();
     }
 
     private long resolveQueueSwitchDelay(int nextKillType) {
@@ -502,13 +497,7 @@ public class Battlefield1Renderer implements IHudRenderer {
     }
 
     private String getBattlefieldTextureKey() {
-        return switch (this.killType) {
-            case KillType.HEADSHOT -> "headshot";
-            case KillType.EXPLOSION -> "explosion";
-            case KillType.CRIT -> "crit";
-            case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
-            default -> "default";
-        };
+        return KillTypeRegistry.get(this.killType).bf1TextureKey();
     }
 
     private float resolveFrameRatio(String textureKey, String suffixKey) {

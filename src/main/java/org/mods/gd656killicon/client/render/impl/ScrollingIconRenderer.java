@@ -17,6 +17,8 @@ import org.mods.gd656killicon.client.textures.IconTextureAnimationManager;
 import org.mods.gd656killicon.client.textures.IconTextureAnimationManager.TextureFrame;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.common.killtype.KillTypeDefinition;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -51,9 +53,8 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private int configXOffset = 0;
     private int configYOffset = 0;
     private long displayDuration = DEFAULT_DISPLAY_DURATION;
-    private boolean enableCritRing = true;
-    private boolean enableHeadshotRing = true;
-    private boolean enableExplosionRing = true;
+    /** ring 效果开关（KillTypeRegistry.ringEnableKey 驱动；无开关键的类型无条目） */
+    private final java.util.Map<String, Boolean> ringEnableFlags = new java.util.HashMap<>();
     private long animationDuration = DEFAULT_ANIMATION_DURATION;
     private long positionAnimationDuration = DEFAULT_POSITION_ANIMATION_DURATION;
     private float startScale = DEFAULT_START_SCALE;
@@ -336,9 +337,9 @@ public class ScrollingIconRenderer implements IHudRenderer {
                     ? (long)(config.get("display_duration").getAsFloat() * 1000)
                     : DEFAULT_DISPLAY_DURATION;
             boolean defaultRingEnable = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
-            this.enableCritRing = config.has("enable_ring_effect_crit") ? config.get("enable_ring_effect_crit").getAsBoolean() : defaultRingEnable;
-            this.enableHeadshotRing = config.has("enable_ring_effect_headshot") ? config.get("enable_ring_effect_headshot").getAsBoolean() : defaultRingEnable;
-            this.enableExplosionRing = config.has("enable_ring_effect_explosion") ? config.get("enable_ring_effect_explosion").getAsBoolean() : defaultRingEnable;
+            this.ringEnableFlags.put("enable_ring_effect_crit", config.has("enable_ring_effect_crit") ? config.get("enable_ring_effect_crit").getAsBoolean() : defaultRingEnable);
+            this.ringEnableFlags.put("enable_ring_effect_headshot", config.has("enable_ring_effect_headshot") ? config.get("enable_ring_effect_headshot").getAsBoolean() : defaultRingEnable);
+            this.ringEnableFlags.put("enable_ring_effect_explosion", config.has("enable_ring_effect_explosion") ? config.get("enable_ring_effect_explosion").getAsBoolean() : defaultRingEnable);
             this.animationDuration = config.has("animation_duration")
                     ? (long)(config.get("animation_duration").getAsFloat() * 1000)
                     : DEFAULT_ANIMATION_DURATION;
@@ -386,9 +387,10 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.configXOffset = 0;
             this.configYOffset = 0;
             this.displayDuration = DEFAULT_DISPLAY_DURATION;
-            this.enableCritRing = true;
-            this.enableHeadshotRing = true;
-            this.enableExplosionRing = true;
+            this.ringEnableFlags.clear();
+            this.ringEnableFlags.put("enable_ring_effect_crit", true);
+            this.ringEnableFlags.put("enable_ring_effect_headshot", true);
+            this.ringEnableFlags.put("enable_ring_effect_explosion", true);
             this.animationDuration = DEFAULT_ANIMATION_DURATION;
             this.positionAnimationDuration = DEFAULT_POSITION_ANIMATION_DURATION;
             this.startScale = DEFAULT_START_SCALE;
@@ -572,18 +574,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
     }
 
     private String getTextureKey(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> "headshot";
-            case KillType.EXPLOSION -> "explosion";
-            case KillType.CRIT -> "crit";
-            case KillType.ASSIST -> "assist";
-            case KillType.CAPTURE -> "capture";
-            case KillType.DESTROY_VEHICLE -> "destroy_vehicle";
-            case KillType.VEHICLE_DESTROY_ASSIST -> "vehicle_destroy_assist";
-            case KillType.MEDIC -> "medic";
-            case KillType.NORMAL -> "default";
-            default -> "default";
-        };
+        return KillTypeRegistry.get(killType).textureKey();
     }
 
     private int resolveHeadshotEffectRgb() {
@@ -628,12 +619,11 @@ public class ScrollingIconRenderer implements IHudRenderer {
     }
 
     private boolean isRingEnabledForKillType(int killType) {
-        return switch (killType) {
-            case KillType.HEADSHOT -> enableHeadshotRing;
-            case KillType.EXPLOSION -> enableExplosionRing;
-            case KillType.CRIT -> enableCritRing;
-            default -> false;
-        };
+        KillTypeDefinition def = KillTypeRegistry.get(killType);
+        if (def == null || def.ringEnableKey() == null) {
+            return false;
+        }
+        return ringEnableFlags.getOrDefault(def.ringEnableKey(), false);
     }
 
     private static int parseRgbHexOrDefault(String hex, int fallbackRgb) {

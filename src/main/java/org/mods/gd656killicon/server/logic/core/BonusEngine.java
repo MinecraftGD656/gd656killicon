@@ -3,6 +3,9 @@ package org.mods.gd656killicon.server.logic.core;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656killicon.common.BonusType;
+import org.mods.gd656killicon.common.bonus.BonusDefinition;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
+import org.mods.gd656killicon.common.bonus.MergeBehavior;
 import org.mods.gd656killicon.network.NetworkHandler;
 import org.mods.gd656killicon.network.packet.BonusScorePacket;
 import org.mods.gd656killicon.server.data.ServerData;
@@ -12,7 +15,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class BonusEngine {
     private record Entry(int type, float score, String extra, int victimId, String victimName) {}
-    private static final float VALUE_TARGET_DESTROYED_MAX_SCORE = 2000.0f;
 
     /**
      * Map of player UUID to a list of pending bonus entries.
@@ -76,7 +78,8 @@ public class BonusEngine {
 
             Map<String, Entry> merged = new LinkedHashMap<>();
             for (Entry e : list) {
-                String key = (e.type == BonusType.KILL_COMBO) ? "COMBO" : (e.type + "|" + e.extra);
+                BonusDefinition def = BonusRegistry.get(e.type);
+                String key = (def != null && def.mergeBehavior() == MergeBehavior.BY_COMBO) ? "COMBO" : (e.type + "|" + e.extra);
                 merged.merge(key, e, (old, val) -> new Entry(
                     old.type, 
                     old.score + val.score, 
@@ -102,18 +105,15 @@ public class BonusEngine {
     }
 
     private boolean isPriorityKillBonus(int type) {
-        return type == BonusType.KILL
-            || type == BonusType.KILL_HEADSHOT
-            || type == BonusType.KILL_EXPLOSION
-            || type == BonusType.KILL_CRIT
-            || type == BonusType.KILL_LONG_DISTANCE
-            || type == BonusType.KILL_COMBO;
+        BonusDefinition def = BonusRegistry.get(type);
+        return def != null && def.priorityKill();
     }
 
     private float applyScoreLimits(int type, float score) {
         float limited = score;
-        if (type == BonusType.VALUE_TARGET_DESTROYED && limited > VALUE_TARGET_DESTROYED_MAX_SCORE) {
-            limited = VALUE_TARGET_DESTROYED_MAX_SCORE;
+        BonusDefinition def = BonusRegistry.get(type);
+        if (def != null && def.scoreCap() > 0 && limited > def.scoreCap()) {
+            limited = def.scoreCap();
         }
         int max = ServerData.get().getScoreMaxLimit();
         if (limited > max) {

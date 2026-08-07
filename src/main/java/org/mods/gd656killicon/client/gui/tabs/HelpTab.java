@@ -8,6 +8,7 @@ import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
 import org.mods.gd656killicon.client.gui.elements.entries.HelpTextEntry;
 import org.mods.gd656killicon.common.BonusType;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -129,13 +130,10 @@ public class HelpTab extends ConfigTabContent {
             bonusNames.sort(Comparator.comparingInt(BonusType::getTypeByName));
             
             for (String bonusName : bonusNames) {
-                 String nameKey = "gd656killicon.bonus." + bonusName + ".name";
-                 String descKey = "gd656killicon.bonus." + bonusName + ".desc";
-                 if (!org.mods.gd656killicon.client.util.I18nCompat.exists(descKey)) {
-                     descKey = "gd656killicon.client.gui.help.bonus.default_desc"; 
-                 }
                  int bonusType = BonusType.getTypeByName(bonusName);
-                 addPrefixedBonusHelpEntry(bonusType, bonusName, nameKey, descKey, contentWidth);
+                 String displayName = I18n.get(BonusRegistry.nameKey(bonusType));
+                 String description = I18n.get(BonusRegistry.descKey(bonusType));
+                 addPrefixedBonusHelpEntry(bonusType, bonusName, displayName, description, contentWidth);
             }
         }
 

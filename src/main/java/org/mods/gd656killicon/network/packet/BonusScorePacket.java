@@ -6,6 +6,8 @@ import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer;
 import org.mods.gd656killicon.client.render.impl.BonusListRenderer;
 import org.mods.gd656killicon.client.render.impl.SubtitleRenderer;
+import org.mods.gd656killicon.common.bonus.BonusDefinition;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
 import org.mods.gd656killicon.network.IPacket;
 import org.mods.gd656killicon.network.PacketContext;
 
@@ -112,11 +114,11 @@ public class BonusScorePacket implements IPacket {
     }
 
     private void triggerRushBombKillFeed() {
-        String payloadType = switch (this.bonusType) {
-            case org.mods.gd656killicon.common.BonusType.RUSH_BOMB_PLANTED -> "rush_bomb_planted";
-            case org.mods.gd656killicon.common.BonusType.RUSH_BOMB_DEFUSED -> "rush_bomb_defused";
-            default -> null;
-        };
+        BonusDefinition def = BonusRegistry.get(this.bonusType);
+        if (def == null) {
+            return;
+        }
+        String payloadType = def.killFeedPayload();
         if (payloadType == null) {
             return;
         }
@@ -156,12 +158,11 @@ public class BonusScorePacket implements IPacket {
     }
 
     private void triggerScrollingBonusIcons() {
-        int iconKillType = -1;
-        if (this.bonusType == org.mods.gd656killicon.common.BonusType.VEHICLE_DESTROY_ASSIST) {
-            iconKillType = org.mods.gd656killicon.common.KillType.VEHICLE_DESTROY_ASSIST;
-        } else if (this.bonusType == org.mods.gd656killicon.common.BonusType.REVIVE) {
-            iconKillType = org.mods.gd656killicon.common.KillType.MEDIC;
+        BonusDefinition def = BonusRegistry.get(this.bonusType);
+        if (def == null) {
+            return;
         }
+        int iconKillType = def.iconKillType();
         if (iconKillType == -1) {
             return;
         }
@@ -172,16 +173,15 @@ public class BonusScorePacket implements IPacket {
     }
     
     private void recordStatistics() {
-        
-        if (this.bonusType == org.mods.gd656killicon.common.BonusType.ASSIST) {
-            org.mods.gd656killicon.client.stats.ClientStatsManager.recordAssist();
-        } else if (this.bonusType == org.mods.gd656killicon.common.BonusType.REVIVE) {
-            org.mods.gd656killicon.client.stats.ClientStatsManager.recordRevive();
-        } else if (this.bonusType == org.mods.gd656killicon.common.BonusType.DAMAGE ||
-                   this.bonusType == org.mods.gd656killicon.common.BonusType.EXPLOSION ||
-                   this.bonusType == org.mods.gd656killicon.common.BonusType.HEADSHOT ||
-                   this.bonusType == org.mods.gd656killicon.common.BonusType.CRIT) {
-            org.mods.gd656killicon.client.stats.ClientStatsManager.recordDamage(this.score);
+        BonusDefinition def = BonusRegistry.get(this.bonusType);
+        if (def == null) {
+            return;
+        }
+        switch (def.statCategory()) {
+            case ASSIST -> org.mods.gd656killicon.client.stats.ClientStatsManager.recordAssist();
+            case REVIVE -> org.mods.gd656killicon.client.stats.ClientStatsManager.recordRevive();
+            case DAMAGE -> org.mods.gd656killicon.client.stats.ClientStatsManager.recordDamage(this.score);
+            default -> {}
         }
     }
 
