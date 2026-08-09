@@ -126,6 +126,10 @@ public class DefaultConfigRegistry {
         p00036.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00036", p00036);
         java.util.Set<String> p00037 = new java.util.HashSet<>();
+        p00037.add("subtitle/kill_feed");
+        p00037.add("subtitle/score");
+        p00037.add("subtitle/bonus_list");
+        p00037.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00037", p00037);
 
         for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {

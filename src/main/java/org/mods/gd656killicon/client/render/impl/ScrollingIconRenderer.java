@@ -40,6 +40,19 @@ public class ScrollingIconRenderer implements IHudRenderer {
         return INSTANCE;
     }
 
+    /** 联动查询前确保配置已加载(直接进游戏时图标未触发, render/trigger 未跑过 loadConfig, configYOffset 停留在默认值) */
+    private boolean linkageConfigLoaded = false;
+
+    private void ensureConfigLoaded() {
+        if (!this.linkageConfigLoaded) {
+            JsonObject config = ConfigManager.getElementConfig("kill_icon", "scrolling");
+            if (config != null) {
+                loadConfig(config);
+            }
+            this.linkageConfigLoaded = true;
+        }
+    }
+
     /**
      * 击杀图标队列当前是否有图标显示(队列联动用)。
      */
@@ -51,6 +64,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
      * 击杀图标队列的锚点 y(渲染中心, 队列联动用, 与 render 中 centerY 计算一致)。
      */
     public float getIconsAnchorY() {
+        ensureConfigLoaded();
         Minecraft mc = Minecraft.getInstance();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
         return screenHeight - configYOffset;

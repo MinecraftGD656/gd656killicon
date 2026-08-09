@@ -596,14 +596,14 @@ public class ElementConfigManager {
         boolean updated = false;
 
         if (isOfficialPreset(presetId)) {
-            currentPreset.elementConfigs.clear();
-            
-            Set<String> elementIds = DefaultConfigRegistry.getOfficialPresetElements(presetId);
-            for (String elementId : elementIds) {
-                JsonObject config = DefaultConfigRegistry.getDefaultConfig(presetId, elementId);
-                currentPreset.addElementConfig(elementId, config);
+            // 官方预设唯一数据源 = jar 资源: 重置 = 从 jar 恢复完整内容
+            // (不能用 DefaultConfigRegistry.getDefaultConfig, 它只含全局默认+覆盖, 缺失 jar 里的完整配置)
+            ElementPreset jarPreset = loadOfficialPresetFromJar(presetId);
+            if (jarPreset != null) {
+                currentPreset.elementConfigs.clear();
+                currentPreset.elementConfigs.putAll(jarPreset.elementConfigs);
+                updated = true;
             }
-            updated = true;
         } else {
             Set<String> currentElements = new HashSet<>(currentPreset.elementConfigs.keySet());
             if (currentElements.isEmpty()) {
@@ -735,7 +735,14 @@ public class ElementConfigManager {
      */
     public static JsonObject getResetDefaultConfig(String presetId, String elementId) {
         String sourcePreset = isOfficialPreset(presetId) ? presetId : ClientConfigManager.getInitialPresetByLanguage();
-        JsonObject source = getElementConfig(sourcePreset, elementId);
+        JsonObject source;
+        if (isOfficialPreset(presetId)) {
+            // 官方预设的重置/默认值唯一数据源 = jar 资源(玩家 config 文件可能残缺或已修改, 不能作为重置基准)
+            ElementPreset jarPreset = loadOfficialPresetFromJar(presetId);
+            source = jarPreset != null ? jarPreset.getConfig(elementId) : getElementConfig(presetId, elementId);
+        } else {
+            source = getElementConfig(sourcePreset, elementId);
+        }
         JsonObject registryDefault = getDefaultElementConfig(presetId, elementId);
         if (source == null) {
             return registryDefault;

@@ -50,6 +50,15 @@ public class SubtitleRenderer implements IHudRenderer {
      * kill_feed 字幕的基准 y(未联动时的位置, 队列联动用, 与 render 中 baseTextY 计算一致)。
      */
     public float getBaseTextY() {
+        // 直接进游戏时 kill_feed 未显示, render 提前 return 导致惰性加载从未执行;
+        // 联动查询时确保配置已加载(configYOffset 反映玩家配置而非默认 20)
+        if (!this.linkageConfigLoaded) {
+            JsonObject cfg = ConfigManager.getElementConfig("subtitle", "kill_feed");
+            if (cfg != null) {
+                loadConfig(cfg);
+            }
+            this.linkageConfigLoaded = true;
+        }
         Minecraft mc = Minecraft.getInstance();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
         return screenHeight - this.configYOffset;
