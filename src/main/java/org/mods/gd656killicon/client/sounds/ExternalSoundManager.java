@@ -127,6 +127,10 @@ public class ExternalSoundManager {
         "killsound_bf5.ogg",
         "headshotkillsound_bf5.ogg",
         "vehiclekillsound_bf5.ogg",
+        "killsound_bf6.ogg",
+        "headshotkillsound_bf6.ogg",
+        "hitsound_bf6.ogg",
+        "assistsound_bf6.ogg",
         "addscore_df.ogg"
     };
     private static final Set<String> DEFAULT_SOUND_SET = new HashSet<>(Arrays.asList(DEFAULT_SOUNDS));
@@ -1434,16 +1438,17 @@ public class ExternalSoundManager {
             return null;
         }
         boolean isBf5 = "00007".equals(presetId);
+        boolean isBf6 = "00037".equals(presetId);
         return switch (slotId) {
             case SLOT_COMMON_SCORE -> "addscore_df";
-            case SLOT_COMMON_HIT -> "hitsound_df";
-            case SLOT_COMMON_HEADSHOT_HIT -> ValorantStyleCatalog.getPresetSpec(presetId) != null ? "valorant_headshot" : "hitsound_df";
-            case SLOT_SCROLLING_DEFAULT -> isBf5 ? "killsound_bf5" : "killsound_df";
-            case SLOT_SCROLLING_HEADSHOT -> isBf5 ? "headshotkillsound_bf5" : "headshotkillsound_df";
-            case SLOT_SCROLLING_EXPLOSION -> isBf5 ? "headshotkillsound_bf5" : "explosionkillsound_df";
-            case SLOT_SCROLLING_CRIT -> isBf5 ? "killsound_bf5" : "critkillsound_df";
-            case SLOT_SCROLLING_ASSIST -> "defaulticonsound_df";
-            case SLOT_SCROLLING_VEHICLE -> isBf5 ? "vehiclekillsound_bf5" : "explosionkillsound_df";
+            case SLOT_COMMON_HIT -> isBf6 ? "hitsound_bf6" : "hitsound_df";
+            case SLOT_COMMON_HEADSHOT_HIT -> isBf6 ? "hitsound_bf6" : (ValorantStyleCatalog.getPresetSpec(presetId) != null ? "valorant_headshot" : "hitsound_df");
+            case SLOT_SCROLLING_DEFAULT -> isBf6 ? "killsound_bf6" : (isBf5 ? "killsound_bf5" : "killsound_df");
+            case SLOT_SCROLLING_HEADSHOT -> isBf6 ? "headshotkillsound_bf6" : (isBf5 ? "headshotkillsound_bf5" : "headshotkillsound_df");
+            case SLOT_SCROLLING_EXPLOSION -> isBf6 ? "killsound_bf6" : (isBf5 ? "headshotkillsound_bf5" : "explosionkillsound_df");
+            case SLOT_SCROLLING_CRIT -> isBf6 ? "killsound_bf6" : (isBf5 ? "killsound_bf5" : "critkillsound_df");
+            case SLOT_SCROLLING_ASSIST -> isBf6 ? "assistsound_bf6" : "defaulticonsound_df";
+            case SLOT_SCROLLING_VEHICLE -> isBf6 ? "assistsound_bf6" : (isBf5 ? "vehiclekillsound_bf5" : "explosionkillsound_df");
             case SLOT_BF1_DEFAULT -> "killsound_bf1";
             case SLOT_BF1_HEADSHOT -> "headshotkillsound_bf1";
             case SLOT_CARD_DEFAULT -> "cardkillsound_default_cs";
