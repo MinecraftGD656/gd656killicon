@@ -212,6 +212,19 @@ public class ElementTextureDefinition {
                 default -> "killicon_df_default.png";
             };
         }
+        if ("00037".equals(presetId)) {
+            return switch (textureKey) {
+                case "headshot" -> "killicon_battlefield6_headshot.png";
+                case "explosion" -> "killicon_battlefield6_explosion.png";
+                case "crit" -> "killicon_battlefield6_crit.png";
+                case "destroy_vehicle" -> "killicon_battlefield6_destroyvehicle.png";
+                case "assist" -> "killicon_battlefield6_assist.png";
+                case "capture" -> "killicon_battlefield6_capture.png";
+                case "vehicle_destroy_assist" -> "killicon_battlefield6_vehicle_destroy_assist.png";
+                case "medic" -> "killicon_battlefield6_medic.png";
+                default -> "killicon_battlefield6_default.png";
+            };
+        }
         if ("capture".equals(textureKey)) {
             return "killicon_df_capture.png";
         }

@@ -58,6 +58,7 @@ public class ExternalTextureManager {
         addElementTextures(names, "00001", "kill_icon/scrolling");
         addElementTextures(names, "00007", "kill_icon/scrolling");
         addElementTextures(names, "00008", "kill_icon/scrolling");
+        addElementTextures(names, "00037", "kill_icon/scrolling");
         addElementTextures(names, "00001", "kill_icon/combo");
         addElementTextures(names, "00001", "kill_icon/card");
         addElementTextures(names, "00001", "kill_icon/card_bar");
