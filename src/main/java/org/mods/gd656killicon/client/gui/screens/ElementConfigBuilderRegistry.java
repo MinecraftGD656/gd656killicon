@@ -508,7 +508,32 @@ public class ElementConfigBuilderRegistry {
 
                     boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(resolvedDefaultValue).matches();
 
-                    if (key.startsWith("texture_mode_")) {
+                    if ("scroll_direction".equals(key)) {
+                        List<FixedChoiceConfigEntry.Choice> choices = List.of(
+                            new FixedChoiceConfigEntry.Choice("left", I18n.get("gd656killicon.config.choice.scroll_direction.left")),
+                            new FixedChoiceConfigEntry.Choice("right", I18n.get("gd656killicon.config.choice.scroll_direction.right"))
+                        );
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc." + key,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
+                                    return;
+                                }
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.startsWith("texture_mode_")) {
                         List<FixedChoiceConfigEntry.Choice> choices = List.of(
                             new FixedChoiceConfigEntry.Choice("custom", I18n.get("gd656killicon.config.choice.texture_mode.custom")),
                             new FixedChoiceConfigEntry.Choice("official", I18n.get("gd656killicon.config.choice.texture_mode.official")),

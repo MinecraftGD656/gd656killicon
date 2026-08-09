@@ -11,6 +11,7 @@ import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
+import org.mods.gd656killicon.client.render.effect.TextFadeEffect;
 import org.mods.gd656killicon.client.stats.ClientStatsManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.common.KillType;
@@ -42,6 +43,8 @@ public class ComboSubtitleRenderer implements IHudRenderer {
     private boolean enableAnimation = true;
     private boolean enableLightEffect = true;
     private boolean enableBold = true;
+    private boolean enableTextShadow = true;
+    private boolean configBlinkFadeAnimation = false;
     private double lightHeight = 12.0;
     private double lightHoldDuration = 0.2;
     private boolean enableScaleAnimation = false;
@@ -304,7 +307,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             if (elapsed < FADE_IN_DURATION) {
                 alpha = (float)elapsed / FADE_IN_DURATION;
             } else if (elapsed > this.displayDuration) {
-                alpha = 1.0f - (float)(elapsed - this.displayDuration) / EXIT_ANIMATION_DURATION;
+                alpha = TextFadeEffect.fadeAlpha((float)(elapsed - this.displayDuration) / EXIT_ANIMATION_DURATION, configBlinkFadeAnimation);
             }
         }
         alpha = Mth.clamp(alpha, 0.0f, 1.0f);
@@ -364,9 +367,9 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             textWidth = font.width(comp);
             textHalfWidth = textWidth / 2.0f;
             
-            guiGraphics.drawString(font, comp, (int)(-textHalfWidth), (int)(-textHalfHeight), finalColor);
+            guiGraphics.drawString(font, comp, (int)(-textHalfWidth), (int)(-textHalfHeight), finalColor, this.enableTextShadow);
         } else {
-            guiGraphics.drawString(font, text, (int)(-textHalfWidth), (int)(-textHalfHeight), finalColor, true);
+            guiGraphics.drawString(font, text, (int)(-textHalfWidth), (int)(-textHalfHeight), finalColor, this.enableTextShadow);
         }
         
         poseStack.popPose();
@@ -458,6 +461,8 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             this.enableAnimation = config.has("enable_animation") ? config.get("enable_animation").getAsBoolean() : true;
             this.enableLightEffect = config.has("enable_light_effect") ? config.get("enable_light_effect").getAsBoolean() : true;
             this.enableBold = config.has("enable_bold") ? config.get("enable_bold").getAsBoolean() : true;
+            this.enableTextShadow = !config.has("enable_text_shadow") || config.get("enable_text_shadow").getAsBoolean();
+            this.configBlinkFadeAnimation = config.has("blink_fade_animation") && config.get("blink_fade_animation").getAsBoolean();
             this.lightHeight = config.has("light_height") ? config.get("light_height").getAsDouble() : 12.0;
             this.lightHoldDuration = config.has("light_hold_duration") ? config.get("light_hold_duration").getAsDouble() : 0.2;
             this.enableScaleAnimation = config.has("enable_scale_animation") ? config.get("enable_scale_animation").getAsBoolean() : false;

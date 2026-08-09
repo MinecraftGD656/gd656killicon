@@ -9,6 +9,8 @@ import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.DigitalScrollEffect;
+import org.mods.gd656killicon.client.render.effect.SubtitleEntranceBackground;
+import org.mods.gd656killicon.client.render.effect.TextFadeEffect;
 import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import com.google.gson.JsonObject;
@@ -23,6 +25,9 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     private static final long FADE_IN_DURATION = 250L;     private static final long FADE_OUT_DURATION = 300L;     private static final long SCALE_ANIMATION_PHASE_DURATION = 100L;     private static final float SCALE_ANIMATION_MAX_MULTIPLIER = 1.2f;
     private static final float GLOW_OFFSET = 0.3f;
 
+    /** 分数刷新触发入场背景的合并窗口(毫秒): 0.1 秒内多次刷新判定为一次 */
+    private static final long BACKGROUND_TRIGGER_COOLDOWN_MS = 100L;
+
     private static ScoreSubtitleRenderer instance;
 
     
@@ -35,7 +40,12 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     private float scale = 2.0f;
     private float animationDuration = 1.25f;
     private float animationRefreshRate = 0.01f;
-    private boolean enableNumberSegmentation = false;     private boolean enableFlash = true;     private boolean alignLeft = false;     private boolean alignRight = false;     private boolean enableScoreScalingEffect = false;     private boolean enableDigitalScroll = true;     private boolean enableGlowEffect = false;     private float glowIntensity = 0.5f;     private int normalTextColor = 0xFFFFFFFF;
+    private boolean enableNumberSegmentation = false;     private boolean enableFlash = true;     private boolean alignLeft = false;     private boolean alignRight = false;     private boolean enableScoreScalingEffect = false;     private boolean enableDigitalScroll = true;     private boolean enableGlowEffect = false;     private float glowIntensity = 0.5f;     private float glowSize = GLOW_OFFSET;     private int glowColorRgb = 0xFFFFFF;     private float glowAlphaMultiplier = 1.0f;     private int normalTextColor = 0xFFFFFFFF;     private boolean enableTextShadow = true;     private boolean configBlinkFadeAnimation = false;     private boolean configEntranceBackground = false;     private long backgroundTriggerTime = -1;
+    private float configEntranceBgPeakTransparency = 0.2f;
+    private long configEntranceBgFadeInMs = 1000L / 15;
+    private long configEntranceBgSweepMs = 100L;
+    private long configEntranceBgFadeOutMs = 2000L / 15;
+    private int configEntranceBgColor = 0xFFFFFF;
 
     private boolean visible = false;
     private float currentScore = 0.0f;
@@ -104,7 +114,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         }
 
         float alpha = calculateAlpha(currentTime);
-        if (alpha <= 0.05f) {
+        if (alpha <= 0.05f || (this.textHideTime > 0 && currentTime >= this.textHideTime + FADE_OUT_DURATION)) {
             visible = false;
             resetState();
             return null;
@@ -199,22 +209,37 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             pivotX = textX + totalWidth / 2.0f;
         }
 
+        // 字幕入场背景(位于文本之下): 屏幕坐标, 与字幕 pose 缩放对齐;
+        // 由真实分数刷新触发(0.1s 内多次刷新合并), 动画自最近一次触发时刻起播
+        if (configEntranceBackground && this.backgroundTriggerTime >= 0) {
+            long elapsed = state.currentTime - this.backgroundTriggerTime;
+            float scale = state.currentScale;
+            float textLeftScreen = pivotX + (textX - pivotX) * scale;
+            float textRightScreen = pivotX + (textX + totalWidth - pivotX) * scale;
+            float midYScreen = pivotY;
+            float textHeightScreen = font.lineHeight * scale;
+            SubtitleEntranceBackground.draw(guiGraphics, elapsed,
+                    textLeftScreen, textRightScreen, midYScreen, textHeightScreen,
+                    configEntranceBgFadeInMs, configEntranceBgSweepMs, configEntranceBgFadeOutMs,
+                    configEntranceBgPeakTransparency, configEntranceBgColor, false);
+        }
+
         poseStack.translate(pivotX, pivotY, 0);
         poseStack.scale(state.currentScale, state.currentScale, 1.0f);
         poseStack.translate(-pivotX, -pivotY, 0);
 
         if (!prefix.isEmpty()) {
-            drawTextWithGlow(guiGraphics, font, prefix, currentX, textY, defaultColorWithAlpha, true);
+            drawTextWithGlow(guiGraphics, font, prefix, currentX, textY, defaultColorWithAlpha, this.enableTextShadow);
             currentX += prefixWidth;
         }
 
         if (hasPlaceholder) {
-            drawTextWithGlow(guiGraphics, font, scoreStr, currentX, textY, scoreColorWithAlpha, true);
+            drawTextWithGlow(guiGraphics, font, scoreStr, currentX, textY, scoreColorWithAlpha, this.enableTextShadow);
             currentX += scoreWidth;
         }
 
         if (!suffix.isEmpty()) {
-            drawTextWithGlow(guiGraphics, font, suffix, currentX, textY, defaultColorWithAlpha, true);
+            drawTextWithGlow(guiGraphics, font, suffix, currentX, textY, defaultColorWithAlpha, this.enableTextShadow);
         }
 
         poseStack.popPose();
@@ -235,17 +260,18 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     private void drawTextWithGlow(GuiGraphics guiGraphics, Font font, String text, int x, int y, int color, boolean dropShadow) {
         if (this.enableGlowEffect) {
             int alpha = (color >> 24) & 0xFF;
-            int glowAlpha = (int) (alpha * this.glowIntensity);
+            int glowAlpha = (int) (alpha * this.glowIntensity * this.glowAlphaMultiplier);
+            glowAlpha = Math.max((int) (TextFadeEffect.MIN_ALPHA * 255.0f), Math.min(255, glowAlpha));  // 副本最小透明度 0.1
             glowAlpha = Math.max(0, Math.min(255, glowAlpha));
             
-            int glowColor = (color & 0x00FFFFFF) | (glowAlpha << 24);
+            int glowColor = (this.glowColorRgb & 0x00FFFFFF) | (glowAlpha << 24);
             
             PoseStack poseStack = guiGraphics.pose();
             
             float[][] offsets = {
-                {-GLOW_OFFSET, 0}, {GLOW_OFFSET, 0}, {0, -GLOW_OFFSET}, {0, GLOW_OFFSET},
-                {-GLOW_OFFSET, -GLOW_OFFSET}, {GLOW_OFFSET, -GLOW_OFFSET},
-                {-GLOW_OFFSET, GLOW_OFFSET}, {GLOW_OFFSET, GLOW_OFFSET}
+                {-glowSize, 0}, {glowSize, 0}, {0, -glowSize}, {0, glowSize},
+                {-glowSize, -glowSize}, {glowSize, -glowSize},
+                {-glowSize, glowSize}, {glowSize, glowSize}
             };
             
             for (float[] offset : offsets) {
@@ -303,6 +329,11 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         
         this.lastScoreTime = currentTime;
         this.scaleAnimationStartTime = currentTime;
+
+        // 真实分数刷新触发入场背景动画; 0.1 秒内的多次刷新合并为一次(不重启动画)
+        if (this.backgroundTriggerTime < 0 || currentTime - this.backgroundTriggerTime >= BACKGROUND_TRIGGER_COOLDOWN_MS) {
+            this.backgroundTriggerTime = currentTime;
+        }
         
         if (this.startTime == -1) {
             this.startTime = currentTime;
@@ -342,6 +373,27 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             this.enableDigitalScroll = config.has("enable_digital_scroll") ? config.get("enable_digital_scroll").getAsBoolean() : true;
             this.enableGlowEffect = config.has("enable_glow_effect") && config.get("enable_glow_effect").getAsBoolean();
             this.glowIntensity = config.has("glow_intensity") ? config.get("glow_intensity").getAsFloat() : 0.5f;
+            this.glowSize = config.has("glow_size") ? config.get("glow_size").getAsFloat() : GLOW_OFFSET;
+            this.glowColorRgb = hexColorToInt(config.has("glow_color") ? config.get("glow_color").getAsString() : "#FFFFFF");
+            this.glowAlphaMultiplier = config.has("glow_alpha") ? Mth.clamp(config.get("glow_alpha").getAsFloat(), 0.0f, 1.0f) : 1.0f;
+            this.enableTextShadow = !config.has("enable_text_shadow") || config.get("enable_text_shadow").getAsBoolean();
+            this.configBlinkFadeAnimation = config.has("blink_fade_animation") && config.get("blink_fade_animation").getAsBoolean();
+            this.configEntranceBackground = config.has("entrance_background") && config.get("entrance_background").getAsBoolean();
+            this.configEntranceBgPeakTransparency = config.has("entrance_background_alpha")
+                    ? Mth.clamp(config.get("entrance_background_alpha").getAsFloat(), 0.0f, 1.0f)
+                    : 0.2f;
+            this.configEntranceBgFadeInMs = config.has("entrance_background_fade_in")
+                    ? Math.max(1L, (long) (config.get("entrance_background_fade_in").getAsFloat() * 1000))
+                    : 1000L / 15;
+            this.configEntranceBgSweepMs = config.has("entrance_background_sweep_duration")
+                    ? Math.max(1L, (long) (config.get("entrance_background_sweep_duration").getAsFloat() * 1000))
+                    : 100L;
+            this.configEntranceBgFadeOutMs = config.has("entrance_background_fade_out")
+                    ? Math.max(1L, (long) (config.get("entrance_background_fade_out").getAsFloat() * 1000))
+                    : 2000L / 15;
+            this.configEntranceBgColor = config.has("entrance_background_color")
+                    ? SubtitleEntranceBackground.parseColor(config.get("entrance_background_color").getAsString(), 0xFFFFFF)
+                    : 0xFFFFFF;
             this.normalTextColor = hexColorToInt(config.has("color_normal_text") ? config.get("color_normal_text").getAsString() : "#FFFFFF");
             
             if (scrollEffect == null) {
@@ -389,7 +441,8 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
                 return 1.0f;
             } else {
                 long fadeElapsed = currentTime - this.textHideTime;
-                return Math.max(0.0f, 1.0f - (float) fadeElapsed / FADE_OUT_DURATION);
+                float fadeProgress = (float) fadeElapsed / FADE_OUT_DURATION;
+                return TextFadeEffect.fadeAlpha(fadeProgress, configBlinkFadeAnimation);
             }
         }
         return 1.0f;
@@ -406,6 +459,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         this.isFadingOut = false;
         this.visible = false;
         this.scrollEffect = null;
+        this.backgroundTriggerTime = -1;
     }
 
     /**

@@ -11,6 +11,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.util.Mth;
+import org.mods.gd656killicon.client.render.effect.BonusTextBox;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656killicon.client.config.ConfigManager;
@@ -18,6 +20,7 @@ import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
 import org.mods.gd656killicon.client.render.effect.DigitalScrollEffect;
+import org.mods.gd656killicon.client.render.effect.TextFadeEffect;
 import org.mods.gd656killicon.client.render.effect.TextScrambleEffect;
 import org.mods.gd656killicon.common.bonus.BonusDefinition;
 import org.mods.gd656killicon.common.bonus.BonusRegistry;
@@ -65,7 +68,27 @@ public class BonusListRenderer implements IHudRenderer {
     private boolean enableDigitalScroll = true;
     private boolean enableGlowEffect = false;
     private float glowIntensity = 0.5f;
+    private float glowSize = GLOW_OFFSET;
+    private int glowColorRgb = 0xFFFFFF;
+    private float glowAlphaMultiplier = 1.0f;
+    private boolean enableTextBox = false;
+    private float textBoxBorderWidth = 1.0f;
+    private int textBoxColorRgb = 0xFFFFFF;
+    private boolean cleanSubtitleContent = false;
+    private long fadeOutDurationMs = 300L;
+    private float fadeStartLineRatio = 0.0f;
+    private boolean enableQueueLinkage = false;
+    private float queueLinkageScrollSpeed = 0.1f;
+    private float queueLinkageIconYOffset = 0.0f;
+    private boolean linkageConfigLoaded = false;
+    private float linkedYOffset = 0.0f;
+    private float linkageFromOffset = 0.0f;
+    private long linkageStartTime = 0L;
+    private float linkageTargetOffset = 0.0f;
+    private float linkageBaseY = 0.0f;
     private int normalTextColor = 0xFFFFFF;
+    private boolean enableTextShadow = true;
+    private boolean configBlinkFadeAnimation = false;
     
     private long lastProcessTime = 0;
     private long lastRenderTime = 0;
@@ -75,6 +98,18 @@ public class BonusListRenderer implements IHudRenderer {
 
     public static BonusListRenderer getInstance() {
         return INSTANCE;
+    }
+
+    /**
+     * 玩家是否将该加分项的客户端元素配置内容改为空(配置键存在且值为空字符串)。
+     * 为空时服务端显示请求到达后不显示该加分项。
+     */
+    public static boolean isBonusConfigEmpty(int type, JsonObject config) {
+        BonusDefinition def = BonusRegistry.get(type);
+        if (def == null || config == null || !config.has(def.formatConfigKey())) {
+            return false;
+        }
+        return config.get(def.formatConfigKey()).getAsString().isEmpty();
     }
 
     public static String getEffectiveFormat(int type, String extraData) {
@@ -108,6 +143,11 @@ public class BonusListRenderer implements IHudRenderer {
     public void render(GuiGraphics guiGraphics, float partialTick) {
         JsonObject config = ElementConfigManager.getElementConfig(ConfigManager.getCurrentPresetId(), "subtitle/bonus_list");
         if (config == null || !config.get("visible").getAsBoolean()) return;
+        // 首次渲染时惰性加载一次配置(直接进游戏时联动配置立即生效; 之后由事件/配置界面驱动更新)
+        if (!this.linkageConfigLoaded) {
+            loadConfig(config);
+            this.linkageConfigLoaded = true;
+        }
         int xOffset = config.get("x_offset").getAsInt();
         int yOffset = config.get("y_offset").getAsInt();
         Minecraft mc = Minecraft.getInstance();
@@ -115,6 +155,7 @@ public class BonusListRenderer implements IHudRenderer {
         int screenHeight = mc.getWindow().getGuiScaledHeight();
         float centerX = screenWidth / 2.0f + xOffset;
         float startY = screenHeight - yOffset;
+        startY = applyQueueLinkage(startY);
         renderInternal(guiGraphics, config, centerX, startY);
     }
 
@@ -133,7 +174,12 @@ public class BonusListRenderer implements IHudRenderer {
 
         ParsedData parsed = ParsedData.parse(context.extraData());
         String extraData = parsed.extraData;
-        
+
+        // 玩家将该加分项客户端元素配置内容改为空 → 不显示此加分项
+        if (isBonusConfigEmpty(context.type(), config)) {
+            return;
+        }
+
         String format = getEffectiveFormat(context.type(), extraData);
 
         int specialColor = parseSpecialColor(config);
@@ -201,6 +247,10 @@ public class BonusListRenderer implements IHudRenderer {
         loadConfig(config);
 
         String resolvedExtraData = extraData != null ? extraData : "";
+        // 玩家将该加分项客户端元素配置内容改为空 → 不显示此加分项
+        if (isBonusConfigEmpty(type, config)) {
+            return;
+        }
         String format = getEffectiveFormat(type, resolvedExtraData, config);
         int specialColor = parseSpecialColor(config);
         long now = PreviewRenderTimeContext.currentTimeMillis();
@@ -250,6 +300,28 @@ public class BonusListRenderer implements IHudRenderer {
             this.enableDigitalScroll = !config.has("enable_digital_scroll") || config.get("enable_digital_scroll").getAsBoolean();
             this.enableGlowEffect = config.has("enable_glow_effect") && config.get("enable_glow_effect").getAsBoolean();
             this.glowIntensity = config.has("glow_intensity") ? config.get("glow_intensity").getAsFloat() : 0.5f;
+            this.glowSize = config.has("glow_size") ? config.get("glow_size").getAsFloat() : GLOW_OFFSET;
+            this.glowColorRgb = parseHexColor(config, "glow_color", 0xFFFFFF);
+            this.glowAlphaMultiplier = config.has("glow_alpha") ? Mth.clamp(config.get("glow_alpha").getAsFloat(), 0.0f, 1.0f) : 1.0f;
+            this.enableTextBox = config.has("text_box") && config.get("text_box").getAsBoolean();
+            this.textBoxBorderWidth = config.has("text_box_border_width") ? Math.max(0.0f, config.get("text_box_border_width").getAsFloat()) : 1.0f;
+            this.textBoxColorRgb = parseHexColor(config, "text_box_color", 0xFFFFFF);
+            this.cleanSubtitleContent = config.has("clean_subtitle_content") && config.get("clean_subtitle_content").getAsBoolean();
+            this.fadeOutDurationMs = config.has("fade_out_duration")
+                    ? Math.max(1L, (long) (config.get("fade_out_duration").getAsFloat() * 1000))
+                    : 300L;
+            this.fadeStartLineRatio = config.has("fade_start_line_ratio")
+                    ? Mth.clamp(config.get("fade_start_line_ratio").getAsFloat(), 0.0f, 1.0f)
+                    : 0.0f;
+            this.enableQueueLinkage = config.has("enable_queue_linkage") && config.get("enable_queue_linkage").getAsBoolean();
+            this.queueLinkageScrollSpeed = config.has("queue_linkage_scroll_speed")
+                    ? Math.max(0.01f, config.get("queue_linkage_scroll_speed").getAsFloat())
+                    : 0.1f;
+            this.queueLinkageIconYOffset = config.has("queue_linkage_icon_y_offset")
+                    ? config.get("queue_linkage_icon_y_offset").getAsFloat()
+                    : 0.0f;
+            this.enableTextShadow = !config.has("enable_text_shadow") || config.get("enable_text_shadow").getAsBoolean();
+            this.configBlinkFadeAnimation = config.has("blink_fade_animation") && config.get("blink_fade_animation").getAsBoolean();
             this.normalTextColor = parseHexColor(config, "color_normal_text", 0xFFFFFF);
         } catch (Exception e) {
             this.animationDuration = 0.5f;
@@ -264,6 +336,9 @@ public class BonusListRenderer implements IHudRenderer {
             this.enableDigitalScroll = true;
             this.enableGlowEffect = false;
             this.glowIntensity = 0.5f;
+            this.glowSize = GLOW_OFFSET;
+            this.glowColorRgb = 0xFFFFFF;
+            this.glowAlphaMultiplier = 1.0f;
             this.normalTextColor = 0xFFFFFF;
         }
     }
@@ -313,6 +388,36 @@ public class BonusListRenderer implements IHudRenderer {
             } catch (NumberFormatException ignored) {}
         }
         return fallback;
+    }
+
+    /**
+     * 干净字幕内容: 排除空格与 '+' 字符(占位符由调用方跳过)。
+     */
+    private static String cleanSubtitleText(String text) {
+        StringBuilder sb = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == ' ' || c == '+') {
+                continue;
+            }
+            sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 递归清除组件所有层级的样式颜色(保留 bold 等其它样式)。
+     * 清除后渲染时颜色全部来自 drawString 传入的 color 参数, 不受原字符串各段样式色影响。
+     */
+    private static Component stripColor(Component component) {
+        Style style = component.getStyle();
+        Style stripped = (style == null ? Style.EMPTY : style).withColor((TextColor) null);
+        MutableComponent result = component.copy();
+        result.setStyle(stripped);
+        for (int i = 0; i < result.getSiblings().size(); i++) {
+            result.getSiblings().set(i, stripColor(result.getSiblings().get(i)));
+        }
+        return result;
     }
 
     private boolean canMerge(BonusItem item, String format, boolean isComboFormat, String extraData, long now) {
@@ -372,6 +477,10 @@ public class BonusListRenderer implements IHudRenderer {
         
         boolean effectiveAlignLeft = alignLeft && !alignRight;
         boolean effectiveAlignRight = !alignLeft && alignRight;
+        // 横向排列仅在设置了左对齐或右对齐后可用: 向右对齐往左顶, 向左对齐往右顶
+        boolean horizontal = config != null && config.has("enable_horizontal_layout")
+                && config.get("enable_horizontal_layout").getAsBoolean()
+                && (effectiveAlignLeft || effectiveAlignRight);
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -384,18 +493,28 @@ public class BonusListRenderer implements IHudRenderer {
         synchronized (items) {
             Iterator<BonusItem> iterator = items.iterator();
             int index = 0;
+            float accumulatedX = 0.0f;   // 横向: 从最新项(0)开始累计, 每项占位 = 自身文本宽 + 字幕间距
 
             while (iterator.hasNext()) {
                 BonusItem item = iterator.next();
                 
-                item.update(now, dt, index * lineSpacing);
+                if (horizontal) {
+                    // 向右对齐往左顶(负方向), 向左对齐往右顶(正方向);
+                    // 老字幕的右(左)边缘距新字幕的左(右)边缘 = 字幕间距(lineSpacing)
+                    float itemWidth = mc.font.width(item.getDisplayComponent());
+                    float dir = effectiveAlignRight ? -1.0f : 1.0f;
+                    item.updateX(now, dt, dir * accumulatedX);
+                    accumulatedX += itemWidth + lineSpacing;
+                } else {
+                    item.update(now, dt, index * lineSpacing);
+                }
                 
-                float alpha = calculateAlpha(item, now, maxLines, lineSpacing);
+                float alpha = calculateAlpha(item, now, maxLines, lineSpacing, horizontal, index);
                 if (alpha > ALPHA_THRESHOLD) {
-                    item.render(guiGraphics, mc, scaledCenterX, scaledStartY, alpha, effectiveAlignLeft, effectiveAlignRight, mc.getWindow().getGuiScaledWidth() / scale, scale);
+                    item.render(guiGraphics, mc, scaledCenterX, scaledStartY, alpha, effectiveAlignLeft, effectiveAlignRight, mc.getWindow().getGuiScaledWidth() / scale, scale, horizontal);
                 }
 
-                if (shouldRemove(item, alpha, maxLines, lineSpacing)) {
+                if (shouldRemove(item, alpha, now, maxLines, lineSpacing, horizontal, index)) {
                     iterator.remove();
                     continue;
                 }
@@ -407,7 +526,7 @@ public class BonusListRenderer implements IHudRenderer {
         RenderSystem.disableBlend();
     }
 
-    private float calculateAlpha(BonusItem item, long now, int maxLines, int lineSpacing) {
+    private float calculateAlpha(BonusItem item, long now, int maxLines, int lineSpacing, boolean horizontal, int index) {
         float alpha = 1.0f;
         
         if (!this.enableTextSweepAnimation) {
@@ -416,51 +535,138 @@ public class BonusListRenderer implements IHudRenderer {
             alpha *= Math.min(1.0f, fadeInProgress);
         }
         
-        float lineIndex = item.currentY / lineSpacing;
+        // 位置: 竖向用 currentY/行距(每行一个单位); 横向用队列序号(被顶开第几格),
+        // 不能按像素偏移/行距换算(每项文本宽不同, 会立即超过 maxLines 导致老项瞬间消失)
+        float lineIndex = horizontal ? index : item.currentY / lineSpacing;
         float fadeRange = Math.max(1.0f, (float)maxLines - 1.0f);
-        float posFadeProgress = lineIndex / fadeRange;
-        alpha *= Math.max(0.0f, 1.0f - posFadeProgress);
+        // 开始渐隐行数比: 前 ratio×fadeRange 行保持全显, 之后线性衰减到 0
+        float fadeStartLine = this.fadeStartLineRatio * fadeRange;
+        float fadeSpan = fadeRange - fadeStartLine;
+        float posFadeProgress = fadeSpan <= 0.0f ? 0.0f : (lineIndex - fadeStartLine) / fadeSpan;
+        float posAlpha = Math.max(0.0f, 1.0f - Math.max(0.0f, posFadeProgress));
+        alpha *= posAlpha;
+        // 位置完全隐藏(被顶出显示区): 直接不可见; 回收动画的 0.1 下限只作用于回收渐隐本身,
+        // 不能把位置淡出到 0 的行(如 maxLines=4 时的第 4 行)抬回 0.1 导致它很淡地出现
+        if (posAlpha <= 0.0f) {
+            return 0.0f;
+        }
 
         if (item.isFading) {
             long fadeElapsed = now - item.fadeStartTime;
-            float fadeDuration = 300.0f;
+            float fadeDuration = this.fadeOutDurationMs;   // 出场动画时长(闪烁出场动画同用此值)
             float fadeProgress = fadeElapsed / fadeDuration;
-            alpha *= Math.max(0.0f, 1.0f - fadeProgress);
+            // 闪出动画用于单行字幕的渐隐(与滚动图标同款公式); 渐隐期整体透明度不低于 0.1
+            alpha *= TextFadeEffect.fadeAlpha(fadeProgress, configBlinkFadeAnimation);
+            alpha = Math.max(TextFadeEffect.MIN_ALPHA, alpha);
         }
 
         return alpha;
     }
     
-    private boolean shouldRemove(BonusItem item, float alpha, int maxLines, int lineSpacing) {
-        float lineIndex = item.currentY / lineSpacing;
+    private boolean shouldRemove(BonusItem item, float alpha, long now, int maxLines, int lineSpacing, boolean horizontal, int index) {
+        float lineIndex = horizontal ? index : item.currentY / lineSpacing;
         boolean positionHidden = lineIndex >= maxLines;
-        boolean fadeHidden = item.isFading && alpha <= 0.01f;
+        boolean fadeHidden = item.isFading && (now - item.fadeStartTime) >= this.fadeOutDurationMs;
         return positionHidden || fadeHidden;
+    }
+
+    /**
+     * 队列联动(逐级补位): 检查 kill_feed 与击杀图标的 y, 有上方空位就补位, 可多级上移。
+     * <ul>
+     *   <li>图标、kill_feed 都显示 → 原位;</li>
+     *   <li>图标未显示(kill_feed 显示)→ kill_feed 会补图标位, 加分项补到 kill_feed 位;</li>
+     *   <li>kill_feed 未显示(图标显示)→ 加分项补到 kill_feed 位;</li>
+     *   <li>两者都未显示 → 加分项一路补到最上(击杀图标位)。</li>
+     * </ul>
+     * 平滑: x 秒内 easeOutCubic 时间线插值(参考加分项行平滑, 浮点无颗粒感)。
+     */
+    private float applyQueueLinkage(float baseY) {
+        if (!this.enableQueueLinkage) {
+            this.linkageStartTime = 0L;
+            this.linkedYOffset = 0.0f;
+            return baseY;
+        }
+        SubtitleRenderer subtitleRenderer = SubtitleRenderer.getInstance();
+        ScrollingIconRenderer iconRenderer = ScrollingIconRenderer.getInstance();
+        boolean kfVisible = subtitleRenderer.hasVisibleSubtitle();
+        boolean iconsVisible = iconRenderer.hasVisibleIcons();
+        float kfBaseY = subtitleRenderer.getBaseTextY();
+        float iconY = iconRenderer.getIconsAnchorY();
+
+        float targetY;
+        if (iconsVisible && kfVisible) {
+            targetY = baseY;                              // 全显示: 原位
+        } else if (kfVisible) {
+            targetY = kfBaseY;                            // 图标空: kill_feed 补图标位, 加分项补 kill_feed 位
+        } else if (iconsVisible) {
+            targetY = kfBaseY;                            // kill_feed 空: 加分项补 kill_feed 位
+        } else {
+            targetY = iconY + this.queueLinkageIconYOffset;   // 都空: 一路补到最上(击杀图标位) + 额外偏移
+        }
+        // 目标必须在自身之上(正常组合 kfBaseY < baseY, iconY < kfBaseY), 否则不联动
+        if (targetY >= baseY) {
+            targetY = baseY;
+        }
+        return smoothLinkedY(baseY, targetY);
+    }
+
+    /**
+     * 队列联动的平滑移动: x 秒内完成的时间线插值(easeOutCubic), 全程浮点无取整。
+     */
+    private float smoothLinkedY(float baseY, float targetY) {
+        float targetOffset = targetY - baseY;
+        long now = System.currentTimeMillis();
+        long durationMs = Math.max(1L, (long) (this.queueLinkageScrollSpeed * 1000.0f));
+
+        if (this.linkageStartTime != 0L && this.linkageTargetOffset == targetOffset && this.linkageBaseY == baseY) {
+            float progress = (now - this.linkageStartTime) / (float) durationMs;
+            progress = Math.min(1.0f, Math.max(0.0f, progress));
+            float eased = 1.0f - (float) Math.pow(1.0f - progress, 3);
+            this.linkedYOffset = this.linkageFromOffset + (targetOffset - this.linkageFromOffset) * eased;
+            if (progress >= 1.0f) {
+                this.linkageFromOffset = targetOffset;
+            }
+            return baseY + this.linkedYOffset;
+        }
+
+        this.linkageFromOffset = this.linkedYOffset;
+        this.linkageStartTime = now;
+        this.linkageTargetOffset = targetOffset;
+        this.linkageBaseY = baseY;
+        if (Math.abs(targetOffset - this.linkedYOffset) < 0.001f) {
+            this.linkageFromOffset = targetOffset;
+            this.linkedYOffset = targetOffset;
+        }
+        return baseY + this.linkedYOffset;
     }
 
     private void drawComponentWithGlow(GuiGraphics guiGraphics, Font font, Component component, int x, int y, int alphaInt) {
         if (this.enableGlowEffect) {
-            int glowAlpha = (int)(alphaInt * this.glowIntensity);
+            int glowAlpha = (int)(alphaInt * this.glowIntensity * this.glowAlphaMultiplier);
+            glowAlpha = Math.max((int) (TextFadeEffect.MIN_ALPHA * 255.0f), Math.min(255, glowAlpha));  // 副本最小透明度 0.1
             glowAlpha = Math.max(0, Math.min(255, glowAlpha));
-            int glowColor = (glowAlpha << 24) | (this.normalTextColor & 0xFFFFFF);
+            int glowColor = (glowAlpha << 24) | (this.glowColorRgb & 0xFFFFFF);
+            // 发光副本一律显示配置的发光色: 递归清除各段样式颜色(null),
+            // 渲染时 RGB/alpha 全部来自 drawString 传入的 glowColor(不受主字幕样式色影响)
+            Component glowComponent = stripColor(component);
             
             PoseStack poseStack = guiGraphics.pose();
             
             float[][] offsets = {
-                {-GLOW_OFFSET, 0}, {GLOW_OFFSET, 0}, {0, -GLOW_OFFSET}, {0, GLOW_OFFSET},
-                {-GLOW_OFFSET, -GLOW_OFFSET}, {GLOW_OFFSET, -GLOW_OFFSET},
-                {-GLOW_OFFSET, GLOW_OFFSET}, {GLOW_OFFSET, GLOW_OFFSET}
+                {-glowSize, 0}, {glowSize, 0}, {0, -glowSize}, {0, glowSize},
+                {-glowSize, -glowSize}, {glowSize, -glowSize},
+                {-glowSize, glowSize}, {glowSize, glowSize}
             };
             
             for (float[] offset : offsets) {
                 poseStack.pushPose();
                 poseStack.translate(offset[0], offset[1], 0);
-                guiGraphics.drawString(font, component, x, y, glowColor, false);
+                guiGraphics.drawString(font, glowComponent, x, y, glowColor, false);
                 poseStack.popPose();
             }
         }
         int color = (alphaInt << 24) | (this.normalTextColor & 0xFFFFFF);
-        guiGraphics.drawString(font, component, x, y, color, true);
+        guiGraphics.drawString(font, component, x, y, color, this.enableTextShadow);
     }
 
     
@@ -554,6 +760,7 @@ public class BonusListRenderer implements IHudRenderer {
         String extraData;
         
         float currentY;
+        float currentXOffset;
         boolean isFading;
         long fadeStartTime;
         long spawnTime;
@@ -581,6 +788,7 @@ public class BonusListRenderer implements IHudRenderer {
             this.formatString = format;
             this.extraData = extraData != null ? extraData : "";
             this.currentY = 0; 
+            this.currentXOffset = 0;
             this.isFading = false;
             this.spawnTime = PreviewRenderTimeContext.currentTimeMillis();
             this.specialColor = specialColor;
@@ -700,7 +908,22 @@ public class BonusListRenderer implements IHudRenderer {
             this.currentY = this.currentY + (targetY - this.currentY) * smoothFactor;
         }
 
-        public void render(GuiGraphics guiGraphics, Minecraft mc, float x, float y, float alpha, boolean alignLeft, boolean alignRight, float screenWidth, float globalScale) {
+        /**
+         * 横向排列的平移动画: 与竖向 {@link #update} 完全相同的平滑曲线与时序,
+         * 但目标/当前值作用于水平偏移 currentXOffset(新加分项为 0, 老加分项被顶向两侧)。
+         */
+        public void updateX(long now, float dt, float targetX) {
+            if (scoreStat != null) scoreStat.update(now, dt);
+            if (comboStat != null) comboStat.update(now, dt);
+            if (mkStat != null) mkStat.update(now, dt);
+            if (distanceStat != null) distanceStat.update(now, dt);
+            if (streakStat != null) streakStat.update(now, dt);
+            
+            float smoothFactor = 1.0f - (float)Math.exp(-BonusListRenderer.this.animationSpeed * dt);
+            this.currentXOffset = this.currentXOffset + (targetX - this.currentXOffset) * smoothFactor;
+        }
+
+        public void render(GuiGraphics guiGraphics, Minecraft mc, float x, float y, float alpha, boolean alignLeft, boolean alignRight, float screenWidth, float globalScale, boolean horizontal) {
             Component component = getDisplayComponent();
             
             Component killFeedComponent = null;
@@ -756,6 +979,7 @@ public class BonusListRenderer implements IHudRenderer {
             
             if (renderOriginal) {
                 float drawX = calculateDrawX(x, baseTextWidth, alignLeft, alignRight);
+                if (horizontal) drawX += this.currentXOffset;
                 float drawY = y + this.currentY;
                 
                 if (sweepEnabled) {
@@ -779,6 +1003,9 @@ public class BonusListRenderer implements IHudRenderer {
                         guiGraphics.enableScissor(Math.max(0, scLeft), Math.max(0, scY), scRight, scY + scH + 2);
                         guiGraphics.pose().pushPose();
                         guiGraphics.pose().translate(drawX, drawY, 0);
+                        if (BonusListRenderer.this.enableTextBox) {
+                            BonusTextBox.draw(guiGraphics, baseTextWidth, mc.font.lineHeight, BonusListRenderer.this.textBoxBorderWidth, BonusListRenderer.this.textBoxColorRgb, alphaInt);
+                        }
                         BonusListRenderer.this.drawComponentWithGlow(guiGraphics, mc.font, component, 0, 0, alphaInt);
                         guiGraphics.pose().popPose();
                         guiGraphics.disableScissor();
@@ -786,6 +1013,9 @@ public class BonusListRenderer implements IHudRenderer {
                 } else {
                     guiGraphics.pose().pushPose();
                     guiGraphics.pose().translate(drawX, drawY, 0);
+                    if (BonusListRenderer.this.enableTextBox) {
+                        BonusTextBox.draw(guiGraphics, baseTextWidth, mc.font.lineHeight, BonusListRenderer.this.textBoxBorderWidth, BonusListRenderer.this.textBoxColorRgb, alphaInt);
+                    }
                     BonusListRenderer.this.drawComponentWithGlow(guiGraphics, mc.font, component, 0, 0, alphaInt);
                     guiGraphics.pose().popPose();
                 }
@@ -793,6 +1023,7 @@ public class BonusListRenderer implements IHudRenderer {
             
             if (renderFeed && killFeedComponent != null) {
                 float drawX = calculateDrawX(x, feedTextWidth, alignLeft, alignRight);
+                if (horizontal) drawX += this.currentXOffset;
                 float drawY = y + this.currentY;
                 
                 if (sweepEnabled) {
@@ -809,6 +1040,9 @@ public class BonusListRenderer implements IHudRenderer {
                         guiGraphics.enableScissor(Math.max(0, scLeft), Math.max(0, scY), scRight, scY + scH + 2);
                         guiGraphics.pose().pushPose();
                         guiGraphics.pose().translate(drawX, drawY, 0);
+                        if (BonusListRenderer.this.enableTextBox) {
+                            BonusTextBox.draw(guiGraphics, feedTextWidth, mc.font.lineHeight, BonusListRenderer.this.textBoxBorderWidth, BonusListRenderer.this.textBoxColorRgb, alphaInt);
+                        }
                         BonusListRenderer.this.drawComponentWithGlow(guiGraphics, mc.font, killFeedComponent, 0, 0, alphaInt);
                         guiGraphics.pose().popPose();
                         guiGraphics.disableScissor();
@@ -816,6 +1050,9 @@ public class BonusListRenderer implements IHudRenderer {
                 } else {
                     guiGraphics.pose().pushPose();
                     guiGraphics.pose().translate(drawX, drawY, 0);
+                    if (BonusListRenderer.this.enableTextBox) {
+                        BonusTextBox.draw(guiGraphics, feedTextWidth, mc.font.lineHeight, BonusListRenderer.this.textBoxBorderWidth, BonusListRenderer.this.textBoxColorRgb, alphaInt);
+                    }
                     BonusListRenderer.this.drawComponentWithGlow(guiGraphics, mc.font, killFeedComponent, 0, 0, alphaInt);
                     guiGraphics.pose().popPose();
                 }
@@ -847,11 +1084,19 @@ public class BonusListRenderer implements IHudRenderer {
             
             while (m.find()) {
                 String staticPart = fmt.substring(lastEnd, m.start());
+                if (BonusListRenderer.this.cleanSubtitleContent) {
+                    staticPart = cleanSubtitleText(staticPart);
+                }
                 if (!staticPart.isEmpty()) {
                     root.append(Component.literal(staticPart).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
                 }
                 
                 String tag = m.group(1);
+                if (BonusListRenderer.this.cleanSubtitleContent) {
+                    // 干净模式: 排除 <weapon>/<target>/<score> 占位符(不显示其值)
+                    lastEnd = m.end();
+                    continue;
+                }
                 if ("<weapon>".equals(tag)) {
                     root.append(Component.literal(this.weaponName).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
                 } else if ("<target>".equals(tag)) {
@@ -874,6 +1119,9 @@ public class BonusListRenderer implements IHudRenderer {
             }
             
             String tail = fmt.substring(lastEnd);
+            if (BonusListRenderer.this.cleanSubtitleContent) {
+                tail = cleanSubtitleText(tail);
+            }
             if (!tail.isEmpty()) {
                 root.append(Component.literal(tail).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
             }
@@ -890,6 +1138,9 @@ public class BonusListRenderer implements IHudRenderer {
             
             while (matcher.find()) {
                 String staticPart = formatString.substring(lastEnd, matcher.start());
+                if (BonusListRenderer.this.cleanSubtitleContent) {
+                    staticPart = cleanSubtitleText(staticPart);
+                }
                 if (enableTextScrolling && scrambleIdx < scrambleEffects.size()) {
                     TextScrambleEffect effect = scrambleEffects.get(scrambleIdx);
                     root.append(effect != null ? effect.getCurrentText() : staticPart);
@@ -899,6 +1150,12 @@ public class BonusListRenderer implements IHudRenderer {
                 scrambleIdx++;
 
                 String type = matcher.group(1);
+
+                if (BonusListRenderer.this.cleanSubtitleContent) {
+                    // 干净模式: 排除所有被 <> 包裹的占位符(不显示其值)
+                    lastEnd = matcher.end();
+                    continue;
+                }
                 
                 switch (type) {
                     case "score" -> {
@@ -936,6 +1193,9 @@ public class BonusListRenderer implements IHudRenderer {
             }
             
             String lastPart = formatString.substring(lastEnd);
+            if (BonusListRenderer.this.cleanSubtitleContent) {
+                lastPart = cleanSubtitleText(lastPart);
+            }
             if (enableTextScrolling && scrambleIdx < scrambleEffects.size()) {
                 TextScrambleEffect effect = scrambleEffects.get(scrambleIdx);
                 root.append(effect != null ? effect.getCurrentText() : lastPart);

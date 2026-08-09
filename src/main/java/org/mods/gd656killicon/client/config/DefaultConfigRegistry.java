@@ -41,6 +41,7 @@ public class DefaultConfigRegistry {
         OFFICIAL_PRESET_NAMES.put("00008", "三角洲行动：全面战场模式");
         OFFICIAL_PRESET_NAMES.put("00035", "Custom Preset (EN)");
         OFFICIAL_PRESET_NAMES.put("00036", "Battlefield 5 (EN)");
+        OFFICIAL_PRESET_NAMES.put("00037", "Battlefield 6模式");
         for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
             OFFICIAL_PRESET_NAMES.put(definition.presetId(), "VALORANT " + definition.displayName());
         }
@@ -124,6 +125,8 @@ public class DefaultConfigRegistry {
         p00036.add("subtitle/bonus_list");
         p00036.add("kill_icon/scrolling");
         OFFICIAL_PRESET_STRUCTURE.put("00036", p00036);
+        java.util.Set<String> p00037 = new java.util.HashSet<>();
+        OFFICIAL_PRESET_STRUCTURE.put("00037", p00037);
 
         for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
             java.util.Set<String> valorantPreset = new java.util.HashSet<>();
@@ -221,6 +224,26 @@ public class DefaultConfigRegistry {
         killFeed.addProperty("enable_stacking", false);
         killFeed.addProperty("max_lines", 3);
         killFeed.addProperty("line_spacing", 12);
+        killFeed.addProperty("enable_text_shadow", true);
+        killFeed.addProperty("blink_fade_animation", false);
+        killFeed.addProperty("enable_glow_effect", false);
+        killFeed.addProperty("glow_intensity", 0.5);
+        killFeed.addProperty("glow_size", 0.3);
+        killFeed.addProperty("glow_color", "#FFFFFF");
+        killFeed.addProperty("glow_alpha", 1.0);
+        killFeed.addProperty("align_left", false);
+        killFeed.addProperty("align_right", false);
+        killFeed.addProperty("enable_flash_in", true);
+        killFeed.addProperty("fade_in_duration", 0.0);
+        killFeed.addProperty("entrance_background", false);
+        killFeed.addProperty("entrance_background_alpha", 0.2);
+        killFeed.addProperty("entrance_background_fade_in", 0.067);
+        killFeed.addProperty("entrance_background_sweep_duration", 0.1);
+        killFeed.addProperty("entrance_background_fade_out", 0.133);
+        killFeed.addProperty("entrance_background_color", "#FFFFFF");
+        killFeed.addProperty("enable_queue_linkage", false);
+        killFeed.addProperty("queue_linkage_scroll_speed", 0.1);
+        killFeed.addProperty("queue_linkage_icon_y_offset", 0.0);
 
         registerGlobal("subtitle/kill_feed", killFeed);
 
@@ -230,6 +253,12 @@ public class DefaultConfigRegistry {
         score.addProperty("x_offset", 0);
         score.addProperty("y_offset", 80);
         score.addProperty("display_duration", 4.0);
+        score.addProperty("entrance_background", false);
+        score.addProperty("entrance_background_alpha", 0.2);
+        score.addProperty("entrance_background_fade_in", 0.067);
+        score.addProperty("entrance_background_sweep_duration", 0.1);
+        score.addProperty("entrance_background_fade_out", 0.133);
+        score.addProperty("entrance_background_color", "#FFFFFF");
         score.addProperty("format_score", "\u003cscore\u003e");
         score.addProperty("score_threshold", 1000);
         score.addProperty("color_high_score", "#D4B800");
@@ -245,6 +274,11 @@ public class DefaultConfigRegistry {
         score.addProperty("enable_digital_scroll", true);
         score.addProperty("enable_glow_effect", false);
         score.addProperty("glow_intensity", 0.5);
+        score.addProperty("glow_size", 0.3);
+        score.addProperty("glow_color", "#FFFFFF");
+        score.addProperty("glow_alpha", 1.0);
+        score.addProperty("enable_text_shadow", true);
+        score.addProperty("blink_fade_animation", false);
         registerGlobal("subtitle/score", score);
 
         JsonObject bonusList = new JsonObject();
@@ -262,6 +296,16 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("text_scrolling_refresh_rate", 0.02f);
         bonusList.addProperty("color_special_placeholder", "#D4B800");
         bonusList.addProperty("color_normal_text", "#FFFFFF");
+        bonusList.addProperty("text_box", false);
+        bonusList.addProperty("text_box_border_width", 1.0f);
+        bonusList.addProperty("text_box_color", "#FFFFFF");
+        bonusList.addProperty("enable_horizontal_layout", false);
+        bonusList.addProperty("clean_subtitle_content", false);
+        bonusList.addProperty("fade_out_duration", 0.3f);
+        bonusList.addProperty("fade_start_line_ratio", 0.0f);
+        bonusList.addProperty("enable_queue_linkage", false);
+        bonusList.addProperty("queue_linkage_scroll_speed", 0.1f);
+        bonusList.addProperty("queue_linkage_icon_y_offset", 0.0f);
         bonusList.addProperty("animation_duration", 0.5f);
         bonusList.addProperty("animation_refresh_rate", 0.01f);
         bonusList.addProperty("align_left", false);
@@ -277,6 +321,11 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("enable_digital_scroll", true);
         bonusList.addProperty("enable_glow_effect", false);
         bonusList.addProperty("glow_intensity", 0.5f);
+        bonusList.addProperty("glow_size", 0.3f);
+        bonusList.addProperty("glow_color", "#FFFFFF");
+        bonusList.addProperty("glow_alpha", 1.0f);
+        bonusList.addProperty("enable_text_shadow", true);
+        bonusList.addProperty("blink_fade_animation", false);
         registerGlobal("subtitle/bonus_list", bonusList);
 
         JsonObject comboSubtitle = new JsonObject();
@@ -293,6 +342,8 @@ public class DefaultConfigRegistry {
         comboSubtitle.addProperty("enable_animation", true);
         comboSubtitle.addProperty("enable_light_effect", true);
         comboSubtitle.addProperty("enable_bold", true);
+        comboSubtitle.addProperty("enable_text_shadow", true);
+        comboSubtitle.addProperty("blink_fade_animation", false);
         comboSubtitle.addProperty("light_height", 10.0);
         comboSubtitle.addProperty("light_hold_duration", 0.0);
         comboSubtitle.addProperty("enable_scale_animation", false);
@@ -328,6 +379,20 @@ public class DefaultConfigRegistry {
         scrolling.addProperty("ring_effect_explosion_color", "#F77F00");
         scrolling.addProperty("ring_effect_explosion_radius", 42.0f);
         scrolling.addProperty("ring_effect_explosion_thickness", 5.4f);
+        scrolling.addProperty("scroll_direction", "left");
+        scrolling.addProperty("pin_newest_icon", false);
+        scrolling.addProperty("blink_fade_animation", false);
+        scrolling.addProperty("entrance_background", false);
+        scrolling.addProperty("entrance_background_size", 64);
+        scrolling.addProperty("entrance_background_fade_in", 0.2f);
+        scrolling.addProperty("entrance_background_fade_out", 0.2f);
+        scrolling.addProperty("entrance_background_color", "#FFFFFF");
+        scrolling.addProperty("entrance_background_headshot_color", "#FF5000");
+        scrolling.addProperty("entrance_background_alpha", 0.2f);
+        scrolling.addProperty("entrance_background_border", 0.5f);
+        scrolling.addProperty("entrance_background_border_color", "#FFFFFF");
+        scrolling.addProperty("entrance_background_headshot_border_color", "#FF4300");
+        scrolling.addProperty("entrance_background_border_alpha", 0.2f);
         injectTextureAnimationConfigs("kill_icon/scrolling", scrolling);
         injectTextureSelectionConfigs("00001", "kill_icon/scrolling", scrolling);
         registerGlobal("kill_icon/scrolling", scrolling);

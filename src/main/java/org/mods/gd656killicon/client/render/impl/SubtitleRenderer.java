@@ -5,6 +5,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import org.mods.gd656killicon.common.KillType;
@@ -13,6 +16,8 @@ import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
+import org.mods.gd656killicon.client.render.effect.SubtitleEntranceBackground;
+import org.mods.gd656killicon.client.render.effect.TextFadeEffect;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import com.google.gson.JsonObject;
 
@@ -27,6 +32,28 @@ import java.util.concurrent.ConcurrentHashMap;
  * Displays a customizable message when a kill occurs, e.g., "You killed <target> with <weapon>".
  */
 public class SubtitleRenderer implements IHudRenderer {
+
+    private static final SubtitleRenderer INSTANCE = new SubtitleRenderer();
+
+    public static SubtitleRenderer getInstance() {
+        return INSTANCE;
+    }
+
+    /**
+     * kill_feed 字幕当前是否有内容显示(队列联动用)。
+     */
+    public boolean hasVisibleSubtitle() {
+        return this.isVisible;
+    }
+
+    /**
+     * kill_feed 字幕的基准 y(未联动时的位置, 队列联动用, 与 render 中 baseTextY 计算一致)。
+     */
+    public float getBaseTextY() {
+        Minecraft mc = Minecraft.getInstance();
+        int screenHeight = mc.getWindow().getGuiScaledHeight();
+        return screenHeight - this.configYOffset;
+    }
 
     private static final long FADE_IN_DURATION = 200L;     private static final long FADE_OUT_DURATION = 300L;     private static final int DEFAULT_PLACEHOLDER_COLOR = 0xFF008B8B;
     private static final int DEFAULT_EMPHASIS_COLOR = 0xFFFFFFFF;
@@ -53,6 +80,32 @@ public class SubtitleRenderer implements IHudRenderer {
     private final java.util.Map<String, Boolean> killTypeEnableFlags = new java.util.HashMap<>();
 
     private boolean enableStacking = false;
+    private boolean enableTextShadow = true;
+    private boolean configBlinkFadeAnimation = false;
+    private boolean enableGlowEffect = false;
+    private float glowIntensity = 0.5f;
+    private float glowSize = 0.3f;
+    private int glowColorRgb = 0xFFFFFF;
+    private float glowAlphaMultiplier = 1.0f;
+    private boolean alignLeft = false;
+    private boolean alignRight = false;
+    private boolean configEnableFlashIn = true;
+    private long fadeInDurationMs = 0L;
+    private boolean enableQueueLinkage = false;
+    private float queueLinkageScrollSpeed = 0.1f;
+    private float queueLinkageIconYOffset = 0.0f;
+    private boolean linkageConfigLoaded = false;
+    private float linkedYOffset = 0.0f;
+    private float linkageFromOffset = 0.0f;
+    private long linkageStartTime = 0L;
+    private float linkageTargetOffset = 0.0f;
+    private float linkageBaseY = 0.0f;
+    private boolean configEntranceBackground = false;
+    private float configEntranceBgPeakTransparency = 0.2f;
+    private long configEntranceBgFadeInMs = 1000L / 15;
+    private long configEntranceBgSweepMs = 100L;
+    private long configEntranceBgFadeOutMs = 2000L / 15;
+    private int configEntranceBgColor = 0xFFFFFF;
     private int maxLines = 5;
     private int lineSpacing = 12;
     private int normalTextColor = 0xFFFFFFFF;
@@ -296,7 +349,29 @@ public class SubtitleRenderer implements IHudRenderer {
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
         int centerX = screenWidth / 2 + configXOffset;
-        int textY = screenHeight - configYOffset;
+        float baseTextY = screenHeight - configYOffset;
+        float textY = baseTextY;
+
+        // 首次渲染时惰性加载一次配置(直接进游戏时联动配置立即生效; 之后由事件/配置界面驱动更新)
+        if (!this.linkageConfigLoaded) {
+            JsonObject cfg = ConfigManager.getElementConfig("subtitle", "kill_feed");
+            if (cfg != null) {
+                loadConfig(cfg);
+            }
+            this.linkageConfigLoaded = true;
+        }
+
+        // 队列联动: 击杀图标未显示时, kill_feed 在 x 秒内平滑上移到图标 y; 图标重新出现则按原路径/速度返回
+        if (this.enableQueueLinkage) {
+            ScrollingIconRenderer iconRenderer = ScrollingIconRenderer.getInstance();
+            boolean iconsVisible = iconRenderer.hasVisibleIcons();
+            float iconY = iconRenderer.getIconsAnchorY();
+            float targetY = iconsVisible ? baseTextY : iconY + this.queueLinkageIconYOffset;
+            textY = smoothLinkedY(baseTextY, targetY);
+        } else {
+            this.linkageStartTime = 0L;
+            this.linkedYOffset = 0.0f;
+        }
 
         if (this.enableStacking) {
             renderStacked(guiGraphics, font, centerX, textY);
@@ -324,7 +399,40 @@ public class SubtitleRenderer implements IHudRenderer {
         }
     }
 
-    private void renderStacked(GuiGraphics guiGraphics, Font font, int centerX, int startY) {
+    /**
+     * 队列联动的平滑移动: 参考加分项字幕行的平滑, 但使用 x 秒内完成的时间线插值(easeOutCubic),
+     * 全程浮点无取整(避免颗粒感), 到时长即锁定目标(不会无限渐近超时)。
+     */
+    private float smoothLinkedY(float baseY, float targetY) {
+        float targetOffset = targetY - baseY;
+        long now = System.currentTimeMillis();
+        long durationMs = Math.max(1L, (long) (this.queueLinkageScrollSpeed * 1000.0f));
+
+        // 目标未变化: 继续当前时间线
+        if (this.linkageStartTime != 0L && this.linkageTargetOffset == targetOffset && this.linkageBaseY == baseY) {
+            float progress = (now - this.linkageStartTime) / (float) durationMs;
+            progress = Math.min(1.0f, Math.max(0.0f, progress));
+            float eased = 1.0f - (float) Math.pow(1.0f - progress, 3);
+            this.linkedYOffset = this.linkageFromOffset + (targetOffset - this.linkageFromOffset) * eased;
+            if (progress >= 1.0f) {
+                this.linkageFromOffset = targetOffset;
+            }
+            return baseY + this.linkedYOffset;
+        }
+
+        // 目标变化或首次: 从当前值开始新的时间线
+        this.linkageFromOffset = this.linkedYOffset;
+        this.linkageStartTime = now;
+        this.linkageTargetOffset = targetOffset;
+        this.linkageBaseY = baseY;
+        if (Math.abs(targetOffset - this.linkedYOffset) < 0.001f) {
+            this.linkageFromOffset = targetOffset;
+            this.linkedYOffset = targetOffset;
+        }
+        return baseY + this.linkedYOffset;
+    }
+
+    private void renderStacked(GuiGraphics guiGraphics, Font font, int centerX, float startY) {
         long now = PreviewRenderTimeContext.currentTimeMillis();
         
         if (!pendingQueue.isEmpty()) {
@@ -368,7 +476,7 @@ public class SubtitleRenderer implements IHudRenderer {
         renderStackItems(guiGraphics, font, centerX, startY);
     }
 
-    private void renderStackItems(GuiGraphics guiGraphics, Font font, int centerX, int startY) {
+    private void renderStackItems(GuiGraphics guiGraphics, Font font, int centerX, float startY) {
         long now = PreviewRenderTimeContext.currentTimeMillis();
         
         for (int i = 0; i < stackedItems.size(); i++) {
@@ -404,7 +512,7 @@ public class SubtitleRenderer implements IHudRenderer {
             
             if (itemAlpha <= 0.05f) continue;
 
-            int drawY = startY + Math.round(item.currentRelY);
+            float drawY = startY + item.currentRelY;
             
             RenderState state = new RenderState(now - item.spawnTime, itemAlpha, this.scale);
             
@@ -419,7 +527,12 @@ public class SubtitleRenderer implements IHudRenderer {
         long elapsed = currentTime - startTime;
 
         float alpha = calculateAlpha(currentTime);
-        if (alpha <= 0.05f) {
+        // 渐入阶段(elapsed < fadeInDurationMs)alpha 从 0 平滑上升, 不能因低 alpha 被误判隐藏;
+        // 仅渐入结束后 alpha 仍 ≤0.05 才视为隐藏/移除
+        boolean fadingIn = this.startTime >= 0 && this.fadeInDurationMs > 0
+                && (currentTime - this.startTime) < this.fadeInDurationMs;
+        if ((alpha <= 0.05f && !fadingIn)
+                || (this.textHideTime > 0 && currentTime >= this.textHideTime + FADE_OUT_DURATION)) {
             isVisible = false;
             startTime = -1;
             return null;
@@ -439,22 +552,56 @@ public class SubtitleRenderer implements IHudRenderer {
     
     private boolean enableScaleAnimation = false;
 
-    private void renderInternal(GuiGraphics guiGraphics, Font font, int centerX, int textY, RenderState state, 
+    private void renderInternal(GuiGraphics guiGraphics, Font font, int centerX, float textY, RenderState state, 
                               String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, String scoreOverride, long referenceTime) {
-        float colorProgress = getColorProgress(state.elapsed);
+        // 亚像素平滑: 文本 y 的小数部分通过 pose 平移注入(MC drawString 坐标为 int),
+        // 避免联动/动画时每帧整像素跳变产生颗粒感
+        float textYFrac = textY - (float) Math.floor(textY);
+        int textYInt = (int) Math.floor(textY);
+
+        float colorProgress = configEnableFlashIn ? getColorProgress(state.elapsed) : 1.0f;
         String scoreStr = scoreOverride == null || scoreOverride.isBlank()
             ? resolveScoreString(victimId, referenceTime)
             : scoreOverride;
         Component fullText = buildFullText(fmt, pColor, eColor, wName, vName, scoreStr, colorProgress, distance);
 
         int textWidth = font.width(fullText);
-        int textX = centerX - textWidth / 2;
+        int textX;
+        if (alignLeft && !alignRight) {
+            textX = centerX;
+        } else if (alignRight && !alignLeft) {
+            textX = centerX - textWidth;
+        } else {
+            textX = centerX - textWidth / 2;
+        }
 
         PoseStack poseStack = guiGraphics.pose();
         poseStack.pushPose();
 
-        float pivotX = textX + textWidth / 2.0f;
+        float pivotX;
+        if (alignLeft && !alignRight) {
+            pivotX = textX;
+        } else if (alignRight && !alignLeft) {
+            pivotX = textX + textWidth;
+        } else {
+            pivotX = textX + textWidth / 2.0f;
+        }
         float pivotY = textY + font.lineHeight / 2.0f;
+
+        // 字幕入场背景(位于文本之下): 屏幕坐标, 与字幕 pose 缩放对齐; 每次字幕出现(t0)触发;
+        // 右对齐时完全镜像(从右侧显示往左侧扫), 左对齐/居中为现有方向(左边框固定向右扫)
+        if (configEntranceBackground) {
+            float scale = state.currentScale;
+            float textLeftScreen = pivotX + (textX - pivotX) * scale;
+            float textRightScreen = pivotX + (textX + textWidth - pivotX) * scale;
+            float midYScreen = pivotY;
+            float textHeightScreen = font.lineHeight * scale;
+            boolean mirror = alignRight && !alignLeft;
+            SubtitleEntranceBackground.draw(guiGraphics, state.elapsed,
+                    textLeftScreen, textRightScreen, midYScreen, textHeightScreen,
+                    configEntranceBgFadeInMs, configEntranceBgSweepMs, configEntranceBgFadeOutMs,
+                    configEntranceBgPeakTransparency, configEntranceBgColor, mirror);
+        }
 
         poseStack.translate(pivotX, pivotY, 0);
         
@@ -469,10 +616,35 @@ public class SubtitleRenderer implements IHudRenderer {
         
         poseStack.scale(s, s, 1.0f);
         poseStack.translate(-pivotX, -pivotY, 0);
+        // 亚像素偏移: 文本 y 小数部分在 scale 后注入, 使最终绘制位置 = 浮点 textY(平滑无颗粒)
+        if (textYFrac > 0.001f) {
+            poseStack.translate(0.0f, textYFrac, 0.0f);
+        }
 
         int alphaInt = (int) (state.alpha * 255.0f) << 24;
         int colorWithAlpha = (normalTextColor & 0x00FFFFFF) | alphaInt;
-        guiGraphics.drawString(font, fullText, textX, textY, colorWithAlpha, true);
+        // 文本发光(与 score/bonus_list 同款): 8 个 ±glowSize 偏移绘制低透明度文本, 再叠主文本
+        if (this.enableGlowEffect) {
+            int glowAlpha = (int) (state.alpha * this.glowIntensity * this.glowAlphaMultiplier * 255.0f);
+            glowAlpha = Math.max((int) (TextFadeEffect.MIN_ALPHA * 255.0f), Math.min(255, glowAlpha));  // 副本最小透明度 0.1
+            glowAlpha = Math.max(0, Math.min(255, glowAlpha));
+            int glowColor = (this.glowColorRgb & 0x00FFFFFF) | (glowAlpha << 24);
+            // 发光副本一律显示配置的发光色: 递归清除各段样式颜色(null),
+            // 渲染时 RGB/alpha 全部来自 drawString 传入的 glowColor(不受主字幕样式色影响)
+            Component glowComponent = stripColor(fullText);
+            float[][] offsets = {
+                {-glowSize, 0}, {glowSize, 0}, {0, -glowSize}, {0, glowSize},
+                {-glowSize, -glowSize}, {glowSize, -glowSize},
+                {-glowSize, glowSize}, {glowSize, glowSize}
+            };
+            for (float[] offset : offsets) {
+                poseStack.pushPose();
+                poseStack.translate(offset[0], offset[1], 0);
+                guiGraphics.drawString(font, glowComponent, textX, textYInt, glowColor, false);
+                poseStack.popPose();
+            }
+        }
+        guiGraphics.drawString(font, fullText, textX, textYInt, colorWithAlpha, this.enableTextShadow);
 
         poseStack.popPose();
     }
@@ -610,6 +782,42 @@ public class SubtitleRenderer implements IHudRenderer {
 
             this.placeholderColor = parseColorHexOrDefault(normalColorHex, DEFAULT_PLACEHOLDER_COLOR);
             this.enablePlaceholderBold = config.has("enable_placeholder_bold") && config.get("enable_placeholder_bold").getAsBoolean();
+            this.enableTextShadow = !config.has("enable_text_shadow") || config.get("enable_text_shadow").getAsBoolean();
+            this.configBlinkFadeAnimation = config.has("blink_fade_animation") && config.get("blink_fade_animation").getAsBoolean();
+            this.enableGlowEffect = config.has("enable_glow_effect") && config.get("enable_glow_effect").getAsBoolean();
+            this.glowIntensity = config.has("glow_intensity") ? config.get("glow_intensity").getAsFloat() : 0.5f;
+            this.glowSize = config.has("glow_size") ? config.get("glow_size").getAsFloat() : 0.3f;
+            this.glowColorRgb = parseColorHexOrDefault(config.has("glow_color") ? config.get("glow_color").getAsString() : "#FFFFFF", 0xFFFFFF) & 0x00FFFFFF;
+            this.glowAlphaMultiplier = config.has("glow_alpha") ? Mth.clamp(config.get("glow_alpha").getAsFloat(), 0.0f, 1.0f) : 1.0f;
+            this.alignLeft = config.has("align_left") ? config.get("align_left").getAsBoolean() : false;
+            this.alignRight = config.has("align_right") ? config.get("align_right").getAsBoolean() : false;
+            this.configEnableFlashIn = !config.has("enable_flash_in") || config.get("enable_flash_in").getAsBoolean();
+            this.fadeInDurationMs = config.has("fade_in_duration")
+                    ? Math.max(0L, (long) (config.get("fade_in_duration").getAsFloat() * 1000))
+                    : 0L;
+            this.enableQueueLinkage = config.has("enable_queue_linkage") && config.get("enable_queue_linkage").getAsBoolean();
+            this.queueLinkageScrollSpeed = config.has("queue_linkage_scroll_speed")
+                    ? Math.max(0.01f, config.get("queue_linkage_scroll_speed").getAsFloat())
+                    : 0.1f;
+            this.queueLinkageIconYOffset = config.has("queue_linkage_icon_y_offset")
+                    ? config.get("queue_linkage_icon_y_offset").getAsFloat()
+                    : 0.0f;
+            this.configEntranceBackground = config.has("entrance_background") && config.get("entrance_background").getAsBoolean();
+            this.configEntranceBgPeakTransparency = config.has("entrance_background_alpha")
+                    ? Mth.clamp(config.get("entrance_background_alpha").getAsFloat(), 0.0f, 1.0f)
+                    : 0.2f;
+            this.configEntranceBgFadeInMs = config.has("entrance_background_fade_in")
+                    ? Math.max(1L, (long) (config.get("entrance_background_fade_in").getAsFloat() * 1000))
+                    : 1000L / 15;
+            this.configEntranceBgSweepMs = config.has("entrance_background_sweep_duration")
+                    ? Math.max(1L, (long) (config.get("entrance_background_sweep_duration").getAsFloat() * 1000))
+                    : 100L;
+            this.configEntranceBgFadeOutMs = config.has("entrance_background_fade_out")
+                    ? Math.max(1L, (long) (config.get("entrance_background_fade_out").getAsFloat() * 1000))
+                    : 2000L / 15;
+            this.configEntranceBgColor = config.has("entrance_background_color")
+                    ? SubtitleEntranceBackground.parseColor(config.get("entrance_background_color").getAsString(), 0xFFFFFF)
+                    : 0xFFFFFF;
             this.normalTextColor = parseColorHexOrDefault(config.has("color_normal_text") ? config.get("color_normal_text").getAsString() : "#FFFFFF", 0xFFFFFFFF);
             
         } catch (Exception e) {
@@ -644,12 +852,20 @@ public class SubtitleRenderer implements IHudRenderer {
      * @return Alpha value between 0.0 and 1.0.
      */
     private float calculateAlpha(long currentTime) {
+        // 字幕渐入: t0 之后 fadeInDurationMs 内透明度从 100%(完全不显示)平滑变为正常透明度
+        if (this.startTime >= 0 && this.fadeInDurationMs > 0) {
+            long elapsed = currentTime - this.startTime;
+            if (elapsed < this.fadeInDurationMs) {
+                return Math.max(0.0f, (float) elapsed / (float) this.fadeInDurationMs);
+            }
+        }
         if (this.textHideTime > 0) {
             if (currentTime < this.textHideTime) {
                 return 1.0f;
             } else {
                 long fadeElapsed = currentTime - this.textHideTime;
-                return Math.max(0.0f, 1.0f - (float) fadeElapsed / FADE_OUT_DURATION);
+                float fadeProgress = (float) fadeElapsed / FADE_OUT_DURATION;
+                return TextFadeEffect.fadeAlpha(fadeProgress, configBlinkFadeAnimation);
             }
         }
         return 1.0f;
@@ -811,6 +1027,21 @@ public class SubtitleRenderer implements IHudRenderer {
     /**
      * Parses a hex color string or returns a default value.
      */
+    /**
+     * 递归清除组件所有层级的样式颜色(保留 bold 等其它样式)。
+     * 清除后渲染时颜色全部来自 drawString 传入的 color 参数, 不受原字符串各段样式色影响。
+     */
+    private static Component stripColor(Component component) {
+        Style style = component.getStyle();
+        Style stripped = (style == null ? Style.EMPTY : style).withColor((TextColor) null);
+        MutableComponent result = component.copy();
+        result.setStyle(stripped);
+        for (int i = 0; i < result.getSiblings().size(); i++) {
+            result.getSiblings().set(i, stripColor(result.getSiblings().get(i)));
+        }
+        return result;
+    }
+
     private static int parseColorHexOrDefault(String hex, int fallbackArgb) {
         if (hex == null || hex.isEmpty()) {
             return fallbackArgb;

@@ -392,7 +392,7 @@ public class PresetConfigTab extends ConfigTabContent {
         }
         try {
             int id = Integer.parseInt(presetId);
-            return id == 4 || id == 5 || id == 7 || id == 36;
+            return id == 4 || id == 5 || id == 7 || id == 36 || id == 37;
         } catch (NumberFormatException e) {
             return false;
         }

@@ -10,6 +10,7 @@ import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
+import org.mods.gd656killicon.client.render.effect.IconEntranceBackground;
 import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
 import org.mods.gd656killicon.client.render.effect.IconRingEffect;
 import org.mods.gd656killicon.client.textures.ModTextures;
@@ -33,9 +34,32 @@ import java.util.List;
  */
 public class ScrollingIconRenderer implements IHudRenderer {
 
+    private static final ScrollingIconRenderer INSTANCE = new ScrollingIconRenderer();
+
+    public static ScrollingIconRenderer getInstance() {
+        return INSTANCE;
+    }
+
+    /**
+     * 击杀图标队列当前是否有图标显示(队列联动用)。
+     */
+    public boolean hasVisibleIcons() {
+        return !activeIcons.isEmpty() || !pendingIcons.isEmpty();
+    }
+
+    /**
+     * 击杀图标队列的锚点 y(渲染中心, 队列联动用, 与 render 中 centerY 计算一致)。
+     */
+    public float getIconsAnchorY() {
+        Minecraft mc = Minecraft.getInstance();
+        int screenHeight = mc.getWindow().getGuiScaledHeight();
+        return screenHeight - configYOffset;
+    }
+
 
     private static final long DEFAULT_DISPLAY_DURATION = 3000L;
     private static final long DEFAULT_ANIMATION_DURATION = 300L;
+    private static final long DEFAULT_FADE_OUT_DURATION_MS = 100L; // fade_out_duration 默认 0.1s
     private static final long DEFAULT_POSITION_ANIMATION_DURATION = 300L;
     private static final float DEFAULT_START_SCALE = 2.0f;
     private static final int BASE_ICON_SIZE = 64;
@@ -52,10 +76,25 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
+    private int configScrollDirection = 1;
+    private boolean configPinNewestIcon = false;
+    private boolean configBlinkFadeAnimation = false;
+    private boolean configEntranceBackground = false;
+    private float configEntranceBgSize = 64.0f;
+    private long configEntranceBgFadeInMs = 200L;
+    private long configEntranceBgFadeOutMs = 200L;
+    private int configEntranceBgColor = 0xFFFFFF;
+    private int configEntranceBgHeadshotColor = 0xFF5000;
+    private float configEntranceBgPeakTransparency = 0.2f;
+    private float configEntranceBgBorder = 0.5f;
+    private int configEntranceBgBorderColor = 0xFFFFFF;
+    private int configEntranceBgHeadshotBorderColor = 0xFF4300;
+    private float configEntranceBgBorderAlpha = 0.2f;
     private long displayDuration = DEFAULT_DISPLAY_DURATION;
     /** ring 效果开关（KillTypeRegistry.ringEnableKey 驱动；无开关键的类型无条目） */
     private final java.util.Map<String, Boolean> ringEnableFlags = new java.util.HashMap<>();
     private long animationDuration = DEFAULT_ANIMATION_DURATION;
+    private long fadeOutDurationMs = DEFAULT_FADE_OUT_DURATION_MS;
     private long positionAnimationDuration = DEFAULT_POSITION_ANIMATION_DURATION;
     private float startScale = DEFAULT_START_SCALE;
     private float iconSpacing = DEFAULT_ICON_SPACING;
@@ -142,12 +181,14 @@ public class ScrollingIconRenderer implements IHudRenderer {
         while (iterator.hasNext()) {
             ScrollingIcon icon = iterator.next();
             long elapsed = currentTime - icon.startTime;
+            // 入场背景启用时主图标入场推迟 0.2s(生命周期相应顺延, 淡出/移除判定同步推迟)
+            long animElapsed = configEntranceBackground ? Math.max(0L, elapsed - configEntranceBgFadeInMs) : elapsed;
 
             updatePosition(icon, currentTime);
 
-            float currentScale = resolveScale(elapsed);
-            float alpha = resolveAlpha(icon, currentTime, elapsed);
-            if (shouldRemoveIcon(icon, currentTime, elapsed)) {
+            float currentScale = resolveScale(animElapsed);
+            float alpha = resolveAlpha(icon, currentTime, animElapsed);
+            if (shouldRemoveIcon(icon, currentTime, animElapsed)) {
                 iterator.remove();
                 removedAny = true;
                 continue;
@@ -180,6 +221,23 @@ public class ScrollingIconRenderer implements IHudRenderer {
                 drawHeight = BASE_ICON_SIZE * frameHeightRatio;
             }
 
+            if (configEntranceBackground) {
+                // 爆头击杀使用独立颜色(矩形/边框)
+                boolean headshot = icon.killType == KillType.HEADSHOT;
+                int rectColor = headshot ? configEntranceBgHeadshotColor : configEntranceBgColor;
+                int borderColor = headshot ? configEntranceBgHeadshotBorderColor : configEntranceBgBorderColor;
+                // 入场背景矩形(背景层, 在图标之前绘制)
+                IconEntranceBackground.drawRect(guiGraphics, elapsed, icon.currentX, centerY,
+                        configEntranceBgSize, rectColor,
+                        configEntranceBgFadeInMs, configEntranceBgFadeOutMs,
+                        configEntranceBgPeakTransparency);
+                // 入场背景边框(与矩形同处背景层, 位于主图标之下, 透明度与矩形同一状态机)
+                IconEntranceBackground.drawBorder(guiGraphics, elapsed, icon.currentX, centerY,
+                        configEntranceBgSize, borderColor,
+                        configEntranceBgFadeInMs, configEntranceBgFadeOutMs,
+                        configEntranceBgBorder, configEntranceBgBorderAlpha);
+            }
+
             float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/scrolling", textureKey);
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
             guiGraphics.pose().pushPose();
@@ -187,6 +245,9 @@ public class ScrollingIconRenderer implements IHudRenderer {
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
             guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
             if (configIconGlowEnabled) {
+                // 闪烁开启时发光层按 alpha 平方衰减: 半透明阶段发光急剧减弱, 放大闪烁对比
+                // (发光为加法混合, 会让半透明阶段过亮导致闪烁不明显)
+                float glowFactor = configBlinkFadeAnimation ? focusedAlpha * focusedAlpha : focusedAlpha;
                 IconGlowRenderEffect.drawGlowFrame(
                     guiGraphics,
                     ModTextures.get(texturePath),
@@ -200,7 +261,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
                     frame.height,
                     frame.totalWidth,
                     frame.totalHeight,
-                    focusedAlpha,
+                    glowFactor,
                     configIconGlowColor,
                     configIconGlowIntensity,
                     configIconGlowSize
@@ -245,12 +306,14 @@ public class ScrollingIconRenderer implements IHudRenderer {
         while (iterator.hasNext()) {
             ScrollingIcon icon = iterator.next();
             long elapsed = currentTime - icon.startTime;
+            // 入场背景启用时主图标入场推迟 0.2s(生命周期相应顺延, 淡出/移除判定同步推迟)
+            long animElapsed = configEntranceBackground ? Math.max(0L, elapsed - configEntranceBgFadeInMs) : elapsed;
 
             updatePosition(icon, currentTime);
 
-            float currentScale = resolveScale(elapsed);
-            float alpha = resolveAlpha(icon, currentTime, elapsed);
-            if (shouldRemoveIcon(icon, currentTime, elapsed)) {
+            float currentScale = resolveScale(animElapsed);
+            float alpha = resolveAlpha(icon, currentTime, animElapsed);
+            if (shouldRemoveIcon(icon, currentTime, animElapsed)) {
                 iterator.remove();
                 removedAny = true;
                 continue;
@@ -283,6 +346,23 @@ public class ScrollingIconRenderer implements IHudRenderer {
                 drawHeight = BASE_ICON_SIZE * frameHeightRatio;
             }
 
+            if (configEntranceBackground) {
+                // 爆头击杀使用独立颜色(矩形/边框)
+                boolean headshot = icon.killType == KillType.HEADSHOT;
+                int rectColor = headshot ? configEntranceBgHeadshotColor : configEntranceBgColor;
+                int borderColor = headshot ? configEntranceBgHeadshotBorderColor : configEntranceBgBorderColor;
+                // 入场背景矩形(背景层, 在图标之前绘制)
+                IconEntranceBackground.drawRect(guiGraphics, elapsed, icon.currentX, originY,
+                        configEntranceBgSize, rectColor,
+                        configEntranceBgFadeInMs, configEntranceBgFadeOutMs,
+                        configEntranceBgPeakTransparency);
+                // 入场背景边框(与矩形同处背景层, 位于主图标之下, 透明度与矩形同一状态机)
+                IconEntranceBackground.drawBorder(guiGraphics, elapsed, icon.currentX, originY,
+                        configEntranceBgSize, borderColor,
+                        configEntranceBgFadeInMs, configEntranceBgFadeOutMs,
+                        configEntranceBgBorder, configEntranceBgBorderAlpha);
+            }
+
             float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/scrolling", textureKey);
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
             guiGraphics.pose().pushPose();
@@ -290,6 +370,9 @@ public class ScrollingIconRenderer implements IHudRenderer {
             guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
             guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
             if (configIconGlowEnabled) {
+                // 闪烁开启时发光层按 alpha 平方衰减: 半透明阶段发光急剧减弱, 放大闪烁对比
+                // (发光为加法混合, 会让半透明阶段过亮导致闪烁不明显)
+                float glowFactor = configBlinkFadeAnimation ? focusedAlpha * focusedAlpha : focusedAlpha;
                 IconGlowRenderEffect.drawGlowFrame(
                     guiGraphics,
                     ModTextures.get(texturePath),
@@ -303,7 +386,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
                     frame.height,
                     frame.totalWidth,
                     frame.totalHeight,
-                    focusedAlpha,
+                    glowFactor,
                     configIconGlowColor,
                     configIconGlowIntensity,
                     configIconGlowSize
@@ -333,6 +416,42 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
             this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+            // 图标滚动方向: 左 = 新图标出现在老图标左侧(默认); 右 = 完全镜像
+            this.configScrollDirection = config.has("scroll_direction") && "right".equals(config.get("scroll_direction").getAsString()) ? -1 : 1;
+            // 固定最新图标: 启用后最新图标不随队列移动(保持在屏幕上的相对位置)
+            this.configPinNewestIcon = config.has("pin_newest_icon") && config.get("pin_newest_icon").getAsBoolean();
+            // 闪动淡出动画: 启用后图标隐藏时按三段曲线闪烁(0→50%→0%→100% 透明度)
+            this.configBlinkFadeAnimation = config.has("blink_fade_animation") && config.get("blink_fade_animation").getAsBoolean();
+            // 图标入场背景: 启用后主图标入场推迟(时长为背景入场持续时间), 期间先显示渐显/渐隐缩小的背景矩形
+            this.configEntranceBackground = config.has("entrance_background") && config.get("entrance_background").getAsBoolean();
+            this.configEntranceBgSize = config.has("entrance_background_size") ? config.get("entrance_background_size").getAsFloat() : 64.0f;
+            this.configEntranceBgFadeInMs = config.has("entrance_background_fade_in")
+                    ? Math.max(1L, (long) (config.get("entrance_background_fade_in").getAsFloat() * 1000))
+                    : 200L;
+            this.configEntranceBgFadeOutMs = config.has("entrance_background_fade_out")
+                    ? Math.max(1L, (long) (config.get("entrance_background_fade_out").getAsFloat() * 1000))
+                    : 200L;
+            this.configEntranceBgColor = config.has("entrance_background_color")
+                    ? IconEntranceBackground.parseColor(config.get("entrance_background_color").getAsString(), 0xFFFFFF)
+                    : 0xFFFFFF;
+            this.configEntranceBgPeakTransparency = config.has("entrance_background_alpha")
+                    ? Mth.clamp(config.get("entrance_background_alpha").getAsFloat(), 0.0f, 1.0f)
+                    : 0.2f;
+            this.configEntranceBgBorder = config.has("entrance_background_border")
+                    ? Math.max(0.0f, config.get("entrance_background_border").getAsFloat())
+                    : 0.5f;
+            this.configEntranceBgBorderColor = config.has("entrance_background_border_color")
+                    ? IconEntranceBackground.parseColor(config.get("entrance_background_border_color").getAsString(), 0xFFFFFF)
+                    : 0xFFFFFF;
+            this.configEntranceBgBorderAlpha = config.has("entrance_background_border_alpha")
+                    ? Mth.clamp(config.get("entrance_background_border_alpha").getAsFloat(), 0.0f, 1.0f)
+                    : 0.2f;
+            this.configEntranceBgHeadshotColor = config.has("entrance_background_headshot_color")
+                    ? IconEntranceBackground.parseColor(config.get("entrance_background_headshot_color").getAsString(), 0xFF5000)
+                    : 0xFF5000;
+            this.configEntranceBgHeadshotBorderColor = config.has("entrance_background_headshot_border_color")
+                    ? IconEntranceBackground.parseColor(config.get("entrance_background_headshot_border_color").getAsString(), 0xFF4300)
+                    : 0xFF4300;
             this.displayDuration = config.has("display_duration")
                     ? (long)(config.get("display_duration").getAsFloat() * 1000)
                     : DEFAULT_DISPLAY_DURATION;
@@ -343,6 +462,10 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.animationDuration = config.has("animation_duration")
                     ? (long)(config.get("animation_duration").getAsFloat() * 1000)
                     : DEFAULT_ANIMATION_DURATION;
+            // 淡出动画时间: 由 fade_out_duration 配置项控制(秒 → 毫秒), 不再复用 animation_duration
+            this.fadeOutDurationMs = config.has("fade_out_duration")
+                    ? Math.max(1L, (long)(config.get("fade_out_duration").getAsFloat() * 1000))
+                    : DEFAULT_FADE_OUT_DURATION_MS;
             this.positionAnimationDuration = config.has("position_animation_duration")
                     ? (long)(config.get("position_animation_duration").getAsFloat() * 1000)
                     : DEFAULT_POSITION_ANIMATION_DURATION;
@@ -468,15 +591,39 @@ public class ScrollingIconRenderer implements IHudRenderer {
             return;
         }
 
+        int direction = configScrollDirection; // 1 = 左(默认, 新图标在左), -1 = 右(镜像, 新图标在右)
         float spacing = resolveIconSpacing();
         int size = activeIcons.size();
         int visibleStart = Math.max(0, size - maxVisibleIcons);
         int visibleCount = size - visibleStart;
-        float rightmostSlotX = centerX + ((visibleCount - 1) / 2f) * spacing;
+
+        if (configPinNewestIcon) {
+            // 固定最新图标: 最新图标直接定位在元素配置坐标处(centerX = screenWidth/2 + configXOffset,
+            // y 沿用 screenHeight - configYOffset), x_offset 语义与自由模式一致(中心偏移);
+            // 老图标从固定位向溢出方向依次排开, 溢出区继续滚动淡出。
+            float newestFixedX = centerX;
+            int newestIndex = size - 1;
+            for (int i = 0; i < visibleStart; i++) {
+                ScrollingIcon icon = activeIcons.get(i);
+                float overflowX = newestFixedX + direction * (newestIndex - i) * spacing;
+                updateTarget(icon, overflowX, currentTime);
+                if (icon.forcedFadeStartTime < 0) {
+                    icon.forcedFadeStartTime = currentTime;
+                }
+            }
+            for (int i = visibleStart; i < size; i++) {
+                ScrollingIcon icon = activeIcons.get(i);
+                float newTargetX = newestFixedX + direction * (newestIndex - i) * spacing;
+                updateTarget(icon, newTargetX, currentTime);
+            }
+            return;
+        }
+
+        float rightmostSlotX = centerX + direction * ((visibleCount - 1) / 2f) * spacing;
 
         for (int i = 0; i < visibleStart; i++) {
             ScrollingIcon icon = activeIcons.get(i);
-            float overflowX = rightmostSlotX + (visibleStart - i) * spacing;
+            float overflowX = rightmostSlotX + direction * (visibleStart - i) * spacing;
             updateTarget(icon, overflowX, currentTime);
             if (icon.forcedFadeStartTime < 0) {
                 icon.forcedFadeStartTime = currentTime;
@@ -486,7 +633,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
         for (int i = visibleStart; i < size; i++) {
             ScrollingIcon icon = activeIcons.get(i);
             float position = (i - visibleStart) - (visibleCount - 1) / 2f;
-            float newTargetX = centerX - position * spacing;
+            float newTargetX = centerX - direction * position * spacing;
             updateTarget(icon, newTargetX, currentTime);
         }
     }
@@ -507,7 +654,8 @@ public class ScrollingIconRenderer implements IHudRenderer {
 
     private float resolveIconSpacing() {
         float baseSize = BASE_ICON_SIZE * configScale;
-        return baseSize + iconSpacing;
+        // 图标间距 = 图标大小的倍数: 0 = 完全重叠, 1 = 紧挨排列(一个图标宽度)
+        return iconSpacing * baseSize;
     }
 
     private void updatePosition(ScrollingIcon icon, long currentTime) {
@@ -532,15 +680,15 @@ public class ScrollingIconRenderer implements IHudRenderer {
     }
 
     private float resolveAlpha(ScrollingIcon icon, long currentTime, long elapsed) {
-        long fadeDuration = Math.max(1L, animationDuration);
-        float fadeInProgress = Math.min(elapsed / (float) fadeDuration, 1.0f);
+        long fadeInDuration = Math.max(1L, animationDuration);
+        float fadeInProgress = Math.min(elapsed / (float) fadeInDuration, 1.0f);
         float easedIn = 1.0f - (float) Math.pow(1.0f - fadeInProgress, 3);
         float baseAlpha = Mth.clamp(easedIn, 0.0f, 1.0f);
         
         if (icon.forcedFadeStartTime >= 0) {
             long fadeElapsed = currentTime - icon.forcedFadeStartTime;
-            float fadeProgress = (float) fadeElapsed / (float) fadeDuration;
-            float alpha = 1.0f - fadeProgress;
+            float fadeProgress = (float) fadeElapsed / (float) fadeOutDurationMs;
+            float alpha = resolveFadeAlpha(fadeProgress);
             return Mth.clamp(baseAlpha * alpha, 0.0f, 1.0f);
         }
         
@@ -549,18 +697,36 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
         
         long fadeElapsed = elapsed - icon.displayDuration;
-        float fadeProgress = (float) fadeElapsed / (float) fadeDuration;
-        float alpha = 1.0f - fadeProgress;
+        float fadeProgress = (float) fadeElapsed / (float) fadeOutDurationMs;
+        float alpha = resolveFadeAlpha(fadeProgress);
         return Mth.clamp(baseAlpha * alpha, 0.0f, 1.0f);
     }
 
+    /**
+     * 淡出阶段的透明度曲线。
+     * 未启用闪动时: 线性 1 → 0(现有行为)。
+     * 启用闪动时(在淡出动画时间内分段, 以透明度 0=不透明/100%=完全透明计):
+     * 前 1/3 透明度 0% → 50%(alpha 1 → 0.5), 中 1/3 50% → 0%(alpha 0.5 → 1),
+     * 后 1/3 0% → 100%(alpha 1 → 0, 完全透明), 最后隐藏。
+     */
+    private float resolveFadeAlpha(float fadeProgress) {
+        if (configBlinkFadeAnimation) {
+            if (fadeProgress < 1.0f / 3.0f) {
+                return 1.0f - 2.4f * fadeProgress;      // alpha 1 → 0.2(透明度升到 80%)
+            } else if (fadeProgress < 2.0f / 3.0f) {
+                return 2.4f * fadeProgress - 0.6f;      // alpha 0.2 → 1(透明度回到 0%, 不透明)
+            }
+            return 3.0f * (1.0f - fadeProgress);        // alpha 1 → 0(透明度到 100%, 完全透明后隐藏)
+        }
+        return 1.0f - fadeProgress;                         // 原线性淡出
+    }
+
     private boolean shouldRemoveIcon(ScrollingIcon icon, long currentTime, long elapsed) {
-        long fadeDuration = Math.max(1L, animationDuration);
         if (icon.forcedFadeStartTime >= 0) {
             long fadeElapsed = currentTime - icon.forcedFadeStartTime;
-            return fadeElapsed >= fadeDuration;
+            return fadeElapsed >= fadeOutDurationMs;
         }
-        return elapsed >= icon.displayDuration + fadeDuration;
+        return elapsed >= icon.displayDuration + fadeOutDurationMs;
     }
 
     private String getTexturePath(int killType) {

@@ -186,7 +186,7 @@
     "fade_out_duration": 0.1,
     "position_animation_duration": 0.3,
     "start_scale": 2.0,
-    "icon_spacing": 4,
+    "icon_spacing": 1.2,
     "max_visible_icons": 7,
     "display_interval_ms": 100,
     "max_pending_icons": 30,
