@@ -105,7 +105,6 @@ public final class ServerCombatEngine {
         ServerCore.CUSTOM_NPCS.init();
         ServerCore.CONQUEST_BATTLEFIELD.init();
         ServerCore.CONQUEST_SPOTTING.init();
-        ServerCore.CONQUEST_RESCUE.init();
         nextScoreboardRefreshAt = System.currentTimeMillis() + SCOREBOARD_REFRESH_INTERVAL_MS;
     }
 
@@ -521,7 +520,8 @@ public final class ServerCombatEngine {
                 ServerPlayer player = ServerBridge.loader().getCurrentServer().getPlayerList().getPlayer(playerId);
                 if (player != null) {
                     addBonus(player, BonusType.ASSIST, (float) totalDamage, "", victimIdInt, finalVictimName);
-                    sendKillEffects(player, KillType.ASSIST, 0, victimIdInt, hasHelmet, finalVictimName, isVictimPlayer, 0.0f);
+                    sendKillEffects(player, KillType.ASSIST, 0, victimIdInt, hasHelmet, finalVictimName, isVictimPlayer, 0.0f,
+                            org.mods.gd656killicon.server.logic.core.BonusEngine.resolveScore(BonusType.ASSIST, (float) totalDamage));
 
                     ServerData.get().addAssist(player, 1);
 
@@ -553,7 +553,8 @@ public final class ServerCombatEngine {
 
         updatePostKillStates(pk);
 
-        sendKillEffects(pk.player, killType, pk.combo, pk.victimIdInt, pk.hasHelmet, finalVictimName, pk.isVictimPlayer, pk.distance);
+        sendKillEffects(pk.player, killType, pk.combo, pk.victimIdInt, pk.hasHelmet, finalVictimName, pk.isVictimPlayer, pk.distance,
+                org.mods.gd656killicon.server.logic.core.BonusEngine.resolveScore(bonusType, pk.maxHealth));
     }
 
     private static int determineKillType(PendingKill pk) {
@@ -806,9 +807,9 @@ public final class ServerCombatEngine {
         return ServerCombatAttribution.resolvePlayerAttacker(src, victim, fireAttribution, FIRE_ATTRIBUTION_TIMEOUT_MS);
     }
 
-    private static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance) {
+    private static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance, float score) {
         double window = ServerData.get().getComboWindowSeconds();
-        ServerPacketDispatcher.sendKillEffects(player, killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, distance);
+        ServerPacketDispatcher.sendKillEffects(player, killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, distance, score);
     }
 
     private static boolean isObstructed(PendingKill pk) {

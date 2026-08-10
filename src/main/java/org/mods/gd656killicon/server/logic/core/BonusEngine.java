@@ -9,6 +9,8 @@ import org.mods.gd656killicon.common.bonus.MergeBehavior;
 import org.mods.gd656killicon.network.NetworkHandler;
 import org.mods.gd656killicon.network.packet.BonusScorePacket;
 import org.mods.gd656killicon.server.data.ServerData;
+import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.network.packet.KillIconPacket;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -98,6 +100,13 @@ public class BonusEngine {
             for (Entry e : ordered) {
                 float score = applyScoreLimits(e.type, e.score);
                 NetworkHandler.sendToPlayer(new BonusScorePacket(e.type, score, e.extra, e.victimId, e.victimName), player);
+                // 救援加分(conquest 触发, 带被救援者 victimId) → 直接发救援 kill_feed, scoreOverride 携带实际分数
+                org.mods.gd656killicon.common.bonus.BonusDefinition reviveDef = BonusRegistry.get("REVIVE");
+                if (reviveDef != null && e.type == reviveDef.type() && e.victimId != -1) {
+                    NetworkHandler.sendToPlayer(new KillIconPacket(
+                            "subtitle", "kill_feed", KillType.RESCUE, 0, e.victimId, 0, false,
+                            e.victimName != null ? e.victimName : "", true, false, 0.0f, score), player);
+                }
                 ServerData.get().addScore(player, score);
             }
             list.clear();
@@ -109,8 +118,9 @@ public class BonusEngine {
         return def != null && def.priorityKill();
     }
 
-    private float applyScoreLimits(int type, float score) {
-        float limited = score;
+    /** 计算加分实际分数(含加分项上限与全局上限), 供 kill_feed 的 <score> 直带使用。 */
+    public static float resolveScore(int type, float rawScore) {
+        float limited = rawScore;
         BonusDefinition def = BonusRegistry.get(type);
         if (def != null && def.scoreCap() > 0 && limited > def.scoreCap()) {
             limited = def.scoreCap();
@@ -120,5 +130,9 @@ public class BonusEngine {
             limited = max;
         }
         return limited;
+    }
+
+    private float applyScoreLimits(int type, float score) {
+        return resolveScore(type, score);
     }
 }

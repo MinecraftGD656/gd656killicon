@@ -66,14 +66,10 @@ public class SubtitleRenderer implements IHudRenderer {
 
     private static final long FADE_IN_DURATION = 200L;     private static final long FADE_OUT_DURATION = 300L;     private static final int DEFAULT_PLACEHOLDER_COLOR = 0xFF008B8B;
     private static final int DEFAULT_EMPHASIS_COLOR = 0xFFFFFFFF;
-    private static final long SCORE_CACHE_WINDOW_MS = 10000L;
     private static final int PREVIEW_SCORE_VICTIM_ID = -9999;
     private static final String RUSH_BOMB_PLANTED_CAPTURE_FORMAT = "format_rush_bomb_planted_capture";
     private static final String RUSH_BOMB_DEFUSED_CAPTURE_FORMAT = "format_rush_bomb_defused_capture";
     private static final String RUSH_OBJECTIVE_DESTROYED_CAPTURE_FORMAT = "format_rush_objective_destroyed_capture";
-    private static final Map<Integer, ScoreEntry> RECENT_SCORES = new ConcurrentHashMap<>();
-    private static final java.util.Deque<ScoreEntry> RECENT_SCORE_QUEUE = new java.util.ArrayDeque<>();
-    private static final int SCORE_QUEUE_MAX = 50;
 
     
     private int configXOffset = 0;
@@ -169,6 +165,8 @@ public class SubtitleRenderer implements IHudRenderer {
         String captureWeaponToken = "";
         String captureFormatOverride = null;
         String captureScoreOverride = null;
+        // 救援: 服务端随包直带实际加分分数(scoreOverride), 替代客户端缓存匹配
+        String rescueScoreOverride = context.scoreOverride() > 0 ? formatScore(context.scoreOverride()) : null;
         if (!rawExtra.isEmpty()) {
             String extra = rawExtra;
             if (type == KillType.CAPTURE) {
@@ -261,12 +259,12 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(type) ? context.distance() : 0.0f;
 
         if (this.enableStacking) {
-            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId, captureScoreOverride, type);
+            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId, type == KillType.RESCUE ? rescueScoreOverride : captureScoreOverride, type);
         } else {
             this.currentKillType = type;
             this.victimId = entityId;
             this.currentVictimId = entityId;
-            this.currentScoreOverride = captureScoreOverride;
+            this.currentScoreOverride = type == KillType.RESCUE ? rescueScoreOverride : captureScoreOverride;
             this.victimName = vName;
             this.heldItem = itemStack;
             this.currentWeaponName = wName;
@@ -331,7 +329,7 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(killType) ? 50.0f : 0.0f;
 
         if (this.enableStacking) {
-             addItemToStack(resolvedFormat, pColor, eColor, this.currentWeaponName, this.victimName, this.displayDuration, dist, PREVIEW_SCORE_VICTIM_ID, null, killType);
+             addItemToStack(resolvedFormat, pColor, eColor, this.currentWeaponName, this.victimName, this.displayDuration, dist, PREVIEW_SCORE_VICTIM_ID, "20", killType);
         } else {
             this.format = resolvedFormat;
             this.placeholderColor = pColor;
@@ -397,7 +395,7 @@ public class SubtitleRenderer implements IHudRenderer {
         } else {
             RenderState state = resolveRenderState();
             if (state == null) return;
-            renderInternal(guiGraphics, font, centerX, textY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.startTime, this.currentKillType);
+            renderInternal(guiGraphics, font, centerX, textY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.currentKillType);
         }
     }
 
@@ -414,7 +412,7 @@ public class SubtitleRenderer implements IHudRenderer {
         } else {
             RenderState state = resolveRenderState();
             if (state == null) return;
-            renderInternal(guiGraphics, font, resolvedCenterX, resolvedTextY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.startTime, this.currentKillType);
+            renderInternal(guiGraphics, font, resolvedCenterX, resolvedTextY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.currentKillType);
         }
     }
 
@@ -535,7 +533,7 @@ public class SubtitleRenderer implements IHudRenderer {
             
             RenderState state = new RenderState(now - item.spawnTime, itemAlpha, this.scale);
             
-            renderInternal(guiGraphics, font, centerX, drawY, state, item.format, item.pColor, item.eColor, item.wName, item.vName, item.distance, item.victimId, item.scoreOverride, item.spawnTime, item.killType);
+            renderInternal(guiGraphics, font, centerX, drawY, state, item.format, item.pColor, item.eColor, item.wName, item.vName, item.distance, item.victimId, item.scoreOverride, item.killType);
         }
     }
 
@@ -572,16 +570,15 @@ public class SubtitleRenderer implements IHudRenderer {
     private boolean enableScaleAnimation = false;
 
     private void renderInternal(GuiGraphics guiGraphics, Font font, int centerX, float textY, RenderState state, 
-                              String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, String scoreOverride, long referenceTime, int killType) {
+                              String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, String scoreOverride, int killType) {
         // 亚像素平滑: 文本 y 的小数部分通过 pose 平移注入(MC drawString 坐标为 int),
         // 避免联动/动画时每帧整像素跳变产生颗粒感
         float textYFrac = textY - (float) Math.floor(textY);
         int textYInt = (int) Math.floor(textY);
 
         float colorProgress = configEnableFlashIn ? getColorProgress(state.elapsed) : 1.0f;
-        String scoreStr = scoreOverride == null || scoreOverride.isBlank()
-            ? resolveScoreString(victimId, referenceTime)
-            : scoreOverride;
+        // score 一律使用服务端随包直带的实际加分分数(scoreOverride), 无则显示空(不再依赖客户端缓存)
+        String scoreStr = scoreOverride == null || scoreOverride.isBlank() ? "" : scoreOverride;
         Component fullText = buildFullText(fmt, pColor, eColor, wName, vName, scoreStr, colorProgress, distance);
 
         int textWidth = font.width(fullText);
@@ -710,53 +707,6 @@ public class SubtitleRenderer implements IHudRenderer {
         }
     }
 
-    public static void recordBonusScore(int bonusType, float score, int victimId) {
-        if (victimId == -1) return;
-        long now = PreviewRenderTimeContext.currentTimeMillis();
-        ScoreEntry entry = new ScoreEntry(victimId, score, now);
-        RECENT_SCORES.put(victimId, entry);
-        RECENT_SCORE_QUEUE.addLast(entry);
-        while (RECENT_SCORE_QUEUE.size() > SCORE_QUEUE_MAX) {
-            RECENT_SCORE_QUEUE.removeFirst();
-        }
-        while (!RECENT_SCORE_QUEUE.isEmpty() && now - RECENT_SCORE_QUEUE.peekFirst().timestamp > SCORE_CACHE_WINDOW_MS) {
-            RECENT_SCORE_QUEUE.removeFirst();
-        }
-    }
-
-    private static String resolveScoreString(int victimId, long referenceTime) {
-        if (victimId == PREVIEW_SCORE_VICTIM_ID) return "20";
-        long now = PreviewRenderTimeContext.currentTimeMillis();
-        if (victimId != -1) {
-            ScoreEntry entry = RECENT_SCORES.get(victimId);
-            if (entry != null) {
-                if (now - entry.timestamp <= SCORE_CACHE_WINDOW_MS) {
-                    return formatScore(entry.score);
-                }
-                RECENT_SCORES.remove(victimId);
-            }
-        }
-        ScoreEntry closest = null;
-        long closestDelta = Long.MAX_VALUE;
-        Iterator<ScoreEntry> iterator = RECENT_SCORE_QUEUE.iterator();
-        while (iterator.hasNext()) {
-            ScoreEntry entry = iterator.next();
-            if (now - entry.timestamp > SCORE_CACHE_WINDOW_MS) {
-                iterator.remove();
-                continue;
-            }
-            long delta = Math.abs(entry.timestamp - referenceTime);
-            if (delta < closestDelta) {
-                closestDelta = delta;
-                closest = entry;
-            }
-        }
-        if (closest != null) {
-            return formatScore(closest.score);
-        }
-        return "0";
-    }
-
     private static String formatScore(float score) {
         if (score < 1.0f && score > 0.0f) {
             return String.format("%.1f", score);
@@ -764,7 +714,6 @@ public class SubtitleRenderer implements IHudRenderer {
         return String.valueOf(Math.round(score));
     }
 
-    private record ScoreEntry(int victimId, float score, long timestamp) {}
 
 
     /**

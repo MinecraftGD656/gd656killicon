@@ -89,7 +89,6 @@ public class BonusScorePacket implements IPacket {
             }
 
             ScoreSubtitleRenderer.getInstance().addScore(this.score);
-            SubtitleRenderer.recordBonusScore(this.bonusType, this.score, this.victimId);
             triggerRushBombKillFeed();
             
             StringBuilder dataBuilder = new StringBuilder();

@@ -187,7 +187,7 @@ public class YwzjVehicleEventHandler implements IYwzjVehicleHandler {
             );
             
             ServerData.get().addKill(killer, 1);
-            VehicleRewardHelper.sendDestroyVehicleEffects(killer, vehicle.getId(), extraInfo);
+            VehicleRewardHelper.sendDestroyVehicleEffects(killer, vehicle.getId(), extraInfo, org.mods.gd656killicon.server.logic.core.BonusEngine.resolveScore(org.mods.gd656killicon.common.BonusType.DESTROY_VEHICLE, score));
         }
     }
 
