@@ -39,6 +39,11 @@ public final class ForgeNetworkTransport {
                 .encoder(org.mods.gd656killicon.network.packet.DamageSoundPacket::encode)
                 .consumerMainThread((msg, ctx) -> msg.handle(new ForgePacketContext(ctx.get())))
                 .add();
+        net.messageBuilder(org.mods.gd656killicon.network.packet.HitInfoPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(org.mods.gd656killicon.network.packet.HitInfoPacket::new)
+                .encoder(org.mods.gd656killicon.network.packet.HitInfoPacket::encode)
+                .consumerMainThread((msg, ctx) -> msg.handle(new ForgePacketContext(ctx.get())))
+                .add();
         net.messageBuilder(org.mods.gd656killicon.network.packet.BonusScorePacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
                 .decoder(org.mods.gd656killicon.network.packet.BonusScorePacket::new)
                 .encoder(org.mods.gd656killicon.network.packet.BonusScorePacket::encode)

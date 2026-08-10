@@ -118,6 +118,7 @@ public class ValorantIconRenderer implements IHudRenderer {
     private float configScale = 1.0f;
     private float configXOffset = 0.0f;
     private float configYOffset = 80.0f;
+    private String configScreenAnchor = "bottom_center";
     private float configBarXOffset = 0.0f;
     private float configBarYOffset = 0.0f;
     private float configBarRadiusOffset = 0.0f;
@@ -208,8 +209,8 @@ public class ValorantIconRenderer implements IHudRenderer {
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
-        float centerX = screenWidth / 2.0f + configXOffset;
-        float centerY = screenHeight - configYOffset + VISUAL_CENTER_Y_OFFSET_PX;
+        float centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(configScreenAnchor, Math.round(configXOffset), screenWidth);
+        float centerY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, Math.round(configYOffset), screenHeight) + VISUAL_CENTER_Y_OFFSET_PX;
         renderAt(guiGraphics, partialTick, centerX, centerY);
     }
 
@@ -469,6 +470,7 @@ public class ValorantIconRenderer implements IHudRenderer {
         configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
         configXOffset = config.has("x_offset") ? config.get("x_offset").getAsFloat() : 0.0f;
         configYOffset = config.has("y_offset") ? config.get("y_offset").getAsFloat() : 80.0f;
+        configScreenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
         configBarXOffset = config.has("bar_x_offset") ? config.get("bar_x_offset").getAsFloat() : 0.0f;
         configBarYOffset = config.has("bar_y_offset") ? config.get("bar_y_offset").getAsFloat() : 0.0f;
         configBarRadiusOffset = config.has("bar_radius_offset") ? config.get("bar_radius_offset").getAsFloat() : 0.0f;

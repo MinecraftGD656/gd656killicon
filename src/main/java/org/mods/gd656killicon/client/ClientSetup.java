@@ -20,6 +20,7 @@ public class ClientSetup {
         org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "score", org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer.getInstance());
         org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "combo", org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer.getInstance());
         org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "bonus_list", org.mods.gd656killicon.client.render.impl.BonusListRenderer.getInstance());
+        org.mods.gd656killicon.client.render.HudElementManager.register("subtitle", "hit_info", org.mods.gd656killicon.client.render.impl.HitInfoRenderer.getInstance());
         org.mods.gd656killicon.client.render.HudElementManager.register("global", "ace_logo", new org.mods.gd656killicon.client.render.impl.AceLogoRenderer());
         registerConfigScreen();
         org.mods.gd656killicon.client.command.ClientCommand.init();

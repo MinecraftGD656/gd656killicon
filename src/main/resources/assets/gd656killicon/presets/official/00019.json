@@ -190,6 +190,7 @@
     "texture_mode_x_sparks": "official",
     "vanilla_texture_x_sparks": "minecraft:item/nether_star",
     "rotation_angle": 0.0,
-    "texture_style_blade": "killicon_valorant_bubblegum_deathwish_blade.png"
+    "texture_style_blade": "killicon_valorant_bubblegum_deathwish_blade.png",
+    "screen_anchor": "bottom_center"
   }
 }

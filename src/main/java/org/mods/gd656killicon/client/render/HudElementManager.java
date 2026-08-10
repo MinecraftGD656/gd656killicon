@@ -77,8 +77,12 @@ public class HudElementManager {
                         renderer.render(guiGraphics, partialTick);
                         continue;
                     }
-                    float pivotX = screenWidth / 2.0f + (config != null && config.has("x_offset") ? config.get("x_offset").getAsInt() : 0);
-                    float pivotY = screenHeight - (config != null && config.has("y_offset") ? config.get("y_offset").getAsInt() : 0);
+                    String screenAnchor = config != null && config.has("screen_anchor")
+                            ? config.get("screen_anchor").getAsString() : org.mods.gd656killicon.client.render.ScreenAnchor.DEFAULT;
+                    int xOffset = config != null && config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
+                    int yOffset = config != null && config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+                    float pivotX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(screenAnchor, xOffset, screenWidth);
+                    float pivotY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(screenAnchor, yOffset, screenHeight);
                     guiGraphics.pose().pushPose();
                     guiGraphics.pose().translate(pivotX, pivotY, 0.0f);
                     guiGraphics.pose().mulPose(Axis.ZP.rotationDegrees(rotationAngle));

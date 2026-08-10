@@ -36,6 +36,7 @@ import org.mods.gd656killicon.client.render.impl.Battlefield1Renderer;
 import org.mods.gd656killicon.client.render.impl.CardBarRenderer;
 import org.mods.gd656killicon.client.render.impl.CardRenderer;
 import org.mods.gd656killicon.client.render.impl.BonusListRenderer;
+import org.mods.gd656killicon.client.render.impl.HitInfoRenderer;
 import org.mods.gd656killicon.client.render.impl.ComboIconRenderer;
 import org.mods.gd656killicon.client.render.impl.ScrollingIconRenderer;
 import org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer;
@@ -104,10 +105,13 @@ public class ElementConfigContent extends ConfigTabContent {
     private long lastScorePreviewTriggerTime = 0L;
     private BonusListRenderer bonusListPreviewRenderer = BonusListRenderer.getInstance();
     private long lastBonusListPreviewTriggerTime = 0L;
+    private HitInfoRenderer hitInfoPreviewRenderer = new HitInfoRenderer();
+    private long lastHitInfoPreviewTriggerTime = 0L;
     private final List<SecondaryTab> secondaryTabs = new ArrayList<>();
     private SecondaryTab selectedSecondaryTab;
     private final List<GDRowRenderer> allConfigRows = new ArrayList<>();
     private final Map<String, Boolean> generalFolderExpanded = new LinkedHashMap<>();
+
     private double secondaryScrollX = 0;
     private double secondaryTargetScrollX = 0;
     private double secondaryMaxScroll = 0;
@@ -640,6 +644,7 @@ public class ElementConfigContent extends ConfigTabContent {
                 renderComboSubtitlePreview(guiGraphics, partialTick);
                 renderScorePreview(guiGraphics, partialTick);
                 renderBonusListPreview(guiGraphics, partialTick);
+                renderHitInfoPreview(guiGraphics, partialTick);
             } finally {
                 PreviewRenderTimeContext.endPreviewFrame();
             }
@@ -1175,6 +1180,29 @@ public class ElementConfigContent extends ConfigTabContent {
         guiGraphics.disableScissor();
     }
 
+    private void renderHitInfoPreview(GuiGraphics guiGraphics, float partialTick) {
+        if (!"subtitle/hit_info".equals(elementId) || gridWidget == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (!previewPaused && now - lastHitInfoPreviewTriggerTime >= PREVIEW_SUBTITLE_TRIGGER_INTERVAL_MS) {
+            hitInfoPreviewRenderer.triggerPreview();
+            lastHitInfoPreviewTriggerTime = now;
+        }
+        float originX = gridWidget.getOriginX();
+        float originY = gridWidget.getOriginY();
+        int scissorX1 = gridWidget.getX();
+        int scissorY1 = gridWidget.getY();
+        int scissorX2 = scissorX1 + gridWidget.getWidth();
+        int scissorY2 = scissorY1 + gridWidget.getHeight();
+        guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
+        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> hitInfoPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
+        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+        guiGraphics.disableScissor();
+    }
+
     private void renderPreviewWithRotation(GuiGraphics guiGraphics, float partialTick, float originX, float originY, Runnable renderTask) {
         JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
         float rotationAngle = config != null && config.has("rotation_angle") ? config.get("rotation_angle").getAsFloat() : 0.0f;
@@ -1426,6 +1454,7 @@ public class ElementConfigContent extends ConfigTabContent {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        // 拖动不取消长按: 按住元素拖动时锚点指示保持显示(松开才清除)
         if (handleSecondaryTabDrag(mouseX, mouseY, dragX)) {
             return true;
         }
@@ -1985,6 +2014,7 @@ public class ElementConfigContent extends ConfigTabContent {
         comboSubtitlePreviewRenderer.resetPreview();
         scorePreviewRenderer.resetPreview();
         bonusListPreviewRenderer.resetPreview();
+        hitInfoPreviewRenderer = new HitInfoRenderer();
         
         lastPreviewTriggerTime = 0;
         lastComboPreviewTriggerTime = 0;
@@ -1995,6 +2025,7 @@ public class ElementConfigContent extends ConfigTabContent {
         lastSubtitlePreviewTriggerTime = 0;
         lastScorePreviewTriggerTime = 0;
         lastBonusListPreviewTriggerTime = 0;
+        lastHitInfoPreviewTriggerTime = 0;
     }
 
     private void closeContent() {

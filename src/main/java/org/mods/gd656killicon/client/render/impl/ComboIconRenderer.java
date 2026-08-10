@@ -40,6 +40,7 @@ public class ComboIconRenderer implements IHudRenderer {
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
+    private String configScreenAnchor = "bottom_center";
     private long displayDuration = DEFAULT_DISPLAY_DURATION;
     private boolean enableCritRing = true;
     private boolean enableHeadshotRing = true;
@@ -123,8 +124,8 @@ public class ComboIconRenderer implements IHudRenderer {
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
-        float centerX = screenWidth / 2f + configXOffset;
-        float centerY = screenHeight - configYOffset;
+        float centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(configScreenAnchor, configXOffset, screenWidth);
+        float centerY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
         renderAt(guiGraphics, partialTick, centerX, centerY);
     }
 
@@ -220,6 +221,7 @@ public class ComboIconRenderer implements IHudRenderer {
             this.configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
             this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+            this.configScreenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
             this.displayDuration = resolveDisplayDuration(config);
             boolean defaultRingEnable = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
             this.enableCritRing = config.has("enable_ring_effect_crit") ? config.get("enable_ring_effect_crit").getAsBoolean() : defaultRingEnable;
@@ -249,6 +251,7 @@ public class ComboIconRenderer implements IHudRenderer {
             this.configScale = 1.0f;
             this.configXOffset = 0;
             this.configYOffset = 0;
+            this.configScreenAnchor = "bottom_center";
             this.displayDuration = resolveDisplayDuration(null);
             this.enableCritRing = true;
             this.enableHeadshotRing = true;

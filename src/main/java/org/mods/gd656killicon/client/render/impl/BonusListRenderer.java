@@ -66,6 +66,7 @@ public class BonusListRenderer implements IHudRenderer {
     private String killFeedFormat = "[<weapon>] <target> +<score>";
     private String killFeedVictimColor = "#FF0000";
     private boolean enableDigitalScroll = true;
+    private boolean enableStackMultiplier = false;
     private boolean enableGlowEffect = false;
     private float glowIntensity = 0.5f;
     private float glowSize = GLOW_OFFSET;
@@ -150,11 +151,12 @@ public class BonusListRenderer implements IHudRenderer {
         }
         int xOffset = config.get("x_offset").getAsInt();
         int yOffset = config.get("y_offset").getAsInt();
+        String screenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
-        float centerX = screenWidth / 2.0f + xOffset;
-        float startY = screenHeight - yOffset;
+        float centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(screenAnchor, xOffset, screenWidth);
+        float startY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(screenAnchor, yOffset, screenHeight);
         startY = applyQueueLinkage(startY);
         renderInternal(guiGraphics, config, centerX, startY);
     }
@@ -298,6 +300,7 @@ public class BonusListRenderer implements IHudRenderer {
             this.killFeedFormat = config.has("kill_feed_format") ? config.get("kill_feed_format").getAsString() : "[<weapon>] <target> +<score>";
             this.killFeedVictimColor = config.has("kill_feed_victim_color") ? config.get("kill_feed_victim_color").getAsString() : "#FF0000";
             this.enableDigitalScroll = !config.has("enable_digital_scroll") || config.get("enable_digital_scroll").getAsBoolean();
+            this.enableStackMultiplier = config.has("enable_stack_multiplier") && config.get("enable_stack_multiplier").getAsBoolean();
             this.enableGlowEffect = config.has("enable_glow_effect") && config.get("enable_glow_effect").getAsBoolean();
             this.glowIntensity = config.has("glow_intensity") ? config.get("glow_intensity").getAsFloat() : 0.5f;
             this.glowSize = config.has("glow_size") ? config.get("glow_size").getAsFloat() : GLOW_OFFSET;
@@ -758,6 +761,7 @@ public class BonusListRenderer implements IHudRenderer {
         final String formatString;
         final boolean hasPlaceholder;
         String extraData;
+        int stackCount = 1;
         
         float currentY;
         float currentXOffset;
@@ -860,7 +864,13 @@ public class BonusListRenderer implements IHudRenderer {
         }
 
         public void merge(float score, String newExtraData, boolean isComboFormat, String format) {
-            if (scoreStat != null) scoreStat.add(score);
+            this.stackCount++;
+            if (scoreStat != null) {
+                // 启用叠加倍数显示: score 保持单次值不累加, 堆叠次数由 stackCount 记录(渲染时显示 ×N)
+                if (!BonusListRenderer.this.enableStackMultiplier) {
+                    scoreStat.add(score);
+                }
+            }
             
             if (newExtraData == null) return;
             
@@ -1078,7 +1088,7 @@ public class BonusListRenderer implements IHudRenderer {
             String fmt = this.killFeedFormatStr;
             float score = scoreStat != null ? scoreStat.getValue(BonusListRenderer.this.enableDigitalScroll) : 0;
             
-            
+            // 只匹配 score/weapon/target 占位符(与渲染分支一致): clean 模式只排除 <score>
             Matcher m = Pattern.compile("(<weapon>|<target>|<score>)").matcher(fmt);
             int lastEnd = 0;
             
@@ -1093,9 +1103,11 @@ public class BonusListRenderer implements IHudRenderer {
                 
                 String tag = m.group(1);
                 if (BonusListRenderer.this.cleanSubtitleContent) {
-                    // 干净模式: 排除 <weapon>/<target>/<score> 占位符(不显示其值)
-                    lastEnd = m.end();
-                    continue;
+                    // 干净模式: 只排除 <score> 占位符(不显示其值), <weapon>/<target> 正常显示
+                    if ("<score>".equals(tag)) {
+                        lastEnd = m.end();
+                        continue;
+                    }
                 }
                 if ("<weapon>".equals(tag)) {
                     root.append(Component.literal(this.weaponName).withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
@@ -1152,9 +1164,11 @@ public class BonusListRenderer implements IHudRenderer {
                 String type = matcher.group(1);
 
                 if (BonusListRenderer.this.cleanSubtitleContent) {
-                    // 干净模式: 排除所有被 <> 包裹的占位符(不显示其值)
-                    lastEnd = matcher.end();
-                    continue;
+                    // 干净模式: 只排除 <score> 占位符(不显示其值), 其它占位符正常显示
+                    if ("score".equals(type)) {
+                        lastEnd = matcher.end();
+                        continue;
+                    }
                 }
                 
                 switch (type) {
@@ -1201,6 +1215,12 @@ public class BonusListRenderer implements IHudRenderer {
                 root.append(effect != null ? effect.getCurrentText() : lastPart);
             } else {
                 root.append(lastPart);
+            }
+
+            // 叠加倍数显示: 启用且堆叠次数 > 1 时追加 " ×N"(score 已保持单次值)
+            if (BonusListRenderer.this.enableStackMultiplier && this.stackCount > 1) {
+                root.append(Component.literal(" ×" + this.stackCount)
+                        .withStyle(Style.EMPTY.withColor(BonusListRenderer.this.normalTextColor)));
             }
             
             return root;

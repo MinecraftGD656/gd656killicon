@@ -508,7 +508,44 @@ public class ElementConfigBuilderRegistry {
 
                     boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(resolvedDefaultValue).matches();
 
-                    if ("scroll_direction".equals(key)) {
+                    if ("screen_anchor".equals(key)) {
+                        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+                        for (String anchorId : org.mods.gd656killicon.client.render.ScreenAnchor.getAnchorIds()) {
+                            choices.add(new FixedChoiceConfigEntry.Choice(anchorId, I18n.get("gd656killicon.config.choice.screen_anchor." + anchorId)));
+                        }
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc." + key,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                if (newValue == null || newValue.equals(resolvedCurrentValue)) {
+                                    return;
+                                }
+                                // 锚点切换时同步调整 x_offset/y_offset, 使元素在当前分辨率下屏幕相对位置不变
+                                JsonObject live = ElementConfigManager.getElementConfig(finalPresetId, finalElementId);
+                                String oldAnchor = live != null && live.has("screen_anchor")
+                                        ? live.get("screen_anchor").getAsString() : org.mods.gd656killicon.client.render.ScreenAnchor.DEFAULT;
+                                int oldX = live != null && live.has("x_offset") ? live.get("x_offset").getAsInt() : 0;
+                                int oldY = live != null && live.has("y_offset") ? live.get("y_offset").getAsInt() : 0;
+                                int screenW = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+                                int screenH = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+                                int newX = org.mods.gd656killicon.client.render.ScreenAnchor.translateXOffset(oldAnchor, newValue, oldX, screenW);
+                                int newY = org.mods.gd656killicon.client.render.ScreenAnchor.translateYOffset(oldAnchor, newValue, oldY, screenH);
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, "screen_anchor", newValue);
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, "x_offset", String.valueOf(newX));
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, "y_offset", String.valueOf(newY));
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if ("scroll_direction".equals(key)) {
                         List<FixedChoiceConfigEntry.Choice> choices = List.of(
                             new FixedChoiceConfigEntry.Choice("left", I18n.get("gd656killicon.config.choice.scroll_direction.left")),
                             new FixedChoiceConfigEntry.Choice("right", I18n.get("gd656killicon.config.choice.scroll_direction.right"))

@@ -48,6 +48,24 @@ public class PresetConfigTab extends ConfigTabContent {
     private float currentTranslation;
     private float targetTranslation;
     private long lastFrameTime;
+
+    // 长按锚点指示(按住元素变黄时在限定区域内显示 9 个锚点正方形 + 连接线)
+    private static final int ANCHOR_SQUARE_SIZE = 10;
+    private static final float ANCHOR_OVERLAY_MAX_ALPHA = 0.2f;   // 锚点框透明度(用户语义: 20%)
+    private static final float ANCHOR_LINE_ALPHA = 0.4f;          // 连接线透明度(40%)
+    private static final long ANCHOR_FADE_IN_MS = 200L;
+    private static final long ANCHOR_FADE_OUT_MS = 100L;
+    private static final long ANCHOR_SWITCH_HOLD_MS = 1000L;      // 悬停新锚点 1 秒后切换
+    private static final long ANCHOR_REVERT_MS = 500L;            // 移开后 0.5 秒颜色回退
+    private float anchorOverlayAlpha = 0.0f;
+    private boolean anchorOverlayShowing = false;
+    private long anchorOverlayStateStartTime = 0L;
+    // 拖动切换锚点状态: 鼠标悬停的候选锚点(非当前)渐变金色, 2 秒持续切换
+    private String candidateAnchorId = null;
+    private float candidateProgress = 0.0f;
+    private long candidateStartTime = 0L;
+    private boolean candidateFadingOut = false;
+    private long candidateFadeOutStartTime = 0L;
     
     private PanelState rightPanelState = PanelState.HIDDEN;
     private float currentRightTranslation;
@@ -623,7 +641,7 @@ public class PresetConfigTab extends ConfigTabContent {
             if (panelMouseX > TRIGGER_ZONE_WIDTH) {
                 leftRequireExitBeforeAutoOpen = false;
             }
-            if (!isRightPanelOpen && panelMouseX >= 0 && panelMouseX <= TRIGGER_ZONE_WIDTH && !leftRequireExitBeforeAutoOpen) {
+            if (!isRightPanelOpen && panelMouseX >= 0 && panelMouseX <= TRIGGER_ZONE_WIDTH && !leftRequireExitBeforeAutoOpen && !isAnyElementPressed()) {
                 state = PanelState.OPEN;
             }
         } else if (state == PanelState.PEEK) {
@@ -674,7 +692,7 @@ public class PresetConfigTab extends ConfigTabContent {
             if (panelMouseX < rightTriggerZoneStart) {
                 rightRequireExitBeforeAutoOpen = false;
             }
-            if (!isPanelOpen && panelMouseX >= rightTriggerZoneStart && panelMouseX <= screenWidth && !rightRequireExitBeforeAutoOpen) {
+            if (!isPanelOpen && panelMouseX >= rightTriggerZoneStart && panelMouseX <= screenWidth && !rightRequireExitBeforeAutoOpen && !isAnyElementPressed()) {
                 rightPanelState = PanelState.OPEN;
             }
         } else if (rightPanelState == PanelState.PEEK) {
@@ -736,6 +754,9 @@ public class PresetConfigTab extends ConfigTabContent {
         for (ElementPreview preview : renderList) {
             preview.updatePosition(screenWidth, screenHeight);
         }
+
+        // 锚点指示画在元素之下(先画锚点框/连接线, 元素渲染盖在其上)
+        renderAnchorOverlay(guiGraphics, partialTick, screenWidth, screenHeight, panelWidth, mouseX, mouseY);
         
         renderList.sort((a, b) -> {
             boolean aIsDragged = draggingElementId != null && a.getElementId().equals(draggingElementId);
@@ -1387,14 +1408,281 @@ public class PresetConfigTab extends ConfigTabContent {
         guiGraphics.pose().popPose();
     }
 
+    /**
+     * 长按锚点指示: 按住元素(ElementPreview 变黄机制)时, 在限定区域内显示 9 个锚点正方形
+     * (10×10, 透明度 20%; 当前元素锚点为金色, 其余灰色), 0.2s 渐显 / 0.1s 渐隐;
+     * 锚点框画在元素之下(元素渲染盖在其上, 不隐藏)。
+     * 另以当前锚点与元素中心为两顶点画 2 条相邻(连接成角)的 1px 金色连接线(40% 透明度),
+     * 两条边均不与限定区域边框相撞。
+     * 拖动切换锚点: 拖动元素时鼠标悬停到非当前锚点框 → 该框 2 秒内渐变金色(旧金色框渐变灰),
+     * 持续 2 秒后切换元素锚点(含偏移补偿); 鼠标移开 → 0.5 秒内颜色回退。
+     */
+    private void renderAnchorOverlay(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight, int panelWidth, int mouseX, int mouseY) {
+        long now = System.currentTimeMillis();
+        // 触发条件 = 现有"长按元素变黄"机制: ElementPreview.isPressed(按住未松开)
+        String pressedElementId = null;
+        for (ElementPreview preview : previewElements.values()) {
+            if (preview.isPressed()) {
+                pressedElementId = preview.getElementId();
+                break;
+            }
+        }
+        if (pressedElementId != null) {
+            if (!this.anchorOverlayShowing) {
+                this.anchorOverlayShowing = true;
+                this.anchorOverlayStateStartTime = now;
+            }
+        } else {
+            if (this.anchorOverlayShowing) {
+                this.anchorOverlayShowing = false;
+                this.anchorOverlayStateStartTime = now;
+            }
+        }
+        if (this.anchorOverlayShowing) {
+            float t = (now - this.anchorOverlayStateStartTime) / (float) ANCHOR_FADE_IN_MS;
+            this.anchorOverlayAlpha = ANCHOR_OVERLAY_MAX_ALPHA * Math.min(1.0f, t);
+        } else if (this.anchorOverlayAlpha > 0.0f) {
+            float t = (now - this.anchorOverlayStateStartTime) / (float) ANCHOR_FADE_OUT_MS;
+            this.anchorOverlayAlpha = ANCHOR_OVERLAY_MAX_ALPHA * Math.max(0.0f, 1.0f - t);
+            if (t >= 1.0f) {
+                this.anchorOverlayAlpha = 0.0f;
+            }
+        }
+        if (this.anchorOverlayAlpha <= 0.001f || pressedElementId == null) {
+            return;
+        }
+        ElementPreview preview = previewElements.get(pressedElementId);
+        if (preview == null) {
+            return;
+        }
+
+        // 限定区域(灰色限定边框 area2)
+        int goldBarBottom = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT;
+        float leftVisibleWidth = Math.max(0f, currentTranslation + panelWidth);
+        float rightVisibleWidth = Math.max(0f, panelWidth - currentRightTranslation);
+        int gx = (int) Math.max((float) GuiConstants.DEFAULT_PADDING, leftVisibleWidth);
+        int gy = goldBarBottom + GuiConstants.DEFAULT_PADDING;
+        int gx2 = (int) Math.min((float) screenWidth - GuiConstants.DEFAULT_PADDING, screenWidth - rightVisibleWidth);
+        int gy2 = screenHeight - GuiConstants.DEFAULT_PADDING;
+        int gw = Math.max(1, gx2 - gx);
+        int gh = Math.max(1, gy2 - gy);
+
+        // 当前元素锚点 id(每次读配置; 切换后 updateConfigValue 生效)
+        String presetId = ClientConfigManager.getCurrentPresetId();
+        String anchor = org.mods.gd656killicon.client.render.ScreenAnchor.DEFAULT;
+        com.google.gson.JsonObject cfg = ElementConfigManager.getElementConfig(presetId, pressedElementId);
+        if (cfg != null && cfg.has("screen_anchor")) {
+            anchor = cfg.get("screen_anchor").getAsString();
+        }
+
+        // 9 锚点归一化坐标(与 ScreenAnchor.ANCHOR_IDS 顺序一致)
+        float[][] norms = {
+                {0.0f, 0.0f}, {0.0f, 0.5f}, {0.0f, 1.0f},
+                {0.5f, 0.0f}, {0.5f, 0.5f}, {0.5f, 1.0f},
+                {1.0f, 0.0f}, {1.0f, 0.5f}, {1.0f, 1.0f}
+        };
+        String[] ids = {
+                "top_left", "middle_left", "bottom_left",
+                "top_center", "center", "bottom_center",
+                "top_right", "middle_right", "bottom_right"
+        };
+        float anchorAX = gx + 0.5f * gw;
+        float anchorAY = gy + 1.0f * gh;
+        for (int i = 0; i < ids.length; i++) {
+            if (ids[i].equals(anchor)) {
+                anchorAX = gx + norms[i][0] * gw;
+                anchorAY = gy + norms[i][1] * gh;
+                break;
+            }
+        }
+
+        // 元素中心 = 预览框几何中心
+        float centerX = preview.getPreviewX() + preview.getPreviewWidth() / 2.0f;
+        float centerY = preview.getPreviewY() + preview.getPreviewHeight() / 2.0f;
+
+        // 9 锚点框矩形(角/边对齐限定区域)
+        int[][] rects = new int[9][4];
+        for (int i = 0; i < ids.length; i++) {
+            float nx = norms[i][0];
+            float ny = norms[i][1];
+            int sx = (int) (gx + nx * gw) - (nx > 0.5f ? ANCHOR_SQUARE_SIZE : (nx == 0.5f ? ANCHOR_SQUARE_SIZE / 2 : 0));
+            int sy = (int) (gy + ny * gh) - (ny > 0.5f ? ANCHOR_SQUARE_SIZE : (ny == 0.5f ? ANCHOR_SQUARE_SIZE / 2 : 0));
+            rects[i][0] = sx;
+            rects[i][1] = sy;
+            rects[i][2] = sx + ANCHOR_SQUARE_SIZE;
+            rects[i][3] = sy + ANCHOR_SQUARE_SIZE;
+        }
+
+        // 拖动切换锚点: 拖动(按住)时鼠标悬停的非当前锚点框为候选
+        String hoverAnchor = null;
+        for (int i = 0; i < ids.length; i++) {
+            if (mouseX >= rects[i][0] && mouseX <= rects[i][2] && mouseY >= rects[i][1] && mouseY <= rects[i][3]) {
+                if (!ids[i].equals(anchor)) {
+                    hoverAnchor = ids[i];
+                }
+                break;
+            }
+        }
+        if (hoverAnchor != null) {
+            if (!hoverAnchor.equals(this.candidateAnchorId)) {
+                this.candidateAnchorId = hoverAnchor;
+                this.candidateStartTime = now;
+                this.candidateFadingOut = false;
+            }
+            this.candidateProgress = (now - this.candidateStartTime) / (float) ANCHOR_SWITCH_HOLD_MS;
+            if (this.candidateProgress >= 1.0f) {
+                // 2 秒持续且鼠标未离开 → 切换元素锚点(含偏移补偿)
+                switchAnchor(pressedElementId, anchor, hoverAnchor, screenWidth, screenHeight);
+                this.candidateAnchorId = null;
+                this.candidateProgress = 0.0f;
+                this.candidateFadingOut = false;
+                anchor = hoverAnchor;
+            }
+        } else {
+            if (this.candidateAnchorId != null) {
+                if (!this.candidateFadingOut) {
+                    this.candidateFadingOut = true;
+                    this.candidateFadeOutStartTime = now;
+                }
+                float revert = (now - this.candidateFadeOutStartTime) / (float) ANCHOR_REVERT_MS;
+                this.candidateProgress = Math.max(0.0f, 1.0f - revert);
+                if (revert >= 1.0f) {
+                    this.candidateAnchorId = null;
+                    this.candidateProgress = 0.0f;
+                    this.candidateFadingOut = false;
+                }
+            }
+        }
+
+        int alphaInt = (int) (this.anchorOverlayAlpha * 255.0f) << 24;
+
+        // 绘制 9 个锚点正方形(画在元素之下, 不因靠近元素而隐藏)
+        for (int i = 0; i < ids.length; i++) {
+            int rgb;
+            if (ids[i].equals(anchor)) {
+                rgb = GuiConstants.COLOR_GOLD & 0x00FFFFFF;
+            } else if (ids[i].equals(this.candidateAnchorId)) {
+                // 候选锚点: 灰色 → 金色 平滑渐变(2 秒)
+                rgb = interpolateColor(GuiConstants.COLOR_GRAY & 0x00FFFFFF, GuiConstants.COLOR_GOLD & 0x00FFFFFF, this.candidateProgress);
+            } else {
+                rgb = GuiConstants.COLOR_GRAY & 0x00FFFFFF;
+            }
+            guiGraphics.fill(rects[i][0], rects[i][1], rects[i][2], rects[i][3], alphaInt | rgb);
+        }
+
+        // 连接线: 当前锚点 A 与元素中心 C 为正方形对角顶点, 画 2 条相邻(连接成角)边(1px, 40% 金色)。
+        // 有效边对覆盖 A 与 C: (e0竖直+e1水平, 在 B1 连接) 或 (e2竖直+e3水平, 在 B2 连接);
+        // 选无一条边落在限定区域边框上的对(角锚点无法完全避免时选撞边最少);
+        // 边端点夹取到区域内 → 边缘边与灰边框对齐(仅角锚点的边允许与灰边框重叠), 角点不缺像素。
+        float ax = anchorAX, ay = anchorAY;
+        boolean[] hit = {
+                isOnBorder(ax, gx, gw), isOnBorder(centerY, gy, gh),
+                isOnBorder(centerX, gx, gw), isOnBorder(ay, gy, gh)
+        };
+        int[][] pairs = {{0, 1}, {2, 3}};
+        int[] chosen = pairs[0];
+        int bestScore = (hit[pairs[0][0]] ? 1 : 0) + (hit[pairs[0][1]] ? 1 : 0);
+        for (int[] pair : pairs) {
+            int score = (hit[pair[0]] ? 1 : 0) + (hit[pair[1]] ? 1 : 0);
+            if (score < bestScore) {
+                chosen = pair;
+                bestScore = score;
+            }
+        }
+        int lineColor = ((int) (ANCHOR_LINE_ALPHA * 255.0f) << 24) | (GuiConstants.COLOR_GOLD & 0x00FFFFFF);
+        if (chosen[0] == 0 || chosen[1] == 0) {
+            fillVLine(guiGraphics, ax, ay, centerY, lineColor, gx, gy, gw, gh);
+        }
+        if (chosen[0] == 1 || chosen[1] == 1) {
+            fillHLine(guiGraphics, ax, centerX, centerY, lineColor, gx, gy, gw, gh);
+        }
+        if (chosen[0] == 2 || chosen[1] == 2) {
+            fillVLine(guiGraphics, centerX, centerY, ay, lineColor, gx, gy, gw, gh);
+        }
+        if (chosen[0] == 3 || chosen[1] == 3) {
+            fillHLine(guiGraphics, centerX, ax, ay, lineColor, gx, gy, gw, gh);
+        }
+    }
+
+    /** 1px 竖直边(x 固定): 端点夹取到限定区域内(自动排序), 边缘边与灰边框对齐 */
+    private static void fillVLine(GuiGraphics guiGraphics, float x, float y1, float y2, int color, int gx, int gy, int gw, int gh) {
+        int xi = clampEdge(Math.round(x), gx, gx + gw);
+        int y1i = clampEdge(Math.round(y1), gy, gy + gh);
+        int y2i = clampEdge(Math.round(y2), gy, gy + gh);
+        int ya = Math.min(y1i, y2i);
+        int yb = Math.max(y1i, y2i);
+        if (yb > ya) {
+            guiGraphics.fill(xi, ya, xi + 1, yb, color);
+        }
+    }
+
+    /** 1px 水平边(y 固定): 端点夹取到限定区域内(自动排序), 边缘边与灰边框对齐 */
+    private static void fillHLine(GuiGraphics guiGraphics, float x1, float x2, float y, int color, int gx, int gy, int gw, int gh) {
+        int x1i = clampEdge(Math.round(x1), gx, gx + gw);
+        int x2i = clampEdge(Math.round(x2), gx, gx + gw);
+        int yi = clampEdge(Math.round(y), gy, gy + gh);
+        int xa = Math.min(x1i, x2i);
+        int xb = Math.max(x1i, x2i);
+        if (xb > xa) {
+            guiGraphics.fill(xa, yi, xb, yi + 1, color);
+        }
+    }
+
+    /** 将值夹取到 [min, maxExclusive-1](区域内像素) */
+    private static int clampEdge(int v, int min, int maxExclusive) {
+        return Math.max(min, Math.min(maxExclusive - 1, v));
+    }
+
+    /** 切换元素锚点: 更新 screen_anchor + 偏移补偿(保持元素屏幕位置) */
+    private void switchAnchor(String elementId, String oldAnchor, String newAnchor, int screenWidth, int screenHeight) {
+        String presetId = ClientConfigManager.getCurrentPresetId();
+        com.google.gson.JsonObject cfg = ElementConfigManager.getElementConfig(presetId, elementId);
+        if (cfg == null) {
+            return;
+        }
+        int oldX = cfg.has("x_offset") ? cfg.get("x_offset").getAsInt() : 0;
+        int oldY = cfg.has("y_offset") ? cfg.get("y_offset").getAsInt() : 0;
+        int newX = org.mods.gd656killicon.client.render.ScreenAnchor.translateXOffset(oldAnchor, newAnchor, oldX, screenWidth);
+        int newY = org.mods.gd656killicon.client.render.ScreenAnchor.translateYOffset(oldAnchor, newAnchor, oldY, screenHeight);
+        ElementConfigManager.updateConfigValue(presetId, elementId, "screen_anchor", newAnchor);
+        ElementConfigManager.updateConfigValue(presetId, elementId, "x_offset", String.valueOf(newX));
+        ElementConfigManager.updateConfigValue(presetId, elementId, "y_offset", String.valueOf(newY));
+    }
+
+    /** RGB 颜色插值(仅低 24 位) */
+    private static int interpolateColor(int c1, int c2, float t) {
+        float clamped = Math.max(0.0f, Math.min(1.0f, t));
+        int r = (int) (((c1 >> 16) & 0xFF) + (((c2 >> 16) & 0xFF) - ((c1 >> 16) & 0xFF)) * clamped);
+        int g = (int) (((c1 >> 8) & 0xFF) + (((c2 >> 8) & 0xFF) - ((c1 >> 8) & 0xFF)) * clamped);
+        int b = (int) ((c1 & 0xFF) + ((c2 & 0xFF) - (c1 & 0xFF)) * clamped);
+        return (r << 16) | (g << 8) | b;
+    }
+
+    /** 线段坐标是否落在限定区域边框上(与边框相撞) */
+    private static boolean isOnBorder(float coord, int gx, int gw) {
+        return Math.abs(coord - gx) < 1.0f || Math.abs(coord - (gx + gw)) < 1.0f;
+    }
+
     private void renderPanelDirectionArrows(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
         int centerY = screenHeight / 2;
         int leftX = TRIGGER_ZONE_WIDTH / 2;
         int rightX = screenWidth - TRIGGER_ZONE_WIDTH / 2;
         String leftArrow = state == PanelState.OPEN ? "<" : ">";
         String rightArrow = rightPanelState == PanelState.OPEN ? ">" : "<";
-        guiGraphics.drawCenteredString(minecraft.font, leftArrow, leftX, centerY - minecraft.font.lineHeight / 2, GuiConstants.COLOR_GOLD);
-        guiGraphics.drawCenteredString(minecraft.font, rightArrow, rightX, centerY - minecraft.font.lineHeight / 2, GuiConstants.COLOR_GOLD);
+        // 长按元素时箭头变灰(边栏不可打开)
+        int arrowColor = isAnyElementPressed() ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
+        guiGraphics.drawCenteredString(minecraft.font, leftArrow, leftX, centerY - minecraft.font.lineHeight / 2, arrowColor);
+        guiGraphics.drawCenteredString(minecraft.font, rightArrow, rightX, centerY - minecraft.font.lineHeight / 2, arrowColor);
+    }
+
+    /** 是否有元素正被长按(按住变黄; 长按期间左右边栏不可打开, 箭头变灰) */
+    private boolean isAnyElementPressed() {
+        for (ElementPreview preview : previewElements.values()) {
+            if (preview.isPressed()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasFloatChanged(JsonObject before, JsonObject after, String key) {

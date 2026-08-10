@@ -24,6 +24,14 @@ public final class ServerPacketDispatcher {
         dispatch(player, ServerPacketType.DAMAGE_SOUND, () -> new DamageSoundPacket(headshotDamage));
     }
 
+    /** 命中信息: 玩家对任意生物造成伤害(amount > 0)或击杀(killed = true), entityId = 受害实体 */
+    public static void sendHitInfo(ServerPlayer player, float amount, boolean killed, int entityId) {
+        if (player == null) {
+            return;
+        }
+        NetworkHandler.sendToPlayer(new org.mods.gd656killicon.network.packet.HitInfoPacket(amount, killed, entityId), player);
+    }
+
     public static void sendDeath(ServerPlayer player, String playerName, String deathCause, String killerName) {
         dispatch(player, ServerPacketType.PLAYER_DEATH, () -> new DeathPacket(playerName, deathCause, killerName));
     }

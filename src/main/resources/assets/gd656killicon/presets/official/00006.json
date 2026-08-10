@@ -22,7 +22,8 @@
     "reset_kill_combo": "death",
     "reset_assist_combo": "death",
     "combo_reset_timeout": 10.0,
-    "rotation_angle": 0.0
+    "rotation_angle": 0.0,
+    "screen_anchor": "bottom_center"
   },
   "subtitle/kill_feed": {
     "visible": true,
@@ -67,6 +68,7 @@
     "enable_stacking": true,
     "max_lines": 5,
     "line_spacing": 12,
-    "rotation_angle": 0.0
+    "rotation_angle": 0.0,
+    "screen_anchor": "bottom_center"
   }
 }

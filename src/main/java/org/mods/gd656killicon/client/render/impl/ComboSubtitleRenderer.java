@@ -34,6 +34,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
     private float scale = 1.5f;
     private int xOffset = 0;
     private int yOffset = 150;
+    private String screenAnchor = "bottom_center";
     private int colorKillCombo = 0xFF0000;
     private int colorAssistCombo = 0xFFD700;
     private String formatKillSingle = "";
@@ -253,8 +254,8 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
         
-        int centerX = screenWidth / 2 + this.xOffset;
-        int centerY = screenHeight - this.yOffset;
+        int centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(this.screenAnchor, this.xOffset, screenWidth);
+        int centerY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(this.screenAnchor, this.yOffset, screenHeight);
         
         renderInternal(guiGraphics, partialTick, centerX, centerY, state);
     }
@@ -450,6 +451,7 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             this.scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.5f;
             this.xOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.yOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 150;
+            this.screenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
             this.colorKillCombo = parseColor(config, "color_kill_combo", 0xFF0000);
             this.colorAssistCombo = parseColor(config, "color_assist_combo", 0xFFD700);
             

@@ -130,6 +130,7 @@ public class DefaultConfigRegistry {
         p00037.add("subtitle/score");
         p00037.add("subtitle/bonus_list");
         p00037.add("kill_icon/scrolling");
+        p00037.add("subtitle/hit_info");   // 命中信息仅属 BF6(00037)
         OFFICIAL_PRESET_STRUCTURE.put("00037", p00037);
 
         for (ValorantStyleCatalog.StyleSpec definition : ValorantStyleCatalog.getDefinitions()) {
@@ -323,6 +324,7 @@ public class DefaultConfigRegistry {
         bonusList.addProperty("kill_feed_format", "[\u003cweapon\u003e] \u003ctarget\u003e +\u003cscore\u003e");
         bonusList.addProperty("kill_feed_victim_color", "#FF0000");
         bonusList.addProperty("enable_digital_scroll", true);
+        bonusList.addProperty("enable_stack_multiplier", false);
         bonusList.addProperty("enable_glow_effect", false);
         bonusList.addProperty("glow_intensity", 0.5f);
         bonusList.addProperty("glow_size", 0.3f);
@@ -387,6 +389,7 @@ public class DefaultConfigRegistry {
         scrolling.addProperty("pin_newest_icon", false);
         scrolling.addProperty("blink_fade_animation", false);
         scrolling.addProperty("entrance_background", false);
+        scrolling.addProperty("icon_delay", 0.0);
         scrolling.addProperty("entrance_background_size", 64);
         scrolling.addProperty("entrance_background_fade_in", 0.2f);
         scrolling.addProperty("entrance_background_fade_out", 0.2f);
@@ -400,6 +403,38 @@ public class DefaultConfigRegistry {
         injectTextureAnimationConfigs("kill_icon/scrolling", scrolling);
         injectTextureSelectionConfigs("00001", "kill_icon/scrolling", scrolling);
         registerGlobal("kill_icon/scrolling", scrolling);
+
+        JsonObject hitInfo = new JsonObject();
+        hitInfo.addProperty("visible", true);
+        hitInfo.addProperty("scale", 1.0);
+        hitInfo.addProperty("x_offset", 0);
+        hitInfo.addProperty("y_offset", 80);
+        hitInfo.addProperty("display_duration", 3.0);
+        hitInfo.addProperty("align_left", false);
+        hitInfo.addProperty("align_right", false);
+        hitInfo.addProperty("format_damage", "<damage>");
+        hitInfo.addProperty("color_damage_default", "#FFFFFF");
+        hitInfo.addProperty("color_damage_kill", "#D4B800");
+        hitInfo.addProperty("color_normal_text", "#FFFFFF");
+        hitInfo.addProperty("fade_in_duration", 0.2);
+        hitInfo.addProperty("fade_out_duration", 0.3);
+        hitInfo.addProperty("blink_fade_animation", false);
+        hitInfo.addProperty("enable_damage_scroll", true);
+        hitInfo.addProperty("damage_scroll_duration", 1.25);
+        hitInfo.addProperty("damage_scroll_refresh_rate", 0.02);
+        hitInfo.addProperty("enable_entity_layers", false);
+        hitInfo.addProperty("max_layers", 5);
+        hitInfo.addProperty("layer_spacing", 12);
+        hitInfo.addProperty("layer_move_animation_duration", 0.2);
+        hitInfo.addProperty("layer_collapse_animation_duration", 0.2);
+        hitInfo.addProperty("enable_glow_effect", false);
+        hitInfo.addProperty("glow_intensity", 0.5);
+        hitInfo.addProperty("glow_size", 0.3);
+        hitInfo.addProperty("glow_color_damage_default", "#FFFFFF");
+        hitInfo.addProperty("glow_color_damage_kill", "#D4B800");
+        hitInfo.addProperty("glow_alpha", 1.0);
+        hitInfo.addProperty("enable_text_shadow", true);
+        registerGlobal("subtitle/hit_info", hitInfo);
 
         JsonObject combo = new JsonObject();
         combo.addProperty("visible", true);
@@ -531,10 +566,17 @@ public class DefaultConfigRegistry {
 
     private static void registerGlobal(String elementId, JsonObject config) {
         applyRotationDefaults(config);
+        applyScreenAnchorDefault(config);
         if (elementId != null && elementId.startsWith("kill_icon")) {
             applyIconGlowDefaults(config);
         }
         GLOBAL_DEFAULTS.put(elementId, config);
+    }
+
+    private static void applyScreenAnchorDefault(JsonObject config) {
+        if (!config.has("screen_anchor")) {
+            config.addProperty("screen_anchor", "bottom_center");
+        }
     }
 
     private static void applyRotationDefaults(JsonObject config) {

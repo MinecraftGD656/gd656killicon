@@ -53,6 +53,7 @@ public class CardBarRenderer implements IHudRenderer {
         float scale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
         int xOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
         int yOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+        String screenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
         String team = config.has("team") ? config.get("team").getAsString() : "ct";
         boolean dynamicCardStyle = config.has("dynamic_card_style") && config.get("dynamic_card_style").getAsBoolean();
         float animationDuration = config.has("animation_duration") ? config.get("animation_duration").getAsFloat() : 0.2f;
@@ -103,8 +104,8 @@ public class CardBarRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        float centerX = screenWidth / 2.0f + xOffset;
-        float centerY = screenHeight - yOffset;
+        float centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(screenAnchor, xOffset, screenWidth);
+        float centerY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(screenAnchor, yOffset, screenHeight);
         renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration, enableIconGlow, iconGlowColor, iconGlowIntensity, iconGlowSize, focusMultiplier);
     }
 

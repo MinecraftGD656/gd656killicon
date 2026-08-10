@@ -189,6 +189,7 @@
     "custom_texture_x_sparks": "",
     "texture_mode_x_sparks": "official",
     "vanilla_texture_x_sparks": "minecraft:item/nether_star",
-    "rotation_angle": 0.0
+    "rotation_angle": 0.0,
+    "screen_anchor": "bottom_center"
   }
 }

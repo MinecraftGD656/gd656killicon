@@ -1,29 +1,6 @@
 {
   "format_version": 1,
   "display_name": "Battlefield 4模式",
-  "subtitle/score": {
-    "visible": true,
-    "scale": 2.0,
-    "x_offset": 30,
-    "y_offset": 80,
-    "display_duration": 4.5,
-    "format_score": "<score>",
-    "score_threshold": 1000,
-    "color_high_score": "#FFFFFF",
-    "color_flash": "#D0D0D0",
-    "color_normal_text": "#FFFFFF",
-    "animation_duration": 1.25,
-    "animation_refresh_rate": 0.01,
-    "enable_number_segmentation": false,
-    "enable_flash": false,
-    "align_left": true,
-    "align_right": false,
-    "enable_score_scaling_effect": true,
-    "enable_digital_scroll": false,
-    "enable_glow_effect": true,
-    "glow_intensity": 0.3,
-    "rotation_angle": 0.0
-  },
   "subtitle/bonus_list": {
     "visible": true,
     "scale": 1.0,
@@ -126,6 +103,32 @@
     "format_ground_sensor_scan": "掃描敵軍 +<score>",
     "format_rush_bomb_defused": "拆除炸彈 +<score>",
     "format_rush_bomb_planted": "安裝炸彈 +<score>",
-    "format_rush_objective_destroyed": "炸毀通訊設施 +<score>"
+    "format_rush_objective_destroyed": "炸毀通訊設施 +<score>",
+    "screen_anchor": "bottom_center",
+    "enable_stack_multiplier": false
+  },
+  "subtitle/score": {
+    "visible": true,
+    "scale": 2.0,
+    "x_offset": 30,
+    "y_offset": 80,
+    "display_duration": 4.5,
+    "format_score": "<score>",
+    "score_threshold": 1000,
+    "color_high_score": "#FFFFFF",
+    "color_flash": "#D0D0D0",
+    "color_normal_text": "#FFFFFF",
+    "animation_duration": 1.25,
+    "animation_refresh_rate": 0.01,
+    "enable_number_segmentation": false,
+    "enable_flash": false,
+    "align_left": true,
+    "align_right": false,
+    "enable_score_scaling_effect": true,
+    "enable_digital_scroll": false,
+    "enable_glow_effect": true,
+    "glow_intensity": 0.3,
+    "rotation_angle": 0.0,
+    "screen_anchor": "bottom_center"
   }
 }

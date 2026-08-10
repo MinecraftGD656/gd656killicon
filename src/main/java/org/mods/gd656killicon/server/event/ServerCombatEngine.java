@@ -274,6 +274,8 @@ public final class ServerCombatEngine {
 
         if (roundedAmt > 0) {
             addDamageBonus(player, type, roundedAmt);
+            // 命中信息: 伤害量累积由客户端按实体在显示窗口内处理
+            ServerPacketDispatcher.sendHitInfo(player, roundedAmt, false, victim.getId());
         }
 
         if (amt < victim.getHealth()) {
@@ -325,6 +327,8 @@ public final class ServerCombatEngine {
         String victimName = resolveVictimDisplayName(victim);
         ServerPlayer killer = resolvePlayerAttacker(src, victim);
         if (killer != null) {
+            // 命中信息: 击杀任意生物 → 对应实体的伤害占位符切换为击杀颜色
+            ServerPacketDispatcher.sendHitInfo(killer, 0.0f, true, victim.getId());
             handlePlayerKill(killer, victim, src);
             processAssist(victimId, victim.getId(), hasHelmet, victimName, isVictimPlayer, killer.getUUID());
         } else {

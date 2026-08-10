@@ -67,7 +67,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
         ensureConfigLoaded();
         Minecraft mc = Minecraft.getInstance();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
-        return screenHeight - configYOffset;
+        return org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
     }
 
 
@@ -90,10 +90,12 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
+    private String configScreenAnchor = "bottom_center";
     private int configScrollDirection = 1;
     private boolean configPinNewestIcon = false;
     private boolean configBlinkFadeAnimation = false;
     private boolean configEntranceBackground = false;
+    private long configIconDelayMs = 0L;
     private float configEntranceBgSize = 64.0f;
     private long configEntranceBgFadeInMs = 200L;
     private long configEntranceBgFadeOutMs = 200L;
@@ -188,15 +190,15 @@ public class ScrollingIconRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        int centerY = screenHeight - configYOffset;
+        int centerY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
 
         boolean removedAny = false;
         Iterator<ScrollingIcon> iterator = activeIcons.iterator();
         while (iterator.hasNext()) {
             ScrollingIcon icon = iterator.next();
             long elapsed = currentTime - icon.startTime;
-            // 入场背景启用时主图标入场推迟 0.2s(生命周期相应顺延, 淡出/移除判定同步推迟)
-            long animElapsed = configEntranceBackground ? Math.max(0L, elapsed - configEntranceBgFadeInMs) : elapsed;
+            // 图标延迟显示: 按 icon_delay 配置推迟(任何时候生效, 不再依赖入场背景开关)
+            long animElapsed = Math.max(0L, elapsed - configIconDelayMs);
 
             updatePosition(icon, currentTime);
 
@@ -320,8 +322,8 @@ public class ScrollingIconRenderer implements IHudRenderer {
         while (iterator.hasNext()) {
             ScrollingIcon icon = iterator.next();
             long elapsed = currentTime - icon.startTime;
-            // 入场背景启用时主图标入场推迟 0.2s(生命周期相应顺延, 淡出/移除判定同步推迟)
-            long animElapsed = configEntranceBackground ? Math.max(0L, elapsed - configEntranceBgFadeInMs) : elapsed;
+            // 图标延迟显示: 按 icon_delay 配置推迟(任何时候生效, 不再依赖入场背景开关)
+            long animElapsed = Math.max(0L, elapsed - configIconDelayMs);
 
             updatePosition(icon, currentTime);
 
@@ -430,14 +432,19 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
             this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+            this.configScreenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
             // 图标滚动方向: 左 = 新图标出现在老图标左侧(默认); 右 = 完全镜像
             this.configScrollDirection = config.has("scroll_direction") && "right".equals(config.get("scroll_direction").getAsString()) ? -1 : 1;
             // 固定最新图标: 启用后最新图标不随队列移动(保持在屏幕上的相对位置)
             this.configPinNewestIcon = config.has("pin_newest_icon") && config.get("pin_newest_icon").getAsBoolean();
             // 闪动淡出动画: 启用后图标隐藏时按三段曲线闪烁(0→50%→0%→100% 透明度)
             this.configBlinkFadeAnimation = config.has("blink_fade_animation") && config.get("blink_fade_animation").getAsBoolean();
-            // 图标入场背景: 启用后主图标入场推迟(时长为背景入场持续时间), 期间先显示渐显/渐隐缩小的背景矩形
+            // 图标入场背景: 启用后主图标入场期间先显示渐显/渐隐缩小的背景矩形
             this.configEntranceBackground = config.has("entrance_background") && config.get("entrance_background").getAsBoolean();
+            // 图标延迟显示秒数: 任何时候生效(不依赖入场背景开关), 图标入场推迟该时长, 默认 0 秒
+            this.configIconDelayMs = config.has("icon_delay")
+                    ? Math.max(0L, (long) (config.get("icon_delay").getAsFloat() * 1000))
+                    : 0L;
             this.configEntranceBgSize = config.has("entrance_background_size") ? config.get("entrance_background_size").getAsFloat() : 64.0f;
             this.configEntranceBgFadeInMs = config.has("entrance_background_fade_in")
                     ? Math.max(1L, (long) (config.get("entrance_background_fade_in").getAsFloat() * 1000))
@@ -523,6 +530,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
             this.configScale = 1.0f;
             this.configXOffset = 0;
             this.configYOffset = 0;
+            this.configScreenAnchor = "bottom_center";
             this.displayDuration = DEFAULT_DISPLAY_DURATION;
             this.ringEnableFlags.clear();
             this.ringEnableFlags.put("enable_ring_effect_crit", true);
@@ -612,8 +620,8 @@ public class ScrollingIconRenderer implements IHudRenderer {
         int visibleCount = size - visibleStart;
 
         if (configPinNewestIcon) {
-            // 固定最新图标: 最新图标直接定位在元素配置坐标处(centerX = screenWidth/2 + configXOffset,
-            // y 沿用 screenHeight - configYOffset), x_offset 语义与自由模式一致(中心偏移);
+            // 固定最新图标: 最新图标直接定位在元素配置坐标处(centerX/centerY 按 screen_anchor + x_offset/y_offset 解析,
+            // 见 ScreenAnchor), x_offset 语义与自由模式一致(中心偏移);
             // 老图标从固定位向溢出方向依次排开, 溢出区继续滚动淡出。
             float newestFixedX = centerX;
             int newestIndex = size - 1;
@@ -663,7 +671,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
     private float resolveCenterX() {
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
-        return screenWidth / 2f + configXOffset;
+        return org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(configScreenAnchor, configXOffset, screenWidth);
     }
 
     private float resolveIconSpacing() {

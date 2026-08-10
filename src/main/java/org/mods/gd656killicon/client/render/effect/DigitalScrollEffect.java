@@ -160,6 +160,18 @@ public class DigitalScrollEffect {
     public float getTargetValue() {
         return targetValue;
     }
+
+    /**
+     * 动画进行中仅更新目标值(不重启动画, 从当前值继续向新目标滚动)。
+     * 用于高频数值变化场景(如伤害累积), 避免频繁 startAnimation 打断动画。
+     * @param targetValue New target value
+     */
+    public void setTargetValue(float targetValue) {
+        this.targetValue = targetValue;
+        if (!isAnimating) {
+            this.startAnimation(this.currentValue, targetValue);
+        }
+    }
     
     /**
      * Gets the starting value of the current animation.

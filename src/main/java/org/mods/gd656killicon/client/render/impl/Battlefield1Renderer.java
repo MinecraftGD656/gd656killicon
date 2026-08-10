@@ -35,6 +35,7 @@ public class Battlefield1Renderer implements IHudRenderer {
     private int iconSize = 40;     private int borderSize = 3;
     private int xOffset = 0;
     private int yOffset = 0;
+    private String screenAnchor = "bottom_center";
     private int backgroundColor = 0x000000;
     private float iconBoxAlpha = 0.2f;     private float textBoxAlpha = 0.1f;     private float scaleWeapon = 1.0f;
     private float scaleVictim = 1.2f;
@@ -261,8 +262,8 @@ public class Battlefield1Renderer implements IHudRenderer {
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
-        float centerX = screenWidth / 2.0f + xOffset;
-        float centerY = screenHeight - yOffset;
+        float centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(screenAnchor, xOffset, screenWidth);
+        float centerY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(screenAnchor, yOffset, screenHeight);
         renderInternal(guiGraphics, partialTick, currentTime, centerX, centerY);
     }
 
@@ -463,6 +464,7 @@ public class Battlefield1Renderer implements IHudRenderer {
             this.borderSize = config.has("border_size") ? config.get("border_size").getAsInt() : 3;
             this.xOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.yOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+            this.screenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
             
             String bgHex = config.has("background_color") ? config.get("background_color").getAsString() : "#000000";
             this.backgroundColor = parseHex(bgHex, 0x000000);

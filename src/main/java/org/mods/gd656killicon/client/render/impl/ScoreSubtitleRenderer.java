@@ -33,6 +33,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     
     private int configXOffset = 0;
     private int configYOffset = 80;
+    private String configScreenAnchor = "bottom_center";
     private long displayDuration = 3500L;     private String scoreFormat = "<score>";
     private int scoreThreshold = 1000;
     private String highScoreColor = "#D4B800";
@@ -82,8 +83,8 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        int centerX = screenWidth / 2 + configXOffset;
-        int textY = screenHeight - configYOffset;
+        int centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(configScreenAnchor, configXOffset, screenWidth);
+        int textY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
         renderInternal(guiGraphics, font, centerX, textY, state);
     }
 
@@ -355,6 +356,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         try {
             this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 40;
+            this.configScreenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
             this.displayDuration = config.has("display_duration")
                 ? (long)(config.get("display_duration").getAsFloat() * 1000)
                 : 4000L;
@@ -406,6 +408,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             ClientMessageLogger.chatWarn("gd656killicon.client.subtitle.config_error");
             this.configXOffset = 0;
             this.configYOffset = 80;
+            this.configScreenAnchor = "bottom_center";
             this.displayDuration = 4000L;
             this.scale = 2.0f;
             this.scoreFormat = "<score>";

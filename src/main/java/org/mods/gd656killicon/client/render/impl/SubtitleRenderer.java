@@ -61,7 +61,7 @@ public class SubtitleRenderer implements IHudRenderer {
         }
         Minecraft mc = Minecraft.getInstance();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
-        return screenHeight - this.configYOffset;
+        return org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
     }
 
     private static final long FADE_IN_DURATION = 200L;     private static final long FADE_OUT_DURATION = 300L;     private static final int DEFAULT_PLACEHOLDER_COLOR = 0xFF008B8B;
@@ -78,6 +78,7 @@ public class SubtitleRenderer implements IHudRenderer {
     
     private int configXOffset = 0;
     private int configYOffset = 20;
+    private String configScreenAnchor = "bottom_center";
     private long displayDuration = 3000L;
     private String format = "";
     private int placeholderColor = DEFAULT_PLACEHOLDER_COLOR;
@@ -357,8 +358,8 @@ public class SubtitleRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        int centerX = screenWidth / 2 + configXOffset;
-        float baseTextY = screenHeight - configYOffset;
+        int centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(configScreenAnchor, configXOffset, screenWidth);
+        float baseTextY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
         float textY = baseTextY;
 
         // 首次渲染时惰性加载一次配置(直接进游戏时联动配置立即生效; 之后由事件/配置界面驱动更新)
@@ -761,6 +762,7 @@ public class SubtitleRenderer implements IHudRenderer {
         try {
             this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
             this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 100;
+            this.configScreenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
             this.displayDuration = config.has("display_duration")
                 ? (long)(config.get("display_duration").getAsFloat() * 1000)
                 : 3000L;
@@ -833,6 +835,7 @@ public class SubtitleRenderer implements IHudRenderer {
             ClientMessageLogger.chatWarn("gd656killicon.client.subtitle.config_error");
             this.configXOffset = 0;
             this.configYOffset = 100;
+            this.configScreenAnchor = "bottom_center";
             this.displayDuration = 3000L;
             this.scale = 1.0f;
             this.format = KillTypeRegistry.get(KillType.NORMAL).format();

@@ -26,6 +26,7 @@ public class ElementPreview {
     private int xOffset = 0;
     private int yOffset = 0;
     private float rotationAngle = 0.0f;
+    private String screenAnchor = "bottom_center";
     
     private float scaleWeapon = 1.0f;
     private float scaleVictim = 1.2f;
@@ -95,6 +96,7 @@ public class ElementPreview {
         this.xOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
         this.yOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
         this.rotationAngle = config.has("rotation_angle") ? config.get("rotation_angle").getAsFloat() : 0.0f;
+        this.screenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
         
         if ("kill_icon/battlefield1".equals(elementId)) {
             this.scaleWeapon = config.has("scale_weapon") ? config.get("scale_weapon").getAsFloat() : 1.0f;
@@ -127,6 +129,11 @@ public class ElementPreview {
             this.height = (int)(this.scale * 25);
         } else if ("kill_icon/scrolling".equals(elementId)) {
             int size = (int)(this.scale * 70);
+            this.width = size;
+            this.height = size;
+        } else if ("subtitle/hit_info".equals(elementId)) {
+            // 预览框大小 = 击杀图标的 1/3
+            int size = Math.max(4, (int)(this.scale * 70.0f / 3.0f));
             this.width = size;
             this.height = size;
         } else if ("subtitle/combo".equals(elementId)) {
@@ -226,8 +233,8 @@ public class ElementPreview {
     }
 
     public void updatePosition(int screenWidth, int screenHeight) {
-        int centerX = (screenWidth / 2) + xOffset;
-        int centerY = screenHeight - yOffset;
+        int centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(screenAnchor, xOffset, screenWidth);
+        int centerY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(screenAnchor, yOffset, screenHeight);
         
         if ("subtitle/bonus_list".equals(elementId) || "subtitle/score".equals(elementId)) {
             int baseY = "subtitle/score".equals(elementId) ? centerY - 4 : centerY;
@@ -716,8 +723,8 @@ public class ElementPreview {
             anchorY = newTopLeftY + height / 2;
         }
         
-        int newXOffset = anchorX - (screenWidth / 2);
-        int newYOffset = screenHeight - anchorY;
+        int newXOffset = Math.round(anchorX - org.mods.gd656killicon.client.render.ScreenAnchor.resolveAnchorX(screenAnchor, screenWidth));
+        int newYOffset = Math.round(org.mods.gd656killicon.client.render.ScreenAnchor.resolveAnchorY(screenAnchor, screenHeight) - anchorY);
         
         String presetId = ClientConfigManager.getCurrentPresetId();
         ElementConfigManager.updateConfigValue(presetId, elementId, "x_offset", String.valueOf(newXOffset));
@@ -787,6 +794,27 @@ public class ElementPreview {
 
     public String getElementId() {
         return elementId;
+    }
+
+    /** 是否正被按住(按下未松开; 按住时元素颜色渐变至金色) */
+    public boolean isPressed() {
+        return isPressed;
+    }
+
+    public int getPreviewX() {
+        return x;
+    }
+
+    public int getPreviewY() {
+        return y;
+    }
+
+    public int getPreviewWidth() {
+        return width;
+    }
+
+    public int getPreviewHeight() {
+        return height;
     }
 
     private double[] toLocalPoint(double worldX, double worldY) {

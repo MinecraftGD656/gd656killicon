@@ -28,6 +28,7 @@ public class CardRenderer implements IHudRenderer {
     private float configScale = 1.0f;
     private int configXOffset = 0;
     private int configYOffset = 0;
+    private String configScreenAnchor = "bottom_center";
     private float animationDuration = 0.75f;
     private String colorTextCt = "9cc1eb";
     private String colorTextT = "d9ac5b";
@@ -61,8 +62,8 @@ public class CardRenderer implements IHudRenderer {
         int screenWidth = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
 
-        float standardX = screenWidth / 2.0f + configXOffset;
-        float standardY = screenHeight - configYOffset;
+        float standardX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(configScreenAnchor, configXOffset, screenWidth);
+        float standardY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
 
         renderInternal(guiGraphics, partialTick, standardX, standardY);
     }
@@ -389,6 +390,7 @@ public class CardRenderer implements IHudRenderer {
         this.configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
         this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
         this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+        this.configScreenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
         this.team = config.has("team") ? config.get("team").getAsString() : "ct";
         this.animationDuration = config.has("animation_duration") ? config.get("animation_duration").getAsFloat() : 0.75f;
         this.colorTextCt = config.has("color_text_ct") ? config.get("color_text_ct").getAsString() : "9cc1eb";
