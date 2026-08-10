@@ -13,9 +13,9 @@
     "color_crit_placeholder": "#EF9166",
     "color_assist_placeholder": "#EF9166",
     "color_destroy_vehicle_placeholder": "#EF9166",
-    "format_rush_bomb_planted_capture": "安装炸弹 +\u003cscore\u003e",
-    "format_rush_bomb_defused_capture": "拆除炸弹 +\u003cscore\u003e",
-    "format_rush_objective_destroyed_capture": "成功炸毁通讯设施 \u003ctarget\u003e",
+    "format_rush_bomb_planted_capture": "",
+    "format_rush_bomb_defused_capture": "",
+    "format_rush_objective_destroyed_capture": "",
     "color_capture_placeholder": "#EF9166",
     "color_normal_text": "#FFFFFF",
     "enable_placeholder_bold": true,
@@ -46,7 +46,7 @@
     "format_crit": "\u003ctarget\u003e",
     "format_assist": "\u003ctarget\u003e",
     "format_destroy_vehicle": "\u003ctarget\u003e",
-    "format_capture": "成功控制并占领据点\u003cweapon\u003e | \u003ctarget\u003e",
+    "format_capture": "",
     "fade_in_duration": 0.2,
     "enable_flash_in": true,
     "enable_glow_effect": true,
@@ -61,7 +61,8 @@
     "glow_alpha": 1.0,
     "enable_queue_linkage": true,
     "queue_linkage_icon_y_offset": -4.0,
-    "screen_anchor": "center"
+    "screen_anchor": "center",
+    "color_rescue_placeholder": "#8BE276"
   },
   "subtitle/bonus_list": {
     "visible": true,

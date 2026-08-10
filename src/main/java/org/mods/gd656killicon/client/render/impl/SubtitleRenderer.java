@@ -96,6 +96,7 @@ public class SubtitleRenderer implements IHudRenderer {
     private float glowIntensity = 0.5f;
     private float glowSize = 0.3f;
     private int glowColorRgb = 0xFFFFFF;
+    private int glowColorRescueRgb = 0x63D048;
     private float glowAlphaMultiplier = 1.0f;
     private boolean alignLeft = false;
     private boolean alignRight = false;
@@ -235,6 +236,10 @@ public class SubtitleRenderer implements IHudRenderer {
         }
         
         String formatKey = formatKeyForType(type);
+        // 该类型字幕格式配置为空 → 不显示此字幕(队列空, 加分项自动补位)
+        if (isKillFeedFormatEmpty(config, formatKey)) {
+            return;
+        }
         String colorKey = placeholderColorKeyForType(type);
         String emphasisColorKey = emphasisColorKeyForType(type);
 
@@ -256,7 +261,7 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(type) ? context.distance() : 0.0f;
 
         if (this.enableStacking) {
-            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId, captureScoreOverride);
+            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId, captureScoreOverride, type);
         } else {
             this.currentKillType = type;
             this.victimId = entityId;
@@ -305,6 +310,10 @@ public class SubtitleRenderer implements IHudRenderer {
         }
         
         String formatKey = formatKeyForType(killType);
+        // 该类型字幕格式配置为空 → 不显示此字幕(预览一致)
+        if (isKillFeedFormatEmpty(config, formatKey)) {
+            return;
+        }
         String colorKey = placeholderColorKeyForType(killType);
         String emphasisColorKey = emphasisColorKeyForType(killType);
 
@@ -322,7 +331,7 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(killType) ? 50.0f : 0.0f;
 
         if (this.enableStacking) {
-             addItemToStack(resolvedFormat, pColor, eColor, this.currentWeaponName, this.victimName, this.displayDuration, dist, PREVIEW_SCORE_VICTIM_ID, null);
+             addItemToStack(resolvedFormat, pColor, eColor, this.currentWeaponName, this.victimName, this.displayDuration, dist, PREVIEW_SCORE_VICTIM_ID, null, killType);
         } else {
             this.format = resolvedFormat;
             this.placeholderColor = pColor;
@@ -339,8 +348,8 @@ public class SubtitleRenderer implements IHudRenderer {
         }
     }
 
-    private void addItemToStack(String format, int pColor, int eColor, String wName, String vName, long duration, float distance, int victimId, String scoreOverride) {
-        SubtitleItem newItem = new SubtitleItem(format, pColor, eColor, wName, vName, 0, duration, distance, victimId, scoreOverride);
+    private void addItemToStack(String format, int pColor, int eColor, String wName, String vName, long duration, float distance, int victimId, String scoreOverride, int killType) {
+        SubtitleItem newItem = new SubtitleItem(format, pColor, eColor, wName, vName, 0, duration, distance, victimId, scoreOverride, killType);
         if (this.pendingQueue.size() >= 10) {
             return;
         }
@@ -388,7 +397,7 @@ public class SubtitleRenderer implements IHudRenderer {
         } else {
             RenderState state = resolveRenderState();
             if (state == null) return;
-            renderInternal(guiGraphics, font, centerX, textY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.startTime);
+            renderInternal(guiGraphics, font, centerX, textY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.startTime, this.currentKillType);
         }
     }
 
@@ -405,7 +414,7 @@ public class SubtitleRenderer implements IHudRenderer {
         } else {
             RenderState state = resolveRenderState();
             if (state == null) return;
-            renderInternal(guiGraphics, font, resolvedCenterX, resolvedTextY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.startTime);
+            renderInternal(guiGraphics, font, resolvedCenterX, resolvedTextY, state, this.format, this.placeholderColor, this.emphasisColor, this.currentWeaponName, this.victimName, this.currentDistance, this.currentVictimId, this.currentScoreOverride, this.startTime, this.currentKillType);
         }
     }
 
@@ -526,7 +535,7 @@ public class SubtitleRenderer implements IHudRenderer {
             
             RenderState state = new RenderState(now - item.spawnTime, itemAlpha, this.scale);
             
-            renderInternal(guiGraphics, font, centerX, drawY, state, item.format, item.pColor, item.eColor, item.wName, item.vName, item.distance, item.victimId, item.scoreOverride, item.spawnTime);
+            renderInternal(guiGraphics, font, centerX, drawY, state, item.format, item.pColor, item.eColor, item.wName, item.vName, item.distance, item.victimId, item.scoreOverride, item.spawnTime, item.killType);
         }
     }
 
@@ -563,7 +572,7 @@ public class SubtitleRenderer implements IHudRenderer {
     private boolean enableScaleAnimation = false;
 
     private void renderInternal(GuiGraphics guiGraphics, Font font, int centerX, float textY, RenderState state, 
-                              String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, String scoreOverride, long referenceTime) {
+                              String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, String scoreOverride, long referenceTime, int killType) {
         // 亚像素平滑: 文本 y 的小数部分通过 pose 平移注入(MC drawString 坐标为 int),
         // 避免联动/动画时每帧整像素跳变产生颗粒感
         float textYFrac = textY - (float) Math.floor(textY);
@@ -638,7 +647,9 @@ public class SubtitleRenderer implements IHudRenderer {
             int glowAlpha = (int) (state.alpha * this.glowIntensity * this.glowAlphaMultiplier * 255.0f);
             glowAlpha = Math.max((int) (TextFadeEffect.MIN_ALPHA * 255.0f), Math.min(255, glowAlpha));  // 副本最小透明度 0.1
             glowAlpha = Math.max(0, Math.min(255, glowAlpha));
-            int glowColor = (this.glowColorRgb & 0x00FFFFFF) | (glowAlpha << 24);
+            // 救援类型的发光副本使用独立配置项(glow_color_rescue), 其它类型照旧使用 glow_color
+            int glowRgb = killType == KillType.RESCUE ? this.glowColorRescueRgb : this.glowColorRgb;
+            int glowColor = (glowRgb & 0x00FFFFFF) | (glowAlpha << 24);
             // 发光副本一律显示配置的发光色: 递归清除各段样式颜色(null),
             // 渲染时 RGB/alpha 全部来自 drawString 传入的 glowColor(不受主字幕样式色影响)
             Component glowComponent = stripColor(fullText);
@@ -682,8 +693,9 @@ public class SubtitleRenderer implements IHudRenderer {
         float currentRelY;         float distance;
         int victimId;
         String scoreOverride;
+        int killType;
         
-        public SubtitleItem(String format, int pColor, int eColor, String wName, String vName, long spawnTime, long duration, float distance, int victimId, String scoreOverride) {
+        public SubtitleItem(String format, int pColor, int eColor, String wName, String vName, long spawnTime, long duration, float distance, int victimId, String scoreOverride, int killType) {
             this.format = format;
             this.pColor = pColor;
             this.eColor = eColor;
@@ -694,6 +706,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.currentRelY = 0;             this.distance = distance;
             this.victimId = victimId;
             this.scoreOverride = scoreOverride;
+            this.killType = killType;
         }
     }
 
@@ -777,6 +790,8 @@ public class SubtitleRenderer implements IHudRenderer {
             this.killTypeEnableFlags.put("enable_assist_kill", !config.has("enable_assist_kill") || config.get("enable_assist_kill").getAsBoolean());
             this.killTypeEnableFlags.put("enable_destroy_vehicle_kill", !config.has("enable_destroy_vehicle_kill") || config.get("enable_destroy_vehicle_kill").getAsBoolean());
             this.killTypeEnableFlags.put("enable_capture_kill", !config.has("enable_capture_kill") || config.get("enable_capture_kill").getAsBoolean());
+            this.killTypeEnableFlags.put("enable_spot_assist_kill", !config.has("enable_spot_assist_kill") || config.get("enable_spot_assist_kill").getAsBoolean());
+            this.killTypeEnableFlags.put("enable_rescue_kill", !config.has("enable_rescue_kill") || config.get("enable_rescue_kill").getAsBoolean());
 
             this.enableStacking = config.has("enable_stacking") && config.get("enable_stacking").getAsBoolean();
             this.maxLines = config.has("max_lines") ? config.get("max_lines").getAsInt() : 5;
@@ -799,6 +814,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.glowIntensity = config.has("glow_intensity") ? config.get("glow_intensity").getAsFloat() : 0.5f;
             this.glowSize = config.has("glow_size") ? config.get("glow_size").getAsFloat() : 0.3f;
             this.glowColorRgb = parseColorHexOrDefault(config.has("glow_color") ? config.get("glow_color").getAsString() : "#FFFFFF", 0xFFFFFF) & 0x00FFFFFF;
+            this.glowColorRescueRgb = parseColorHexOrDefault(config.has("glow_color_rescue") ? config.get("glow_color_rescue").getAsString() : "#63D048", 0x63D048) & 0x00FFFFFF;
             this.glowAlphaMultiplier = config.has("glow_alpha") ? Mth.clamp(config.get("glow_alpha").getAsFloat(), 0.0f, 1.0f) : 1.0f;
             this.alignLeft = config.has("align_left") ? config.get("align_left").getAsBoolean() : false;
             this.alignRight = config.has("align_right") ? config.get("align_right").getAsBoolean() : false;
@@ -993,6 +1009,12 @@ public class SubtitleRenderer implements IHudRenderer {
     /**
      * Returns the config key for the format string based on kill type.
      */
+    /** 玩家将该类型字幕格式配置改为空字符串 → 不显示该字幕(与加分项空配置拦截同模式) */
+    private static boolean isKillFeedFormatEmpty(JsonObject config, String formatKey) {
+        return formatKey != null && config != null && config.has(formatKey)
+                && config.get(formatKey).getAsString().isEmpty();
+    }
+
     private static String formatKeyForType(int killType) {
         return KillTypeRegistry.get(killType).formatKey();
     }

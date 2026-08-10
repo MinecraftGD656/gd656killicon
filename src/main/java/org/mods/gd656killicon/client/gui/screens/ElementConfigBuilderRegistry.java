@@ -35,26 +35,6 @@ public class ElementConfigBuilderRegistry {
     private static final ElementConfigBuilder DEFAULT_BUILDER = new DefaultElementConfigBuilder();
     
     private static final Pattern HEX_PATTERN = Pattern.compile("^#[0-9A-Fa-f]{6}$");
-    private static final Set<String> INTEGER_KEYS = Set.of(
-        "x_offset",
-        "y_offset",
-        "bar_x_offset",
-        "bar_y_offset",
-        "bar_radius_offset",
-        "line_spacing",
-        "max_lines",
-        "icon_size",
-        "border_size",
-        "icon_box_opacity",
-        "text_box_opacity",
-        "max_visible_icons",
-        "display_interval_ms",
-        "max_pending_icons",
-        "score_threshold",
-        "max_stack_count",
-        "texture_animation_total_frames",
-        "texture_animation_interval_ms"
-    );
     private static final Set<String> TEAM_ELEMENT_IDS = Set.of("kill_icon/card", "kill_icon/card_bar");
     private static List<FixedChoiceConfigEntry.Choice> cachedVanillaItemChoices = null;
     private static String cachedVanillaItemLanguage = null;
@@ -65,16 +45,6 @@ public class ElementConfigBuilderRegistry {
 
     public static ElementConfigBuilder getBuilder(String elementId) {
         return builders.getOrDefault(elementId, DEFAULT_BUILDER);
-    }
-
-    private static boolean isIntegerKey(String key) {
-        if (INTEGER_KEYS.contains(key)) return true;
-        if (key.startsWith("anim_")) {
-            for (String intKey : INTEGER_KEYS) {
-                if (key.endsWith("_" + intKey)) return true;
-            }
-        }
-        return false;
     }
 
     private static List<FixedChoiceConfigEntry.Choice> getCachedVanillaItemChoices() {
@@ -172,26 +142,6 @@ public class ElementConfigBuilderRegistry {
                      return () -> {
                         if (!getConfigBoolean.apply("visible")) return false;
                          
-                        if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
-                        if (k.equals("color_particle") && configKeys.contains("enable_custom_particle_color")) return getConfigBoolean.apply("enable_custom_particle_color");
-                        if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
-                        if ((k.equals("color_icon_glow") || k.equals("icon_glow_intensity") || k.equals("icon_glow_size")) && configKeys.contains("enable_icon_glow")) {
-                            return getConfigBoolean.apply("enable_icon_glow");
-                        }
-                        if ((k.equals("color_halo_ring") || k.equals("halo_ring_radius") || k.equals("halo_ring_width")) && configKeys.contains("enable_halo_ring")) {
-                            return getConfigBoolean.apply("enable_halo_ring");
-                        }
-                        if (k.startsWith("ring_effect_")) {
-                            if (k.startsWith("ring_effect_crit_") || k.startsWith("ring_effect_normal_")) {
-                                return !configKeys.contains("enable_ring_effect_crit") || getConfigBoolean.apply("enable_ring_effect_crit");
-                            }
-                            if (k.startsWith("ring_effect_headshot_")) {
-                                return !configKeys.contains("enable_ring_effect_headshot") || getConfigBoolean.apply("enable_ring_effect_headshot");
-                            }
-                            if (k.startsWith("ring_effect_explosion_")) {
-                                return !configKeys.contains("enable_ring_effect_explosion") || getConfigBoolean.apply("enable_ring_effect_explosion");
-                            }
-                        }
                          
                          if (k.equals("combo_reset_timeout")) {
                              JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
@@ -259,26 +209,6 @@ public class ElementConfigBuilderRegistry {
                 }
                 
                 return () -> {
-                     if (k.equals("color_flash") && configKeys.contains("enable_flash")) return getConfigBoolean.apply("enable_flash");
-                     if (k.equals("color_particle") && configKeys.contains("enable_custom_particle_color")) return getConfigBoolean.apply("enable_custom_particle_color");
-                     if (k.equals("glow_intensity") && configKeys.contains("enable_glow_effect")) return getConfigBoolean.apply("enable_glow_effect");
-                     if ((k.equals("color_icon_glow") || k.equals("icon_glow_intensity") || k.equals("icon_glow_size")) && configKeys.contains("enable_icon_glow")) {
-                         return getConfigBoolean.apply("enable_icon_glow");
-                     }
-                     if ((k.equals("color_halo_ring") || k.equals("halo_ring_radius") || k.equals("halo_ring_width")) && configKeys.contains("enable_halo_ring")) {
-                         return getConfigBoolean.apply("enable_halo_ring");
-                     }
-                     if (k.startsWith("ring_effect_")) {
-                         if (k.startsWith("ring_effect_crit_") || k.startsWith("ring_effect_normal_")) {
-                             return !configKeys.contains("enable_ring_effect_crit") || getConfigBoolean.apply("enable_ring_effect_crit");
-                         }
-                         if (k.startsWith("ring_effect_headshot_")) {
-                             return !configKeys.contains("enable_ring_effect_headshot") || getConfigBoolean.apply("enable_ring_effect_headshot");
-                         }
-                         if (k.startsWith("ring_effect_explosion_")) {
-                             return !configKeys.contains("enable_ring_effect_explosion") || getConfigBoolean.apply("enable_ring_effect_explosion");
-                         }
-                     }
                      
                      if (k.equals("combo_reset_timeout")) {
                          JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
@@ -361,6 +291,11 @@ public class ElementConfigBuilderRegistry {
                 }
                 
                 com.google.gson.JsonPrimitive primitive = defaultElement.getAsJsonPrimitive();
+                // 声明式配置注册表: 类型由注册表驱动(替代按 JsonPrimitive 猜测与整数键特判)
+                org.mods.gd656killicon.common.config.ConfigType registryType = org.mods.gd656killicon.common.config.ElementConfigRegistry.getType(elementId, key);
+                if (registryType == null) {
+                    continue;
+                }
                 String finalPresetId = presetId;
                 String finalElementId = elementId;
                 String finalKey = key;
@@ -436,9 +371,17 @@ public class ElementConfigBuilderRegistry {
                     }
                 }
 
-                java.util.function.Supplier<Boolean> activeCondition = getDependency.apply(key);
+                // 声明式配置注册表: 一级开关键依赖优先(未注册的键才走 getDependency 特判)
+                String registryDep = org.mods.gd656killicon.common.config.ElementConfigRegistry.getDependsOn(elementId, key);
+                java.util.function.Supplier<Boolean> activeCondition;
+                if (registryDep != null) {
+                    String depKey = registryDep;
+                    activeCondition = () -> !configKeys.contains(depKey) || getConfigBoolean.apply(depKey);
+                } else {
+                    activeCondition = getDependency.apply(key);
+                }
                 
-                if (primitive.isBoolean()) {
+                if (registryType == org.mods.gd656killicon.common.config.ConfigType.BOOLEAN) {
                     boolean defaultValue = primitive.getAsBoolean();
                     boolean currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsBoolean() : defaultValue;
                     
@@ -456,8 +399,7 @@ public class ElementConfigBuilderRegistry {
                         activeCondition
                     );
                     content.getConfigRows().add(entry);
-                } else if (primitive.isNumber()) {
-                    if (isIntegerKey(key)) {
+                } else if (registryType == org.mods.gd656killicon.common.config.ConfigType.INT) {
                         int defaultValue = primitive.getAsInt();
                         int currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsInt() : defaultValue;
                         IntegerConfigEntry entry = new IntegerConfigEntry(
@@ -476,7 +418,7 @@ public class ElementConfigBuilderRegistry {
                             activeCondition
                         );
                         content.getConfigRows().add(entry);
-                    } else {
+                    } else if (registryType == org.mods.gd656killicon.common.config.ConfigType.FLOAT) {
                         float defaultValue = primitive.getAsFloat();
                         float currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsFloat() : defaultValue;
                         FloatConfigEntry entry = new FloatConfigEntry(
@@ -496,7 +438,7 @@ public class ElementConfigBuilderRegistry {
                         );
                         content.getConfigRows().add(entry);
                     }
-                } else if (primitive.isString()) {
+                else {
                     // 所见即所得：输入框直接显示 config 中的实际数据（不解析、不转换）
                     String defaultValue = primitive.getAsString();
                     String currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsString() : defaultValue;
@@ -506,7 +448,7 @@ public class ElementConfigBuilderRegistry {
                         ? I18n.get(BonusRegistry.descKey(formatBonusType))
                         : "gd656killicon.config.desc." + key;
 
-                    boolean isColorConfig = key.startsWith("color_") || HEX_PATTERN.matcher(resolvedDefaultValue).matches();
+                    boolean isColorConfig = registryType == org.mods.gd656killicon.common.config.ConfigType.COLOR;
 
                     if ("screen_anchor".equals(key)) {
                         List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();

@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "display_name": "Battlefield 5模式",
   "kill_icon/scrolling": {
     "visible": true,
@@ -334,7 +334,11 @@
     "max_lines": 3,
     "line_spacing": 12,
     "rotation_angle": 0.0,
-    "screen_anchor": "bottom_center"
+    "screen_anchor": "bottom_center",
+    "format_rescue": "救援友军 [<target>] +<score>",
+    "enable_rescue_kill": true,
+    "color_rescue_placeholder": "#63D048",
+    "color_rescue_emphasis": "#FFFFFF"
   },
   "subtitle/score": {
     "visible": true,

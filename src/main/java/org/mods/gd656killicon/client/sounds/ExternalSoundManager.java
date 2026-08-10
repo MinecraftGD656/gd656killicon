@@ -134,11 +134,11 @@ public class ExternalSoundManager {
         "addscore_df.ogg"
     };
     private static final Set<String> DEFAULT_SOUND_SET = new HashSet<>(Arrays.asList(DEFAULT_SOUNDS));
-    private static final Map<String, Map<String, SoundBackup>> PENDING_SOUND_BACKUPS = new HashMap<>();
-    private static final Map<String, byte[]> DEFAULT_SOUND_BYTES = new HashMap<>();
-    private static final Map<String, Map<String, String>> SOUND_SELECTIONS = new HashMap<>();
-    private static final Map<String, Map<String, String>> SOUND_LABELS = new HashMap<>();
-    private static final Map<String, Set<String>> PENDING_CUSTOM_SOUNDS = new HashMap<>();
+    private static final Map<String, Map<String, SoundBackup>> PENDING_SOUND_BACKUPS = new ConcurrentHashMap<>();
+    private static final Map<String, byte[]> DEFAULT_SOUND_BYTES = new ConcurrentHashMap<>();
+    private static final Map<String, Map<String, String>> SOUND_SELECTIONS = new ConcurrentHashMap<>();
+    private static final Map<String, Map<String, String>> SOUND_LABELS = new ConcurrentHashMap<>();
+    private static final Map<String, Set<String>> PENDING_CUSTOM_SOUNDS = new ConcurrentHashMap<>();
     private static final Set<String> PENDING_SOUND_RESETS = new HashSet<>();
     private static Map<String, Map<String, String>> TEMP_SOUND_SELECTIONS = null;
     private static Map<String, Map<String, String>> TEMP_SOUND_LABELS = null;
@@ -446,7 +446,7 @@ public class ExternalSoundManager {
             return;
         }
         ensureSoundSelectionsLoaded(presetId);
-        Map<String, String> selections = getActiveSoundSelections().computeIfAbsent(presetId, k -> new HashMap<>());
+        Map<String, String> selections = getActiveSoundSelections().computeIfAbsent(presetId, k -> new ConcurrentHashMap<>());
         selections.put(slotId, baseName);
         refreshSoundCache(presetId, baseName);
         if (!isEditing) {
@@ -553,7 +553,7 @@ public class ExternalSoundManager {
         Path presetDir = CONFIG_ASSETS_DIR.resolve(presetId).resolve("sounds");
         Path oggPath = presetDir.resolve(fileNameOgg);
         Path wavPath = presetDir.resolve(fileNameWav);
-        Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
+        Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new ConcurrentHashMap<>());
         Set<String> pending = PENDING_CUSTOM_SOUNDS.get(presetId);
         try {
             boolean existedBefore = Files.exists(oggPath) || Files.exists(wavPath);
@@ -640,7 +640,7 @@ public class ExternalSoundManager {
             if (!Files.exists(targetPath.getParent())) {
                 Files.createDirectories(targetPath.getParent());
             }
-            Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
+            Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new ConcurrentHashMap<>());
             backupFileIfNeeded(presetBackups, targetPath);
             backupFileIfNeeded(presetBackups, otherPath);
             Files.deleteIfExists(otherPath);
@@ -669,7 +669,7 @@ public class ExternalSoundManager {
             if (!Files.exists(presetDir)) {
                 Files.createDirectories(presetDir);
             }
-            Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new HashMap<>());
+            Map<String, SoundBackup> presetBackups = PENDING_SOUND_BACKUPS.computeIfAbsent(presetId, k -> new ConcurrentHashMap<>());
             backupFileIfNeeded(presetBackups, oggPath);
             backupFileIfNeeded(presetBackups, wavPath);
             Files.deleteIfExists(oggPath);
@@ -1388,7 +1388,7 @@ public class ExternalSoundManager {
         }
         ensureSoundLabelsLoaded(presetId);
         String label = originalName == null ? baseName : originalName;
-        getActiveSoundLabels().computeIfAbsent(presetId, k -> new HashMap<>()).put(baseName, label);
+        getActiveSoundLabels().computeIfAbsent(presetId, k -> new ConcurrentHashMap<>()).put(baseName, label);
         if (!isEditing) {
             saveSoundLabels();
         }
@@ -1412,7 +1412,7 @@ public class ExternalSoundManager {
         if (presetId == null || fileName == null) {
             return;
         }
-        PENDING_CUSTOM_SOUNDS.computeIfAbsent(presetId, k -> new HashSet<>()).add(fileName);
+        PENDING_CUSTOM_SOUNDS.computeIfAbsent(presetId, k -> ConcurrentHashMap.newKeySet()).add(fileName);
     }
 
     private static void clearPendingCustomSounds() {

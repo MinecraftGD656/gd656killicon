@@ -40,6 +40,41 @@ public final class ServerPacketDispatcher {
         dispatch(player, ServerPacketType.KILL_DISTANCE, () -> new KillDistancePacket(distance));
     }
 
+    /**
+     * 救援(RESCUE): conquest 中玩家救援成功。
+     * 定向只发 subtitle/kill_feed(不发滚动图标), victimId = 被救援玩家实体 id(与加分项 score 关联)。
+     */
+    public static void sendRescueEffects(ServerPlayer reviver, net.minecraft.world.entity.LivingEntity target) {
+        if (reviver == null || target == null) {
+            return;
+        }
+        String victimName = target instanceof net.minecraft.world.entity.player.Player
+                ? target.getScoreboardName()
+                : (target.hasCustomName() ? target.getCustomName().getString() : target.getType().getDescriptionId());
+        int victimId = target.getId();
+        dispatch(reviver, ServerPacketType.SUBTITLE_KILL_FEED,
+                () -> new KillIconPacket("subtitle", "kill_feed", KillType.RESCUE, 0, victimId, 0, false, victimName, true, false, 0));
+    }
+
+    /**
+     * 标示助攻(SPOT_ASSIST): 索敌玩家标记的实体在 30s 内被同队队友击杀。
+     * 定向只发 kill_icon/scrolling 与 subtitle/kill_feed(不记击杀统计, 不触发其它元素)。
+     */
+    public static void sendSpotAssistEffects(ServerPlayer spotter, net.minecraft.world.entity.LivingEntity victim) {
+        if (spotter == null || victim == null) {
+            return;
+        }
+        String baseName = victim instanceof net.minecraft.world.entity.player.Player
+                ? victim.getScoreboardName()
+                : (victim.hasCustomName() ? victim.getCustomName().getString() : victim.getType().getDescriptionId());
+        boolean isVictimPlayer = victim instanceof net.minecraft.world.entity.player.Player;
+        int victimId = victim.getId();
+        dispatch(spotter, ServerPacketType.KILL_ICON_SCROLLING,
+                () -> new KillIconPacket("kill_icon", "scrolling", KillType.SPOT_ASSIST, 0, victimId, 0, false, baseName, isVictimPlayer, false, 0));
+        dispatch(spotter, ServerPacketType.SUBTITLE_KILL_FEED,
+                () -> new KillIconPacket("subtitle", "kill_feed", KillType.SPOT_ASSIST, 0, victimId, 0, false, baseName, isVictimPlayer, false, 0));
+    }
+
     public static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, double comboWindowSeconds, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance) {
         boolean recordStats = killType != KillType.ASSIST && killType != KillType.DESTROY_VEHICLE;
 

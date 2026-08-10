@@ -104,6 +104,8 @@ public final class ServerCombatEngine {
         ServerCore.PING_WHEEL.init();
         ServerCore.CUSTOM_NPCS.init();
         ServerCore.CONQUEST_BATTLEFIELD.init();
+        ServerCore.CONQUEST_SPOTTING.init();
+        ServerCore.CONQUEST_RESCUE.init();
         nextScoreboardRefreshAt = System.currentTimeMillis() + SCOREBOARD_REFRESH_INTERVAL_MS;
     }
 

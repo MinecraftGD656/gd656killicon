@@ -216,11 +216,6 @@ public class ElementConfigContent extends ConfigTabContent {
         
         if (selectedSecondaryTab == null) return;         
         boolean isGeneral = "general".equals(selectedSecondaryTab.elementId);
-        String texturePrefix = "anim_" + selectedSecondaryTab.elementId + "_";
-        String textureStyleKey = ElementTextureDefinition.getOfficialTextureKey(selectedSecondaryTab.elementId);
-        String customTextureKey = ElementTextureDefinition.getCustomTextureKey(selectedSecondaryTab.elementId);
-        String textureModeKey = ElementTextureDefinition.getTextureModeKey(selectedSecondaryTab.elementId);
-        String vanillaTextureKey = ElementTextureDefinition.getVanillaTextureKey(selectedSecondaryTab.elementId);
         
         for (GDRowRenderer row : allConfigRows) {
             String key = getConfigKey(row);
@@ -231,18 +226,16 @@ public class ElementConfigContent extends ConfigTabContent {
                 continue;
             }
             
-            boolean isAnimKey = key.startsWith("anim_");
-            boolean isTextureStyleKey = key.startsWith("texture_style_");
-            boolean isCustomTextureKey = key.startsWith("custom_texture_");
-            boolean isTextureModeKey = key.startsWith("texture_mode_");
-            boolean isVanillaKey = key.startsWith("vanilla_texture_");
-            
+            // 纹理归属: 注册表 textureTab 驱动(anim_*/texture_* 键属具体纹理 tab)
+            String textureTab = org.mods.gd656killicon.common.config.ElementConfigRegistry.getTextureTab(elementId, key);
+            boolean isTextureKey = textureTab != null;
+
             if (isGeneral) {
-                if (!isAnimKey && !isTextureStyleKey && !isCustomTextureKey && !isTextureModeKey && !isVanillaKey) {
+                if (!isTextureKey) {
                     this.configRows.add(row);
                 }
             } else {
-                if (key.startsWith(texturePrefix) || key.equals(textureStyleKey) || key.equals(customTextureKey) || key.equals(textureModeKey) || key.equals(vanillaTextureKey)) {
+                if (isTextureKey && textureTab.equals(selectedSecondaryTab.elementId)) {
                     this.configRows.add(row);
                 }
             }
@@ -366,102 +359,26 @@ public class ElementConfigContent extends ConfigTabContent {
         if (key == null) {
             return "other";
         }
-        if ("visible".equals(key)) {
-            return "visibility";
-        }
-        if (isSubtitleElement() && (key.startsWith("format_") || key.endsWith("_format") || key.contains("placeholder"))) {
-            return "content";
-        }
-        if (isSubtitleElement() && (key.startsWith("reset_") || key.endsWith("_threshold") || key.contains("enable_stacking") || key.contains("enable_special_streak") || key.contains("enable_kill_feed") || key.endsWith("_kill"))) {
-            return "behavior";
-        }
-        if (key.contains("x_offset") || key.contains("y_offset") || key.contains("radius_offset") || key.contains("line_spacing") || key.contains("max_lines") || key.contains("rotation_angle")) {
-            return "position";
-        }
-        if (isSubtitleElement() && (key.equals("scale") || key.contains("align_") || key.contains("kill_bonus_scale"))) {
-            return "position";
-        }
-        if (key.startsWith("color_") || key.contains("_color") || key.startsWith("enable_custom_color_")) {
-            return "color";
-        }
-        if (key.contains("duration") || key.contains("speed") || key.contains("interval") || key.contains("timeout") || key.contains("window") || key.contains("curve") || key.contains("refresh_rate") || key.contains("_ms")) {
-            return "timing";
-        }
-        if ("subtitle/kill_feed".equals(elementId) && (key.startsWith("format_") || key.contains("placeholder") || key.contains("emphasis"))) {
-            return "color";
-        }
-        if (key.startsWith("enable_") || key.contains("glow") || key.contains("ring") || key.contains("particle") || key.contains("flash")) {
-            return "effect";
-        }
-        return "other";
+        org.mods.gd656killicon.common.config.Category category =
+                org.mods.gd656killicon.common.config.ElementConfigRegistry.getCategory(elementId, key);
+        return category == null ? "other" : category.name().toLowerCase();
     }
-    
     private void updateRowActiveConditions() {
         for (GDRowRenderer row : allConfigRows) {
             String key = getConfigKey(row);
             if (key == null) continue;
 
-            if ("subtitle/kill_feed".equals(elementId)) {
-                if (key.equals("max_lines") || key.equals("line_spacing")) {
-                    row.setActiveCondition(() -> {
-                        JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-                        return config != null && config.has("enable_stacking") && config.get("enable_stacking").getAsBoolean();
-                    });
-                }
-                
-                else if (key.contains("headshot")) {
-                    if (!key.equals("enable_headshot_kill")) {
-                        row.setActiveCondition(() -> {
-                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-                            return config == null || !config.has("enable_headshot_kill") || config.get("enable_headshot_kill").getAsBoolean();
-                        });
-                    }
-                }
-                
-                else if (key.contains("explosion")) {
-                    if (!key.equals("enable_explosion_kill")) {
-                        row.setActiveCondition(() -> {
-                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-                            return config == null || !config.has("enable_explosion_kill") || config.get("enable_explosion_kill").getAsBoolean();
-                        });
-                    }
-                }
-                
-                else if (key.contains("crit")) {
-                    if (!key.equals("enable_crit_kill")) {
-                        row.setActiveCondition(() -> {
-                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-                            return config == null || !config.has("enable_crit_kill") || config.get("enable_crit_kill").getAsBoolean();
-                        });
-                    }
-                }
-                
-                else if (key.contains("assist")) {
-                    if (!key.equals("enable_assist_kill")) {
-                        row.setActiveCondition(() -> {
-                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-                            return config == null || !config.has("enable_assist_kill") || config.get("enable_assist_kill").getAsBoolean();
-                        });
-                    }
-                }
-                
-                else if (key.contains("destroy_vehicle")) {
-                    if (!key.equals("enable_destroy_vehicle_kill")) {
-                        row.setActiveCondition(() -> {
-                            JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-                            return config == null || !config.has("enable_destroy_vehicle_kill") || config.get("enable_destroy_vehicle_kill").getAsBoolean();
-                        });
-                    }
-                }
-                
-                 else if (key.equals("format_normal") || key.equals("color_normal_placeholder") || key.equals("color_normal_emphasis")) {
-                      row.setActiveCondition(() -> {
-                         JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
-                         return config == null || !config.has("enable_normal_kill") || config.get("enable_normal_kill").getAsBoolean();
-                     });
-                 }
+            // 声明式配置注册表: 一级开关键依赖(enable_*_kill / enable_stacking / enable_glow_effect 等)
+            String dep = org.mods.gd656killicon.common.config.ElementConfigRegistry.getDependsOn(elementId, key);
+            if (dep != null) {
+                String depKey = dep;
+                row.setActiveCondition(() -> {
+                    JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
+                    return config == null || !config.has(depKey) || config.get(depKey).getAsBoolean();
+                });
             }
 
+            // 纹理选择键: 依赖对应 texture_mode_<texture> 的模式(注册表 dependsOn 为布尔开关, 无法表达, 保留特判)
             if (key.startsWith("texture_style_")) {
                 String textureKey = key.substring("texture_style_".length());
                 String modeKey = ElementTextureDefinition.getTextureModeKey(textureKey);
@@ -509,7 +426,6 @@ public class ElementConfigContent extends ConfigTabContent {
              });
          }
      }
-
     private String getConfigKey(GDRowRenderer row) {
         if (row instanceof ActionConfigEntry) return ((ActionConfigEntry) row).getKey();
         if (row instanceof BooleanConfigEntry) return ((BooleanConfigEntry) row).getKey();

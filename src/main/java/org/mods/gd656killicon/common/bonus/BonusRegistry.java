@@ -42,6 +42,9 @@ public final class BonusRegistry {
         }
         BY_ID.put(def.id(), def);
         BY_TYPE.put(def.type(), def);
+        // 声明式配置注册表: 顺带注册该加分项的 format 配置键(默认值 = 注册表 format, 单一来源)
+        org.mods.gd656killicon.common.config.ElementConfigRegistry.registerFormatKey(
+                "subtitle/bonus_list", def.formatConfigKey(), def.format());
         FORMAT_KEY_TO_TYPE.put(def.formatConfigKey(), def.type());
         FORMAT_KEYS.add(def.formatConfigKey());
     }

@@ -8,7 +8,6 @@ import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
@@ -190,8 +189,8 @@ public class ClientConfigManager {
             return;
         }
 
-        try (FileReader reader = new FileReader(GLOBAL_CONFIG_FILE)) {
-            JsonObject json = GSON.fromJson(reader, JsonObject.class);
+        try {
+            JsonObject json = GSON.fromJson(org.mods.gd656killicon.client.util.ConfigFileUtil.readText(GLOBAL_CONFIG_FILE), JsonObject.class);
             currentPresetId = json.has("current_preset") ? json.get("current_preset").getAsString() : getInitialPresetByLanguage();
             enableSound = json.has("enable_sound") ? json.get("enable_sound").getAsBoolean() : DEFAULT_ENABLE_SOUND;
             showBonusMessage = json.has("show_bonus_message") ? json.get("show_bonus_message").getAsBoolean() : DEFAULT_SHOW_BONUS_MESSAGE;
@@ -293,7 +292,7 @@ public class ClientConfigManager {
         guiBackgroundMaterial = DEFAULT_GUI_BACKGROUND_MATERIAL;
         applyGuiThemeColors();
 
-        try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
+        try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE, java.nio.charset.StandardCharsets.UTF_8)) {
             GSON.toJson(json, writer);
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.config.save_fail", e.getMessage());
@@ -325,7 +324,7 @@ public class ClientConfigManager {
         root.addProperty("gui_background_material", guiBackgroundMaterial);
         root.addProperty("bonus_format_version", bonusFormatMigrated);
 
-        try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE)) {
+        try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE, java.nio.charset.StandardCharsets.UTF_8)) {
             GSON.toJson(root, writer);
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.config.save_fail", e.getMessage());

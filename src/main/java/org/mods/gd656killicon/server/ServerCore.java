@@ -24,6 +24,8 @@ public class ServerCore {
     public static final PingWheelIntegration PING_WHEEL = PingWheelIntegration.get();
     public static final CustomNpcsIntegration CUSTOM_NPCS = CustomNpcsIntegration.get();
     public static final ConquestBattlefieldIntegration CONQUEST_BATTLEFIELD = ConquestBattlefieldIntegration.get();
+    public static final org.mods.gd656killicon.server.logic.integration.ConquestSpottingIntegration CONQUEST_SPOTTING = org.mods.gd656killicon.server.logic.integration.ConquestSpottingIntegration.get();
+    public static final org.mods.gd656killicon.server.logic.integration.ConquestRescueIntegration CONQUEST_RESCUE = org.mods.gd656killicon.server.logic.integration.ConquestRescueIntegration.get();
     public static final org.mods.gd656killicon.server.logic.integration.ImmersiveAircraftIntegration IMMERSIVE_AIRCRAFT = org.mods.gd656killicon.server.logic.integration.ImmersiveAircraftIntegration.get();
 
     public static MinecraftServer getServer() {

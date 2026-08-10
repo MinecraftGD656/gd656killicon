@@ -9,7 +9,6 @@ import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.common.bonus.BonusRegistry;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.IOException;
@@ -193,8 +192,8 @@ public class ElementConfigManager {
 
         for (File file : files) {
             String presetId = file.getName().substring(0, file.getName().length() - 5);
-            try (FileReader reader = new FileReader(file)) {
-                JsonObject presetJson = GSON.fromJson(reader, JsonObject.class);
+            try {
+                JsonObject presetJson = GSON.fromJson(org.mods.gd656killicon.client.util.ConfigFileUtil.readText(file), JsonObject.class);
                 PRESETS.put(presetId, parsePresetJson(presetJson, presetId));
             } catch (com.google.gson.JsonSyntaxException e) {
                 ClientMessageLogger.error("gd656killicon.client.config.element.load_fail_json");
@@ -271,7 +270,7 @@ public class ElementConfigManager {
             if (jarContent == null) {
                 continue;
             }
-            try (FileWriter writer = new FileWriter(file)) {
+            try (FileWriter writer = new FileWriter(file, java.nio.charset.StandardCharsets.UTF_8)) {
                 writer.write(jarContent);
             } catch (IOException e) {
                 ClientMessageLogger.error("gd656killicon.client.config.element.save_fail", officialId, e.getMessage());
@@ -286,8 +285,8 @@ public class ElementConfigManager {
             return true;
         }
         int fileVersion = 0;
-        try (FileReader reader = new FileReader(file)) {
-            JsonObject json = GSON.fromJson(reader, JsonObject.class);
+        try {
+            JsonObject json = GSON.fromJson(org.mods.gd656killicon.client.util.ConfigFileUtil.readText(file), JsonObject.class);
             if (json != null && json.has("format_version")) {
                 fileVersion = json.get("format_version").getAsInt();
             }
@@ -332,8 +331,8 @@ public class ElementConfigManager {
         if (!legacyFile.exists()) {
             return;
         }
-        try (FileReader reader = new FileReader(legacyFile)) {
-            JsonObject json = GSON.fromJson(reader, JsonObject.class);
+        try {
+            JsonObject json = GSON.fromJson(org.mods.gd656killicon.client.util.ConfigFileUtil.readText(legacyFile), JsonObject.class);
             if (json == null) {
                 return;
             }
@@ -492,7 +491,7 @@ public class ElementConfigManager {
             config.addProperty("enable_blade_effect", ValorantStyleCatalog.usesBlade(styleId));
             changed = true;
         }
-        JsonObject valorantDefaults = DefaultConfigRegistry.getDefaultConfig(presetId, "kill_icon/valorant");
+        JsonObject valorantDefaults = org.mods.gd656killicon.common.config.ElementConfigRegistry.buildElementDefaults("kill_icon/valorant");
         int expectedBaseParticleYOffset = 45;
         if (valorantDefaults != null && valorantDefaults.has("anim_base_particle_texture_y_offset")) {
             expectedBaseParticleYOffset = valorantDefaults.get("anim_base_particle_texture_y_offset").getAsInt();
@@ -597,7 +596,7 @@ public class ElementConfigManager {
 
         if (isOfficialPreset(presetId)) {
             // 官方预设唯一数据源 = jar 资源: 重置 = 从 jar 恢复完整内容
-            // (不能用 DefaultConfigRegistry.getDefaultConfig, 它只含全局默认+覆盖, 缺失 jar 里的完整配置)
+            // (官方预设默认 = jar 完整快照, 不用注册表默认)
             ElementPreset jarPreset = loadOfficialPresetFromJar(presetId);
             if (jarPreset != null) {
                 currentPreset.elementConfigs.clear();
@@ -635,14 +634,15 @@ public class ElementConfigManager {
      * 对于官方预设，这可能是特定的覆盖配置；对于非官方预设，则是全局默认配置。
      */
     public static JsonObject getDefaultElementConfig(String presetId, String elementId) {
-        return DefaultConfigRegistry.getDefaultConfig(presetId, elementId);
+        // 声明式配置注册表: 默认值 = 注册表静态键 + 动态键(官方预设由 jar json 覆盖, 不经过此处)
+        return org.mods.gd656killicon.common.config.ElementConfigRegistry.buildElementDefaults(elementId);
     }
     
     /**
      * 获取全局默认配置（第一默认配置），用于非官方预设
      */
     public static JsonObject getDefaultElementConfig(String name) {
-        return DefaultConfigRegistry.getGlobalDefault(name);
+        return org.mods.gd656killicon.common.config.ElementConfigRegistry.buildElementDefaults(name);
     }
     
     public static void resetConfig() {
@@ -714,7 +714,7 @@ public class ElementConfigManager {
             presetJson.addProperty("display_name", preset.getDisplayName());
         }
         preset.elementConfigs.forEach(presetJson::add);
-        try (FileWriter writer = new FileWriter(file)) {
+        try (FileWriter writer = new FileWriter(file, java.nio.charset.StandardCharsets.UTF_8)) {
             GSON.toJson(presetJson, writer);
         } catch (IOException e) {
             ClientMessageLogger.error("gd656killicon.client.config.element.save_fail", e.getMessage());
@@ -757,7 +757,7 @@ public class ElementConfigManager {
     }
     
     public static Set<String> getAllElementTypes() {
-        return DefaultConfigRegistry.getAllElementTypes();
+        return org.mods.gd656killicon.common.config.ElementConfigRegistry.getElements();
     }
 
     public static Set<String> getAvailableElementTypes(String presetId) {
@@ -783,7 +783,7 @@ public class ElementConfigManager {
         JsonObject config = preset.getConfig(elementId);
         if (config == null) return Collections.emptySet();
         Set<String> keys = new HashSet<>(config.keySet());
-        keys.addAll(getDefaultElementConfig(elementId).keySet());
+        keys.addAll(org.mods.gd656killicon.common.config.ElementConfigRegistry.getKeys(elementId));
         return keys;
     }
     

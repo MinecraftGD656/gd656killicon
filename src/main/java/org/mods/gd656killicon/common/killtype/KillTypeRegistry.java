@@ -37,6 +37,9 @@ public final class KillTypeRegistry {
         }
         BY_ID.put(def.id(), def);
         BY_TYPE.put(def.type(), def);
+        // 声明式配置注册表: 顺带注册该击杀类型的 format 配置键(默认值 = 注册表 format, 单一来源)
+        org.mods.gd656killicon.common.config.ElementConfigRegistry.registerFormatKey(
+                "subtitle/kill_feed", def.formatKey(), def.format());
     }
 
     private static void validate() {

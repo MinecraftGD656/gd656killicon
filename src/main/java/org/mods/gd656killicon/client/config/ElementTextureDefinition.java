@@ -33,7 +33,8 @@ public class ElementTextureDefinition {
             "assist",
             "capture",
             "vehicle_destroy_assist",
-            "medic"
+            "medic",
+            "spot_assist"
         ));
         
         map.put("kill_icon/combo", Arrays.asList(
@@ -180,6 +181,10 @@ public class ElementTextureDefinition {
     }
 
     private static String resolveScrollingFileName(String presetId, String textureKey) {
+        // 标示助攻: 默认复用已有助攻材质(所有未特例覆盖的预设); 00037 特例用自定义图标
+        if ("spot_assist".equals(textureKey) && !"00037".equals(presetId)) {
+            return "killicon_scrolling_assist.png";
+        }
         if ("00007".equals(presetId)) {
             return switch (textureKey) {
                 case "headshot" -> "killicon_battlefield5_headshot.png";
@@ -222,6 +227,7 @@ public class ElementTextureDefinition {
                 case "capture" -> "killicon_battlefield6_capture.png";
                 case "vehicle_destroy_assist" -> "killicon_battlefield6_vehicle_destroy_assist.png";
                 case "medic" -> "killicon_battlefield6_medic.png";
+                case "spot_assist" -> "killicon_battlefield6_spot_assist.png";
                 default -> "killicon_battlefield6_default.png";
             };
         }

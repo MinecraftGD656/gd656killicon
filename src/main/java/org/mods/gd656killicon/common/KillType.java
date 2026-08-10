@@ -10,6 +10,8 @@ public final class KillType {
     public static final int CAPTURE = 6;
     public static final int VEHICLE_DESTROY_ASSIST = 7;
     public static final int MEDIC = 8;
+    public static final int SPOT_ASSIST = 9;
+    public static final int RESCUE = 10;
 
     private KillType() {}
 }
