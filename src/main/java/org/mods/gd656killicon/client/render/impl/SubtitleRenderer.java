@@ -165,8 +165,10 @@ public class SubtitleRenderer implements IHudRenderer {
         String captureWeaponToken = "";
         String captureFormatOverride = null;
         String captureScoreOverride = null;
-        // 救援: 服务端随包直带实际加分分数(scoreOverride), 替代客户端缓存匹配
-        String rescueScoreOverride = context.scoreOverride() > 0 ? formatScore(context.scoreOverride()) : null;
+        // 所有 kill_feed 类型: <score> = 附加数据(bonusScale) × 加分项表达式(bonusMultiplier), 服务端直带
+        String bonusScoreStr = context.bonusScale() > 0
+                ? formatScore(context.bonusScale() * context.bonusMultiplier())
+                : null;
         if (!rawExtra.isEmpty()) {
             String extra = rawExtra;
             if (type == KillType.CAPTURE) {
@@ -259,12 +261,12 @@ public class SubtitleRenderer implements IHudRenderer {
         float dist = isNormalKillType(type) ? context.distance() : 0.0f;
 
         if (this.enableStacking) {
-            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId, type == KillType.RESCUE ? rescueScoreOverride : captureScoreOverride, type);
+            addItemToStack(resolvedFormat, pColor, eColor, wName, vName, this.displayDuration, dist, entityId, type == KillType.RESCUE ? bonusScoreStr : (captureScoreOverride != null ? captureScoreOverride : bonusScoreStr), type);
         } else {
             this.currentKillType = type;
             this.victimId = entityId;
             this.currentVictimId = entityId;
-            this.currentScoreOverride = type == KillType.RESCUE ? rescueScoreOverride : captureScoreOverride;
+            this.currentScoreOverride = type == KillType.RESCUE ? bonusScoreStr : (captureScoreOverride != null ? captureScoreOverride : bonusScoreStr);
             this.victimName = vName;
             this.heldItem = itemStack;
             this.currentWeaponName = wName;

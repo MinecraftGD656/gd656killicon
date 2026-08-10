@@ -28,7 +28,8 @@ public class KillIconPacket implements IPacket {
     private final boolean isVictimPlayer;
     private final boolean shouldRecordStats;
     private final float distance;
-    private final float scoreOverride;
+    private final float bonusMultiplier;   // 加分项表达式解析值(ServerData.getBonusMultiplier)
+    private final float bonusScale;         // 附加数据(如击杀伤害/救援 1 次)
 
     public KillIconPacket(String category, String name, int killType, int victimId) {
         this(category, name, killType, 0, victimId, -1.0, false, "", false, false);
@@ -59,11 +60,11 @@ public class KillIconPacket implements IPacket {
     }
 
     public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet, String customVictimName, boolean isVictimPlayer, boolean shouldRecordStats, float distance) {
-        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, customVictimName, isVictimPlayer, shouldRecordStats, distance, 0.0f);
+        this(category, name, killType, comboCount, victimId, comboWindowSeconds, hasHelmet, customVictimName, isVictimPlayer, shouldRecordStats, distance, 0.0f, 0.0f);
     }
 
-    /** 13 参: scoreOverride 供救援等需要直接携带服务端加分分数的 kill_feed 使用 */
-    public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet, String customVictimName, boolean isVictimPlayer, boolean shouldRecordStats, float distance, float scoreOverride) {
+    /** 14 参: bonusMultiplier(加分项表达式) + bonusScale(附加数据); kill_feed 的 <score> = bonusScale * bonusMultiplier */
+    public KillIconPacket(String category, String name, int killType, int comboCount, int victimId, double comboWindowSeconds, boolean hasHelmet, String customVictimName, boolean isVictimPlayer, boolean shouldRecordStats, float distance, float bonusMultiplier, float bonusScale) {
         this.category = category;
         this.name = name;
         this.killType = killType;
@@ -75,7 +76,8 @@ public class KillIconPacket implements IPacket {
         this.isVictimPlayer = isVictimPlayer;
         this.shouldRecordStats = shouldRecordStats;
         this.distance = distance;
-        this.scoreOverride = scoreOverride;
+        this.bonusMultiplier = bonusMultiplier;
+        this.bonusScale = bonusScale;
     }
 
     public KillIconPacket(FriendlyByteBuf buffer) {
@@ -90,7 +92,8 @@ public class KillIconPacket implements IPacket {
         this.isVictimPlayer = buffer.readBoolean();
         this.shouldRecordStats = buffer.readBoolean();
         this.distance = buffer.readFloat();
-        this.scoreOverride = buffer.readFloat();
+        this.bonusMultiplier = buffer.readFloat();
+        this.bonusScale = buffer.readFloat();
     }
 
     @Override
@@ -106,7 +109,8 @@ public class KillIconPacket implements IPacket {
         buffer.writeBoolean(this.isVictimPlayer);
         buffer.writeBoolean(this.shouldRecordStats);
         buffer.writeFloat(this.distance);
-        buffer.writeFloat(this.scoreOverride);
+        buffer.writeFloat(this.bonusMultiplier);
+        buffer.writeFloat(this.bonusScale);
     }
 
     @Override
@@ -167,7 +171,7 @@ public class KillIconPacket implements IPacket {
         if (!suppressValorantTrigger) {
             HudElementManager.trigger(packet.category, packet.name, 
                 new org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext(
-                    packet.killType, packet.victimId, packet.comboCount, displayName, packet.distance, packet.scoreOverride
+                    packet.killType, packet.victimId, packet.comboCount, displayName, packet.distance, packet.bonusMultiplier, packet.bonusScale
                 )
             );
         }

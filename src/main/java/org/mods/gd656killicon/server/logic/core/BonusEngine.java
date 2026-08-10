@@ -16,7 +16,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BonusEngine {
-    private record Entry(int type, float score, String extra, int victimId, String victimName) {}
+    private record Entry(int type, float score, String extra, int victimId, String victimName, float scale) {}
 
     /**
      * Map of player UUID to a list of pending bonus entries.
@@ -47,7 +47,7 @@ public class BonusEngine {
         score = applyScoreLimits(type, score);
 
         pending.computeIfAbsent(player.getUUID(), k -> Collections.synchronizedList(new ArrayList<>()))
-            .add(new Entry(type, score, extra == null ? "" : extra, victimId, victimName));
+            .add(new Entry(type, score, extra == null ? "" : extra, victimId, victimName, scale));
     }
 
     /**
@@ -87,7 +87,8 @@ public class BonusEngine {
                     old.score + val.score, 
                     val.extra, 
                     old.victimId != -1 ? old.victimId : val.victimId,
-                    old.victimName != null ? old.victimName : val.victimName
+                    old.victimName != null ? old.victimName : val.victimName,
+                    old.scale + val.scale
                 ));
             }
 
@@ -100,12 +101,13 @@ public class BonusEngine {
             for (Entry e : ordered) {
                 float score = applyScoreLimits(e.type, e.score);
                 NetworkHandler.sendToPlayer(new BonusScorePacket(e.type, score, e.extra, e.victimId, e.victimName), player);
-                // 救援加分(conquest 触发, 带被救援者 victimId) → 直接发救援 kill_feed, scoreOverride 携带实际分数
+                // 救援加分(conquest 触发, 带被救援者 victimId) → 发救援 kill_feed, 带加分项表达式与附加数据
                 org.mods.gd656killicon.common.bonus.BonusDefinition reviveDef = BonusRegistry.get("REVIVE");
                 if (reviveDef != null && e.type == reviveDef.type() && e.victimId != -1) {
+                    float multiplier = (float) ServerData.get().getBonusMultiplier(e.type);
                     NetworkHandler.sendToPlayer(new KillIconPacket(
                             "subtitle", "kill_feed", KillType.RESCUE, 0, e.victimId, 0, false,
-                            e.victimName != null ? e.victimName : "", true, false, 0.0f, score), player);
+                            e.victimName != null ? e.victimName : "", true, false, 0.0f, multiplier, e.scale), player);
                 }
                 ServerData.get().addScore(player, score);
             }

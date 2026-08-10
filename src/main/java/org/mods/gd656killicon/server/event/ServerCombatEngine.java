@@ -521,7 +521,7 @@ public final class ServerCombatEngine {
                 if (player != null) {
                     addBonus(player, BonusType.ASSIST, (float) totalDamage, "", victimIdInt, finalVictimName);
                     sendKillEffects(player, KillType.ASSIST, 0, victimIdInt, hasHelmet, finalVictimName, isVictimPlayer, 0.0f,
-                            org.mods.gd656killicon.server.logic.core.BonusEngine.resolveScore(BonusType.ASSIST, (float) totalDamage));
+                            (float) ServerData.get().getBonusMultiplier(BonusType.ASSIST), (float) totalDamage);
 
                     ServerData.get().addAssist(player, 1);
 
@@ -553,8 +553,9 @@ public final class ServerCombatEngine {
 
         updatePostKillStates(pk);
 
+        // <score> = 附加数据(伤害) × 加分项表达式(倍率)
         sendKillEffects(pk.player, killType, pk.combo, pk.victimIdInt, pk.hasHelmet, finalVictimName, pk.isVictimPlayer, pk.distance,
-                org.mods.gd656killicon.server.logic.core.BonusEngine.resolveScore(bonusType, pk.maxHealth));
+                (float) ServerData.get().getBonusMultiplier(bonusType), pk.maxHealth);
     }
 
     private static int determineKillType(PendingKill pk) {
@@ -807,9 +808,9 @@ public final class ServerCombatEngine {
         return ServerCombatAttribution.resolvePlayerAttacker(src, victim, fireAttribution, FIRE_ATTRIBUTION_TIMEOUT_MS);
     }
 
-    private static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance, float score) {
+    private static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance, float bonusMultiplier, float bonusScale) {
         double window = ServerData.get().getComboWindowSeconds();
-        ServerPacketDispatcher.sendKillEffects(player, killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, distance, score);
+        ServerPacketDispatcher.sendKillEffects(player, killType, combo, victimId, window, hasHelmet, victimName, isVictimPlayer, distance, bonusMultiplier, bonusScale);
     }
 
     private static boolean isObstructed(PendingKill pk) {

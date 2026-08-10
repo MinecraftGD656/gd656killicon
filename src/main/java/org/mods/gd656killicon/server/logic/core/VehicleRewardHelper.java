@@ -93,7 +93,7 @@ public final class VehicleRewardHelper {
         });
     }
 
-    public static void sendDestroyVehicleEffects(ServerPlayer player, int victimId, String victimName, float score) {
+    public static void sendDestroyVehicleEffects(ServerPlayer player, int victimId, String victimName, float bonusMultiplier, float bonusScale) {
         if (player == null) {
             return;
         }
@@ -107,7 +107,8 @@ public final class VehicleRewardHelper {
             victimName,
             false,
             0.0f,
-            score
+            bonusMultiplier,
+            bonusScale
         );
     }
 }
