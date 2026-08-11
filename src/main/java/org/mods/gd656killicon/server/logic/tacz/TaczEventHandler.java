@@ -3,6 +3,7 @@ package org.mods.gd656killicon.server.logic.tacz;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.event.common.EntityHurtByGunEvent;
 import com.tacz.guns.api.event.common.EntityKillByGunEvent;
+import com.tacz.guns.api.event.common.GunReloadEvent;
 import com.tacz.guns.api.event.server.AmmoHitBlockEvent;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.entity.EntityKineticBullet;
@@ -91,6 +92,99 @@ public class TaczEventHandler implements ITaczHandler {
         }
 
         checkLastBullet(event);
+
+        // 对狙专家: 击杀手持 TACZ 狙击枪且正在开镜瞄准的玩家
+        if (event.getAttacker() instanceof ServerPlayer killer && victim instanceof net.minecraft.world.entity.player.Player victimPlayer
+                && isVictimSniperAiming(victimPlayer)) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onSniperDuel(killer);
+        }
+        // 势不可挡: TACZ 机枪击杀(非机枪击杀清零)
+        if (event.getAttacker() instanceof ServerPlayer killer) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onMachineGunKill(killer, isTaczMachineGun(killer.getMainHandItem()));
+        }
+        // 神射手: TACZ 狙击枪击杀
+        if (event.getAttacker() instanceof ServerPlayer killer && isTaczSniper(killer.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onSniperKill(killer);
+        }
+        // 弹头: TACZ 重型武器爆头击杀
+        if (event.isHeadShot() && event.getAttacker() instanceof ServerPlayer killer && isTaczHeavy(killer.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onWarheadKill(killer);
+        }
+        // 步枪手: TACZ 突击步枪击杀
+        if (event.getAttacker() instanceof ServerPlayer killer && isTaczRifle(killer.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onRifleKill(killer);
+        }
+    }
+
+    /** 换弹开始(服务端): 中断机枪连续击杀(势不可挡)。 */
+    @SubscribeEvent
+    public void onReload(GunReloadEvent event) {
+        if (event.getLogicalSide() != net.minecraftforge.fml.LogicalSide.SERVER) {
+            return;
+        }
+        if (event.getEntity() instanceof ServerPlayer player) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onReload(player);
+        }
+    }
+
+    /** 手持是否为 TACZ 机枪(index type == "mg")。 */
+    private boolean isTaczMachineGun(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "mg".equals(index.getType()))
+                .orElse(false);
+    }
+
+    /** 手持是否为 TACZ 狙击枪(index type == "sniper")。 */
+    private boolean isTaczSniper(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "sniper".equals(index.getType()))
+                .orElse(false);
+    }
+
+    /** 手持是否为 TACZ 重型武器(index type == "rpg")。 */
+    private boolean isTaczHeavy(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "rpg".equals(index.getType()))
+                .orElse(false);
+    }
+
+    /** 手持是否为 TACZ 突击步枪(index type == "rifle")。 */
+    private boolean isTaczRifle(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "rifle".equals(index.getType()))
+                .orElse(false);
     }
 
     @SubscribeEvent
@@ -154,6 +248,19 @@ public class TaczEventHandler implements ITaczHandler {
     public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         suppressionCounts.remove(player.getUUID());
+    }
+
+    /** 受害者是否手持 TACZ 狙击枪且正在开镜瞄准(服务端同步状态)。 */
+    private boolean isVictimSniperAiming(net.minecraft.world.entity.player.Player victim) {
+        ItemStack stack = victim.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) return false;
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        boolean isSniper = TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "sniper".equals(index.getType()))
+                .orElse(false);
+        if (!isSniper) return false;
+        return com.tacz.guns.api.entity.IGunOperator.fromLivingEntity(victim).getSynIsAiming();
     }
 
     private void checkLastBullet(EntityKillByGunEvent event) {

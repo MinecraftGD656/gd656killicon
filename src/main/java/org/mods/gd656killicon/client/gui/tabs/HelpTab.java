@@ -7,8 +7,11 @@ import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
 import org.mods.gd656killicon.client.gui.elements.entries.HelpTextEntry;
+import org.mods.gd656killicon.client.stats.ClientStatsManager;
 import org.mods.gd656killicon.common.BonusType;
 import org.mods.gd656killicon.common.bonus.BonusRegistry;
+import org.mods.gd656killicon.common.honor.HonorDefinition;
+import org.mods.gd656killicon.common.honor.HonorRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,9 +28,10 @@ public class HelpTab extends ConfigTabContent {
 
     private int area2X1, area2Y1, area2X2, area2Y2;
     private final List<GDRowRenderer> contentRenderers = new ArrayList<>();
-    private int[] categoryStartIndices = new int[3];
+    private int[] categoryStartIndices = new int[4];
     private boolean isCommandExpanded = false;
     private boolean isBonusExpanded = false;
+    private boolean isHonorExpanded = false;
     private boolean isPresetExpanded = false;
     private boolean isCommandBonusExpanded = false;
     private boolean isCommandResetExpanded = false;
@@ -137,12 +141,28 @@ public class HelpTab extends ConfigTabContent {
             }
         }
 
+        int honorIndex = contentRenderers.size();
+        addCategoryHeader(2, "gd656killicon.client.gui.help.category.honor", isHonorExpanded, (btn) -> {
+            isHonorExpanded = !isHonorExpanded;
+            rebuildContent();
+        });
+        categoryStartIndices[2] = honorIndex;
+
+        if (isHonorExpanded) {
+            // 荣誉徽章说明行按荣誉 ID 字母表顺序排列
+            java.util.List<HonorDefinition> sortedHonors = new java.util.ArrayList<>(HonorRegistry.getAll());
+            sortedHonors.sort(java.util.Comparator.comparing(HonorDefinition::id));
+            for (HonorDefinition def : sortedHonors) {
+                addPrefixedHonorHelpEntry(def.id(), def.displayNameKey(), def.descriptionKey(), contentWidth);
+            }
+        }
+
         int presetIndex = contentRenderers.size();
-        addCategoryHeader(2, "gd656killicon.client.gui.help.category.preset", isPresetExpanded, (btn) -> {
+        addCategoryHeader(3, "gd656killicon.client.gui.help.category.preset", isPresetExpanded, (btn) -> {
             isPresetExpanded = !isPresetExpanded;
             rebuildContent();
         });
-        categoryStartIndices[2] = presetIndex;
+        categoryStartIndices[3] = presetIndex;
 
         if (isPresetExpanded) {
             addHelpEntry("gd656killicon.client.gui.help.preset.intro", "gd656killicon.client.gui.help.preset.intro.desc", contentWidth);
@@ -220,6 +240,27 @@ public class HelpTab extends ConfigTabContent {
         titleParts.add(new GDTextRenderer.ColoredText(bonusName, GuiConstants.COLOR_DARK_GRAY));
         titleParts.add(new GDTextRenderer.ColoredText(" " + title, GuiConstants.COLOR_GOLD));
         HelpTextEntry entry = new HelpTextEntry(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, titleParts, desc);
+        int height = entry.getRequiredHeight(contentWidth);
+        contentRenderers.add(entry);
+        rowHeights.add(height);
+    }
+
+    private void addPrefixedHonorHelpEntry(String honorId, String titleKey, String descKey, int contentWidth) {
+        String title = org.mods.gd656killicon.client.util.I18nCompat.exists(titleKey) ? I18n.get(titleKey) : titleKey;
+        String desc = org.mods.gd656killicon.client.util.I18nCompat.exists(descKey) ? I18n.get(descKey) : descKey;
+        HonorDefinition def = HonorRegistry.get(honorId);
+        long count = ClientStatsManager.getHonorCount(honorId);
+        int required = def != null ? def.unlockRequired() : 1;
+        // 已解锁: 获得次数 ≥ 解锁所需次数(count / required >= 1)
+        boolean unlocked = required > 0 && (double) count / required >= 1.0;
+        int dimColor = GuiConstants.COLOR_DARK_GRAY;
+        // 前缀 [x/y]: x = 当前获得次数, y = 解锁所需次数; 未解锁时除 id 外全部用比 id 深的深灰淡化
+        List<GDTextRenderer.ColoredText> titleParts = new ArrayList<>();
+        titleParts.add(new GDTextRenderer.ColoredText("[" + count + "/" + required + "] ", unlocked ? GuiConstants.COLOR_GRAY : dimColor));
+        titleParts.add(new GDTextRenderer.ColoredText(honorId.toUpperCase() + " ", GuiConstants.COLOR_GRAY));
+        titleParts.add(new GDTextRenderer.ColoredText(title, unlocked ? GuiConstants.COLOR_GOLD : dimColor));
+        HelpTextEntry entry = new HelpTextEntry(0, 0, 0, 0, GuiConstants.COLOR_BLACK, 0.3f, titleParts, desc,
+                unlocked ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_GRAY);
         int height = entry.getRequiredHeight(contentWidth);
         contentRenderers.add(entry);
         rowHeights.add(height);
@@ -342,7 +383,8 @@ public class HelpTab extends ConfigTabContent {
         
         if (index == 0) isCommandExpanded = true;
         else if (index == 1) isBonusExpanded = true;
-        else if (index == 2) isPresetExpanded = true;
+        else if (index == 2) isHonorExpanded = true;
+        else if (index == 3) isPresetExpanded = true;
         
         rebuildContent();
         scrollToCategory(index);

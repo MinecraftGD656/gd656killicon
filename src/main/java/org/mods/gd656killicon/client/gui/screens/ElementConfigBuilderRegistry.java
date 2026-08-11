@@ -303,6 +303,10 @@ public class ElementConfigBuilderRegistry {
                 boolean isFormatConfigKey = BonusRegistry.isFormatKey(key);
                 int formatBonusType = isFormatConfigKey ? BonusRegistry.getTypeByFormatKey(key) : -1;
                 int killFeedType = "subtitle/kill_feed".equals(elementId) ? KillTypeRegistry.getKillTypeByFormatKey(key) : -1;
+                boolean isHonorFormatKey = "kill_icon/honor".equals(elementId)
+                        && org.mods.gd656killicon.common.honor.HonorRegistry.isFormatKey(key);
+                String honorFormatId = isHonorFormatKey
+                        ? org.mods.gd656killicon.common.honor.HonorRegistry.getHonorIdByFormatKey(key) : null;
 
                 String displayName;
                 if (isFormatConfigKey) {
@@ -311,6 +315,9 @@ public class ElementConfigBuilderRegistry {
                 } else if (killFeedType != -1) {
                     // kill_feed 格式键：显示名 = lang 键（gd656killicon.killtype.<ID>.name）
                     displayName = I18n.get(KillTypeRegistry.get(killFeedType).displayName());
+                } else if (isHonorFormatKey && honorFormatId != null) {
+                    // 荣誉字幕键（format_<honor_id>）：显示名 = 荣誉 lang 键（gd656killicon.honor.<ID>.name）
+                    displayName = I18n.get(org.mods.gd656killicon.common.honor.HonorRegistry.get(honorFormatId).displayNameKey());
                 } else {
                     String nameKey = "gd656killicon.client.gui.config.element." + elementId.replace("/", ".") + "." + key;
                     if (org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey)) {
@@ -442,11 +449,26 @@ public class ElementConfigBuilderRegistry {
                     // 所见即所得：输入框直接显示 config 中的实际数据（不解析、不转换）
                     String defaultValue = primitive.getAsString();
                     String currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsString() : defaultValue;
+                    // honor 字幕键(format_<honor_id>): 默认值语言驱动(与渲染端 resolveSubtitle 一致)
+                    if (isHonorFormatKey && honorFormatId != null) {
+                        String langFormatKey = org.mods.gd656killicon.common.honor.HonorRegistry.formatLangKey(honorFormatId);
+                        String langFormat = null;
+                        if (org.mods.gd656killicon.client.util.I18nCompat.exists(langFormatKey)) {
+                            String resolved = I18n.get(langFormatKey);
+                            if (resolved != null && !resolved.isEmpty() && !resolved.equals(langFormatKey)) {
+                                langFormat = resolved;
+                            }
+                        }
+                        defaultValue = org.mods.gd656killicon.common.honor.HonorRegistry.resolveFormat(
+                                honorFormatId, null, langFormat);
+                    }
                     final String resolvedDefaultValue = defaultValue;
                     final String resolvedCurrentValue = currentValue;
                     final String resolvedDescription = isFormatConfigKey
                         ? I18n.get(BonusRegistry.descKey(formatBonusType))
-                        : "gd656killicon.config.desc." + key;
+                        : (isHonorFormatKey && honorFormatId != null
+                            ? I18n.get(org.mods.gd656killicon.common.honor.HonorRegistry.get(honorFormatId).descriptionKey())
+                            : "gd656killicon.config.desc." + key);
 
                     boolean isColorConfig = registryType == org.mods.gd656killicon.common.config.ConfigType.COLOR;
 
@@ -487,7 +509,7 @@ public class ElementConfigBuilderRegistry {
                             activeCondition
                         );
                         content.getConfigRows().add(entry);
-                    } else if ("scroll_direction".equals(key)) {
+                    } else if ("scroll_direction".equals(key) || "direction".equals(key)) {
                         List<FixedChoiceConfigEntry.Choice> choices = List.of(
                             new FixedChoiceConfigEntry.Choice("left", I18n.get("gd656killicon.config.choice.scroll_direction.left")),
                             new FixedChoiceConfigEntry.Choice("right", I18n.get("gd656killicon.config.choice.scroll_direction.right"))

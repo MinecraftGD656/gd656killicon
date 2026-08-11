@@ -108,5 +108,7 @@ public class StatsPersistenceManager {
         public Map<String, Long> weaponUseCounts = new ConcurrentHashMap<>();
         /** 按玩家名统计“击杀你”的次数 */
         public Map<String, Long> deathByPlayerCounts = new ConcurrentHashMap<>();
+        /** 按荣誉 ID 统计获得次数 */
+        public Map<String, Long> honorCounts = new ConcurrentHashMap<>();
     }
 }

@@ -62,7 +62,10 @@
     "enable_queue_linkage": true,
     "queue_linkage_icon_y_offset": -4.0,
     "screen_anchor": "center",
-    "color_rescue_placeholder": "#8BE276"
+    "color_rescue_placeholder": "#8BE276",
+    "format_rescue": "\u003ctarget\u003e",
+    "format_spot_assist": "\u003ctarget\u003e",
+    "color_spot_assist_placeholder": "#EF9166"
   },
   "subtitle/bonus_list": {
     "visible": true,
@@ -431,5 +434,28 @@
     "layer_spacing": 8.0,
     "layer_collapse_animation_duration": 0.02,
     "max_layers": 3.0
+  },
+  "kill_icon/honor": {
+    "visible": true,
+    "scale": 0.85,
+    "direction": "right",
+    "x_offset": -80.0,
+    "y_offset": -22.0,
+    "screen_anchor": "center",
+    "blink_fade_animation": true,
+    "display_duration": 2.0,
+    "hint_box_height": 10.0,
+    "hint_box_text_padding": 6.0,
+    "hint_box_text_gap": 8.0,
+    "hint_box_max_alpha": 20.0,
+    "hint_box_enter_duration": 0.2,
+    "hint_box_enabled": true,
+    "hint_box_x_offset": -70.0,
+    "hint_box_text_shadow": false,
+    "fade_out_duration": 0.3,
+    "format_headhunter": "猎头者",
+    "shake_enabled": true,
+    "shake_count": 16.0,
+    "shake_range": 1.0
   }
 }

@@ -2,6 +2,7 @@ package org.mods.gd656killicon.server.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -76,6 +77,8 @@ public class ServerCommands {
                             .executes(c -> setDeathboardDisplayName(c, StringArgumentType.getString(c, "name")))))
                         .then(Commands.literal("AssistboardDisplayName").then(Commands.argument("name", StringArgumentType.string())
                             .executes(c -> setAssistboardDisplayName(c, StringArgumentType.getString(c, "name")))))
+                        .then(Commands.literal("NeutralVehicleSkip").then(Commands.argument("val", BoolArgumentType.bool())
+                            .executes(c -> setNeutralVehicleSkip(c, BoolArgumentType.getBool(c, "val")))))
                     )
                 .then(Commands.literal("statistics")
                     .then(Commands.literal("get").then(Commands.literal("score")
@@ -134,9 +137,69 @@ public class ServerCommands {
                 .then(Commands.literal("debug").requires(s -> s.hasPermission(2))
                     .then(Commands.literal("scoreboarddebug")
                         .then(Commands.argument("count", IntegerArgumentType.integer(-1))
-                            .executes(ServerCommands::scoreboardDebug))))
-            )
+                            .executes(ServerCommands::scoreboardDebug)))
+                    .then(Commands.literal("honor")
+                        .then(Commands.argument("honorId", StringArgumentType.word())
+                            .executes(ServerCommands::debugHonor)))
+                    .then(Commands.literal("bonus")
+                        .then(Commands.argument("type", IntegerArgumentType.integer())
+                            .executes(ServerCommands::debugBonus)))
+                    .then(Commands.literal("revive")
+                        .executes(ServerCommands::debugRevive))))
         );
+    }
+
+    private static int debugHonor(CommandContext<CommandSourceStack> c) {
+        String honorId = StringArgumentType.getString(c, "honorId");
+        if (!org.mods.gd656killicon.common.honor.HonorRegistry.isRegistered(honorId)) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.debug_honor_not_registered", honorId);
+            return 0;
+        }
+        ServerPlayer player;
+        try {
+            player = c.getSource().getPlayerOrException();
+        } catch (Exception e) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.debug_honor_requires_player");
+            return 0;
+        }
+        // 服务端下发目标荣誉显示包到客户端
+        org.mods.gd656killicon.network.NetworkHandler.sendToPlayer(new org.mods.gd656killicon.network.packet.HonorPacket(honorId), player);
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.debug_honor_sent", honorId, player.getDisplayName().getString());
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int debugBonus(CommandContext<CommandSourceStack> c) {
+        int bonusType = IntegerArgumentType.getInteger(c, "type");
+        if (!org.mods.gd656killicon.common.bonus.BonusRegistry.isRegistered(bonusType)) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.debug_bonus_not_registered", bonusType);
+            return 0;
+        }
+        ServerPlayer player;
+        try {
+            player = c.getSource().getPlayerOrException();
+        } catch (Exception e) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.debug_bonus_requires_player");
+            return 0;
+        }
+        // 下发加分项显示包, 附加数据默认均为 1
+        org.mods.gd656killicon.network.NetworkHandler.sendToPlayer(
+                new org.mods.gd656killicon.network.packet.BonusScorePacket(bonusType, 1.0f, "1", -1, null), player);
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.debug_bonus_sent", bonusType, player.getDisplayName().getString());
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int debugRevive(CommandContext<CommandSourceStack> c) {
+        ServerPlayer player;
+        try {
+            player = c.getSource().getPlayerOrException();
+        } catch (Exception e) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.debug_revive_requires_player");
+            return 0;
+        }
+        // 模拟一次真实救援: 走服务端 onRevive 链路(急救使者/烟幕计数)
+        org.mods.gd656killicon.server.ServerCore.HONOR.onRevive(player);
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.debug_revive_sent", player.getDisplayName().getString());
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int scoreboardDebug(CommandContext<CommandSourceStack> c) {
@@ -239,6 +302,12 @@ public class ServerCommands {
     private static int setAssistboardDisplayName(CommandContext<CommandSourceStack> c, String name) {
         ServerData.get().setAssistboardDisplayName(name);
         ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.assistboard_display_name_set", name);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setNeutralVehicleSkip(CommandContext<CommandSourceStack> c, boolean val) {
+        ServerData.get().setNeutralVehicleSkip(val);
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.neutral_vehicle_skip_set", val);
         return Command.SINGLE_SUCCESS;
     }
 

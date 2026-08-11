@@ -149,6 +149,32 @@ public class ClientStatsManager {
     }
 
     /**
+     * 记录一次荣誉获得并保存。
+     *
+     * @param honorId 荣誉 ID(如 "headhunter")
+     */
+    public static void recordHonor(String honorId) {
+        ensureLoaded();
+        if (honorId == null || honorId.isBlank()) {
+            return;
+        }
+        statsData.honorCounts.merge(honorId, 1L, Long::sum);
+        saveStats();
+    }
+
+    /**
+     * @param honorId 荣誉 ID
+     * @return 该荣誉累计获得次数(无记录返回 0)
+     */
+    public static long getHonorCount(String honorId) {
+        ensureLoaded();
+        if (honorId == null) {
+            return 0L;
+        }
+        return statsData.honorCounts.getOrDefault(honorId, 0L);
+    }
+
+    /**
      * 记录造成的伤害并保存。
      *
      * @param damage 伤害值

@@ -99,6 +99,7 @@ public class ElementConfigContent extends ConfigTabContent {
     private int previewBattlefieldKillTypeIndex = 0;
     private SubtitleRenderer subtitlePreviewRenderer = new SubtitleRenderer();
     private long lastSubtitlePreviewTriggerTime = 0L;
+    private long lastHonorPreviewTriggerTime = 0L;
     private ComboSubtitleRenderer comboSubtitlePreviewRenderer = ComboSubtitleRenderer.getInstance();
     private long lastComboSubtitlePreviewTriggerTime = 0L;
     private ScoreSubtitleRenderer scorePreviewRenderer = ScoreSubtitleRenderer.getInstance();
@@ -202,7 +203,8 @@ public class ElementConfigContent extends ConfigTabContent {
 
         if (!isKillIconElement() || !ElementTextureDefinition.hasTextures(elementId)) {
             this.configRows.addAll(this.allConfigRows);
-            if (isSubtitleElement()) {
+            // 无纹理元素也按分类分组(subtitle 全部 + kill_icon/honor 等), 保证分类/层级展示
+            if (isSubtitleElement() || isKillIconElement()) {
                 applyGeneralFolderGrouping();
                 return;
             }
@@ -318,7 +320,7 @@ public class ElementConfigContent extends ConfigTabContent {
     private List<String> getGeneralFolderOrder() {
         List<String> order = new ArrayList<>();
         order.add("visibility");
-        if (isSubtitleElement()) {
+        if (isSubtitleElement() || "kill_icon/honor".equals(elementId)) {
             order.add("content");
         }
         order.add("position");
@@ -561,6 +563,7 @@ public class ElementConfigContent extends ConfigTabContent {
                 renderScorePreview(guiGraphics, partialTick);
                 renderBonusListPreview(guiGraphics, partialTick);
                 renderHitInfoPreview(guiGraphics, partialTick);
+                renderHonorPreview(guiGraphics, partialTick);
             } finally {
                 PreviewRenderTimeContext.endPreviewFrame();
             }
@@ -1092,6 +1095,42 @@ public class ElementConfigContent extends ConfigTabContent {
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> bonusListPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
+        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+        guiGraphics.disableScissor();
+    }
+
+    private void renderHonorPreview(GuiGraphics guiGraphics, float partialTick) {
+        if (!"kill_icon/honor".equals(elementId) || gridWidget == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        // 每秒检查, 当前无显示时随机触发一个已注册荣誉, 完整播完后换下一个
+        if (!previewPaused && now - lastHonorPreviewTriggerTime >= 1000L
+                && !org.mods.gd656killicon.client.render.impl.HonorRenderer.getInstance().isDisplaying()) {
+            java.util.List<String> honorIds = new java.util.ArrayList<>(org.mods.gd656killicon.common.honor.HonorRegistry.getIds());
+            if (!honorIds.isEmpty()) {
+                String id = honorIds.get(new java.util.Random().nextInt(honorIds.size()));
+                org.mods.gd656killicon.client.render.impl.HonorRenderer.getInstance()
+                        .trigger(org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(0, id));
+            }
+            lastHonorPreviewTriggerTime = now;
+        }
+
+        float originX = gridWidget.getOriginX();
+        float originY = gridWidget.getOriginY();
+        int scissorX1 = gridWidget.getX();
+        int scissorY1 = gridWidget.getY();
+        int scissorX2 = scissorX1 + gridWidget.getWidth();
+        int scissorY2 = scissorY1 + gridWidget.getHeight();
+        guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
+        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+        // 荣誉图标在代码中缩小到预览区域适配尺寸(110x61 的 0.8 倍)
+        float baseW = 88.0f;
+        float baseH = 49.0f;
+        renderPreviewWithRotation(guiGraphics, partialTick, originX, originY,
+                () -> org.mods.gd656killicon.client.render.impl.HonorRenderer.getInstance()
+                        .renderAt(guiGraphics, partialTick, originX, originY, baseW, baseH));
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
     }
@@ -1833,15 +1872,19 @@ public class ElementConfigContent extends ConfigTabContent {
 
     private void ensureSecondaryTabs() {
         if (!secondaryTabs.isEmpty()) return;
-        
-        if (!ElementTextureDefinition.hasTextures(elementId)) {
-            return;
-        }
 
         String generalKey = "gd656killicon.client.gui.config.tab.general";
         String generalLabel = org.mods.gd656killicon.client.util.I18nCompat.exists(generalKey) ? I18n.get(generalKey) : "General";
         secondaryTabs.add(new SecondaryTab("general", generalLabel));
-        
+
+        // 无纹理元素(如 kill_icon/honor)只有"常规"标签页
+        if (!ElementTextureDefinition.hasTextures(elementId)) {
+            if (selectedSecondaryTab == null && !secondaryTabs.isEmpty()) {
+                selectedSecondaryTab = secondaryTabs.get(0);
+            }
+            return;
+        }
+
         List<String> textures = ElementTextureDefinition.getTextures(elementId);
         for (String texture : textures) {
             String key = "gd656killicon.client.gui.config.tab.texture." + texture;
@@ -1920,6 +1963,9 @@ public class ElementConfigContent extends ConfigTabContent {
     }
 
     private void resetPreviews() {
+        // 统一清除所有已注册 HUD 渲染器的显示状态(预览残留/触发残留),
+        // 不采用各元素的单独消除逻辑
+        org.mods.gd656killicon.client.render.HudElementManager.clearAllPreviews();
         scrollingPreviewRenderer = new ScrollingIconRenderer();
         comboPreviewRenderer = new ComboIconRenderer();
         valorantPreviewRenderer = new ValorantIconRenderer();

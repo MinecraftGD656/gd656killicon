@@ -72,6 +72,9 @@ public final class SpottingRewardTracker {
             .computeIfAbsent(target.getUUID(), key -> new ConcurrentHashMap<>())
             .put(spotter.getUUID(), now + SPOT_ASSIST_WINDOW_MS);
 
+        // 斥候荣誉: 标记事件统一入口(每次标记 +1, 无索敌加分项 CD; 各标记来源都汇聚于此)
+        org.mods.gd656killicon.server.ServerCore.HONOR.onScoutMark(spotter);
+
         if (bonusMode && ServerData.get().isBonusEnabled(BonusType.SPOTTING) && tryConsumeSpottingBonus(spotter.getUUID(), now)) {
             ServerCore.BONUS.add(spotter, BonusType.SPOTTING, 1.0f, "");
         }

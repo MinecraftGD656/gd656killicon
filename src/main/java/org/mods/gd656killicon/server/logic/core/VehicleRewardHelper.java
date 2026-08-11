@@ -36,8 +36,12 @@ public final class VehicleRewardHelper {
     }
 
     public static boolean shouldAwardDestroyVehicleRewards(ServerPlayer killer, UUID vehicleDriverUuid) {
-        if (killer == null || vehicleDriverUuid == null || ServerCore.getServer() == null) {
+        if (killer == null || ServerCore.getServer() == null) {
             return false;
+        }
+        // 无驾驶员记录(载具无人驾驶/从未有人驾驶):视为中立载具,可由配置 neutral_vehicle_skip 控制
+        if (vehicleDriverUuid == null) {
+            return !ServerData.get().isNeutralVehicleSkip();
         }
         if (vehicleDriverUuid.equals(killer.getUUID())) {
             return false;
@@ -45,13 +49,15 @@ public final class VehicleRewardHelper {
 
         ServerPlayer vehicleDriver = ServerCore.getServer().getPlayerList().getPlayer(vehicleDriverUuid);
         if (vehicleDriver == null) {
-            return false;
+            // 驾驶员不在线无法判定队伍:视为中立载具,可由配置 neutral_vehicle_skip 控制
+            return !ServerData.get().isNeutralVehicleSkip();
         }
 
         Team killerTeam = killer.getTeam();
         Team vehicleTeam = vehicleDriver.getTeam();
         if (killerTeam == null || vehicleTeam == null) {
-            return false;
+            // 中立载具(击杀者或载具驾驶员无队伍):默认跳过,可由配置 neutral_vehicle_skip 关闭
+            return !ServerData.get().isNeutralVehicleSkip();
         }
         return !killerTeam.getName().equals(vehicleTeam.getName());
     }

@@ -44,6 +44,18 @@ public class HudElementManager {
         }
     }
 
+    /**
+     * 统一清除所有已注册渲染器的显示状态(配置界面关闭时调用)。
+     * 每个渲染器通过 IHudRenderer.resetPreview() 清空自身预览/触发残留。
+     */
+    public static void clearAllPreviews() {
+        for (Map<String, IHudRenderer> categoryMap : renderers.values()) {
+            for (IHudRenderer renderer : categoryMap.values()) {
+                renderer.resetPreview();
+            }
+        }
+    }
+
     public static void init() {
         ClientBridge.loader().registerForgeEventBusSubscriber(ForgeHudOverlayEvents.class);
     }

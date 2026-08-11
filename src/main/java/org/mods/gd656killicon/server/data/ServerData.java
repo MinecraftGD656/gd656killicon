@@ -54,6 +54,7 @@ public class ServerData {
     private String deathboardDisplayName = DEFAULT_DEATHBOARD_DISPLAY_NAME;
     private String assistboardDisplayName = DEFAULT_ASSISTBOARD_DISPLAY_NAME;
     private String reviveboardDisplayName = DEFAULT_REVIVEBOARD_DISPLAY_NAME;
+    private boolean neutralVehicleSkip = true;
     private final Set<Integer> disabledBonusTypes = ConcurrentHashMap.newKeySet();
     private final Map<Integer, String> bonusExpressions = new ConcurrentHashMap<>();
 
@@ -177,6 +178,10 @@ public class ServerData {
         }
     }
 
+    public boolean isNeutralVehicleSkip() { return neutralVehicleSkip; }
+
+    public void setNeutralVehicleSkip(boolean val) { this.neutralVehicleSkip = val; saveConfig(); }
+
     public String getReviveboardDisplayName() { return reviveboardDisplayName; }
 
     public void setReviveboardDisplayName(String name) {
@@ -237,6 +242,7 @@ public class ServerData {
         deathboardDisplayName = "鐜╁姝讳骸";
         assistboardDisplayName = "鐜╁鍔╂敾";
         reviveboardDisplayName = "玩家救援";
+        neutralVehicleSkip = true;
         disabledBonusTypes.clear();
         resetDisabledBonusTypes();
         bonusExpressions.clear();
@@ -259,6 +265,7 @@ public class ServerData {
         deathboardDisplayName = DEFAULT_DEATHBOARD_DISPLAY_NAME;
         assistboardDisplayName = DEFAULT_ASSISTBOARD_DISPLAY_NAME;
         reviveboardDisplayName = DEFAULT_REVIVEBOARD_DISPLAY_NAME;
+        neutralVehicleSkip = true;
         disabledBonusTypes.clear();
         resetDisabledBonusTypes();
         bonusExpressions.clear();
@@ -303,6 +310,10 @@ public class ServerData {
 
     public void addScore(ServerPlayer player, float amount) {
         if (player == null || amount == 0) return;
+        // 支援专家荣誉: 获得 gdki 分数时累计(仅正分; 是否支援兵/Conquest 由荣誉引擎判定)
+        if (amount > 0) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onScoreGain(player, amount);
+        }
         tryRouteConquestRuntimeStats(player, amount, 0, 0, 0, 0);
         if (shouldBlockConquestGlobalStats(player)) return;
         UUID uuid = player.getUUID();
@@ -688,6 +699,7 @@ public class ServerData {
             if (json.has("deathboard_display_name")) deathboardDisplayName = json.get("deathboard_display_name").getAsString();
             if (json.has("assistboard_display_name")) assistboardDisplayName = json.get("assistboard_display_name").getAsString();
             if (json.has("reviveboard_display_name")) reviveboardDisplayName = json.get("reviveboard_display_name").getAsString();
+                if (json.has("neutral_vehicle_skip")) neutralVehicleSkip = json.get("neutral_vehicle_skip").getAsBoolean();
                 if (json.has("disabled_bonuses")) {
                     JsonArray array = json.getAsJsonArray("disabled_bonuses");
                     disabledBonusTypes.clear();
@@ -721,6 +733,7 @@ public class ServerData {
         json.addProperty("deathboard_display_name", deathboardDisplayName);
         json.addProperty("assistboard_display_name", assistboardDisplayName);
         json.addProperty("reviveboard_display_name", reviveboardDisplayName);
+        json.addProperty("neutral_vehicle_skip", neutralVehicleSkip);
 
             JsonArray disabledArray = new JsonArray();
             disabledBonusTypes.forEach(disabledArray::add);

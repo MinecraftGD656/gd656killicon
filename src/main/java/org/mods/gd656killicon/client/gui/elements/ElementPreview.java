@@ -131,6 +131,9 @@ public class ElementPreview {
             int size = (int)(this.scale * 70);
             this.width = size;
             this.height = size;
+        } else if ("kill_icon/honor".equals(elementId)) {
+            this.width = (int)(this.scale * 35);
+            this.height = (int)(this.scale * 20);
         } else if ("subtitle/hit_info".equals(elementId)) {
             // 预览框大小 = 击杀图标的 1/3
             int size = Math.max(4, (int)(this.scale * 70.0f / 3.0f));
@@ -341,7 +344,7 @@ public class ElementPreview {
             renderSubtitle(guiGraphics, partialTick, screenWidth);
         }
     }
-    
+
     private void renderSubtitle(GuiGraphics guiGraphics, float partialTick, int screenWidth) {
             Minecraft mc = Minecraft.getInstance();
             int spaceWidth = mc.font.width(" ");

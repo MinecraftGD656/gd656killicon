@@ -327,6 +327,23 @@ public final class ServerCombatEngine {
         boolean isVictimPlayer = victim instanceof net.minecraft.world.entity.player.Player;
         String victimName = resolveVictimDisplayName(victim);
         ServerPlayer killer = resolvePlayerAttacker(src, victim);
+        // 炮手: 单次存活在载具非主驾驶位击杀(击杀瞬间判定, 玩家仍在载具上)
+        if (killer != null && isGunnerSeat(killer)) {
+            ServerCore.HONOR.onGunnerKill(killer);
+        }
+        // 路霸: 载具压死生物(直接伤害源为载具实体, SBW 碾压 direct=载具 / attacker=乘客玩家) → 归给载具驾驶员(可多次)
+        net.minecraft.world.entity.Entity vehicleEntity = null;
+        if (isVehicleEntity(src.getDirectEntity())) {
+            vehicleEntity = src.getDirectEntity();
+        } else if (isVehicleEntity(src.getEntity())) {
+            vehicleEntity = src.getEntity();
+        }
+        if (vehicleEntity != null) {
+            ServerPlayer driver = resolveVehicleDriver(vehicleEntity);
+            if (driver != null) {
+                ServerCore.HONOR.onRoadkill(driver);
+            }
+        }
         if (killer != null) {
             // 命中信息: 击杀任意生物 → 对应实体的伤害占位符切换为击杀颜色
             ServerPacketDispatcher.sendHitInfo(killer, 0.0f, true, victim.getId());
@@ -454,6 +471,8 @@ public final class ServerCombatEngine {
 
         double distanceDouble = player.distanceTo(victim);
         float distanceFloat = (float) distanceDouble;
+        // 飞行调度员: 死亡瞬间受害者正搭乘**存活**的空中载具(载具未被摧毁, 否则乘客会脱离载具)
+        boolean victimRidingAir = isAliveAirVehicle(victim.getVehicle());
         pendingKills.add(new PendingKill(
             player,
             victim.getUUID(),
@@ -478,7 +497,8 @@ public final class ServerCombatEngine {
             isVictimPlayer,
             isLockedTarget,
             isHoldPosition,
-            streakCount
+            streakCount,
+            victimRidingAir
         ));
 
         ServerPacketDispatcher.sendKillDistance(player, distanceDouble);
@@ -543,6 +563,10 @@ public final class ServerCombatEngine {
         int killType = determineKillType(pk);
         int bonusType = mapKillTypeToBonus(killType, pk.damageType);
 
+        // 复仇判定(awardStreakKills 会移除 history, 需在加分项判定前计算, 荣誉与加分项共用)
+        Map<UUID, Long> avengeHistory = killHistory.get(pk.player.getUUID());
+        boolean isAvenge = avengeHistory != null && avengeHistory.containsKey(pk.victimId);
+
         addBonus(pk.player, bonusType, pk.maxHealth, "", pk.victimIdInt, finalVictimName);
         awardSpecialKills(pk);
         awardPositionalKills(pk);
@@ -552,6 +576,40 @@ public final class ServerCombatEngine {
         awardStreakKills(pk);
 
         updatePostKillStates(pk);
+
+        // 荣誉判定(击杀证据; 受害者实体可能已移除, 布尔属性仍参与判定)
+        net.minecraft.world.entity.LivingEntity victimEntity =
+                pk.player.level().getEntity(pk.victimIdInt) instanceof net.minecraft.world.entity.LivingEntity le ? le : null;
+        // 爆头判定 = killType == HEADSHOT(TACZ/SBW 枪械爆头或原版爆头伤害类型, 对生物同样有效);
+        // 注意不能用 pk.hasHelmet(那是"受害者戴头盔", 语义不同)
+        // 击杀物品名称(军械库等荣誉用; 按物品显示名判定, 改名/不同名即使 id 相同也算不同武器; 空手不算)
+        net.minecraft.world.item.ItemStack handItem = pk.player.getMainHandItem();
+        String weaponId = handItem.isEmpty() ? "" : handItem.getHoverName().getString();
+        // 最高得分者判定(与加分项 SLAY_THE_LEADER 同条件)
+        boolean victimTopScorer = ServerData.get().isTopScorer(pk.victimId);
+        // 刽子手: 背刺(与加分项同判定) && 距离 < 2 米(近战背刺) && 手持原版近战武器或 LR 战术工坊武器
+        boolean isExecutionerKill = pk.isBackstab && pk.distance < 2.0f && isMeleeWeapon(pk.player.getMainHandItem());
+        // 侧袭: 击杀身上带 LR 致盲效果的生物(可一命多次)
+        if (victimEntity != null && isLrBlinded(victimEntity)) {
+            ServerCore.HONOR.onFlankKill(pk.player);
+        }
+        // 戍卫: Conquest 据点内击杀敌军且据点内有敌军(单次存活累计 3 次)
+        if (isInGarrisonKillSituation(pk.player)) {
+            ServerCore.HONOR.onGarrisonKill(pk.player);
+        }
+        // 急先锋: Conquest 对局中该阵营(CAMP_A/CAMP_B)第一个击杀者
+        String firstKillKey = resolveFirstKillTeamKey(pk.player);
+        if (firstKillKey != null) {
+            ServerCore.HONOR.onFirstKill(pk.player, firstKillKey);
+        }
+        // 战士: 行走或疾跑 = 水平移动中(非静止; 速度或移动输入, 防止击杀瞬间速度归零)
+        boolean isMoving = isPlayerWalkingOrSprinting(pk.player);
+        ServerCore.HONOR.onKill(pk.player, victimEntity, killType == org.mods.gd656killicon.common.KillType.HEADSHOT,
+                killType == org.mods.gd656killicon.common.KillType.DESTROY_VEHICLE,
+                false, // TODO: 受害者空中载具判定(接入集成层后填充)
+                false, // TODO: 击杀者搭乘空中载具判定(接入集成层后填充)
+                killType, isAvenge, weaponId, victimTopScorer, isExecutionerKill, pk.distance, isMoving,
+                pk.victimRidingAir);
 
         // <score> = 附加数据(伤害) × 加分项表达式(倍率)
         sendKillEffects(pk.player, killType, pk.combo, pk.victimIdInt, pk.hasHelmet, finalVictimName, pk.isVictimPlayer, pk.distance,
@@ -647,6 +705,10 @@ public final class ServerCombatEngine {
     private static void awardStreakKills(PendingKill pk) {
         if (pk.combo > 1) {
             addBonus(pk.player, BonusType.KILL_COMBO, (float) Math.min(pk.combo, 4), String.valueOf(pk.combo));
+            // 4 连杀(4 连续击败加分项触发)后开始计算掠夺者 8 秒窗口
+            if (pk.combo == 4) {
+                ServerCore.HONOR.recordCombo4(pk.player);
+            }
         }
 
         int deathCount = consecutiveDeaths.getOrDefault(pk.player.getUUID(), 0);
@@ -845,6 +907,343 @@ public final class ServerCombatEngine {
         Vec3 toAttacker = player.position().subtract(victim.position()).normalize();
         Vec3 victimLook = victim.getViewVector(1.0F).normalize();
         return victimLook.dot(toAttacker) < -0.2;
+    }
+
+    /**
+     * 战士判定: 玩家是否处于行走或疾跑状态(水平速度非零, 或按住移动键 zza/xxa 非零)。
+     * 结合速度与移动输入, 避免击杀瞬间速度归零导致误判。
+     */
+    private static boolean isPlayerWalkingOrSprinting(ServerPlayer player) {
+        if (player == null) {
+            return false;
+        }
+        net.minecraft.world.phys.Vec3 vel = player.getDeltaMovement();
+        if (vel.x * vel.x + vel.z * vel.z > 1.0E-7) {
+            return true;
+        }
+        try {
+            if (entityZzaField == null) {
+                entityZzaField = net.minecraft.world.entity.Entity.class.getDeclaredField("zza");
+                entityXxaField = net.minecraft.world.entity.Entity.class.getDeclaredField("xxa");
+                entityZzaField.setAccessible(true);
+                entityXxaField.setAccessible(true);
+            }
+            float zza = entityZzaField.getFloat(player);
+            float xxa = entityXxaField.getFloat(player);
+            return zza != 0.0F || xxa != 0.0F;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static java.lang.reflect.Field entityZzaField;
+    private static java.lang.reflect.Field entityXxaField;
+
+    /**
+     * 戍卫判定: 击杀者是否处于 Conquest 据点内且该据点内有敌军(不同队伍玩家同在据点)。
+     * Conquest 为可选模组, 反射调用 RoomCoreRuntimeManager.of(server).coreService().buildKilliconConquestSnapshot(roomId),
+     * 用快照中的 activeCodesByPlayer(玩家→据点 codes)与 playerTeams(玩家→队伍)判定。
+     */
+    private static boolean isInGarrisonKillSituation(ServerPlayer killer) {
+        if (killer == null || killer.server == null) {
+            return false;
+        }
+        try {
+            if (garrisonMgrOfMethod == null) {
+                Class<?> mgrClass = Class.forName("org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager");
+                garrisonMgrOfMethod = mgrClass.getMethod("of", net.minecraft.server.MinecraftServer.class);
+                garrisonCoreServiceMethod = mgrClass.getMethod("coreService");
+                Class<?> coreServiceClass = Class.forName("org.mods.gd656conquest.server.room.core.RoomCoreService");
+                garrisonFindRoomMethod = coreServiceClass.getMethod("findPlayerRoomId", java.util.UUID.class);
+                garrisonSnapshotMethod = coreServiceClass.getMethod("buildKilliconConquestSnapshot", String.class);
+                garrisonReady = true;
+            }
+            if (!garrisonReady) {
+                return false;
+            }
+            Object mgr = garrisonMgrOfMethod.invoke(null, killer.server);
+            if (mgr == null) {
+                return false;
+            }
+            Object coreService = garrisonCoreServiceMethod.invoke(mgr);
+            Object roomOpt = garrisonFindRoomMethod.invoke(coreService, killer.getUUID());
+            if (!(roomOpt instanceof java.util.Optional<?> optional) || optional.isEmpty()) {
+                return false;
+            }
+            Object snapshot = garrisonSnapshotMethod.invoke(coreService, optional.get());
+            if (!(snapshot instanceof java.util.Map<?, ?> snapshotMap)) {
+                return false;
+            }
+            Object activeByPlayer = snapshotMap.get("activeCodesByPlayer");
+            Object teams = snapshotMap.get("playerTeams");
+            if (!(activeByPlayer instanceof java.util.Map<?, ?> activeMap)
+                    || !(teams instanceof java.util.Map<?, ?> teamMap)) {
+                return false;
+            }
+            Object killerCodes = activeMap.get(killer.getUUID());
+            if (!(killerCodes instanceof java.util.Set<?> codeSet) || codeSet.isEmpty()) {
+                return false;
+            }
+            Object killerTeam = teamMap.get(killer.getUUID());
+            if (killerTeam == null) {
+                return false;
+            }
+            for (Object entry : activeMap.entrySet()) {
+                java.util.Map.Entry<?, ?> e = (java.util.Map.Entry<?, ?>) entry;
+                if (e.getKey() == null || e.getKey().equals(killer.getUUID())) {
+                    continue;
+                }
+                Object otherTeam = teamMap.get(e.getKey());
+                if (otherTeam == null || otherTeam.equals(killerTeam)) {
+                    continue;
+                }
+                if (e.getValue() instanceof java.util.Set<?> otherCodes) {
+                    for (Object c : otherCodes) {
+                        if (codeSet.contains(c)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean garrisonReady = false;
+    private static java.lang.reflect.Method garrisonMgrOfMethod;
+    private static java.lang.reflect.Method garrisonCoreServiceMethod;
+    private static java.lang.reflect.Method garrisonFindRoomMethod;
+    private static java.lang.reflect.Method garrisonSnapshotMethod;
+    private static java.lang.reflect.Method garrisonFindRunningMethod;
+
+    /**
+     * 急先锋判定: 玩家在 Conquest RUNNING 对局中的**小队**(阵营内 squad, 非整个阵营), 返回 roomId:squadLabel;
+     * 不在对局/无小队返回 null。复用戍卫反射链, 用 buildKilliconConquestSnapshot 非空验证对局已开始(RUNNING)。
+     */
+    private static String resolveFirstKillTeamKey(ServerPlayer killer) {
+        if (killer == null || killer.server == null) {
+            return null;
+        }
+        try {
+            if (garrisonMgrOfMethod == null) {
+                Class<?> mgrClass = Class.forName("org.mods.gd656conquest.server.room.entry.RoomCoreRuntimeManager");
+                garrisonMgrOfMethod = mgrClass.getMethod("of", net.minecraft.server.MinecraftServer.class);
+                garrisonCoreServiceMethod = mgrClass.getMethod("coreService");
+                Class<?> coreServiceClass = Class.forName("org.mods.gd656conquest.server.room.core.RoomCoreService");
+                garrisonFindRoomMethod = coreServiceClass.getMethod("findPlayerRoomId", java.util.UUID.class);
+                garrisonSnapshotMethod = coreServiceClass.getMethod("buildKilliconConquestSnapshot", String.class);
+                garrisonFindRunningMethod = coreServiceClass.getMethod("findRunningState", String.class);
+                garrisonReady = true;
+            }
+            if (!garrisonReady) {
+                return null;
+            }
+            Object mgr = garrisonMgrOfMethod.invoke(null, killer.server);
+            Object coreService = garrisonCoreServiceMethod.invoke(mgr);
+            Object roomOpt = garrisonFindRoomMethod.invoke(coreService, killer.getUUID());
+            if (!(roomOpt instanceof java.util.Optional<?> optional) || optional.isEmpty()) {
+                return null;
+            }
+            String roomId = (String) optional.get();
+            // 对局未开始(RUNNING 之外)时快照为空
+            Object snapshot = garrisonSnapshotMethod.invoke(coreService, roomId);
+            if (!(snapshot instanceof java.util.Map<?, ?> snapshotMap) || snapshotMap.isEmpty()) {
+                return null;
+            }
+            // 玩家小队: findRunningState(roomId).getSquadLabelsByPlayer()
+            Object runningOpt = garrisonFindRunningMethod.invoke(coreService, roomId);
+            if (!(runningOpt instanceof java.util.Optional<?> runningOptional) || runningOptional.isEmpty()) {
+                return null;
+            }
+            Object runningState = runningOptional.get();
+            Object squadMap = runningState.getClass().getMethod("getSquadLabelsByPlayer").invoke(runningState);
+            if (squadMap instanceof java.util.Map<?, ?> squadLabels) {
+                Object label = squadLabels.get(killer.getUUID());
+                if (label instanceof String squadLabel && !squadLabel.isBlank()) {
+                    return roomId + ":" + squadLabel;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 炮手判定: 玩家在载具内且**不在主驾驶位**(基于 SBW/YWZJ 数据):
+     * - SBW: `VehicleEntity.getSeatIndex(player)`(座位 0 = 主驾驶) != 0
+     * - YWZJ: `player != vehicle.getDriver()`(getDriver = 主驾驶)
+     */
+    private static boolean isGunnerSeat(ServerPlayer player) {
+        if (player == null) {
+            return false;
+        }
+        net.minecraft.world.entity.Entity vehicle = player.getVehicle();
+        if (vehicle == null) {
+            return false;
+        }
+        // SBW: getSeatIndex(player) != 0
+        try {
+            if (sbwSeatIndexMethod == null) {
+                Class<?> sbwVehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
+                sbwSeatIndexMethod = sbwVehicleClass.getMethod("getSeatIndex", net.minecraft.world.entity.Entity.class);
+            }
+            if (sbwSeatIndexMethod != null && sbwSeatIndexMethod.getDeclaringClass().isInstance(vehicle)) {
+                Object idx = sbwSeatIndexMethod.invoke(vehicle, player);
+                if (idx instanceof Integer seatIndex) {
+                    return seatIndex != 0;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        // YWZJ: 玩家 != getDriver()(主驾驶)
+        try {
+            if (ywzjVehicleClass == null) {
+                ywzjVehicleClass = Class.forName("org.ywzj.vehicle.entity.vehicle.AbstractVehicle");
+                ywzjGetDriverMethod = ywzjVehicleClass.getMethod("getDriver");
+            }
+            if (ywzjVehicleClass != null && ywzjVehicleClass.isInstance(vehicle)) {
+                Object driver = ywzjGetDriverMethod.invoke(vehicle);
+                return driver != player;
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    private static java.lang.reflect.Method sbwSeatIndexMethod;
+    private static java.lang.reflect.Method ywzjGetDriverMethod;
+
+    /**
+     * 载具判定(路霸): SBW VehicleEntity 或 YWZJ AbstractVehicle 子类(反射 instanceof, 可选模组)。
+     */
+    private static boolean isVehicleEntity(net.minecraft.world.entity.Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+        try {
+            if (sbwVehicleClass == null) {
+                sbwVehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
+                ywzjVehicleClass = Class.forName("org.ywzj.vehicle.entity.vehicle.AbstractVehicle");
+            }
+            return (sbwVehicleClass != null && sbwVehicleClass.isInstance(entity))
+                    || (ywzjVehicleClass != null && ywzjVehicleClass.isInstance(entity));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 载具驾驶员(路霸): 优先控制者, 否则遍历乘客找 ServerPlayer。 */
+    private static ServerPlayer resolveVehicleDriver(net.minecraft.world.entity.Entity vehicle) {
+        if (vehicle == null) {
+            return null;
+        }
+        net.minecraft.world.entity.Entity controlling = vehicle.getControllingPassenger();
+        if (controlling instanceof ServerPlayer player) {
+            return player;
+        }
+        for (net.minecraft.world.entity.Entity passenger : vehicle.getIndirectPassengers()) {
+            if (passenger instanceof ServerPlayer player) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 飞行调度员: 受害者死亡瞬间正搭乘**存活**的空中载具。
+     * 载具必须同时满足: 是空中载具(SBW/YWZJ 类型判定)且未被摧毁。
+     * 摧毁判定(SBW health≤0 / isWreck, YWZJ isDestroyed): 载具与乘客同时被毁时,
+     * 死亡瞬间乘客尚未脱离载具, 仅靠 getVehicle() 会误判, 需排除已摧毁载具。
+     */
+    private static boolean isAliveAirVehicle(net.minecraft.world.entity.Entity vehicle) {
+        if (vehicle == null
+                || !org.mods.gd656killicon.server.logic.core.BonusEngine.isAircraftEntity(vehicle)) {
+            return false;
+        }
+        return !isDestroyedVehicle(vehicle);
+    }
+
+    /** 载具是否已摧毁: SBW health≤0 或 isWreck() 为 true; YWZJ isDestroyed() 为 true。 */
+    private static boolean isDestroyedVehicle(net.minecraft.world.entity.Entity vehicle) {
+        try {
+            if (sbwVehicleClass == null) {
+                sbwVehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
+            }
+            if (sbwVehicleClass != null && sbwVehicleClass.isInstance(vehicle)) {
+                // SBW: getHealth() ≤ 0
+                try {
+                    java.lang.reflect.Method healthMethod = vehicle.getClass().getMethod("getHealth");
+                    Object health = healthMethod.invoke(vehicle);
+                    if (health instanceof Number n && n.floatValue() <= 0.0f) {
+                        return true;
+                    }
+                } catch (Exception ignored) {
+                }
+                // SBW: isWreck()/getIsWreck() 为 true(残骸; Kotlin 属性 getter 名可能不同)
+                for (String wreckMethodName : new String[]{"isWreck", "getIsWreck"}) {
+                    try {
+                        java.lang.reflect.Method wreckMethod = vehicle.getClass().getMethod(wreckMethodName);
+                        Object wreck = wreckMethod.invoke(vehicle);
+                        if (wreck instanceof Boolean b && b) {
+                            return true;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            if (ywzjVehicleClass == null) {
+                ywzjVehicleClass = Class.forName("org.ywzj.vehicle.entity.vehicle.AbstractVehicle");
+            }
+            if (ywzjVehicleClass != null && ywzjVehicleClass.isInstance(vehicle)) {
+                java.lang.reflect.Method destroyedMethod = vehicle.getClass().getMethod("isDestroyed");
+                Object destroyed = destroyedMethod.invoke(vehicle);
+                if (destroyed instanceof Boolean b && b) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    private static Class<?> sbwVehicleClass;
+    private static Class<?> ywzjVehicleClass;
+
+    /**
+     * 受害者是否带有 LR 战术工坊的致盲效果(lrtactical:blinded, 闪光弹致盲)。
+     * LR 为可选模组, 用 MobEffect 注册名判断, 避免编译期依赖。
+     */
+    private static boolean isLrBlinded(net.minecraft.world.entity.LivingEntity victim) {
+        try {
+            net.minecraft.world.effect.MobEffect blinded =
+                    net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(
+                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("lrtactical", "blinded"));
+            return blinded != null && victim.hasEffect(blinded);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 刽子手武器判定: 原版近战武器(剑/斧)或 LR 战术工坊(lrtactical)武器。
+     * LR 为可选模组, 用注册名命名空间判断, 避免编译期依赖。
+     */
+    private static boolean isMeleeWeapon(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        net.minecraft.world.item.Item item = stack.getItem();
+        if (item instanceof net.minecraft.world.item.SwordItem || item instanceof net.minecraft.world.item.AxeItem) {
+            return true;
+        }
+        net.minecraft.resources.ResourceLocation key = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(item);
+        return key != null && "lrtactical".equals(key.getNamespace());
     }
 
     private static boolean checkJusticeFromAbove(ServerPlayer player, LivingEntity victim, boolean isGliding) {

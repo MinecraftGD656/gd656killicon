@@ -1647,6 +1647,15 @@ public class PresetConfigTab extends ConfigTabContent {
         ElementConfigManager.updateConfigValue(presetId, elementId, "screen_anchor", newAnchor);
         ElementConfigManager.updateConfigValue(presetId, elementId, "x_offset", String.valueOf(newX));
         ElementConfigManager.updateConfigValue(presetId, elementId, "y_offset", String.valueOf(newY));
+
+        // 同步预览状态: 切换时鼠标仍可能处于拖拽中, 若预览继续沿用旧锚点,
+        // 后续 mouseDragged 会用旧锚点语义计算偏移覆盖刚补偿好的配置,
+        // 导致「新锚点 + 旧锚点语义偏移」错乱, 隐藏/刷新时元素位置跳到显示区域外。
+        ElementPreview preview = previewElements.get(elementId);
+        if (preview != null) {
+            com.google.gson.JsonObject synced = ElementConfigManager.getElementConfig(presetId, elementId);
+            preview.updateConfig(synced);
+        }
     }
 
     /** RGB 颜色插值(仅低 24 位) */

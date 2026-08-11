@@ -131,7 +131,9 @@ public class ExternalSoundManager {
         "headshotkillsound_bf6.ogg",
         "hitsound_bf6.ogg",
         "assistsound_bf6.ogg",
-        "addscore_df.ogg"
+        "addscore_df.ogg",
+        "honorkillsound_normal.ogg",
+        "honorkillsound_high.ogg"
     };
     private static final Set<String> DEFAULT_SOUND_SET = new HashSet<>(Arrays.asList(DEFAULT_SOUNDS));
     private static final Map<String, Map<String, SoundBackup>> PENDING_SOUND_BACKUPS = new ConcurrentHashMap<>();
@@ -171,6 +173,8 @@ public class ExternalSoundManager {
     public static final String SLOT_VALORANT_3 = "valorant_3";
     public static final String SLOT_VALORANT_4 = "valorant_4";
     public static final String SLOT_VALORANT_5 = "valorant_5";
+    public static final String SLOT_HONOR_NORMAL = "honor_normal";
+    public static final String SLOT_HONOR_HIGH = "honor_high";
 
     public enum SoundElementGroup {
         COMMON("gd656killicon.client.gui.config.sound.group.common"),
@@ -178,7 +182,8 @@ public class ExternalSoundManager {
         BATTLEFIELD1("gd656killicon.client.gui.config.sound.group.battlefield1"),
         CARD("gd656killicon.client.gui.config.sound.group.card"),
         COMBO("gd656killicon.client.gui.config.sound.group.combo"),
-        VALORANT("gd656killicon.client.gui.config.sound.group.valorant");
+        VALORANT("gd656killicon.client.gui.config.sound.group.valorant"),
+        HONOR("gd656killicon.client.gui.config.sound.group.honor");
 
         private final String titleKey;
 
@@ -221,7 +226,9 @@ public class ExternalSoundManager {
         new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.2", SLOT_VALORANT_2),
         new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.3", SLOT_VALORANT_3),
         new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.4", SLOT_VALORANT_4),
-        new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.5", SLOT_VALORANT_5)
+        new SoundSlotDefinition(SoundElementGroup.VALORANT, "gd656killicon.client.gui.config.sound.subgroup.valorant.5", SLOT_VALORANT_5),
+        new SoundSlotDefinition(SoundElementGroup.HONOR, "gd656killicon.client.gui.config.sound.subgroup.honor.normal", SLOT_HONOR_NORMAL),
+        new SoundSlotDefinition(SoundElementGroup.HONOR, "gd656killicon.client.gui.config.sound.subgroup.honor.high", SLOT_HONOR_HIGH)
     );
 
     private static final List<String> SOUND_SLOT_IDS = Arrays.asList(
@@ -1467,6 +1474,8 @@ public class ExternalSoundManager {
             case SLOT_VALORANT_3 -> resolveValorantComboSoundBaseName(presetId, 3);
             case SLOT_VALORANT_4 -> resolveValorantComboSoundBaseName(presetId, 4);
             case SLOT_VALORANT_5 -> resolveValorantComboSoundBaseName(presetId, 5);
+            case SLOT_HONOR_NORMAL -> "honorkillsound_normal";
+            case SLOT_HONOR_HIGH -> "honorkillsound_high";
             default -> null;
         };
     }

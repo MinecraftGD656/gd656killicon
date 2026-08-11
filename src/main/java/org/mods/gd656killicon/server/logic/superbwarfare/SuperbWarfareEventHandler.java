@@ -1,6 +1,7 @@
 package org.mods.gd656killicon.server.logic.superbwarfare;
 
 import com.atsuishio.superbwarfare.api.event.ProjectileHitEvent;
+import com.atsuishio.superbwarfare.api.event.ReloadEvent;
 import com.atsuishio.superbwarfare.api.event.ShootEvent;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.atsuishio.superbwarfare.item.gun.special.RepairToolItem;
@@ -45,6 +46,11 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     private final Map<String, Long> headshotVictims = new ConcurrentHashMap<>();
     private final Map<String, Long> headshotDamageVictims = new ConcurrentHashMap<>();
     private final Set<UUID> gunKillVictims = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    /** 布雷者: SBW 反坦克地雷(TM-62)爆炸记录(owner, 爆炸位置, 时间), 载具被毁时匹配。 */
+    private final java.util.List<MineExplosion> mineExplosions = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    private record MineExplosion(java.util.UUID owner, double x, double y, double z, long time) {
+    }
 
     @Override
     public void init() {
@@ -293,7 +299,92 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
                 headshotVictims.put(key, System.currentTimeMillis());
             }
         }
+        // 势不可挡: SBW 机枪击杀(非机枪击杀清零)
+        Entity attacker = source.getEntity();
+        if (attacker instanceof ServerPlayer shooter) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onMachineGunKill(shooter, isSbwMachineGun(shooter.getMainHandItem()));
+        }
+        // 神射手: SBW 狙击枪击杀
+        if (attacker instanceof ServerPlayer shooter && isSbwSniper(shooter.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onSniperKill(shooter);
+        }
+        // 弹头: SBW 火箭筒爆头击杀
+        if (DamageTypeTool.isHeadshotDamage(source)
+                && attacker instanceof ServerPlayer shooter && isSbwRocket(shooter.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onWarheadKill(shooter);
+        }
+        // 步枪手: SBW 突击步枪击杀
+        if (attacker instanceof ServerPlayer shooter && isSbwRifle(shooter.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onRifleKill(shooter);
+        }
     }
+
+    /** 换弹完成(服务端): 中断机枪连续击杀(势不可挡)。 */
+    @SubscribeEvent
+    public void onReload(ReloadEvent.Post event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onReload(player);
+        }
+    }
+
+    /** 手持是否为 SBW 机枪(直接匹配物品注册名, 5 个机枪: devotion/rpk/m_60/m_2_hb/minigun)。 */
+    private boolean isSbwMachineGun(net.minecraft.world.item.ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation key =
+                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        return key != null && SBW_MACHINE_GUN_IDS.contains(key.toString());
+    }
+
+    private static final java.util.Set<String> SBW_MACHINE_GUN_IDS = java.util.Set.of(
+            "superbwarfare:devotion", "superbwarfare:rpk", "superbwarfare:m_60",
+            "superbwarfare:m_2_hb", "superbwarfare:minigun");
+
+    /** 手持是否为 SBW 狙击枪(直接匹配物品注册名)。 */
+    private boolean isSbwSniper(net.minecraft.world.item.ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation key =
+                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        return key != null && SBW_SNIPER_IDS.contains(key.toString());
+    }
+
+    private static final java.util.Set<String> SBW_SNIPER_IDS = java.util.Set.of(
+            "superbwarfare:awm", "superbwarfare:hunting_rifle", "superbwarfare:k_98",
+            "superbwarfare:m_98b", "superbwarfare:mosin_nagant", "superbwarfare:ntw_20",
+            "superbwarfare:ql_1031", "superbwarfare:sentinel", "superbwarfare:svd");
+
+    /** 手持是否为 SBW 火箭筒(直接匹配物品注册名, DirectLauncher 类)。 */
+    private boolean isSbwRocket(net.minecraft.world.item.ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation key =
+                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        return key != null && SBW_ROCKET_IDS.contains(key.toString());
+    }
+
+    private static final java.util.Set<String> SBW_ROCKET_IDS = java.util.Set.of(
+            "superbwarfare:rpg", "superbwarfare:javelin", "superbwarfare:igla_9k38",
+            "superbwarfare:super_star_shooter");
+
+    /** 手持是否为 SBW 突击步枪(直接匹配物品注册名, Rifle 类)。 */
+    private boolean isSbwRifle(net.minecraft.world.item.ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation key =
+                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        return key != null && SBW_RIFLE_IDS.contains(key.toString());
+    }
+
+    private static final java.util.Set<String> SBW_RIFLE_IDS = java.util.Set.of(
+            "superbwarfare:ak_12", "superbwarfare:ak_47", "superbwarfare:hk_416",
+            "superbwarfare:insidious", "superbwarfare:m_4", "superbwarfare:marlin",
+            "superbwarfare:mk_14", "superbwarfare:qbz_191", "superbwarfare:qbz_95",
+            "superbwarfare:sks");
 
     @SubscribeEvent
     public void onShootRepair(ShootEvent.Post event) {
@@ -343,6 +434,62 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
             ServerCore.BONUS.add(player, BonusType.VEHICLE_REPAIR, 1.0f, null);
         }
         lastRepairBonusTimeMap.put(player, now);
+    }
+
+    @SubscribeEvent
+    public void onMineEntityLeave(EntityLeaveLevelEvent event) {
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        net.minecraft.world.entity.Entity entity = event.getEntity();
+        if (!isTm62Mine(entity)) {
+            return;
+        }
+        // TM-62 地雷爆炸(或移除)时记录: owner(放置玩家) + 爆炸位置 + 时间
+        java.util.UUID owner = readMineOwner(entity);
+        if (owner == null) {
+            return;
+        }
+        mineExplosions.add(new MineExplosion(owner, entity.getX(), entity.getY(), entity.getZ(), System.currentTimeMillis()));
+    }
+
+    /** SBW 反坦克地雷(TM-62)实体判定(实体注册名)。 */
+    private static boolean isTm62Mine(net.minecraft.world.entity.Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation key =
+                net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
+        return key != null && "superbwarfare:tm_62".equals(key.toString());
+    }
+
+    /** TM-62 地雷 owner UUID(反射 OwnableEntity.getOwnerUUID)。 */
+    private static java.util.UUID readMineOwner(net.minecraft.world.entity.Entity entity) {
+        try {
+            java.lang.reflect.Method m = entity.getClass().getMethod("getOwnerUUID");
+            Object v = m.invoke(entity);
+            return v instanceof java.util.UUID uuid ? uuid : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 载具摧毁是否由地雷爆炸造成: killer 是地雷 owner, 且 3 秒内有爆炸且位置在 12 格内。 */
+    private boolean hasRecentMineExplosion(ServerPlayer killer, net.minecraft.world.phys.Vec3 vehiclePos) {
+        long now = System.currentTimeMillis();
+        mineExplosions.removeIf(e -> now - e.time > 3000L);
+        for (MineExplosion e : mineExplosions) {
+            if (!e.owner().equals(killer.getUUID())) {
+                continue;
+            }
+            double dx = e.x() - vehiclePos.x;
+            double dy = e.y() - vehiclePos.y;
+            double dz = e.z() - vehiclePos.z;
+            if (dx * dx + dy * dy + dz * dz <= 144.0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @SubscribeEvent
@@ -444,6 +591,10 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
         int score = (int) Math.ceil(maxHealth * multiplier);
         if (score > 0) {
             ServerCore.BONUS.add(killer, BonusType.DESTROY_VEHICLE, score, null, vehicle.getId(), vehicleNameKey);
+        }
+        // 布雷者: 载具由 SBW 反坦克地雷(TM-62)爆炸摧毁(地雷 owner = 击杀者, 3 秒内且位置在爆炸半径内)
+        if (hasRecentMineExplosion(killer, vehicle.position())) {
+            ServerCore.HONOR.onMineLayer(killer);
         }
         if (tracker.accumulatedDamageDealt > 0 && ServerData.get().isBonusEnabled(BonusType.VALUE_TARGET_DESTROYED)) {
             ServerCore.BONUS.add(killer, BonusType.VALUE_TARGET_DESTROYED, tracker.accumulatedDamageDealt, null);

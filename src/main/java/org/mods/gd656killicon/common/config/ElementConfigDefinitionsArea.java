@@ -39,6 +39,8 @@ public final class ElementConfigDefinitionsArea {
 
         ElementConfigRegistry.register(killIconBattlefield1());
 
+        ElementConfigRegistry.register(killIconHonor());
+
         // 纹理动画键/纹理选择键(动态, 按纹理清单)
 
         ElementConfigRegistry.registerTextureKeys("kill_icon/scrolling");
@@ -438,6 +440,39 @@ public final class ElementConfigDefinitionsArea {
         list.add(ConfigKeyDefinition.builder().key("color_victim").element("kill_icon/battlefield1").type(COLOR).category(Category.COLOR).defaultValue("#FF0000").build());
         list.add(ConfigKeyDefinition.builder().key("animation_duration").element("kill_icon/battlefield1").type(FLOAT).category(Category.TIMING).defaultValue(0.2f).build());
         list.add(ConfigKeyDefinition.builder().key("display_duration").element("kill_icon/battlefield1").type(FLOAT).category(Category.TIMING).defaultValue(4.5f).build());
+        return list;
+    }
+
+    private static List<ConfigKeyDefinition> killIconHonor() {
+        List<ConfigKeyDefinition> list = new ArrayList<>();
+        list.add(ConfigKeyDefinition.builder().key("visible").element("kill_icon/honor").type(BOOLEAN).category(Category.VISIBILITY).defaultValue(true).build());
+        list.add(ConfigKeyDefinition.builder().key("scale").element("kill_icon/honor").type(FLOAT).category(Category.POSITION).defaultValue(0.85f).build());
+        list.add(ConfigKeyDefinition.builder().key("direction").element("kill_icon/honor").type(STRING).category(Category.POSITION).defaultValue("right").build());
+        list.add(ConfigKeyDefinition.builder().key("x_offset").element("kill_icon/honor").type(INT).category(Category.POSITION).defaultValue(-80).build());
+        list.add(ConfigKeyDefinition.builder().key("y_offset").element("kill_icon/honor").type(INT).category(Category.POSITION).defaultValue(-22).build());
+        list.add(ConfigKeyDefinition.builder().key("screen_anchor").element("kill_icon/honor").type(STRING).category(Category.POSITION).defaultValue("center").build());
+        list.add(ConfigKeyDefinition.builder().key("display_delay").element("kill_icon/honor").type(FLOAT).category(Category.EFFECT).defaultValue(0.2f).build());
+        list.add(ConfigKeyDefinition.builder().key("enter_animation_duration").element("kill_icon/honor").type(FLOAT).category(Category.TIMING).defaultValue(0.2f).build());
+        list.add(ConfigKeyDefinition.builder().key("enter_start_scale").element("kill_icon/honor").type(FLOAT).category(Category.EFFECT).defaultValue(0.0f).build());
+        list.add(ConfigKeyDefinition.builder().key("display_duration").element("kill_icon/honor").type(FLOAT).category(Category.TIMING).defaultValue(2.0f).build());
+        list.add(ConfigKeyDefinition.builder().key("min_display_duration").element("kill_icon/honor").type(FLOAT).category(Category.TIMING).defaultValue(1.0f).build());
+        list.add(ConfigKeyDefinition.builder().key("fade_out_duration").element("kill_icon/honor").type(FLOAT).category(Category.TIMING).defaultValue(0.3f).build());
+        list.add(ConfigKeyDefinition.builder().key("blink_fade_animation").element("kill_icon/honor").type(BOOLEAN).category(Category.EFFECT).defaultValue(true).build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_enabled").element("kill_icon/honor").type(BOOLEAN).category(Category.EFFECT).defaultValue(true).build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_x_offset").element("kill_icon/honor").type(INT).category(Category.POSITION).defaultValue(-70).dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_height").element("kill_icon/honor").type(INT).category(Category.POSITION).defaultValue(10).dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_enter_duration").element("kill_icon/honor").type(FLOAT).category(Category.TIMING).defaultValue(0.2f).dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_color").element("kill_icon/honor").type(COLOR).category(Category.COLOR).defaultValue("#FFFFFF").dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_max_alpha").element("kill_icon/honor").type(FLOAT).category(Category.EFFECT).defaultValue(20.0f).dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_text_color").element("kill_icon/honor").type(COLOR).category(Category.COLOR).defaultValue("#000000").dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_text_padding").element("kill_icon/honor").type(INT).category(Category.POSITION).defaultValue(6).dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_text_gap").element("kill_icon/honor").type(INT).category(Category.POSITION).defaultValue(8).dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_text_scale").element("kill_icon/honor").type(FLOAT).category(Category.EFFECT).defaultValue(0.8f).dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("hint_box_text_shadow").element("kill_icon/honor").type(BOOLEAN).category(Category.EFFECT).defaultValue(false).dependsOn("hint_box_enabled").build());
+        list.add(ConfigKeyDefinition.builder().key("main_icon_max_alpha").element("kill_icon/honor").type(FLOAT).category(Category.EFFECT).defaultValue(20.0f).build());
+        list.add(ConfigKeyDefinition.builder().key("shake_enabled").element("kill_icon/honor").type(BOOLEAN).category(Category.EFFECT).defaultValue(true).build());
+        list.add(ConfigKeyDefinition.builder().key("shake_count").element("kill_icon/honor").type(INT).category(Category.EFFECT).dependsOn("shake_enabled").defaultValue(16).build());
+        list.add(ConfigKeyDefinition.builder().key("shake_range").element("kill_icon/honor").type(INT).category(Category.EFFECT).dependsOn("shake_enabled").defaultValue(1).build());
         return list;
     }
 }

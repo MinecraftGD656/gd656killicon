@@ -42,7 +42,7 @@ public class ConquestSpottingEventHandler implements ISpottingHandler {
         rewardTracker.handleTargetKilled(event.getEntity(), resolveKiller(event));
     }
 
-    /** conquest 索敌标记放置成功 → 记录标记者与目标(30s 标示助攻窗口) */
+    /** conquest 索敌标记放置成功 → 记录标记者与目标(30s 标示助攻窗口); 斥候计数在 recordSpot 统一处理 */
     private void onMarkerSpotPlaced(Object event) {
         ServerPlayer spotter = getSpotter(event);
         ServerPlayer target = getTargetPlayer(event);

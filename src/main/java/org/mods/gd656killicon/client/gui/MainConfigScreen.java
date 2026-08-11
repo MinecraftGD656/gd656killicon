@@ -150,6 +150,8 @@ public class MainConfigScreen extends Screen {
 
     @Override
     public void onClose() {
+        // 关闭配置界面时统一清除所有 HUD 渲染器的显示状态(预览/触发残留)
+        org.mods.gd656killicon.client.render.HudElementManager.clearAllPreviews();
         if (ConfigManager.hasUnsavedChanges()) {
             showExitConfirmation = true;
         } else {

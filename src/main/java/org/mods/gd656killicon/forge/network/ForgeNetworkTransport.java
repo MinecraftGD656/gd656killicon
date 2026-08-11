@@ -69,6 +69,11 @@ public final class ForgeNetworkTransport {
                 .encoder(org.mods.gd656killicon.network.packet.KillDistancePacket::encode)
                 .consumerMainThread((msg, ctx) -> msg.handle(new ForgePacketContext(ctx.get())))
                 .add();
+        net.messageBuilder(org.mods.gd656killicon.network.packet.HonorPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(org.mods.gd656killicon.network.packet.HonorPacket::new)
+                .encoder(org.mods.gd656killicon.network.packet.HonorPacket::encode)
+                .consumerMainThread((msg, ctx) -> msg.handle(new ForgePacketContext(ctx.get())))
+                .add();
     }
 
     public static <MSG> void sendToServer(MSG message) {

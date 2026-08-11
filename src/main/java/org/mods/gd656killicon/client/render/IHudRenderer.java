@@ -24,6 +24,14 @@ public interface IHudRenderer {
     void trigger(TriggerContext context);
 
     /**
+     * 清除该渲染器的全部显示状态(预览/触发残留)。
+     * 关闭配置界面时由 HudElementManager.clearAllPreviews() 统一调用,
+     * 不采用各元素的单独消除逻辑。
+     */
+    default void resetPreview() {
+    }
+
+    /**
      * 触发上下文，用于封装触发事件所需的原始数据。
      */
     record TriggerContext(int type, int entityId, int comboCount, String extraData, float distance, float bonusMultiplier, float bonusScale) {

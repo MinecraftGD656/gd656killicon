@@ -18,18 +18,24 @@ import java.util.List;
 public class HelpTextEntry extends GDRowRenderer {
     private final String title;
     private final String description;
+    private final int descriptionColor;
     private GDTextRenderer descriptionRenderer;
 
     public HelpTextEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String title, String description) {
+        this(x1, y1, x2, y2, bgColor, bgAlpha, title, description, GuiConstants.COLOR_WHITE);
+    }
+
+    public HelpTextEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, String title, String description, int descriptionColor) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
         this.title = title;
         this.description = description;
+        this.descriptionColor = descriptionColor;
 
         this.addColumn(title, 120, GuiConstants.COLOR_GOLD, false, false, null);
 
         this.addCustomColumn(-1, null, (guiGraphics, x, y, width, height) -> {
             if (descriptionRenderer == null) {
-                descriptionRenderer = new GDTextRenderer(description, x + 4, y + 4, x + width - 4, y + height - 4, 1.0f, GuiConstants.COLOR_WHITE, true);
+                descriptionRenderer = new GDTextRenderer(description, x + 4, y + 4, x + width - 4, y + height - 4, 1.0f, descriptionColor, true);
             } else {
                 descriptionRenderer.setX1(x + 4);
                 descriptionRenderer.setY1(y + 4);
@@ -40,15 +46,20 @@ public class HelpTextEntry extends GDRowRenderer {
     }
 
     public HelpTextEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, List<GDTextRenderer.ColoredText> titleParts, String description) {
+        this(x1, y1, x2, y2, bgColor, bgAlpha, titleParts, description, GuiConstants.COLOR_WHITE);
+    }
+
+    public HelpTextEntry(int x1, int y1, int x2, int y2, int bgColor, float bgAlpha, List<GDTextRenderer.ColoredText> titleParts, String description, int descriptionColor) {
         super(x1, y1, x2, y2, bgColor, bgAlpha, false);
         this.title = titleParts == null ? "" : titleParts.stream().map(part -> part.text).reduce("", String::concat);
         this.description = description;
+        this.descriptionColor = descriptionColor;
 
         this.addColoredColumn(titleParts, 120, false, false);
 
         this.addCustomColumn(-1, null, (guiGraphics, x, y, width, height) -> {
             if (descriptionRenderer == null) {
-                descriptionRenderer = new GDTextRenderer(description, x + 4, y + 4, x + width - 4, y + height - 4, 1.0f, GuiConstants.COLOR_WHITE, true);
+                descriptionRenderer = new GDTextRenderer(description, x + 4, y + 4, x + width - 4, y + height - 4, 1.0f, descriptionColor, true);
             } else {
                 descriptionRenderer.setX1(x + 4);
                 descriptionRenderer.setY1(y + 4);
@@ -67,7 +78,7 @@ public class HelpTextEntry extends GDRowRenderer {
         int descWidth = width - 120 - 8;         if (descWidth <= 0) return GuiConstants.ROW_HEADER_HEIGHT;
 
         if (descriptionRenderer == null) {
-            descriptionRenderer = new GDTextRenderer(description, 0, 0, descWidth, 100, 1.0f, GuiConstants.COLOR_WHITE, true);
+            descriptionRenderer = new GDTextRenderer(description, 0, 0, descWidth, 100, 1.0f, descriptionColor, true);
         } else {
             descriptionRenderer.setX1(0);
             descriptionRenderer.setX2(descWidth);

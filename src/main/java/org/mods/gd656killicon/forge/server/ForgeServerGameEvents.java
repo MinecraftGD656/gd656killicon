@@ -35,6 +35,7 @@ public final class ForgeServerGameEvents {
     @SubscribeEvent
     public static void onStopping(ServerStoppingEvent event) {
         ServerCombatEngine.onStopping(event.getServer());
+        org.mods.gd656killicon.server.ServerCore.HONOR.onServerStop();
     }
 
     @SubscribeEvent
@@ -48,6 +49,7 @@ public final class ForgeServerGameEvents {
     public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             ServerCombatEngine.onPlayerJoin(player);
+            org.mods.gd656killicon.server.ServerCore.HONOR.onPlayerJoin(player);
         }
     }
 
@@ -55,6 +57,7 @@ public final class ForgeServerGameEvents {
     public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             ServerCombatEngine.onPlayerLogout(player);
+            org.mods.gd656killicon.server.ServerCore.HONOR.onPlayerLogout(player);
         }
     }
 
@@ -87,5 +90,26 @@ public final class ForgeServerGameEvents {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onDeath(LivingDeathEvent event) {
         ServerCombatEngine.onDeath(event.getEntity(), event.getSource());
+        // 玩家死亡: 荣誉存活段重置
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onPlayerDeath(player);
+        }
+    }
+
+    /** 跳机火箭筒: 监听上下车事件(乘客变化), 转发到荣誉引擎。 */
+    @SubscribeEvent
+    public static void onEntityMount(net.minecraftforge.event.entity.EntityMountEvent event) {
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        if (!(event.getEntityMounting() instanceof net.minecraft.server.level.ServerPlayer player)) {
+            return;
+        }
+        net.minecraft.world.entity.Entity vehicle = event.getEntityBeingMounted();
+        if (event.isDismounting()) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onVehicleBailOut(player, vehicle);
+        } else {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onVehicleMountBack(player, vehicle);
+        }
     }
 }

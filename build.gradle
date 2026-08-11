@@ -64,6 +64,20 @@ minecraft {
             property 'forge.enabledGameTestNamespaces', mod_id  // 启用GameTest命名空间
         }
 
+        // 双客户端联机调试: Dev1 / Dev2(各自独立游戏目录, 避免 run/ 配置/存档冲突)
+        clientDev1 {
+            parent runs.client
+            taskName 'runClientDev1'
+            workingDirectory project.file('run-dev1')
+            args '--username', 'Dev1'
+        }
+        clientDev2 {
+            parent runs.client
+            taskName 'runClientDev2'
+            workingDirectory project.file('run-dev2')
+            args '--username', 'Dev2'
+        }
+
         // 服务器运行配置
         server {
             property 'forge.enabledGameTestNamespaces', mod_id  // 启用GameTest命名空间
@@ -81,6 +95,14 @@ minecraft {
             args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
         }
     }
+}
+
+// 同时启动 Dev1 与 Dev2 两个客户端(独立游戏目录 run-dev1/run-dev2)
+// 注意: 需使用 --parallel 才能真正同时运行; 否则 Gradle 会顺序启动(关闭 Dev1 后才启动 Dev2)
+tasks.register('runClients') {
+    group = 'minecraft'
+    description = '同时启动 Dev1 与 Dev2 两个客户端(需 ./gradlew runClients --parallel)'
+    dependsOn 'runClientDev1', 'runClientDev2'
 }
 
 // 添加生成的资源目录
@@ -127,8 +149,8 @@ dependencies {
     runtimeOnly fg.deobf("maven.modrinth:modern-ui:6ksT8CWg")
 
     // 永无止境前置依赖
-    compileOnly fg.deobf("curse.maven:limitless-vehicle-1446269:7559897")
-    runtimeOnly fg.deobf("curse.maven:limitless-vehicle-1446269:7559897")
+    compileOnly fg.deobf("curse.maven:limitless-vehicle-1446269:8559766")
+    runtimeOnly fg.deobf("curse.maven:limitless-vehicle-1446269:8559766")
 
     // 沉浸式飞机前置依赖
     compileOnly fg.deobf("maven.modrinth:immersive-aircraft:jPZ0GRsN")

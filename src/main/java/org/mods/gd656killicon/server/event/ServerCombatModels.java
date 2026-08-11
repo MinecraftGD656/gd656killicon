@@ -49,8 +49,10 @@ final class PendingKill {
     boolean isLockedTarget;
     boolean isHoldPosition;
     long streakCount;
+    /** 飞行调度员: 死亡瞬间受害者正搭乘空中载具(载具未摧毁, 否则乘客会脱离)。 */
+    boolean victimRidingAir;
 
-    PendingKill(ServerPlayer player, UUID victimId, int victimIdInt, Vec3 victimPos, String victimName, int combo, int damageType, float maxHealth, float distance, int delay, int sourceEntityId, long tick, boolean isGun, boolean isVictimThreat, boolean isBackstab, boolean isGliding, boolean isJusticeFromAbove, boolean isFlawless, boolean isVictimBlinded, boolean hasHelmet, boolean isVictimPlayer, boolean isLockedTarget, boolean isHoldPosition, long streakCount) {
+    PendingKill(ServerPlayer player, UUID victimId, int victimIdInt, Vec3 victimPos, String victimName, int combo, int damageType, float maxHealth, float distance, int delay, int sourceEntityId, long tick, boolean isGun, boolean isVictimThreat, boolean isBackstab, boolean isGliding, boolean isJusticeFromAbove, boolean isFlawless, boolean isVictimBlinded, boolean hasHelmet, boolean isVictimPlayer, boolean isLockedTarget, boolean isHoldPosition, long streakCount, boolean victimRidingAir) {
         this.player = player;
         this.victimId = victimId;
         this.victimIdInt = victimIdInt;
@@ -75,5 +77,6 @@ final class PendingKill {
         this.isLockedTarget = isLockedTarget;
         this.isHoldPosition = isHoldPosition;
         this.streakCount = streakCount;
+        this.victimRidingAir = victimRidingAir;
     }
 }

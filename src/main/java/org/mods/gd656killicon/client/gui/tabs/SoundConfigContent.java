@@ -41,6 +41,7 @@ public class SoundConfigContent extends ConfigTabContent {
     private boolean isCardExpanded = false;
     private boolean isComboExpanded = false;
     private boolean isValorantExpanded = false;
+    private boolean isHonorExpanded = false;
     private boolean isSelectingSound = false;
     private boolean isSelectOfficialExpanded = true;
     private boolean isSelectCustomExpanded = true;
@@ -490,6 +491,7 @@ public class SoundConfigContent extends ConfigTabContent {
             case CARD -> isCardExpanded;
             case COMBO -> isComboExpanded;
             case VALORANT -> isValorantExpanded;
+            case HONOR -> isHonorExpanded;
         };
     }
 
@@ -501,6 +503,7 @@ public class SoundConfigContent extends ConfigTabContent {
             case CARD -> isCardExpanded = expanded;
             case COMBO -> isComboExpanded = expanded;
             case VALORANT -> isValorantExpanded = expanded;
+            case HONOR -> isHonorExpanded = expanded;
         }
     }
 

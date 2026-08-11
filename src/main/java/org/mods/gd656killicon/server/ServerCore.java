@@ -26,6 +26,7 @@ public class ServerCore {
     public static final ConquestBattlefieldIntegration CONQUEST_BATTLEFIELD = ConquestBattlefieldIntegration.get();
     public static final org.mods.gd656killicon.server.logic.integration.ConquestSpottingIntegration CONQUEST_SPOTTING = org.mods.gd656killicon.server.logic.integration.ConquestSpottingIntegration.get();
     public static final org.mods.gd656killicon.server.logic.integration.ImmersiveAircraftIntegration IMMERSIVE_AIRCRAFT = org.mods.gd656killicon.server.logic.integration.ImmersiveAircraftIntegration.get();
+    public static final org.mods.gd656killicon.server.logic.honor.HonorEngine HONOR = new org.mods.gd656killicon.server.logic.honor.HonorEngine();
 
     public static MinecraftServer getServer() {
         return ServerBridge.loader().getCurrentServer();
