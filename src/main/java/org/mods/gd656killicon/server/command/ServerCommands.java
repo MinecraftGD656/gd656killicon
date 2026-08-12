@@ -37,7 +37,7 @@ public class ServerCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
             Commands.literal("gd656killicon").then(Commands.literal("server")
-                .then(Commands.literal("bonus")
+                .then(Commands.literal("bonus").requires(s -> s.hasPermission(2))
                     .then(Commands.literal("turnon")
                         .then(Commands.literal("all").executes(c -> toggleBonus(c, true, true)))
                         .then(Commands.argument("type", StringArgumentType.word())
