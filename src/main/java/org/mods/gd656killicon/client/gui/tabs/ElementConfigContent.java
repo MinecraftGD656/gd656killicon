@@ -1109,9 +1109,12 @@ public class ElementConfigContent extends ConfigTabContent {
                 && !org.mods.gd656killicon.client.render.impl.HonorRenderer.getInstance().isDisplaying()) {
             java.util.List<String> honorIds = new java.util.ArrayList<>(org.mods.gd656killicon.common.honor.HonorRegistry.getIds());
             if (!honorIds.isEmpty()) {
-                String id = honorIds.get(new java.util.Random().nextInt(honorIds.size()));
+                java.util.Random random = new java.util.Random();
+                String id = honorIds.get(random.nextInt(honorIds.size()));
+                // 50% 概率预览为新最佳样式(style=m): 触发图标染色/提示框色/高分扫光/高级音效预览
+                String extra = random.nextBoolean() ? id + ":style=m" : id;
                 org.mods.gd656killicon.client.render.impl.HonorRenderer.getInstance()
-                        .trigger(org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(0, id));
+                        .trigger(org.mods.gd656killicon.client.render.IHudRenderer.TriggerContext.of(0, extra));
             }
             lastHonorPreviewTriggerTime = now;
         }

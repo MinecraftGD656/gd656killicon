@@ -978,7 +978,20 @@ public final class HonorEngine {
     // ==================== 下发 ====================
 
     private void deliver(ServerPlayer player, HonorDefinition def) {
-        NetworkHandler.sendToPlayer(new HonorPacket(def.id()), player);
+        boolean conquestInstalled = net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest");
+        boolean globalBest = false;
+        boolean matchBest = false;
+        if (conquestInstalled) {
+            // 装 Conquest: 完全不读不写 playerdata 的 honor 数据, 只做本局内存统计(单次对局)
+            matchBest = org.mods.gd656killicon.server.logic.conquest.ConquestHonorAdapter.recordMatchHonor(player, def.id()) == 2;
+        } else {
+            // 无 Conquest: 累计到玩家 PlayerData, 与全服最高缓存比较判"全服最多"
+            int newCount = org.mods.gd656killicon.server.data.PlayerDataManager.get().recordHonor(player.getUUID(), def.id());
+            globalBest = newCount > 0 && newCount >= org.mods.gd656killicon.server.data.PlayerDataManager.get().getGlobalBest(def.id());
+        }
+        // 样式标记: g=全服最多 m=本局最多 gm=两者都是(并列都算), 仅当次触发显示
+        String style = globalBest && matchBest ? "gm" : globalBest ? "g" : matchBest ? "m" : "";
+        NetworkHandler.sendToPlayer(new HonorPacket(def.id(), style.isEmpty() ? "" : "style=" + style), player);
     }
 
     // ==================== Conquest 兵种判定(反射, 可选模组) ====================

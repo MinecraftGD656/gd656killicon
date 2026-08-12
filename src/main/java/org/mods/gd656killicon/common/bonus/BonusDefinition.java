@@ -18,8 +18,6 @@ public final class BonusDefinition {
     private final String displayName;
     /** 描述 lang key（gd656killicon.bonus.<ID>.desc）。 */
     private final String description;
-    /** 字幕格式模板（单文本，主语言中文；多语言由各官方预设承载）。 */
-    private final String format;
     private final float scoreCap;
     private final MergeBehavior mergeBehavior;
     private final boolean priorityKill;
@@ -37,7 +35,6 @@ public final class BonusDefinition {
         this.factor = b.factor;
         this.displayName = b.displayName;
         this.description = b.description;
-        this.format = b.format;
         this.scoreCap = b.scoreCap;
         this.mergeBehavior = b.mergeBehavior;
         this.priorityKill = b.priorityKill;
@@ -76,11 +73,6 @@ public final class BonusDefinition {
         return description;
     }
 
-    public String format() {
-        return format;
-    }
-
-    /** 玩家配置键名，唯一规则自动生成。 */
     public String formatConfigKey() {
         return "format_" + id.toLowerCase();
     }
@@ -128,7 +120,6 @@ public final class BonusDefinition {
         private FactorType factor = FactorType.NONE;
         private String displayName;
         private String description;
-        private String format;
         private float scoreCap = -1f;
         private MergeBehavior mergeBehavior = MergeBehavior.BY_TYPE_EXTRA;
         private boolean priorityKill = false;
@@ -165,11 +156,6 @@ public final class BonusDefinition {
 
         public Builder description(String v) {
             this.description = v;
-            return this;
-        }
-
-        public Builder format(String v) {
-            this.format = v;
             return this;
         }
 
@@ -224,8 +210,8 @@ public final class BonusDefinition {
             if (type < 0) {
                 throw new IllegalStateException("BonusDefinition[" + id + "]: type is required (>= 0)");
             }
-            if (displayName == null || displayName.isBlank() || format == null || format.isBlank()) {
-                throw new IllegalStateException("BonusDefinition[" + id + "]: displayName and format are required");
+            if (displayName == null || displayName.isBlank()) {
+                throw new IllegalStateException("BonusDefinition[" + id + "]: displayName is required");
             }
             return new BonusDefinition(this);
         }

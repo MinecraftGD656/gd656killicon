@@ -36,10 +36,10 @@ public final class HonorRegistry {
             return;
         }
         DEFINITIONS.put(def.id(), def);
-        // 声明式配置注册表: 顺带注册该荣誉的字幕配置键 format_<id>(默认值 = 注册表 format, 单一来源)
+        // 声明式配置注册表: 顺带注册该荣誉的字幕配置键 format_<id>(默认值空, 语言默认由 formats json 提供)
         String formatKey = "format_" + def.id();
         org.mods.gd656killicon.common.config.ElementConfigRegistry.registerFormatKey(
-                "kill_icon/honor", formatKey, def.format() != null ? def.format() : "");
+                "kill_icon/honor", formatKey, "");
         FORMAT_KEY_TO_ID.put(formatKey, def.id());
         FORMAT_KEYS.add(formatKey);
     }
@@ -78,47 +78,9 @@ public final class HonorRegistry {
         return FORMAT_KEY_TO_ID.get(formatKey);
     }
 
-    /** 语言驱动默认字幕的 lang 键(gd656killicon.honor.&lt;id&gt;.format), 未注册返回空串。 */
-    public static String formatLangKey(String honorId) {
-        HonorDefinition def = get(honorId);
-        return def != null ? def.formatLangKey() : "";
-    }
-
-    /** 注册表默认字幕(单文本), 未注册返回空串。 */
-    public static String registryFormat(String honorId) {
-        HonorDefinition def = get(honorId);
-        return def != null && def.format() != null ? def.format() : "";
-    }
-
     /** 荣誉显示名 lang 键(gd656killicon.honor.&lt;id&gt;.name), 未注册返回空串。 */
     public static String displayNameKey(String honorId) {
         HonorDefinition def = get(honorId);
         return def != null ? def.displayNameKey() : "";
-    }
-
-    /**
-     * 字幕文本唯一解析路径(与 BonusRegistry.resolveFormat 同款):
-     * <pre>
-     * 配置值缺失 / 为空 → 语言默认字幕(由调用方按语言解析 lang 键)→ 注册表 format(单文本) → 显示名
-     * 其他               → 玩家自定义文本, 原样使用
-     * </pre>
-     * 未注册的荣誉返回空串(调用方不显示)。
-     * 语言解析不在此处(I18n 为客户端类, common 层不可依赖), 由客户端调用方传入 resolvedLangDefault。
-     */
-    public static String resolveFormat(String honorId, String configValue, String resolvedLangDefault) {
-        HonorDefinition def = get(honorId);
-        if (def == null) {
-            return "";
-        }
-        if (configValue != null && !configValue.isEmpty()) {
-            return configValue;
-        }
-        if (resolvedLangDefault != null && !resolvedLangDefault.isEmpty()) {
-            return resolvedLangDefault;
-        }
-        if (def.format() != null && !def.format().isEmpty()) {
-            return def.format();
-        }
-        return resolvedLangDefault != null ? resolvedLangDefault : "";
     }
 }

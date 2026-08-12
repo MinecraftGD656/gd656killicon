@@ -23,6 +23,16 @@ import java.util.stream.Collectors;
 public class ServerCommands {
     private static final String[] SCOREBOARD_DEBUG_PREFIXES = {"Pro", "Noob", "God", "Master", "Legend", "Ghost", "Shadow", "Flame", "Ice", "Storm"};
     private static final String[] SCOREBOARD_DEBUG_SUFFIXES = {"Hunter", "Killer", "Player", "Warrior", "Seeker", "X", "Alpha", "Omega", "King", "Lord"};
+
+    /** honor 参数 Tab 补全: all + 全部已注册 honor id。 */
+    private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> HONOR_SUGGESTIONS =
+            (c, b) -> {
+                b.suggest("all");
+                for (String id : org.mods.gd656killicon.common.honor.HonorRegistry.getIds()) {
+                    b.suggest(id);
+                }
+                return b.buildFuture();
+            };
     
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
@@ -134,6 +144,30 @@ public class ServerCommands {
                     .then(Commands.literal("dataset").requires(s -> s.hasPermission(2)).then(Commands.literal("assist")
                         .then(Commands.argument("amt", IntegerArgumentType.integer()).executes(ServerCommands::setAllAssists))))
                 )
+                .then(Commands.literal("honor").requires(s -> s.hasPermission(2))
+                    .then(Commands.literal("list")
+                        .executes(ServerCommands::honorList))
+                    .then(Commands.literal("set")
+                        .then(Commands.argument("honor", StringArgumentType.word())
+                            .suggests(HONOR_SUGGESTIONS)
+                            .then(Commands.argument("value", IntegerArgumentType.integer())
+                                .executes(ServerCommands::honorSet))))
+                    .then(Commands.literal("add")
+                        .then(Commands.argument("honor", StringArgumentType.word())
+                            .suggests(HONOR_SUGGESTIONS)
+                            .then(Commands.argument("value", IntegerArgumentType.integer())
+                                .executes(ServerCommands::honorAdd))))
+                    .then(Commands.literal("player")
+                        .then(Commands.literal("set")
+                            .then(Commands.argument("players", EntityArgument.players())
+                                .then(Commands.argument("honor", StringArgumentType.word())
+                                    .suggests(HONOR_SUGGESTIONS)
+                                    .then(Commands.argument("value", IntegerArgumentType.integer())
+                                        .executes(ServerCommands::honorPlayerSet)))))
+                        .then(Commands.literal("get")
+                            .then(Commands.argument("player", EntityArgument.player())
+                                .executes(ServerCommands::honorPlayerGet))))
+                )
                 .then(Commands.literal("debug").requires(s -> s.hasPermission(2))
                     .then(Commands.literal("scoreboarddebug")
                         .then(Commands.argument("count", IntegerArgumentType.integer(-1))
@@ -147,6 +181,104 @@ public class ServerCommands {
                     .then(Commands.literal("revive")
                         .executes(ServerCommands::debugRevive))))
         );
+    }
+
+    private static int honorList(CommandContext<CommandSourceStack> c) {
+        java.util.Map<String, Integer> bests = org.mods.gd656killicon.server.data.PlayerDataManager.get().getAllGlobalBest();
+        StringBuilder sb = new StringBuilder();
+        bests.entrySet().stream().sorted(java.util.Map.Entry.comparingByKey())
+                .forEach(e -> sb.append(e.getKey()).append(": ").append(e.getValue()).append('\n'));
+        if (sb.length() == 0) {
+            sb.append("(none)");
+        }
+        String text = sb.toString().stripTrailing();
+        c.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(text), false);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int honorSet(CommandContext<CommandSourceStack> c) {
+        String honor = StringArgumentType.getString(c, "honor");
+        int value = IntegerArgumentType.getInteger(c, "value");
+        if (!applyHonorAllOrSingle(c, honor, h -> org.mods.gd656killicon.server.data.PlayerDataManager.get().setGlobalBest(h, value))) {
+            return 0;
+        }
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.honor_set", honor, value);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int honorAdd(CommandContext<CommandSourceStack> c) {
+        String honor = StringArgumentType.getString(c, "honor");
+        int value = IntegerArgumentType.getInteger(c, "value");
+        if (!applyHonorAllOrSingle(c, honor, h -> org.mods.gd656killicon.server.data.PlayerDataManager.get().addGlobalBest(h, value))) {
+            return 0;
+        }
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.honor_add", honor, value);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int honorPlayerSet(CommandContext<CommandSourceStack> c) {
+        String honor = StringArgumentType.getString(c, "honor");
+        int value = IntegerArgumentType.getInteger(c, "value");
+        java.util.Collection<ServerPlayer> players;
+        try {
+            players = EntityArgument.getPlayers(c, "players");
+        } catch (Exception e) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.honor_player_requires_player");
+            return 0;
+        }
+        if (!"all".equals(honor) && !org.mods.gd656killicon.common.honor.HonorRegistry.isRegistered(honor)) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.debug_honor_not_registered", honor);
+            return 0;
+        }
+        org.mods.gd656killicon.server.data.PlayerDataManager data = org.mods.gd656killicon.server.data.PlayerDataManager.get();
+        for (ServerPlayer p : players) {
+            if ("all".equals(honor)) {
+                for (String id : org.mods.gd656killicon.common.honor.HonorRegistry.getIds()) {
+                    data.setHonorCount(p.getUUID(), id, value);
+                }
+            } else {
+                data.setHonorCount(p.getUUID(), honor, value);
+            }
+        }
+        ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.honor_player_set", players.size(), honor, value);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int honorPlayerGet(CommandContext<CommandSourceStack> c) {
+        ServerPlayer player;
+        try {
+            player = EntityArgument.getPlayer(c, "player");
+        } catch (Exception e) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.honor_player_requires_player");
+            return 0;
+        }
+        java.util.Map<String, Integer> counts = org.mods.gd656killicon.server.data.PlayerDataManager.get()
+                .getPlayerData(player.getUUID()).getAllHonorCounts();
+        StringBuilder sb = new StringBuilder();
+        counts.entrySet().stream().sorted(java.util.Map.Entry.comparingByKey())
+                .forEach(e -> sb.append(e.getKey()).append(": ").append(e.getValue()).append('\n'));
+        if (sb.length() == 0) {
+            sb.append("(none)");
+        }
+        String text = sb.toString().stripTrailing();
+        c.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(player.getDisplayName().getString() + "\n" + text), false);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** honor 参数校验并执行: "all" 遍历全部注册 honor, 否则单个 honor(未注册报错)。 */
+    private static boolean applyHonorAllOrSingle(CommandContext<CommandSourceStack> c, String honor, java.util.function.Consumer<String> action) {
+        if ("all".equals(honor)) {
+            for (String id : org.mods.gd656killicon.common.honor.HonorRegistry.getIds()) {
+                action.accept(id);
+            }
+            return true;
+        }
+        if (!org.mods.gd656killicon.common.honor.HonorRegistry.isRegistered(honor)) {
+            ServerLog.sendError(c.getSource(), "gd656killicon.server.command.debug_honor_not_registered", honor);
+            return false;
+        }
+        action.accept(honor);
+        return true;
     }
 
     private static int debugHonor(CommandContext<CommandSourceStack> c) {

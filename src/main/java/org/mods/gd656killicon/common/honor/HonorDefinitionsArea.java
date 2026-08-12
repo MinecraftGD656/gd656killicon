@@ -27,343 +27,294 @@ public final class HonorDefinitionsArea {
                 "headhunter",
                 org.mods.gd656killicon.common.honor.ConditionType.KILL_STREAK,
                 "headshot:3",
-                "猎头者",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "warrior",
                 org.mods.gd656killicon.common.honor.ConditionType.KILL_STREAK,
                 "moving:3",
-                "战士",
                 50
         ));
         HonorRegistry.register(new HonorDefinition(
                 "avenge",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "avenge",
-                "血偿",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "bomb_technician",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "rush_bomb_defused",
-                "炸弹技术员",
                 50
         ));
         HonorRegistry.register(new HonorDefinition(
                 "combat_medic",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "round_revive_20",
-                "医护兵",
                 8
         ));
         HonorRegistry.register(new HonorDefinition(
                 "detonator",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "rush_objective_destroyed",
-                "引爆器",
                 35
         ));
         HonorRegistry.register(new HonorDefinition(
                 "raider",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "kill_within_8s_after_combo4",
-                "掠夺者",
                 150
         ));
         HonorRegistry.register(new HonorDefinition(
                 "scout",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "spot_20",
-                "斥候",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "arsenal",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "arsenal_in_30s_3_items",
-                "军械库",
                 5
         ));
         HonorRegistry.register(new HonorDefinition(
                 "artillery",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "vehicle_damage_800",
-                "炮兵",
                 8
         ));
         HonorRegistry.register(new HonorDefinition(
                 "avenger",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "leave_it_to_me",
-                "复仇者",
                 65
         ));
         HonorRegistry.register(new HonorDefinition(
                 "ballistics",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "destroy_vehicle_outside",
-                "弹道",
                 20
         ));
         HonorRegistry.register(new HonorDefinition(
                 "ace_pilot",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "destroy_air_vehicle_in_air",
-                "王牌飞行员",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "bail_rocket",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "bail_out_destroy_air_return",
-                "跳机火箭筒",
                 1
         ));
         HonorRegistry.register(new HonorDefinition(
                 "breaker",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "conquest_stage_breaker",
-                "突破者",
                 60
         ));
         HonorRegistry.register(new HonorDefinition(
                 "top",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "victim_top_scorer",
-                "高层",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "medic",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "revive_3_consecutive",
-                "急救使者",
                 60
         ));
         HonorRegistry.register(new HonorDefinition(
                 "mechanic",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "repair_vehicle_25",
-                "机械师",
                 20
         ));
         HonorRegistry.register(new HonorDefinition(
                 "minelayer",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "mine_destroy_vehicle",
-                "布雷者",
                 8
         ));
         HonorRegistry.register(new HonorDefinition(
                 "fire_support",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "fire_suppression_5",
-                "火力支援",
                 45
         ));
         HonorRegistry.register(new HonorDefinition(
                 "field_medic",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "revive_5_in_life",
-                "战地医师",
                 40
         ));
         HonorRegistry.register(new HonorDefinition(
                 "flight_dispatcher",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "victim_riding_air",
-                "飞行调度员",
                 25
         ));
         HonorRegistry.register(new HonorDefinition(
                 "pathfinder",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "squad_deploy_3",
-                "引路者",
                 35
         ));
         HonorRegistry.register(new HonorDefinition(
                 "demolition",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "destroy_7_vehicles",
-                "爆破专家",
                 5
         ));
         HonorRegistry.register(new HonorDefinition(
                 "destroyer",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "tactical_gadget_3",
-                "破坏者",
                 25
         ));
         HonorRegistry.register(new HonorDefinition(
                 "executioner",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "backstab",
-                "刽子手",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "flank",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "kill_blinded",
-                "侧袭",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "frenzy",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "buff_kill",
-                "狂战士",
                 50
         ));
         HonorRegistry.register(new HonorDefinition(
                 "garrison",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "garrison_kill_3",
-                "戍卫",
                 50
         ));
         HonorRegistry.register(new HonorDefinition(
                 "ground_control",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "conquest_stage_ground_control",
-                "地面控制",
                 25
         ));
         HonorRegistry.register(new HonorDefinition(
                 "guardian",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "leave_it_to_me",
-                "护卫者",
                 50
         ));
         HonorRegistry.register(new HonorDefinition(
                 "gunner",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "gunner_kill_5",
-                "炮手",
                 35
         ));
         HonorRegistry.register(new HonorDefinition(
                 "quickdraw",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "quickdraw",
-                "快枪手",
                 8
         ));
         HonorRegistry.register(new HonorDefinition(
                 "roadhog",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "roadkill",
-                "路霸",
                 50
         ));
         HonorRegistry.register(new HonorDefinition(
                 "quartermaster",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "supply_revive_25",
-                "军需官",
                 35
         ));
         HonorRegistry.register(new HonorDefinition(
                 "support",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "support_3000_score",
-                "支援专家",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "tank_destroyer",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "destroy_tank",
-                "坦克破坏者",
                 10
         ));
         HonorRegistry.register(new HonorDefinition(
                 "recon",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "recon_3000_score",
-                "侦察专家",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "assault",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "assault_3000_score",
-                "突击专家",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "engineer",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "engineer_3000_score",
-                "工程专家",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "sharp_shooter",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "long_range_headshot",
-                "神枪手",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "long_shot",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "long_shot_range",
-                "远射",
                 60
         ));
         HonorRegistry.register(new HonorDefinition(
                 "marksman",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "sniper_kill_10_15",
-                "神射手",
                 8
         ));
         HonorRegistry.register(new HonorDefinition(
                 "rifleman",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "rifle_kill_15_20",
-                "步枪手",
                 8
         ));
         HonorRegistry.register(new HonorDefinition(
                 "sniper_duel",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "sniper_duel",
-                "对狙专家",
                 5
         ));
         HonorRegistry.register(new HonorDefinition(
                 "smoke_screen",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "smoke_revive_5",
-                "烟幕",
                 5
         ));
         HonorRegistry.register(new HonorDefinition(
                 "unstoppable",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "mg_kill_5_no_reload",
-                "势不可挡",
                 10
         ));
         HonorRegistry.register(new HonorDefinition(
                 "vanguard",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "first_kill_in_team",
-                "急先锋",
                 3
         ));
         HonorRegistry.register(new HonorDefinition(
                 "warhead",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
                 "heavy_headshot",
-                "弹头",
                 8
         ));
     }

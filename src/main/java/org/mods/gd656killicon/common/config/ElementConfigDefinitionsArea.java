@@ -87,9 +87,9 @@ public final class ElementConfigDefinitionsArea {
         list.add(ConfigKeyDefinition.builder().key("color_crit_placeholder").element("subtitle/kill_feed").type(COLOR).category(Category.COLOR).dependsOn("enable_crit_kill").defaultValue("#9CCC65").build());
         list.add(ConfigKeyDefinition.builder().key("color_assist_placeholder").element("subtitle/kill_feed").type(COLOR).category(Category.COLOR).dependsOn("enable_assist_kill").defaultValue("#008B8B").build());
         list.add(ConfigKeyDefinition.builder().key("color_destroy_vehicle_placeholder").element("subtitle/kill_feed").type(COLOR).category(Category.COLOR).dependsOn("enable_destroy_vehicle_kill").defaultValue("#D4B800").build());
-        list.add(ConfigKeyDefinition.builder().key("format_rush_bomb_planted_capture").element("subtitle/kill_feed").type(STRING).category(Category.CONTENT).defaultValue("安装炸弹 +<score>").build());
-        list.add(ConfigKeyDefinition.builder().key("format_rush_bomb_defused_capture").element("subtitle/kill_feed").type(STRING).category(Category.CONTENT).defaultValue("拆除炸弹 +<score>").build());
-        list.add(ConfigKeyDefinition.builder().key("format_rush_objective_destroyed_capture").element("subtitle/kill_feed").type(STRING).category(Category.CONTENT).defaultValue("成功炸毁通讯设施 <target>").build());
+        list.add(ConfigKeyDefinition.builder().key("format_rush_bomb_planted_capture").element("subtitle/kill_feed").type(STRING).category(Category.CONTENT).defaultValue("").build());
+        list.add(ConfigKeyDefinition.builder().key("format_rush_bomb_defused_capture").element("subtitle/kill_feed").type(STRING).category(Category.CONTENT).defaultValue("").build());
+        list.add(ConfigKeyDefinition.builder().key("format_rush_objective_destroyed_capture").element("subtitle/kill_feed").type(STRING).category(Category.CONTENT).defaultValue("").build());
         list.add(ConfigKeyDefinition.builder().key("color_capture_placeholder").element("subtitle/kill_feed").type(COLOR).category(Category.COLOR).dependsOn("enable_capture_kill").defaultValue("#008B8B").build());
         list.add(ConfigKeyDefinition.builder().key("color_normal_text").element("subtitle/kill_feed").type(COLOR).category(Category.COLOR).defaultValue("#FFFFFF").build());
         list.add(ConfigKeyDefinition.builder().key("enable_placeholder_bold").element("subtitle/kill_feed").type(BOOLEAN).category(Category.EFFECT).defaultValue(false).build());
@@ -153,7 +153,7 @@ public final class ElementConfigDefinitionsArea {
         list.add(ConfigKeyDefinition.builder().key("entrance_background_sweep_duration").element("subtitle/score").type(FLOAT).category(Category.TIMING).dependsOn("entrance_background").defaultValue(0.1f).build());
         list.add(ConfigKeyDefinition.builder().key("entrance_background_fade_out").element("subtitle/score").type(FLOAT).category(Category.EFFECT).dependsOn("entrance_background").defaultValue(0.133f).build());
         list.add(ConfigKeyDefinition.builder().key("entrance_background_color").element("subtitle/score").type(COLOR).category(Category.COLOR).dependsOn("entrance_background").defaultValue("#FFFFFF").build());
-        list.add(ConfigKeyDefinition.builder().key("format_score").element("subtitle/score").type(STRING).category(Category.CONTENT).defaultValue("\u003cscore\u003e").build());
+        list.add(ConfigKeyDefinition.builder().key("format_score").element("subtitle/score").type(STRING).category(Category.CONTENT).defaultValue("").build());
         list.add(ConfigKeyDefinition.builder().key("score_threshold").element("subtitle/score").type(INT).category(Category.BEHAVIOR).defaultValue(1000).build());
         list.add(ConfigKeyDefinition.builder().key("color_high_score").element("subtitle/score").type(COLOR).category(Category.COLOR).defaultValue("#D4B800").build());
         list.add(ConfigKeyDefinition.builder().key("color_flash").element("subtitle/score").type(COLOR).category(Category.COLOR).dependsOn("enable_flash").defaultValue("#D0D0D0").build());
@@ -211,7 +211,7 @@ public final class ElementConfigDefinitionsArea {
         list.add(ConfigKeyDefinition.builder().key("enter_animation_duration").element("subtitle/bonus_list").type(FLOAT).category(Category.TIMING).defaultValue(0.2f).build());
         list.add(ConfigKeyDefinition.builder().key("kill_bonus_scale").element("subtitle/bonus_list").type(FLOAT).category(Category.POSITION).defaultValue(1.0f).build());
         list.add(ConfigKeyDefinition.builder().key("enable_kill_feed").element("subtitle/bonus_list").type(BOOLEAN).category(Category.BEHAVIOR).defaultValue(false).build());
-        list.add(ConfigKeyDefinition.builder().key("kill_feed_format").element("subtitle/bonus_list").type(STRING).category(Category.CONTENT).dependsOn("enable_kill_feed").defaultValue("[\u003cweapon\u003e] \u003ctarget\u003e +\u003cscore\u003e").build());
+        list.add(ConfigKeyDefinition.builder().key("kill_feed_format").element("subtitle/bonus_list").type(STRING).category(Category.CONTENT).dependsOn("enable_kill_feed").defaultValue("").build());
         list.add(ConfigKeyDefinition.builder().key("kill_feed_victim_color").element("subtitle/bonus_list").type(COLOR).category(Category.COLOR).dependsOn("enable_kill_feed").defaultValue("#FF0000").build());
         list.add(ConfigKeyDefinition.builder().key("enable_digital_scroll").element("subtitle/bonus_list").type(BOOLEAN).category(Category.BEHAVIOR).defaultValue(true).build());
         list.add(ConfigKeyDefinition.builder().key("enable_stack_multiplier").element("subtitle/bonus_list").type(BOOLEAN).category(Category.BEHAVIOR).defaultValue(false).build());
@@ -232,10 +232,10 @@ public final class ElementConfigDefinitionsArea {
         list.add(ConfigKeyDefinition.builder().key("y_offset").element("subtitle/combo").type(FLOAT).category(Category.POSITION).defaultValue(70.0f).build());
         list.add(ConfigKeyDefinition.builder().key("color_kill_combo").element("subtitle/combo").type(COLOR).category(Category.COLOR).defaultValue("#FF3500").build());
         list.add(ConfigKeyDefinition.builder().key("color_assist_combo").element("subtitle/combo").type(COLOR).category(Category.COLOR).defaultValue("#FFD700").build());
-        list.add(ConfigKeyDefinition.builder().key("format_kill_single").element("subtitle/combo").type(STRING).category(Category.CONTENT).defaultValue("\u003ccombo\u003e 娣樻卑").build());
-        list.add(ConfigKeyDefinition.builder().key("format_kill_multi").element("subtitle/combo").type(STRING).category(Category.CONTENT).defaultValue("\u003ccombo\u003e 淘汰数").build());
-        list.add(ConfigKeyDefinition.builder().key("format_assist_single").element("subtitle/combo").type(STRING).category(Category.CONTENT).defaultValue("\u003ccombo\u003e 鍔╂敾").build());
-        list.add(ConfigKeyDefinition.builder().key("format_assist_multi").element("subtitle/combo").type(STRING).category(Category.CONTENT).defaultValue("\u003ccombo\u003e 助攻数").build());
+        list.add(ConfigKeyDefinition.builder().key("format_kill_single").element("subtitle/combo").type(STRING).category(Category.CONTENT).defaultValue("").build());
+        list.add(ConfigKeyDefinition.builder().key("format_kill_multi").element("subtitle/combo").type(STRING).category(Category.CONTENT).defaultValue("").build());
+        list.add(ConfigKeyDefinition.builder().key("format_assist_single").element("subtitle/combo").type(STRING).category(Category.CONTENT).defaultValue("").build());
+        list.add(ConfigKeyDefinition.builder().key("format_assist_multi").element("subtitle/combo").type(STRING).category(Category.CONTENT).defaultValue("").build());
         list.add(ConfigKeyDefinition.builder().key("enable_animation").element("subtitle/combo").type(BOOLEAN).category(Category.BEHAVIOR).defaultValue(true).build());
         list.add(ConfigKeyDefinition.builder().key("enable_light_effect").element("subtitle/combo").type(BOOLEAN).category(Category.BEHAVIOR).defaultValue(true).build());
         list.add(ConfigKeyDefinition.builder().key("enable_bold").element("subtitle/combo").type(BOOLEAN).category(Category.EFFECT).defaultValue(true).build());
@@ -259,7 +259,7 @@ public final class ElementConfigDefinitionsArea {
         list.add(ConfigKeyDefinition.builder().key("display_duration").element("subtitle/hit_info").type(FLOAT).category(Category.TIMING).defaultValue(3.0f).build());
         list.add(ConfigKeyDefinition.builder().key("align_left").element("subtitle/hit_info").type(BOOLEAN).category(Category.POSITION).defaultValue(false).build());
         list.add(ConfigKeyDefinition.builder().key("align_right").element("subtitle/hit_info").type(BOOLEAN).category(Category.POSITION).defaultValue(false).build());
-        list.add(ConfigKeyDefinition.builder().key("format_damage").element("subtitle/hit_info").type(STRING).category(Category.CONTENT).defaultValue("<damage>").build());
+        list.add(ConfigKeyDefinition.builder().key("format_damage").element("subtitle/hit_info").type(STRING).category(Category.CONTENT).defaultValue("").build());
         list.add(ConfigKeyDefinition.builder().key("color_damage_default").element("subtitle/hit_info").type(COLOR).category(Category.COLOR).defaultValue("#FFFFFF").build());
         list.add(ConfigKeyDefinition.builder().key("color_damage_kill").element("subtitle/hit_info").type(COLOR).category(Category.COLOR).defaultValue("#D4B800").build());
         list.add(ConfigKeyDefinition.builder().key("color_normal_text").element("subtitle/hit_info").type(COLOR).category(Category.COLOR).defaultValue("#FFFFFF").build());
@@ -473,6 +473,19 @@ public final class ElementConfigDefinitionsArea {
         list.add(ConfigKeyDefinition.builder().key("shake_enabled").element("kill_icon/honor").type(BOOLEAN).category(Category.EFFECT).defaultValue(true).build());
         list.add(ConfigKeyDefinition.builder().key("shake_count").element("kill_icon/honor").type(INT).category(Category.EFFECT).dependsOn("shake_enabled").defaultValue(16).build());
         list.add(ConfigKeyDefinition.builder().key("shake_range").element("kill_icon/honor").type(INT).category(Category.EFFECT).dependsOn("shake_enabled").defaultValue(1).build());
+        // 新最佳样式(全服/本局最多): 触发时主图标按配置色渲染, 提示框/文本/音效随之切换
+        list.add(ConfigKeyDefinition.builder().key("best_enabled").element("kill_icon/honor").type(BOOLEAN).category(Category.EFFECT).defaultValue(true).build());
+        list.add(ConfigKeyDefinition.builder().key("best_icon_color").element("kill_icon/honor").type(COLOR).category(Category.COLOR).dependsOn("best_enabled").defaultValue("#FBC56D").build());
+        list.add(ConfigKeyDefinition.builder().key("best_hint_box_color").element("kill_icon/honor").type(COLOR).category(Category.COLOR).dependsOn("best_enabled").defaultValue("#FBC56D").build());
+        list.add(ConfigKeyDefinition.builder().key("best_text_format").element("kill_icon/honor").type(STRING).category(Category.EFFECT).dependsOn("best_enabled").defaultValue("新最佳").build());
+        // 新最佳高分扫光动画: 主图标出现时一个矩形从文本右侧横扫到文本框左侧, 同时渐隐消失
+        list.add(ConfigKeyDefinition.builder().key("best_sweep_start_width").element("kill_icon/honor").type(INT).category(Category.EFFECT).dependsOn("best_enabled").defaultValue(5).build());
+        list.add(ConfigKeyDefinition.builder().key("best_sweep_end_width").element("kill_icon/honor").type(INT).category(Category.EFFECT).dependsOn("best_enabled").defaultValue(2).build());
+        list.add(ConfigKeyDefinition.builder().key("best_sweep_duration").element("kill_icon/honor").type(FLOAT).category(Category.TIMING).dependsOn("best_enabled").defaultValue(0.25f).build());
+        list.add(ConfigKeyDefinition.builder().key("best_sweep_fade_duration").element("kill_icon/honor").type(FLOAT).category(Category.TIMING).dependsOn("best_enabled").defaultValue(0.4f).build());
+        list.add(ConfigKeyDefinition.builder().key("best_sweep_text_gap").element("kill_icon/honor").type(INT).category(Category.EFFECT).dependsOn("best_enabled").defaultValue(1).build());
+        // 新最佳主字幕: 提示框入场完成后在提示框左侧渐入的"新最佳"文本矩形, 随提示框隐藏同步隐藏
+        list.add(ConfigKeyDefinition.builder().key("best_text_fade_in_duration").element("kill_icon/honor").type(FLOAT).category(Category.TIMING).dependsOn("best_enabled").defaultValue(0.1f).build());
         return list;
     }
 }

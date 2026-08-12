@@ -22,7 +22,6 @@ public record HonorDefinition(
         String nameKey,
         String descKey,
         String textureKey,
-        String format,
         int unlockRequired
 ) {
     public HonorDefinition {
@@ -37,37 +36,24 @@ public record HonorDefinition(
         }
     }
 
-    /** 便捷构造: 名称/描述/纹理键按默认约定生成; 字幕默认文本为空(渲染回退显示名); 解锁所需次数 1。 */
+    /** 便捷构造: 名称/描述/纹理键按默认约定生成; 解锁所需次数 1。 */
     public HonorDefinition(String id, ConditionType conditionType, String conditionParams) {
         this(id, conditionType, conditionParams,
                 "gd656killicon.honor." + id + ".name",
                 "gd656killicon.honor." + id + ".desc",
-                "honor_" + id, null, 1);
+                "honor_" + id, 1);
     }
 
-    /** 便捷构造: 带注册表默认字幕文本; 解锁所需次数 1。 */
-    public HonorDefinition(String id, ConditionType conditionType, String conditionParams, String format) {
+    /** 便捷构造: 带解锁所需次数。 */
+    public HonorDefinition(String id, ConditionType conditionType, String conditionParams, int unlockRequired) {
         this(id, conditionType, conditionParams,
                 "gd656killicon.honor." + id + ".name",
                 "gd656killicon.honor." + id + ".desc",
-                "honor_" + id, format, 1);
-    }
-
-    /** 便捷构造: 带注册表默认字幕文本与解锁所需次数。 */
-    public HonorDefinition(String id, ConditionType conditionType, String conditionParams, String format, int unlockRequired) {
-        this(id, conditionType, conditionParams,
-                "gd656killicon.honor." + id + ".name",
-                "gd656killicon.honor." + id + ".desc",
-                "honor_" + id, format, unlockRequired);
+                "honor_" + id, unlockRequired);
     }
 
     public String displayNameKey() {
         return nameKey != null ? nameKey : "gd656killicon.honor." + id + ".name";
-    }
-
-    /** 字幕默认文本的 lang 键(gd656killicon.honor.&lt;id&gt;.format): 语言驱动默认字幕, 与 bonus 语言默认机制一致。 */
-    public String formatLangKey() {
-        return "gd656killicon.honor." + id + ".format";
     }
 
     public String descriptionKey() {

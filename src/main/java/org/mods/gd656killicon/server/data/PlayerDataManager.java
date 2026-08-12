@@ -33,6 +33,8 @@ public class PlayerDataManager {
     private static final int SCOREBOARD_PAGE_LIMIT_MAX = 100;
     private static final String[] DEFAULT_PANEL_TEAMS = new String[]{"", "", "", ""};
     private final Map<UUID, PlayerData> playerDataCache;
+    /** 每 honor 全服最高累计次数(内存缓存, 不落盘; 启动时从所有玩家 playerdata 构建, recordHonor 时更新)。 */
+    private final Map<String, Integer> globalBestByHonor = new ConcurrentHashMap<>();
     private final Set<UUID> dirtyPlayers;
     private final Set<UUID> pendingRemovalPlayers;
     private Path playerdataDir;
@@ -69,6 +71,7 @@ public class PlayerDataManager {
         }
 
         loadAllPlayerData();
+        rebuildGlobalBestByHonor();
         startAutoSaveTask();
         initialized = true;
     }
@@ -197,6 +200,118 @@ public class PlayerDataManager {
 
     public PlayerData getPlayerData(UUID uuid) {
         return playerDataCache.computeIfAbsent(uuid, k -> new PlayerData(k));
+    }
+
+    /**
+     * 记录一次 honor 获得(仅无 Conquest 分支使用): 累计到该玩家 PlayerData, 并更新全服最高缓存。
+     * @return 该玩家该 honor 新的累计次数(未记录返回 0)。
+     */
+    public int recordHonor(UUID playerId, String honorId) {
+        if (playerId == null || honorId == null || honorId.isBlank()) {
+            return 0;
+        }
+        final int[] newCount = {0};
+        mutateTrackedStats(playerId, pd -> newCount[0] = pd.addHonor(honorId));
+        if (newCount[0] > 0) {
+            globalBestByHonor.merge(honorId, newCount[0], Math::max);
+        }
+        return newCount[0];
+    }
+
+    /** 某 honor 全服最高累计次数(内存缓存, 启动时从所有玩家 playerdata 构建; 未记录过返回 0)。 */
+    public int getGlobalBest(String honorId) {
+        if (honorId == null) {
+            return 0;
+        }
+        Integer best = globalBestByHonor.get(honorId);
+        return best != null ? best : 0;
+    }
+
+    /** 全部 honor 全服最高累计次数(快照, 指令查询用)。 */
+    public Map<String, Integer> getAllGlobalBest() {
+        return new java.util.HashMap<>(globalBestByHonor);
+    }
+
+    /** 设置某 honor 全服最高累计次数(<=0 视为清零删除), 指令用。 */
+    public void setGlobalBest(String honorId, int value) {
+        if (honorId == null || honorId.isBlank()) {
+            return;
+        }
+        if (value <= 0) {
+            globalBestByHonor.remove(honorId);
+        } else {
+            globalBestByHonor.put(honorId, value);
+        }
+    }
+
+    /** 对某 honor 全服最高累计次数加值(可为负), 指令用。 */
+    public void addGlobalBest(String honorId, int amount) {
+        if (honorId == null || honorId.isBlank() || amount == 0) {
+            return;
+        }
+        int result = globalBestByHonor.merge(honorId, amount, Integer::sum);
+        if (result <= 0) {
+            globalBestByHonor.remove(honorId);
+        }
+    }
+
+    /** 某玩家某 honor 获取数量。 */
+    public int getHonorCount(UUID playerId, String honorId) {
+        if (playerId == null || honorId == null || honorId.isBlank()) {
+            return 0;
+        }
+        return getPlayerData(playerId).getHonorCount(honorId);
+    }
+
+    /** 设置某玩家某 honor 获取数量(<=0 清零), 并刷新该 honor 的全服最高缓存。 */
+    public void setHonorCount(UUID playerId, String honorId, int value) {
+        if (playerId == null || honorId == null || honorId.isBlank()) {
+            return;
+        }
+        mutateTrackedStats(playerId, pd -> pd.setHonorCount(honorId, value));
+        refreshGlobalBest(honorId);
+    }
+
+    /** 对某玩家某 honor 获取数量加值(可为负), 并刷新该 honor 的全服最高缓存。 */
+    public void addHonorCount(UUID playerId, String honorId, int amount) {
+        if (playerId == null || honorId == null || honorId.isBlank() || amount == 0) {
+            return;
+        }
+        mutateTrackedStats(playerId, pd -> pd.addHonorCount(honorId, amount));
+        refreshGlobalBest(honorId);
+    }
+
+    /** 重算某 honor 全服最高缓存(遍历所有玩家取 max), 玩家计数被指令修改后调用。 */
+    private void refreshGlobalBest(String honorId) {
+        if (honorId == null) {
+            return;
+        }
+        int best = 0;
+        for (PlayerData playerData : playerDataCache.values()) {
+            if (playerData != null) {
+                best = Math.max(best, playerData.getHonorCount(honorId));
+            }
+        }
+        if (best <= 0) {
+            globalBestByHonor.remove(honorId);
+        } else {
+            globalBestByHonor.put(honorId, best);
+        }
+    }
+
+    /** 从内存 playerDataCache 重建全服最高缓存(服务器启动时调用, 不落盘)。 */
+    private void rebuildGlobalBestByHonor() {
+        globalBestByHonor.clear();
+        for (PlayerData playerData : playerDataCache.values()) {
+            if (playerData == null) {
+                continue;
+            }
+            for (Map.Entry<String, Integer> entry : playerData.getAllHonorCounts().entrySet()) {
+                if (entry.getValue() != null && entry.getValue() > 0) {
+                    globalBestByHonor.merge(entry.getKey(), entry.getValue(), Math::max);
+                }
+            }
+        }
     }
 
     public PlayerData getOrCreatePlayerData(UUID uuid) {
@@ -558,7 +673,8 @@ public class PlayerDataManager {
             || playerData.getKill() > 0
             || playerData.getDeath() > 0
             || playerData.getAssist() > 0
-            || playerData.getRevive() > 0;
+            || playerData.getRevive() > 0
+            || playerData.hasAnyHonor();
     }
 
     private record ResolvedScoreboardData(List<ScoreboardSyncPacket.Entry> entries, int columns, String[] panelTeams) {

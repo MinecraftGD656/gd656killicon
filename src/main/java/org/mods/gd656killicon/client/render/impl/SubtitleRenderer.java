@@ -245,7 +245,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
         // 配置值即实际文本(所见即所得); 缺键兜底 = 击杀类型注册表当前语言默认(替代已删除的 lang key)
         String normalFormat = config.has("format_normal") ? config.get("format_normal").getAsString()
-                : KillTypeRegistry.get(type).format();
+                : org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/kill_feed", KillTypeRegistry.get(type).formatKey());
         String resolvedFormat = config.has(formatKey) ? config.get(formatKey).getAsString() : normalFormat;
         if (captureFormatOverride != null && config.has(captureFormatOverride)) {
             resolvedFormat = config.get(captureFormatOverride).getAsString();
@@ -318,7 +318,7 @@ public class SubtitleRenderer implements IHudRenderer {
         String emphasisColorKey = emphasisColorKeyForType(killType);
 
         String normalFormat = config.has("format_normal") ? config.get("format_normal").getAsString()
-                : KillTypeRegistry.get(killType).format();
+                : org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/kill_feed", KillTypeRegistry.get(killType).formatKey());
         String resolvedFormat = config.has(formatKey) ? config.get(formatKey).getAsString() : normalFormat;
 
         String normalColorHex = config.has("color_normal_placeholder") ? config.get("color_normal_placeholder").getAsString() : "#008B8B";
@@ -750,7 +750,7 @@ public class SubtitleRenderer implements IHudRenderer {
 
             String normalFormat = config.has("format_normal")
                     ? config.get("format_normal").getAsString()
-                    : KillTypeRegistry.get(KillType.NORMAL).format();
+                    : org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/kill_feed", KillTypeRegistry.get(KillType.NORMAL).formatKey());
             String normalColorHex = config.has("color_normal_placeholder")
                     ? config.get("color_normal_placeholder").getAsString()
                     : "#008B8B";
@@ -805,7 +805,7 @@ public class SubtitleRenderer implements IHudRenderer {
             this.configScreenAnchor = "bottom_center";
             this.displayDuration = 3000L;
             this.scale = 1.0f;
-            this.format = KillTypeRegistry.get(KillType.NORMAL).format();
+            this.format = org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/kill_feed", KillTypeRegistry.get(KillType.NORMAL).formatKey());
             this.placeholderColor = DEFAULT_PLACEHOLDER_COLOR;
             this.enablePlaceholderBold = false;
             this.enableScaleAnimation = true;

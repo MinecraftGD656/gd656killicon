@@ -78,23 +78,36 @@ public class HonorRenderer implements IHudRenderer {
     private boolean configShakeEnabled = false;
     private int configShakeCount = 2;
     private int configShakeRange = 2;
+    // 新最佳样式(全服/本局最多)
+    private boolean configBestEnabled = true;
+    private int configBestIconColor = 0xFBC56D;
+    private int configBestHintBoxColor = 0xFBC56D;
+    private int configBestSweepStartWidth = 5;
+    private int configBestSweepEndWidth = 3;
+    private float configBestSweepDuration = 0.15f;
+    private float configBestSweepFadeDuration = 0.2f;
+    private int configBestSweepTextGap = 1;
+    private float configBestTextFadeInDuration = 0.1f;
 
     // ==================== 显示条目 ====================
 
     /** 当前显示的荣誉(单条目, 新触发覆盖旧的)。 */
     private static final class Display {
         final String honorId;
+        /** 新最佳样式标记: "" 普通; "g" 全服最多 / "m" 本局最多 / "gm" 两者都是。 */
+        final String style;
         final long triggerTime;
 
-        Display(String honorId, long triggerTime) {
+        Display(String honorId, String style, long triggerTime) {
             this.honorId = honorId;
+            this.style = style == null ? "" : style;
             this.triggerTime = triggerTime;
         }
     }
 
     private Display currentDisplay;
     /** 等待显示的荣誉队列(当前显示结束后接替)。 */
-    private final java.util.ArrayDeque<String> pendingHonorIds = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<Display> pendingHonorIds = new java.util.ArrayDeque<>();
     /** 当前显示是否已播放音效(仅在 t0 实际显示开始时播放一次, 不随收到包播放)。 */
     private boolean displaySoundPlayed = false;
 
@@ -154,6 +167,15 @@ public class HonorRenderer implements IHudRenderer {
         this.configShakeEnabled = config.has("shake_enabled") && config.get("shake_enabled").getAsBoolean();
         this.configShakeCount = config.has("shake_count") ? config.get("shake_count").getAsInt() : 2;
         this.configShakeRange = config.has("shake_range") ? config.get("shake_range").getAsInt() : 2;
+        this.configBestEnabled = !config.has("best_enabled") || config.get("best_enabled").getAsBoolean();
+        this.configBestIconColor = parseColor(config, "best_icon_color", 0xFBC56D);
+        this.configBestHintBoxColor = parseColor(config, "best_hint_box_color", 0xFBC56D);
+        this.configBestSweepStartWidth = config.has("best_sweep_start_width") ? config.get("best_sweep_start_width").getAsInt() : 5;
+        this.configBestSweepEndWidth = config.has("best_sweep_end_width") ? config.get("best_sweep_end_width").getAsInt() : 3;
+        this.configBestSweepDuration = config.has("best_sweep_duration") ? config.get("best_sweep_duration").getAsFloat() : 0.15f;
+        this.configBestSweepFadeDuration = config.has("best_sweep_fade_duration") ? config.get("best_sweep_fade_duration").getAsFloat() : 0.2f;
+        this.configBestSweepTextGap = config.has("best_sweep_text_gap") ? config.get("best_sweep_text_gap").getAsInt() : 1;
+        this.configBestTextFadeInDuration = config.has("best_text_fade_in_duration") ? config.get("best_text_fade_in_duration").getAsFloat() : 0.1f;
     }
 
     /** 解析颜色配置(#RRGGBB 或 0x), 失败回退默认。 */
@@ -175,6 +197,11 @@ public class HonorRenderer implements IHudRenderer {
         }
     }
 
+    /** 当前显示是否新最佳(服务端 style 标记非空且配置启用)。 */
+    private boolean isBest() {
+        return configBestEnabled && currentDisplay != null && !currentDisplay.style.isEmpty();
+    }
+
     // ==================== 触发 ====================
 
     @Override
@@ -187,22 +214,27 @@ public class HonorRenderer implements IHudRenderer {
         if (extra == null || extra.isEmpty()) {
             return;
         }
-        // extraData 格式: <honorId>[:<附加数据>]
+        // extraData 格式: <honorId>[:style=<g|m|gm>]
         String honorId = extra;
+        String style = "";
         int colon = extra.indexOf(':');
         if (colon > 0) {
             honorId = extra.substring(0, colon);
+            String suffix = extra.substring(colon + 1);
+            if (suffix.startsWith("style=")) {
+                style = suffix.substring("style=".length());
+            }
         }
         if (honorId.isEmpty()) {
             return;
         }
         long now = System.currentTimeMillis();
         if (currentDisplay == null) {
-            currentDisplay = new Display(honorId, now);
+            currentDisplay = new Display(honorId, style, now);
             displaySoundPlayed = false;
         } else {
             // 有显示进行中: 排队, 当前显示满最小显示时长后渐隐再接替
-            pendingHonorIds.addLast(honorId);
+            pendingHonorIds.addLast(new Display(honorId, style, now));
         }
     }
 
@@ -268,7 +300,8 @@ public class HonorRenderer implements IHudRenderer {
         // 主图标: 顶点带 alpha 自绘(亚像素, 立即提交, 不依赖全局 shader color 时序, 根除击杀帧透明度失效)
         float iconScale = scale * HONOR_DISPLAY_SCALE;
         applyTextureFilter(texture);
-        drawIcon(guiGraphics, texture, centerX + shakeX, centerY + shakeY, iconScale, alpha);
+        drawIcon(guiGraphics, texture, centerX + shakeX, centerY + shakeY, iconScale, alpha,
+                isBest() ? configBestIconColor : 0xFFFFFF);
 
         // 荣誉提示框与字幕(淡出与主图标同步, 跟随抖动)
         float hintFadeAlpha = (elapsed >= fadeStartMs) ? resolveFadeAlpha(fadeProgress) : 1.0f;
@@ -342,7 +375,8 @@ public class HonorRenderer implements IHudRenderer {
         // 主图标: 顶点带 alpha 自绘(亚像素, 立即提交)
         float iconScale = scaleFactor * HONOR_DISPLAY_SCALE;
         applyTextureFilter(texture);
-        drawIcon(guiGraphics, texture, originX + shakeX, originY + shakeY, iconScale, alpha);
+        drawIcon(guiGraphics, texture, originX + shakeX, originY + shakeY, iconScale, alpha,
+                isBest() ? configBestIconColor : 0xFFFFFF);
 
         // 荣誉提示框与字幕(淡出与主图标同步, 跟随抖动)
         float hintFadeAlpha = (elapsed >= fadeStartMs) ? resolveFadeAlpha(fadeProgress) : 1.0f;
@@ -382,8 +416,13 @@ public class HonorRenderer implements IHudRenderer {
         if (alpha <= 0.01f) {
             return;
         }
+        // 新最佳高分扫光: 主图标出现时从文本右侧横扫到文本框左侧, 同时渐隐(置于文本框/文本下层)
+        if (isBest()) {
+            drawBestSweep(guiGraphics, textRight, boxLeftFinal, centerY, elapsed);
+        }
         // 提示框(单个长方形, 左/右边界即"两条线段"的展开动画)
-        int boxColor = ((int) (alpha * 255.0f) << 24) | (configHintBoxColor & 0xFFFFFF);
+        int boxColorRgb = isBest() ? configBestHintBoxColor : configHintBoxColor;
+        int boxColor = ((int) (alpha * 255.0f) << 24) | (boxColorRgb & 0xFFFFFF);
         float boxTop = centerY - configHintBoxHeight / 2f;
         // 亚像素填充(浮点顶点, 展开动画连续平滑, 无 1px 步进卡顿)
         fillRectF(guiGraphics, boxLeft, boxTop, boxRight, boxTop + configHintBoxHeight, boxColor);
@@ -400,6 +439,88 @@ public class HonorRenderer implements IHudRenderer {
                 guiGraphics.pose().popPose();
             }
         }
+        // 新最佳主字幕: 提示框入场完成后在提示框上方渐入, 下边框紧贴提示框上边框, 随提示框隐藏同步隐藏
+        if (isBest()) {
+            drawBestText(guiGraphics, boxLeftFinal, boxTop, elapsed, fadeAlpha);
+        }
+    }
+
+    /**
+     * 新最佳主字幕(仅新最佳样式触发):
+     * 一个矩形 + 内部"新最佳"文本。矩形透明度/颜色同下方提示框(新最佳时用 best_hint_box_color),
+     * 左边框与提示框左边框对齐, 高/宽 = 内部文本的高/宽, 下边框紧贴提示框上边框;
+     * 文本颜色同提示框内字幕颜色, 内容 = 新最佳文本格式(best_text_format, 默认"新最佳")。
+     * 出现时机 = 提示框入场动画完成之后, 随后 a 秒(best_text_fade_in_duration)内从全透明渐入;
+     * 隐藏与提示框同步(直接复用提示框的 fadeAlpha 时序)。
+     */
+    private void drawBestText(GuiGraphics guiGraphics, float boxLeft, float hintBoxTop, long elapsed, float fadeAlpha) {
+        if (currentDisplay == null) {
+            return;
+        }
+        String text = resolveBestSubtitle();
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        // 提示框入场动画完成后才出现
+        if (elapsed < configHintBoxEnterMs) {
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        float textW = mc.font.width(text) * configHintBoxTextScale;
+        float textH = mc.font.lineHeight * configHintBoxTextScale;
+        // 下边框紧贴提示框上边框
+        float bottom = hintBoxTop;
+        float top = bottom - textH;
+        float textCenterY = bottom - textH / 2f;
+        // 渐入: a 秒内从全透明到最大透明度(透明度同提示框)
+        long fadeInMs = Math.max(1L, (long) (configBestTextFadeInDuration * 1000.0f));
+        float p = Math.min(1.0f, (float) (elapsed - configHintBoxEnterMs) / fadeInMs);
+        float maxAlpha = 1.0f - Mth.clamp(configHintBoxMaxAlpha, 0.0f, 100.0f) / 100.0f;
+        float alpha = Math.min(maxAlpha * easeOutCubic(p), fadeAlpha);
+        if (alpha <= 0.01f) {
+            return;
+        }
+        // 矩形: 透明度/颜色同下方提示框(新最佳时用 best_hint_box_color)
+        int boxRgb = configBestHintBoxColor;
+        int boxColor = ((int) (alpha * 255.0f) << 24) | (boxRgb & 0xFFFFFF);
+        fillRectF(guiGraphics, boxLeft, top, boxLeft + textW, bottom, boxColor);
+        // 文本: 颜色同提示框内字幕颜色
+        int textColor = ((int) (alpha * 255.0f) << 24) | (configHintBoxTextColor & 0xFFFFFF);
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(boxLeft, textCenterY, 0.0f);
+        guiGraphics.pose().scale(configHintBoxTextScale, configHintBoxTextScale, 1.0f);
+        guiGraphics.drawString(mc.font, text, 0.0f, -mc.font.lineHeight / 2f, textColor, configHintBoxTextShadow);
+        guiGraphics.pose().popPose();
+    }
+
+    /**
+     * 新最佳高分扫光矩形(仅新最佳样式触发):
+     * 主图标出现时, 一个高 = hint_box_height 的矩形, 初始右边缘与黑色文本右侧边缘对齐、宽 a 像素,
+     * 在 c 秒内右边缘平滑移动到"文本框左边框再往左 d 像素"处, 左边缘平滑移动到"该位置再往左 b 像素"处,
+     * 之后不再移动; 透明度从 0(不透明) 线性升至 100(全透明), 于 c+e 秒时完全消失。
+     * 绘制在文本框与文本之下(z 顺序靠前), 由上层文本框/文本覆盖, 仅超出文本左右两侧的部分可见。
+     */
+    private void drawBestSweep(GuiGraphics guiGraphics, float textRight, float boxLeft, float centerY, long elapsed) {
+        long sweepMs = Math.max(1L, (long) (configBestSweepDuration * 1000.0f));
+        long fadeMs = Math.max(1L, (long) (configBestSweepFadeDuration * 1000.0f));
+        float endRight = boxLeft - configBestSweepTextGap;      // 文本框左边框再往左 d 像素
+        float endLeft = endRight - configBestSweepEndWidth;     // 该位置再往左 b 像素
+        float startLeft = textRight - configBestSweepStartWidth; // 初始左边缘(与文本右缘相距 a)
+        // 位置: 0 → sweepMs 平滑移动(easeOutCubic, 与提示框展开同曲线)
+        float pos = Math.min(1.0f, (float) elapsed / sweepMs);
+        float eased = easeOutCubic(pos);
+        float right = Mth.lerp(eased, textRight, endRight);
+        float left = Mth.lerp(eased, startLeft, endLeft);
+        // 透明度: 0 → (sweepMs + fadeMs) 线性从 0(不透明) 升到 100(全透明)
+        float totalMs = sweepMs + fadeMs;
+        float opacity = Math.min(1.0f, (float) elapsed / totalMs);
+        float alpha = 1.0f - opacity;
+        if (alpha <= 0.01f) {
+            return;
+        }
+        int color = ((int) (alpha * 255.0f) << 24) | (configBestHintBoxColor & 0xFFFFFF);
+        float top = centerY - configHintBoxHeight / 2f;
+        fillRectF(guiGraphics, left, top, right, top + configHintBoxHeight, color);
     }
 
     /**
@@ -408,11 +529,14 @@ public class HonorRenderer implements IHudRenderer {
      * 其它渲染器增多导致 honor 的 blit 延迟提交、alpha 被全局 color 覆盖为不透明的 bug。
      */
     private static void drawIcon(GuiGraphics guiGraphics, ResourceLocation texture,
-                                 float centerX, float centerY, float iconScale, float alpha) {
+                                 float centerX, float centerY, float iconScale, float alpha, int tintRgb) {
         if (alpha <= 0.001f || iconScale <= 0.001f) {
             return;
         }
         int a = (int) (Mth.clamp(alpha, 0.0f, 1.0f) * 255.0f);
+        int r = (tintRgb >> 16) & 0xFF;
+        int g = (tintRgb >> 8) & 0xFF;
+        int b = tintRgb & 0xFF;
         float w = TEXTURE_W * iconScale;
         float h = TEXTURE_H * iconScale;
         float x1 = centerX - w / 2f;
@@ -429,10 +553,10 @@ public class HonorRenderer implements IHudRenderer {
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder builder = tesselator.getBuilder();
         builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_TEX);
-        builder.vertex(matrix, x1, y1, 0).color(255, 255, 255, a).uv(0.0f, 0.0f).endVertex();
-        builder.vertex(matrix, x2, y1, 0).color(255, 255, 255, a).uv(1.0f, 0.0f).endVertex();
-        builder.vertex(matrix, x2, y2, 0).color(255, 255, 255, a).uv(1.0f, 1.0f).endVertex();
-        builder.vertex(matrix, x1, y2, 0).color(255, 255, 255, a).uv(0.0f, 1.0f).endVertex();
+        builder.vertex(matrix, x1, y1, 0).color(r, g, b, a).uv(0.0f, 0.0f).endVertex();
+        builder.vertex(matrix, x2, y1, 0).color(r, g, b, a).uv(1.0f, 0.0f).endVertex();
+        builder.vertex(matrix, x2, y2, 0).color(r, g, b, a).uv(1.0f, 1.0f).endVertex();
+        builder.vertex(matrix, x1, y2, 0).color(r, g, b, a).uv(0.0f, 1.0f).endVertex();
         BufferUploader.drawWithShader(builder.end());
         RenderSystem.enableCull();
         RenderSystem.enableDepthTest();
@@ -471,22 +595,30 @@ public class HonorRenderer implements IHudRenderer {
             }
             return custom;
         }
-        org.mods.gd656killicon.common.honor.HonorDefinition def =
-                org.mods.gd656killicon.common.honor.HonorRegistry.get(currentDisplay.honorId);
-        if (def != null) {
-            // 语言驱动默认字幕: 优先 lang 键 gd656killicon.honor.<id>.format(多语言, 与 bonus 语言默认机制一致)
-            String langFormatKey = def.formatLangKey();
-            String langFormat = null;
-            if (net.minecraft.client.resources.language.I18n.exists(langFormatKey)) {
-                String resolved = net.minecraft.client.resources.language.I18n.get(langFormatKey);
-                if (resolved != null && !resolved.isEmpty() && !resolved.equals(langFormatKey)) {
-                    langFormat = resolved;
-                }
+        // json 无 format 键 → 语言默认(统一走 formats json, 老 lang 键驱动已根除)
+        return org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("kill_icon/honor", formatKey);
+    }
+
+    /**
+     * 新最佳字幕文本: 配置键 best_text_format 非空 → 玩家自定义; 空/未配置 → lang 键
+     * gd656killicon.honor.best.format(多语言, 与 honor 文本格式同机制); 再兜底 "新最佳"。
+     */
+    private String resolveBestSubtitle() {
+        JsonObject config = ConfigManager.getElementConfig("kill_icon", "honor");
+        if (config != null && config.has("best_text_format")) {
+            String custom = config.get("best_text_format").getAsString();
+            if (custom != null && !custom.isEmpty()) {
+                return custom;
             }
-            return org.mods.gd656killicon.common.honor.HonorRegistry.resolveFormat(
-                    currentDisplay.honorId, null, langFormat);
         }
-        return currentDisplay.honorId;
+        String langKey = "gd656killicon.honor.best.format";
+        if (net.minecraft.client.resources.language.I18n.exists(langKey)) {
+            String resolved = net.minecraft.client.resources.language.I18n.get(langKey);
+            if (resolved != null && !resolved.isEmpty() && !resolved.equals(langKey)) {
+                return resolved;
+            }
+        }
+        return "新最佳";
     }
 
     /**
@@ -554,7 +686,8 @@ public class HonorRenderer implements IHudRenderer {
         long total = fadeStartMs + configFadeOutMs;
         if (elapsed >= total) {
             if (hasNext) {
-                currentDisplay = new Display(pendingHonorIds.pollFirst(), now);
+                Display next = pendingHonorIds.pollFirst();
+                currentDisplay = new Display(next.honorId, next.style, now);
                 displaySoundPlayed = false;
             } else {
                 currentDisplay = null;
@@ -565,12 +698,14 @@ public class HonorRenderer implements IHudRenderer {
         return new long[]{elapsed, fadeStartMs};
     }
 
-    /** 荣誉图标显示时播放普通成就音效(高级槽位已注册但不触发)。 */
+    /** 荣誉图标显示时播放音效: 新最佳 → 高级成就音效槽位(_high), 普通 → 普通成就音效槽位。 */
     private void playDisplaySound() {
         try {
+            String slot = isBest()
+                    ? org.mods.gd656killicon.client.sounds.ExternalSoundManager.SLOT_HONOR_HIGH
+                    : org.mods.gd656killicon.client.sounds.ExternalSoundManager.SLOT_HONOR_NORMAL;
             org.mods.gd656killicon.client.sounds.ExternalSoundManager.playConfiguredSound(
-                    ConfigManager.getCurrentPresetId(),
-                    org.mods.gd656killicon.client.sounds.ExternalSoundManager.SLOT_HONOR_NORMAL);
+                    ConfigManager.getCurrentPresetId(), slot);
         } catch (Exception ignored) {
         }
     }

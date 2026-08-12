@@ -12,8 +12,6 @@ public final class KillTypeDefinition {
     private final int type;
     /** 显示名 lang key（gd656killicon.killtype.<ID>.name）。 */
     private final String displayName;
-    /** 格式模板（单文本，主语言中文；注入 config 的 formatKey 键）。 */
-    private final String format;
     private final String formatKey;
     private final String placeholderColorKey;
     private final String emphasisColorKey;
@@ -32,7 +30,6 @@ public final class KillTypeDefinition {
         this.id = b.id;
         this.type = b.type;
         this.displayName = b.displayName;
-        this.format = b.format;
         this.formatKey = b.formatKey;
         this.placeholderColorKey = b.placeholderColorKey;
         this.emphasisColorKey = b.emphasisColorKey;
@@ -57,10 +54,6 @@ public final class KillTypeDefinition {
 
     public String displayName() {
         return displayName;
-    }
-
-    public String format() {
-        return format;
     }
 
     public String formatKey() {
@@ -99,7 +92,6 @@ public final class KillTypeDefinition {
         private String id;
         private int type = -1;
         private String displayName;
-        private String format;
         private String formatKey;
         private String placeholderColorKey;
         private String emphasisColorKey;
@@ -121,11 +113,6 @@ public final class KillTypeDefinition {
 
         public Builder displayName(String v) {
             this.displayName = v;
-            return this;
-        }
-
-        public Builder format(String v) {
-            this.format = v;
             return this;
         }
 
@@ -176,9 +163,9 @@ public final class KillTypeDefinition {
             if (type < 0) {
                 throw new IllegalStateException("KillTypeDefinition[" + id + "]: type is required");
             }
-            if (displayName == null || displayName.isBlank() || format == null || format.isBlank() || formatKey == null || placeholderColorKey == null || emphasisColorKey == null
+            if (displayName == null || displayName.isBlank() || formatKey == null || placeholderColorKey == null || emphasisColorKey == null
                     || textureKey == null || bf1TextureKey == null || scrollingSoundSlotId == null) {
-                throw new IllegalStateException("KillTypeDefinition[" + id + "]: displayName/format/formatKey/colorKeys/textureKeys/soundSlotId are required");
+                throw new IllegalStateException("KillTypeDefinition[" + id + "]: displayName/formatKey/colorKeys/textureKeys/soundSlotId are required");
             }
             return new KillTypeDefinition(this);
         }

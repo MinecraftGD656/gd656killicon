@@ -38,6 +38,10 @@ public class PlayerData {
     @SerializedName("metadata")
     private Map<String, Object> metadata;
 
+    /** 该玩家各 honor 累计获得次数(稀疏, 只存数量非 0 的条目)。 */
+    @SerializedName("honor_counts")
+    private Map<String, Integer> honorCounts;
+
     public PlayerData(UUID uuid) {
         this.uuid = uuid;
         this.score = 0.0f;
@@ -48,6 +52,7 @@ public class PlayerData {
         this.lastLoginName = "";
         this.lastModified = System.currentTimeMillis();
         this.metadata = new HashMap<>();
+        this.honorCounts = new HashMap<>();
     }
 
     public UUID getUUID() {
@@ -188,6 +193,72 @@ public class PlayerData {
 
     public Map<String, Object> getAllMetadata() {
         return this.metadata != null ? new HashMap<>(this.metadata) : new HashMap<>();
+    }
+
+    /** 该玩家某 honor 累计获得次数(未获得过返回 0)。 */
+    public int getHonorCount(String honorId) {
+        if (honorId == null || honorCounts == null) {
+            return 0;
+        }
+        Integer count = honorCounts.get(honorId);
+        return count != null ? count : 0;
+    }
+
+    /** 该玩家各 honor 累计次数(副本; 未记录过返回空 map)。 */
+    public Map<String, Integer> getAllHonorCounts() {
+        return honorCounts != null ? new HashMap<>(honorCounts) : new HashMap<>();
+    }
+
+    /** 是否记录过任何 honor(供 hasTrackedStats 判断, 防止只有 honor 数据的玩家文件被清理)。 */
+    public boolean hasAnyHonor() {
+        return honorCounts != null && !honorCounts.isEmpty();
+    }
+
+    /** 记录一次 honor 获得, 返回该 honor 新的累计次数(只保存数量非 0 的条目)。 */
+    public int addHonor(String honorId) {
+        if (honorId == null || honorId.isBlank()) {
+            return 0;
+        }
+        if (honorCounts == null) {
+            honorCounts = new HashMap<>();
+        }
+        int newCount = honorCounts.merge(honorId, 1, Integer::sum);
+        if (newCount <= 0) {
+            honorCounts.remove(honorId);
+        }
+        this.lastModified = System.currentTimeMillis();
+        return newCount;
+    }
+
+    /** 设置某 honor 获取数量(<=0 视为清零删除), 供指令修改玩家荣誉计数使用。 */
+    public void setHonorCount(String honorId, int count) {
+        if (honorId == null || honorId.isBlank()) {
+            return;
+        }
+        if (honorCounts == null) {
+            honorCounts = new HashMap<>();
+        }
+        if (count <= 0) {
+            honorCounts.remove(honorId);
+        } else {
+            honorCounts.put(honorId, count);
+        }
+        this.lastModified = System.currentTimeMillis();
+    }
+
+    /** 对某 honor 获取数量加值(可为负), 供指令修改玩家荣誉计数使用。 */
+    public void addHonorCount(String honorId, int amount) {
+        if (honorId == null || honorId.isBlank() || amount == 0) {
+            return;
+        }
+        if (honorCounts == null) {
+            honorCounts = new HashMap<>();
+        }
+        int result = honorCounts.merge(honorId, amount, Integer::sum);
+        if (result <= 0) {
+            honorCounts.remove(honorId);
+        }
+        this.lastModified = System.currentTimeMillis();
     }
 
     public String toJson() {

@@ -455,10 +455,10 @@ public class ComboSubtitleRenderer implements IHudRenderer {
             this.colorKillCombo = parseColor(config, "color_kill_combo", 0xFF0000);
             this.colorAssistCombo = parseColor(config, "color_assist_combo", 0xFFD700);
             
-            this.formatKillSingle = getFormat(config, "format_kill_single", "");
-            this.formatKillMulti = getFormat(config, "format_kill_multi", "");
-            this.formatAssistSingle = getFormat(config, "format_assist_single", "");
-            this.formatAssistMulti = getFormat(config, "format_assist_multi", "");
+            this.formatKillSingle = getFormat(config, "format_kill_single", org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/combo", "format_kill_single"));
+            this.formatKillMulti = getFormat(config, "format_kill_multi", org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/combo", "format_kill_multi"));
+            this.formatAssistSingle = getFormat(config, "format_assist_single", org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/combo", "format_assist_single"));
+            this.formatAssistMulti = getFormat(config, "format_assist_multi", org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/combo", "format_assist_multi"));
             
             this.enableAnimation = config.has("enable_animation") ? config.get("enable_animation").getAsBoolean() : true;
             this.enableLightEffect = config.has("enable_light_effect") ? config.get("enable_light_effect").getAsBoolean() : true;

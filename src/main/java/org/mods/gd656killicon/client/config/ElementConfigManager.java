@@ -177,6 +177,11 @@ public class ElementConfigManager {
         if (!PRESETS_DIR.exists()) {
             PRESETS_DIR.mkdirs();
         }
+        // 强制加载全部动态 format 注册表(懒加载类): normalizePresets 依赖完整注册表判定默认键集合,
+        // 必须先于任何配置规范化执行, 否则自定义预设中已注册的动态 format 键会被误判为多余键。
+        org.mods.gd656killicon.common.honor.HonorRegistry.getIds();
+        org.mods.gd656killicon.common.killtype.KillTypeRegistry.getAll();
+        org.mods.gd656killicon.common.bonus.BonusRegistry.getAll();
         File[] existingFiles = PRESETS_DIR.listFiles((dir, name) -> name.endsWith(".json"));
         if (existingFiles == null || existingFiles.length == 0) {
             migrateLegacySingleFile();
@@ -360,9 +365,7 @@ public class ElementConfigManager {
                 continue;
             }
             ElementPreset preset = presetEntry.getValue();
-            java.util.Iterator<Map.Entry<String, JsonObject>> elementIterator = preset.elementConfigs.entrySet().iterator();
-            while (elementIterator.hasNext()) {
-                Map.Entry<String, JsonObject> elementEntry = elementIterator.next();
+            for (Map.Entry<String, JsonObject> elementEntry : preset.elementConfigs.entrySet()) {
                 String elementId = elementEntry.getKey();
                 JsonObject config = elementEntry.getValue();
 
@@ -373,9 +376,7 @@ public class ElementConfigManager {
                 JsonObject safeDefaults = getDefaultElementConfig(presetId, elementId);
                 
                 if (safeDefaults.entrySet().isEmpty()) {
-                    elementIterator.remove();
-                    changed = true;
-                    ClientMessageLogger.chatWarn("gd656killicon.client.config.element.removed_unknown", presetId, elementId);
+                    // 未知元素: 保留玩家数据, 不删除(避免静默丢数据)
                     continue;
                 }
 
@@ -387,16 +388,7 @@ public class ElementConfigManager {
                         ClientMessageLogger.chatWarn("gd656killicon.client.config.element.restored_missing", presetId, elementId, key);
                     }
                 }
-
-                java.util.Iterator<Map.Entry<String, com.google.gson.JsonElement>> configIterator = config.entrySet().iterator();
-                while (configIterator.hasNext()) {
-                    String key = configIterator.next().getKey();
-                    if (!safeDefaults.has(key)) {
-                        configIterator.remove();
-                        changed = true;
-                        ClientMessageLogger.chatWarn("gd656killicon.client.config.element.removed_extra", presetId, elementId, key);
-                    }
-                }
+                // 多余键/孤儿键: 保留(玩家数据不静默丢失), 不做删除
             }
         }
         return changed;
@@ -634,15 +626,26 @@ public class ElementConfigManager {
      * 对于官方预设，这可能是特定的覆盖配置；对于非官方预设，则是全局默认配置。
      */
     public static JsonObject getDefaultElementConfig(String presetId, String elementId) {
-        // 声明式配置注册表: 默认值 = 注册表静态键 + 动态键(官方预设由 jar json 覆盖, 不经过此处)
-        return org.mods.gd656killicon.common.config.ElementConfigRegistry.buildElementDefaults(elementId);
+        // 声明式配置注册表: 默认值 = 注册表静态键 + 动态键, format 键覆盖为当前语言(官方预设由 jar json 覆盖, 不经过此处)
+        return buildLanguageDefaults(elementId);
     }
     
     /**
      * 获取全局默认配置（第一默认配置），用于非官方预设
      */
     public static JsonObject getDefaultElementConfig(String name) {
-        return org.mods.gd656killicon.common.config.ElementConfigRegistry.buildElementDefaults(name);
+        return buildLanguageDefaults(name);
+    }
+
+    /** 注册表默认配置 + format 键覆盖为当前语言(formats json 唯一来源): 新增元素/自定义预设重置时写入语言默认文本。 */
+    private static JsonObject buildLanguageDefaults(String elementId) {
+        JsonObject defaults = org.mods.gd656killicon.common.config.ElementConfigRegistry.buildElementDefaults(elementId);
+        for (String key : defaults.keySet()) {
+            if (key.startsWith("format_") || key.equals("kill_feed_format") || key.equals("best_text_format")) {
+                defaults.addProperty(key, org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault(elementId, key));
+            }
+        }
+        return defaults;
     }
     
     public static void resetConfig() {
@@ -728,27 +731,26 @@ public class ElementConfigManager {
     }
 
     /**
-     * 配置项重置/默认比较的数据源(单行重置按钮与元素级重置专用)：
-     * 官方预设 → 该预设自身 json 数据(预设里存什么, 重置就是什么);
-     * 自定义预设 → 按客户端语言从基准官方预设获取(中文四语言 zh_cn/zh_tw/lzh → 00007, 其它 → 00036);
-     * 元素或键缺失时以注册表默认补齐(保证条目完整)。
+     * 配置项默认/重置值的唯一解析源(单行重置按钮、元素级重置、纹理重置/修改判断统一使用)：
+     * 官方预设 → jar 资源 json 为唯一默认源(预设里存什么, 默认就是什么);
+     *             jar 缺失的元素/键(如玩家在官方预设新增的元素)回落注册表+format json 补齐;
+     * 自定义预设 → 统统注册表默认值 + format json 语言默认(buildLanguageDefaults)。
      */
     public static JsonObject getResetDefaultConfig(String presetId, String elementId) {
-        String sourcePreset = isOfficialPreset(presetId) ? presetId : ClientConfigManager.getInitialPresetByLanguage();
-        JsonObject source;
-        if (isOfficialPreset(presetId)) {
-            // 官方预设的重置/默认值唯一数据源 = jar 资源(玩家 config 文件可能残缺或已修改, 不能作为重置基准)
-            ElementPreset jarPreset = loadOfficialPresetFromJar(presetId);
-            source = jarPreset != null ? jarPreset.getConfig(elementId) : getElementConfig(presetId, elementId);
-        } else {
-            source = getElementConfig(sourcePreset, elementId);
+        JsonObject languageDefaults = getDefaultElementConfig(elementId);
+        if (!isOfficialPreset(presetId)) {
+            return languageDefaults;
         }
-        JsonObject registryDefault = getDefaultElementConfig(presetId, elementId);
-        if (source == null) {
-            return registryDefault;
+        ElementPreset jarPreset = loadOfficialPresetFromJar(presetId);
+        if (jarPreset == null) {
+            return languageDefaults;
         }
-        JsonObject result = source.deepCopy();
-        for (Map.Entry<String, com.google.gson.JsonElement> entry : registryDefault.entrySet()) {
+        JsonObject jarConfig = jarPreset.getConfig(elementId);
+        if (jarConfig == null) {
+            return languageDefaults;
+        }
+        JsonObject result = jarConfig.deepCopy();
+        for (Map.Entry<String, com.google.gson.JsonElement> entry : languageDefaults.entrySet()) {
             if (!result.has(entry.getKey())) {
                 result.add(entry.getKey(), entry.getValue());
             }

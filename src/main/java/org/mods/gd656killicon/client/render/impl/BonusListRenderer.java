@@ -137,7 +137,14 @@ public class BonusListRenderer implements IHudRenderer {
         if (def != null && config != null && config.has(def.formatConfigKey())) {
             configValue = config.get(def.formatConfigKey()).getAsString();
         }
-        return BonusRegistry.resolveFormat(type, configValue);
+        if (def == null) {
+            return "";
+        }
+        // 配置值空/缺键 → 语言默认(统一走 formats json, 注册表 format 硬编码已根除)
+        if (configValue == null || configValue.isEmpty()) {
+            return org.mods.gd656killicon.client.config.FormatDefaultsManager.getDefault("subtitle/bonus_list", def.formatConfigKey());
+        }
+        return configValue;
     }
 
     @Override

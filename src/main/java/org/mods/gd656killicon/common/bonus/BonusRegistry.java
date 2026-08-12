@@ -42,21 +42,18 @@ public final class BonusRegistry {
         }
         BY_ID.put(def.id(), def);
         BY_TYPE.put(def.type(), def);
-        // 声明式配置注册表: 顺带注册该加分项的 format 配置键(默认值 = 注册表 format, 单一来源)
+        // 声明式配置注册表: 顺带注册该加分项的 format 配置键(默认值空, 语言默认由 formats json 提供)
         org.mods.gd656killicon.common.config.ElementConfigRegistry.registerFormatKey(
-                "subtitle/bonus_list", def.formatConfigKey(), def.format());
+                "subtitle/bonus_list", def.formatConfigKey(), "");
         FORMAT_KEY_TO_TYPE.put(def.formatConfigKey(), def.type());
         FORMAT_KEYS.add(def.formatConfigKey());
     }
 
-    /** 定义数据完整性校验：显示名 / 格式必填。 */
+    /** 定义数据完整性校验：显示名必填。 */
     private static void validate() {
         for (BonusDefinition def : BY_ID.values()) {
             if (isBlank(def.displayName())) {
                 throw new IllegalStateException("BonusRegistry[" + def.id() + "]: displayName is required");
-            }
-            if (isBlank(def.format())) {
-                throw new IllegalStateException("BonusRegistry[" + def.id() + "]: format is required");
             }
         }
     }
@@ -103,24 +100,5 @@ public final class BonusRegistry {
     public static String descKey(int type) {
         BonusDefinition def = get(type);
         return def != null ? def.description() : "";
-    }
-
-    /**
-     * format 唯一解析路径（无兜底）：
-     * <pre>
-     * 配置值缺失 / 为空 → 注册表默认（单文本）
-     * 其他               → 玩家自定义文本，原样使用
-     * </pre>
-     * 未注册的加分项返回空串（调用方不显示）。
-     */
-    public static String resolveFormat(int type, String configValue) {
-        BonusDefinition def = get(type);
-        if (def == null) {
-            return "";
-        }
-        if (configValue == null || configValue.isEmpty()) {
-            return def.format();
-        }
-        return configValue;
     }
 }

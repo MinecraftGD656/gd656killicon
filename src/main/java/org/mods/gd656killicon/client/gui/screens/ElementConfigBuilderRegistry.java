@@ -447,21 +447,9 @@ public class ElementConfigBuilderRegistry {
                     }
                 else {
                     // 所见即所得：输入框直接显示 config 中的实际数据（不解析、不转换）
+                    // 默认值统一来自 getResetDefaultConfig: 官方预设 = jar json, 自定义预设 = 注册表+format json
                     String defaultValue = primitive.getAsString();
                     String currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsString() : defaultValue;
-                    // honor 字幕键(format_<honor_id>): 默认值语言驱动(与渲染端 resolveSubtitle 一致)
-                    if (isHonorFormatKey && honorFormatId != null) {
-                        String langFormatKey = org.mods.gd656killicon.common.honor.HonorRegistry.formatLangKey(honorFormatId);
-                        String langFormat = null;
-                        if (org.mods.gd656killicon.client.util.I18nCompat.exists(langFormatKey)) {
-                            String resolved = I18n.get(langFormatKey);
-                            if (resolved != null && !resolved.isEmpty() && !resolved.equals(langFormatKey)) {
-                                langFormat = resolved;
-                            }
-                        }
-                        defaultValue = org.mods.gd656killicon.common.honor.HonorRegistry.resolveFormat(
-                                honorFormatId, null, langFormat);
-                    }
                     final String resolvedDefaultValue = defaultValue;
                     final String resolvedCurrentValue = currentValue;
                     final String resolvedDescription = isFormatConfigKey
