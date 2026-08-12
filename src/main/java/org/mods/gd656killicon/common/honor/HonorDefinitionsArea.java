@@ -236,7 +236,7 @@ public final class HonorDefinitionsArea {
         HonorRegistry.register(new HonorDefinition(
                 "support",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
-                "support_3000_score",
+                "support_1000_score",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
@@ -248,19 +248,19 @@ public final class HonorDefinitionsArea {
         HonorRegistry.register(new HonorDefinition(
                 "recon",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
-                "recon_3000_score",
+                "recon_1000_score",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "assault",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
-                "assault_3000_score",
+                "assault_1000_score",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(
                 "engineer",
                 org.mods.gd656killicon.common.honor.ConditionType.CONDITIONAL,
-                "engineer_3000_score",
+                "engineer_1000_score",
                 30
         ));
         HonorRegistry.register(new HonorDefinition(

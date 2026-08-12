@@ -467,7 +467,7 @@ public final class HonorEngine {
 
     /**
      * 分数获得事件(兵种专家荣誉): 由 ServerData.addScore 挂钩转发。
-     * 需要 GD656Conquest 且玩家为对应兵种; 本次存活(不死亡)累计获得 gdki 分数 ≥ 3000 触发一次, 一条命一次。
+     * 需要 GD656Conquest 且玩家为对应兵种; 本次存活(不死亡)累计获得 gdki 分数 ≥ 1000 触发一次, 一条命一次。
      */
     public void onScoreGain(ServerPlayer player, float amount) {
         if (player == null || amount <= 0) {
@@ -486,7 +486,7 @@ public final class HonorEngine {
             return;
         }
         state.life().addClassScore(honorId, amount);
-        if (state.life().getClassScore(honorId) >= 3000) {
+        if (state.life().getClassScore(honorId) >= 1000) {
             state.life().markAchieved(honorId);
             org.mods.gd656killicon.common.honor.HonorDefinition def =
                     org.mods.gd656killicon.common.honor.HonorRegistry.get(honorId);
@@ -805,9 +805,15 @@ public final class HonorEngine {
     /**
      * 增益击杀事件(荣誉狂战士): 由 BonusEngine.add 在 BUFF_KILL(16, 凭效诛敌)加分项触发时挂钩。
      * 注意与加分项"狂战士"(BERSERKER=27)区分。每次触发(可一命多次)。
+     * 触发条件: 击杀者身上带有速度(MOVEMENT_SPEED)或生命恢复(REGENERATION)效果才算。
      */
     public void onFrenzy(ServerPlayer player) {
         if (player == null) {
+            return;
+        }
+        boolean hasSpeed = player.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED);
+        boolean hasRegen = player.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
+        if (!hasSpeed && !hasRegen) {
             return;
         }
         org.mods.gd656killicon.common.honor.HonorDefinition def =
@@ -1005,21 +1011,29 @@ public final class HonorEngine {
 
     /** 安装了 GD656Conquest 时返回玩家当前兵种 key(如 "support"/"recon"/"assault"/"engineer"), 否则返回 null。 */
     private static String getConquestClassType(ServerPlayer player) {
+        if (player == null || player.server == null) {
+            return null;
+        }
         try {
-            if (!conquestClassChecked) {
+            if (!conquestClassReady && !conquestClassChecked) {
                 conquestClassChecked = true;
                 if (net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest")) {
-                    Class<?> dataManager = Class.forName("org.mods.gd656conquest.server.data.ConquestDataManager");
-                    conquestClassOfMethod = dataManager.getMethod("of", net.minecraft.server.MinecraftServer.class);
-                    conquestClassPlayerDataMethod = dataManager.getMethod("playerData");
-                    Class<?> store = Class.forName("org.mods.gd656conquest.server.data.playerdata.PlayerDataStore");
-                    conquestClassGetPlayerDataMethod = store.getMethod("getPlayerData", java.util.UUID.class);
-                    Class<?> model = Class.forName("org.mods.gd656conquest.server.data.playerdata.PlayerDataModel");
-                    conquestClassGetClassTypeMethod = model.getMethod("getCurrentClassType");
-                    conquestClassReady = true;
+                    try {
+                        Class<?> dataManager = Class.forName("org.mods.gd656conquest.server.data.ConquestDataManager");
+                        conquestClassOfMethod = dataManager.getMethod("of", net.minecraft.server.MinecraftServer.class);
+                        conquestClassPlayerDataMethod = dataManager.getMethod("playerData");
+                        Class<?> store = Class.forName("org.mods.gd656conquest.server.data.playerdata.PlayerDataStore");
+                        conquestClassGetPlayerDataMethod = store.getMethod("getPlayerData", java.util.UUID.class);
+                        Class<?> model = Class.forName("org.mods.gd656conquest.server.data.playerdata.PlayerDataModel");
+                        conquestClassGetClassTypeMethod = model.getMethod("getCurrentClassType");
+                        conquestClassReady = true;
+                    } catch (Exception initFailure) {
+                        // 反射初始化失败: 不永久缓存失败(下次调用重试, 可能 Conquest 尚未就绪)
+                        conquestClassChecked = false;
+                    }
                 }
             }
-            if (!conquestClassReady || player == null || player.server == null) {
+            if (!conquestClassReady) {
                 return null;
             }
             Object dataManager = conquestClassOfMethod.invoke(null, player.server);
