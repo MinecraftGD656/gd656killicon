@@ -308,18 +308,18 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (promptDialog.isVisible()) {
-            return promptDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return promptDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (textInputDialog.isVisible()) {
-            return textInputDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return textInputDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (colorPickerDialog.isVisible()) {
-            return colorPickerDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return colorPickerDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (choiceListDialog.isVisible()) {
-            return choiceListDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return choiceListDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         int panelIndex = findPanelAt(mouseX, mouseY);
         if (panelIndex >= 0) {
@@ -332,7 +332,6 @@ public class ScoreboardTab extends ConfigTabContent {
         }
         return false;
     }
-
     @Override
     protected void updateScroll(float dt, int screenHeight) {
         for (int i = 0; i < 4; i++) {
@@ -1558,19 +1557,9 @@ public class ScoreboardTab extends ConfigTabContent {
             net.minecraft.world.scores.Objective objective = scoreboard.getObjective(GLOBAL_SCORE_OBJECTIVE);
             if (objective != null) {
                 try {
-                    Object scoreAccess = scoreboard.getOrCreatePlayerScore(net.minecraft.world.scores.ScoreHolder.forNameOnly(minecraft.player.getScoreboardName()), objective);
-                    try {
-                        int score = ((Number) scoreAccess.getClass().getMethod("get").invoke(scoreAccess)).intValue();
-                        lastKnownGlobalScore = score;
-                        return score;
-                    } catch (Exception ignored) {
-                    }
-                    try {
-                        int score = ((Number) scoreAccess.getClass().getMethod("getScore").invoke(scoreAccess)).intValue();
-                        lastKnownGlobalScore = score;
-                        return score;
-                    } catch (Exception ignored) {
-                    }
+                    int score = scoreboard.getOrCreatePlayerScore(minecraft.player.getScoreboardName(), objective).getScore();
+                    lastKnownGlobalScore = score;
+                    return score;
                 } catch (Exception ignored) {
                 }
             }

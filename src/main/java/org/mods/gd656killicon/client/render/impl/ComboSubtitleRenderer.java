@@ -408,7 +408,8 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
         
-        com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
+        com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.getBuilder();
+        buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
         
         float halfHeight = (float)this.lightHeight / 2.0f;
         float yOffset = 1.0f;
@@ -419,19 +420,17 @@ public class ComboSubtitleRenderer implements IHudRenderer {
         int aCenter = (int)(200 * baseAlpha); 
         int aEdge = 0; 
         
-        buffer.addVertex(poseStack.last().pose(), 0, -halfHeight + yOffset, 0).setColor(r, g, b, aCenter);
-        buffer.addVertex(poseStack.last().pose(), -currentScanX, -halfHeight + yOffset, 0).setColor(r, g, b, aEdge);
-        buffer.addVertex(poseStack.last().pose(), -currentScanX, halfHeight + yOffset, 0).setColor(r, g, b, aEdge);
-        buffer.addVertex(poseStack.last().pose(), 0, halfHeight + yOffset, 0).setColor(r, g, b, aCenter);
+        buffer.vertex(poseStack.last().pose(), 0, -halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
+        buffer.vertex(poseStack.last().pose(), -currentScanX, -halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
+        buffer.vertex(poseStack.last().pose(), -currentScanX, halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
+        buffer.vertex(poseStack.last().pose(), 0, halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
         
-        buffer.addVertex(poseStack.last().pose(), currentScanX, -halfHeight + yOffset, 0).setColor(r, g, b, aEdge);
-        buffer.addVertex(poseStack.last().pose(), 0, -halfHeight + yOffset, 0).setColor(r, g, b, aCenter);
-        buffer.addVertex(poseStack.last().pose(), 0, halfHeight + yOffset, 0).setColor(r, g, b, aCenter);
-        buffer.addVertex(poseStack.last().pose(), currentScanX, halfHeight + yOffset, 0).setColor(r, g, b, aEdge);
+        buffer.vertex(poseStack.last().pose(), currentScanX, -halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
+        buffer.vertex(poseStack.last().pose(), 0, -halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
+        buffer.vertex(poseStack.last().pose(), 0, halfHeight + yOffset, 0).color(r, g, b, aCenter).endVertex();
+        buffer.vertex(poseStack.last().pose(), currentScanX, halfHeight + yOffset, 0).color(r, g, b, aEdge).endVertex();
         
-        try (com.mojang.blaze3d.vertex.MeshData mesh = buffer.build()) {
-            com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
-        }
+        com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(buffer.end());
     }
     
     private static final class RenderState {

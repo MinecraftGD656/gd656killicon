@@ -127,14 +127,13 @@ public class ConfirmDialog {
         return true;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         return visible;
     }
 
     public boolean charTyped(char codePoint, int modifiers) {
         return visible;
     }
-
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!visible) return false;
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {

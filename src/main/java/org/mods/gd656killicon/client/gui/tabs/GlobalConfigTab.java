@@ -228,13 +228,12 @@ public class GlobalConfigTab extends ConfigTabContent {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (aceLagConfirmDialog != null && aceLagConfirmDialog.isVisible()) {
-            return aceLagConfirmDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return aceLagConfirmDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
-        return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (aceLagConfirmDialog != null && aceLagConfirmDialog.isVisible()) {
@@ -279,7 +278,7 @@ public class GlobalConfigTab extends ConfigTabContent {
             if (!state.canOcclude() || !state.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
                 continue;
             }
-            ResourceLocation textureLocation = ResourceLocation.fromNamespaceAndPath(key.getNamespace(), "textures/block/" + key.getPath() + ".png");
+            ResourceLocation textureLocation = new ResourceLocation(key.getNamespace(), "textures/block/" + key.getPath() + ".png");
             if (minecraft.getResourceManager().getResource(textureLocation).isEmpty()) {
                 continue;
             }

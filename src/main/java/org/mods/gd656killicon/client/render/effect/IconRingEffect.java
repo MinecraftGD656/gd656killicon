@@ -145,7 +145,8 @@ public final class IconRingEffect {
         Tesselator tesselator = Tesselator.getInstance();
 
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tesselator.getBuilder();
+        builder.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
         for (int i = 0; i <= SEGMENTS; i++) {
             float angle = (float) (Math.PI * 2.0 * i / SEGMENTS);
             float cos = Mth.cos(angle);
@@ -156,11 +157,9 @@ public final class IconRingEffect {
             float xi = centerX + cos * rInner;
             float yi = centerY + sin * rInner;
 
-            builder.addVertex(matrix, xo, yo, 0.0f).setColor(red, green, blue, a);
-            builder.addVertex(matrix, xi, yi, 0.0f).setColor(red, green, blue, a);
+            builder.vertex(matrix, xo, yo, 0.0f).color(red, green, blue, a).endVertex();
+            builder.vertex(matrix, xi, yi, 0.0f).color(red, green, blue, a).endVertex();
         }
-        try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        BufferUploader.drawWithShader(builder.end());
     }
 }

@@ -5,7 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.StringUtil;
+import net.minecraft.SharedConstants;
 import org.lwjgl.glfw.GLFW;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 
@@ -113,19 +113,18 @@ public class PromptTextInputDialog {
         return true;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         return visible;
     }
 
     public boolean charTyped(char codePoint, int modifiers) {
         if (!visible) return false;
         
-        if (StringUtil.isAllowedChatCharacter(codePoint)) {
+        if (SharedConstants.isAllowedChatCharacter(codePoint)) {
             replaceSelection(String.valueOf(codePoint));
             return true;
         }
         return true;     }
-    
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!visible) return false;
         boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;

@@ -3,7 +3,9 @@ package org.mods.gd656killicon.server.logic.superbwarfare;
 import com.atsuishio.superbwarfare.api.event.ProjectileHitEvent;
 import com.atsuishio.superbwarfare.api.event.ReloadEvent;
 import com.atsuishio.superbwarfare.api.event.ShootEvent;
-import com.atsuishio.superbwarfare.api.event.SuperbWarfareEvents;
+import com.atsuishio.superbwarfare.event.custom.ProjectileHitCallback;
+import com.atsuishio.superbwarfare.event.custom.ReloadCallback;
+import com.atsuishio.superbwarfare.event.custom.ShootCallback;
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import com.atsuishio.superbwarfare.item.gun.special.RepairToolItem;
 import com.atsuishio.superbwarfare.tools.DamageTypeTool;
@@ -54,10 +56,10 @@ public class SuperbWarfareEventHandler implements ISuperbWarfareHandler {
     @Override
     public void init() {
         ACTIVE_INSTANCE = this;
-        SuperbWarfareEvents.register(ProjectileHitEvent.HitEntity.class, this::onProjectileHitEntity);
-        SuperbWarfareEvents.register(ProjectileHitEvent.HitBlock.class, this::onProjectileHitBlock);
-        SuperbWarfareEvents.register(ReloadEvent.Post.class, this::onReload);
-        SuperbWarfareEvents.register(ShootEvent.Post.class, this::onShootRepair);
+        ProjectileHitCallback.HIT_ENTITY.register(this::onProjectileHitEntity);
+        ProjectileHitCallback.HIT_BLOCK.register(this::onProjectileHitBlock);
+        ReloadCallback.POST.register(this::onReload);
+        ShootCallback.POST.register(this::onShootRepair);
         EntityEvent.ADD.register(this::onVehicleJoinLevel);
         ServerEntityEvents.ENTITY_UNLOAD.register(this::onMineEntityLeave);
         ServerEntityEvents.ENTITY_UNLOAD.register(this::onVehicleLeaveLevel);

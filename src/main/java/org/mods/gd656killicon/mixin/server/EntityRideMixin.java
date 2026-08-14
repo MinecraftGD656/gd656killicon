@@ -14,8 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(Entity.class)
 public abstract class EntityRideMixin {
-    @Inject(method = "startRiding", at = @At("RETURN"))
-    private void gd656killicon$onStartRiding(Entity vehicle, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "startRiding(Lnet/minecraft/world/entity/Entity;Z)Z", at = @At("RETURN"))
+    private void gd656killicon$onStartRiding(Entity vehicle, boolean force, CallbackInfoReturnable<Boolean> cir) {
         if (!cir.getReturnValue()) {
             return;
         }

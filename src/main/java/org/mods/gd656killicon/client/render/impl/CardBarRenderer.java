@@ -359,7 +359,8 @@ public class CardBarRenderer implements IHudRenderer {
         com.mojang.blaze3d.vertex.Tesselator tesselator = com.mojang.blaze3d.vertex.Tesselator.getInstance();
         
         RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
-        com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLE_STRIP, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
+        com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.getBuilder();
+        buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLE_STRIP, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
         
         
         int segments = 50;
@@ -376,13 +377,11 @@ public class CardBarRenderer implements IHudRenderer {
             
             int a = (int) (alphaVal * 255 * alphaMultiplier);
             
-            buffer.addVertex(guiGraphics.pose().last().pose(), x, -halfHeight, 0).setColor(r, g, b, a);
-            buffer.addVertex(guiGraphics.pose().last().pose(), x, halfHeight, 0).setColor(r, g, b, a);
+            buffer.vertex(guiGraphics.pose().last().pose(), x, -halfHeight, 0).color(r, g, b, a).endVertex();
+            buffer.vertex(guiGraphics.pose().last().pose(), x, halfHeight, 0).color(r, g, b, a).endVertex();
         }
         
-        try (com.mojang.blaze3d.vertex.MeshData mesh = buffer.build()) {
-            com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
-        }
+        com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(buffer.end());
     }
 
     private int parseColor(String hex) {
@@ -529,7 +528,8 @@ public class CardBarRenderer implements IHudRenderer {
             RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
             RenderSystem.disableDepthTest(); 
             
-            com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
+            com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.getBuilder();
+            buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
             
             for (float x = -halfWidth; x <= halfWidth; x += 1.0f) {
                 float distFromCenter = Math.abs(x);
@@ -573,26 +573,24 @@ public class CardBarRenderer implements IHudRenderer {
                 float xLeft = x;
                 float xRight = x + 1.0f;
                 
-                buffer.addVertex(guiGraphics.pose().last().pose(), xRight, yBottom, 0).setColor(r, g, b, aBottom);
-                buffer.addVertex(guiGraphics.pose().last().pose(), xRight, yTop, 0).setColor(r, g, b, aTop);
-                buffer.addVertex(guiGraphics.pose().last().pose(), xLeft, yTop, 0).setColor(r, g, b, aTop);
-                buffer.addVertex(guiGraphics.pose().last().pose(), xLeft, yBottom, 0).setColor(r, g, b, aBottom);
+                buffer.vertex(guiGraphics.pose().last().pose(), xRight, yBottom, 0).color(r, g, b, aBottom).endVertex();
+                buffer.vertex(guiGraphics.pose().last().pose(), xRight, yTop, 0).color(r, g, b, aTop).endVertex();
+                buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yTop, 0).color(r, g, b, aTop).endVertex();
+                buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yBottom, 0).color(r, g, b, aBottom).endVertex();
                 
                 if (flashAlpha > 0.01f) {
                     int faBottom = (int) (finalAlpha * flashAlpha * 255);
                     int faTop = 0;
                     if (faBottom > 0) {
-                        buffer.addVertex(guiGraphics.pose().last().pose(), xRight, yBottom, 0).setColor(fr, fg, fb, faBottom);
-                        buffer.addVertex(guiGraphics.pose().last().pose(), xRight, yTop, 0).setColor(fr, fg, fb, faTop);
-                        buffer.addVertex(guiGraphics.pose().last().pose(), xLeft, yTop, 0).setColor(fr, fg, fb, faTop);
-                        buffer.addVertex(guiGraphics.pose().last().pose(), xLeft, yBottom, 0).setColor(fr, fg, fb, faBottom);
+                        buffer.vertex(guiGraphics.pose().last().pose(), xRight, yBottom, 0).color(fr, fg, fb, faBottom).endVertex();
+                        buffer.vertex(guiGraphics.pose().last().pose(), xRight, yTop, 0).color(fr, fg, fb, faTop).endVertex();
+                        buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yTop, 0).color(fr, fg, fb, faTop).endVertex();
+                        buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yBottom, 0).color(fr, fg, fb, faBottom).endVertex();
                     }
                 }
             }
             
-            try (com.mojang.blaze3d.vertex.MeshData mesh = buffer.build()) {
-                com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
-            }
+            com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(buffer.end());
             RenderSystem.enableDepthTest();         }
 
         private int parseColor(String hex) {

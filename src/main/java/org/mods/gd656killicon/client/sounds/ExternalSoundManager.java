@@ -832,7 +832,7 @@ public class ExternalSoundManager {
                 Files.deleteIfExists(presetDir.resolve(baseName + ".ogg"));
                 Files.deleteIfExists(presetDir.resolve(baseName + ".wav"));
                 
-                ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+                ResourceLocation resourceLocation = new ResourceLocation(Gd656killicon.MODID, "sounds/" + soundName);
                 try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                     Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
                 } catch (Exception e) {
@@ -1193,7 +1193,7 @@ public class ExternalSoundManager {
         }
         byte[] bytes = null;
         try {
-            ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+            ResourceLocation resourceLocation = new ResourceLocation(Gd656killicon.MODID, "sounds/" + soundName);
             try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                 bytes = stream.readAllBytes();
             }
@@ -1512,7 +1512,7 @@ public class ExternalSoundManager {
                 String baseName = resolveBaseName(soundName);
                 Path targetPath = COMMON_SOUNDS_DIR.resolve(baseName + ".ogg");
                 if (forceReset || !Files.exists(targetPath)) {
-                    ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+                    ResourceLocation resourceLocation = new ResourceLocation(Gd656killicon.MODID, "sounds/" + soundName);
                     try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                         Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
                     } catch (Exception e) {

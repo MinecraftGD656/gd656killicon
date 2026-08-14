@@ -767,20 +767,19 @@ public class ValorantIconRenderer implements IHudRenderer {
 
         Matrix4f matrix = guiGraphics.pose().last().pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tesselator.getBuilder();
+        builder.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
 
         for (int index = 1; index < xs.length - 1; index++) {
-            builder.addVertex(matrix, xs[0], ys[0], 0.0f).setColor(red, green, blue, a);
-            builder.addVertex(matrix, xs[index], ys[index], 0.0f).setColor(red, green, blue, a);
-            builder.addVertex(matrix, xs[index + 1], ys[index + 1], 0.0f).setColor(red, green, blue, a);
+            builder.vertex(matrix, xs[0], ys[0], 0.0f).color(red, green, blue, a).endVertex();
+            builder.vertex(matrix, xs[index], ys[index], 0.0f).color(red, green, blue, a).endVertex();
+            builder.vertex(matrix, xs[index + 1], ys[index + 1], 0.0f).color(red, green, blue, a).endVertex();
         }
-        try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        BufferUploader.drawWithShader(builder.end());
     }
 
     private int resolveAccentColor() {
@@ -848,7 +847,8 @@ public class ValorantIconRenderer implements IHudRenderer {
 
         Matrix4f matrix = guiGraphics.pose().last().pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tesselator.getBuilder();
+        builder.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
@@ -866,12 +866,10 @@ public class ValorantIconRenderer implements IHudRenderer {
             float innerAlphaFactor = Mth.clamp((maxY - yi) / yRange, 0.0f, 1.0f);
             int ao = Mth.clamp((int)(focusAlpha * outerAlphaFactor * 255.0f), 0, 255);
             int ai = Mth.clamp((int)(focusAlpha * innerAlphaFactor * 255.0f), 0, 255);
-            builder.addVertex(matrix, xo, yo, 0.0f).setColor(red, green, blue, ao);
-            builder.addVertex(matrix, xi, yi, 0.0f).setColor(red, green, blue, ai);
+            builder.vertex(matrix, xo, yo, 0.0f).color(red, green, blue, ao).endVertex();
+            builder.vertex(matrix, xi, yi, 0.0f).color(red, green, blue, ai).endVertex();
         }
-        try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        BufferUploader.drawWithShader(builder.end());
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
@@ -1342,20 +1340,19 @@ public class ValorantIconRenderer implements IHudRenderer {
 
         Matrix4f matrix = guiGraphics.pose().last().pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+        BufferBuilder builder = tesselator.getBuilder();
+        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.setShaderTexture(0, texture);
         RenderSystem.setShaderColor(red, green, blue, alpha);
 
-        builder.addVertex(matrix, x0, y1, 0.0f).setUv(u0, v1);
-        builder.addVertex(matrix, x1, y1, 0.0f).setUv(u1, v1);
-        builder.addVertex(matrix, x1, y0, 0.0f).setUv(u1, v0);
-        builder.addVertex(matrix, x0, y0, 0.0f).setUv(u0, v0);
-        try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        builder.vertex(matrix, x0, y1, 0.0f).uv(u0, v1).endVertex();
+        builder.vertex(matrix, x1, y1, 0.0f).uv(u1, v1).endVertex();
+        builder.vertex(matrix, x1, y0, 0.0f).uv(u1, v0).endVertex();
+        builder.vertex(matrix, x0, y0, 0.0f).uv(u0, v0).endVertex();
+        BufferUploader.drawWithShader(builder.end());
     }
 
     private void renderBarRing(

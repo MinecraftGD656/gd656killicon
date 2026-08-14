@@ -320,7 +320,7 @@ public class ChoiceListDialog {
         return false;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (!visible) return false;
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
@@ -341,14 +341,13 @@ public class ChoiceListDialog {
     public boolean charTyped(char codePoint, int modifiers) {
         if (!visible) return false;
 
-        if (net.minecraft.util.StringUtil.isAllowedChatCharacter(codePoint)) {
+        if (net.minecraft.SharedConstants.isAllowedChatCharacter(codePoint)) {
             replaceSelection(String.valueOf(codePoint));
             applyFilter();
             return true;
         }
         return false;
     }
-
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!visible) return false;
         boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;

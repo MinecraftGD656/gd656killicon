@@ -2193,9 +2193,9 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (promptDialog.isVisible()) {
-            return promptDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return promptDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (textInputDialog.isVisible()) {
             return true;         }
@@ -2225,9 +2225,8 @@ public class PresetConfigTab extends ConfigTabContent {
              return true;
         }
         
-        return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-    
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (promptDialog.isVisible()) {

@@ -767,9 +767,9 @@ public final class ServerCombatEngine {
     }
 
     private static void awardBuffDebuffKills(ServerPlayer player) {
-        boolean hasPositive = player.getActiveEffects().stream().anyMatch(e -> e.getEffect().value().isBeneficial());
+        boolean hasPositive = player.getActiveEffects().stream().anyMatch(e -> e.getEffect().isBeneficial());
         boolean hasNegativeExcludingSpecial = player.getActiveEffects().stream().anyMatch(e -> {
-            net.minecraft.world.effect.MobEffect effect = e.getEffect().value();
+            net.minecraft.world.effect.MobEffect effect = e.getEffect();
             if (effect.isBeneficial()) return false;
             if (effect == MobEffects.BLINDNESS || effect == MobEffects.CONFUSION) return false;
             var key = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getKey(effect);
@@ -798,7 +798,9 @@ public final class ServerCombatEngine {
     private static boolean checkBlinded(LivingEntity entity) {
         if (entity.hasEffect(MobEffects.BLINDNESS) || entity.hasEffect(MobEffects.CONFUSION) || entity.hasEffect(MobEffects.DARKNESS)) return true;
         try {
-            net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> blinded = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getHolder(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("lrtactical", "blinded")).orElse(null);
+            net.minecraft.world.effect.MobEffect blinded = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT
+                    .getOptional(new net.minecraft.resources.ResourceLocation("lrtactical", "blinded"))
+                    .orElse(null);
             return blinded != null && entity.hasEffect(blinded);
         } catch (Exception ignored) {
         }
@@ -1221,9 +1223,9 @@ public final class ServerCombatEngine {
      */
     private static boolean isLrBlinded(net.minecraft.world.entity.LivingEntity victim) {
         try {
-            net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> blinded =
-                    net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getHolder(
-                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("lrtactical", "blinded")).orElse(null);
+            net.minecraft.world.effect.MobEffect blinded = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT
+                    .getOptional(new net.minecraft.resources.ResourceLocation("lrtactical", "blinded"))
+                    .orElse(null);
             return blinded != null && victim.hasEffect(blinded);
         } catch (Exception e) {
             return false;

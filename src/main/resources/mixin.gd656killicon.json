@@ -2,7 +2,7 @@
   "required": false,
   "minVersion": "0.8",
   "package": "org.mods.gd656killicon.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "refmap": "mixin.gd656killicon.refmap.json",
   "mixins": [
     "superbwarfare.VehicleEntityMixin",

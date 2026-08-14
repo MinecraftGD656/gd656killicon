@@ -271,23 +271,22 @@ public class ColorPickerDialog {
         
         Matrix4f matrix = guiGraphics.pose().last().pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder bufferbuilder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder bufferbuilder = tesselator.getBuilder();
+        bufferbuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         
-        bufferbuilder.addVertex(matrix, x, y + h, 0).setColor(0, 0, 0, 255);
+        bufferbuilder.vertex(matrix, x, y + h, 0).color(0, 0, 0, 255).endVertex();
         
-        bufferbuilder.addVertex(matrix, x + w, y + h, 0).setColor(0, 0, 0, 255);
+        bufferbuilder.vertex(matrix, x + w, y + h, 0).color(0, 0, 0, 255).endVertex();
         
-        bufferbuilder.addVertex(matrix, x + w, y, 0).setColor(r, g, b, 255);
+        bufferbuilder.vertex(matrix, x + w, y, 0).color(r, g, b, 255).endVertex();
         
-        bufferbuilder.addVertex(matrix, x, y, 0).setColor(255, 255, 255, 255);
+        bufferbuilder.vertex(matrix, x, y, 0).color(255, 255, 255, 255).endVertex();
         
-        try (com.mojang.blaze3d.vertex.MeshData mesh = bufferbuilder.build()) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        BufferUploader.drawWithShader(bufferbuilder.end());
         RenderSystem.disableBlend();
     }
     
@@ -375,7 +374,7 @@ public class ColorPickerDialog {
         return false;
     }
     
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         return visible;
     }
     

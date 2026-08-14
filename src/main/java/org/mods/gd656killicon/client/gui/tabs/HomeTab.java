@@ -28,8 +28,8 @@ public class HomeTab extends ConfigTabContent {
     
     private long lastFrameTime = 0;
 
-    private static final ResourceLocation ICON_NORMAL = ResourceLocation.fromNamespaceAndPath("gd656killicon", "icon/gd656killicon_icon.png");
-    private static final ResourceLocation ICON_RARE = ResourceLocation.fromNamespaceAndPath("gd656killicon", "icon/gd656killicon_656de_shuai_zhao.png");
+    private static final ResourceLocation ICON_NORMAL = new ResourceLocation("gd656killicon", "icon/gd656killicon_icon.png");
+    private static final ResourceLocation ICON_RARE = new ResourceLocation("gd656killicon", "icon/gd656killicon_656de_shuai_zhao.png");
     private ResourceLocation currentIcon = ICON_NORMAL;
     private int versionColor = GuiConstants.COLOR_WHITE;
     private GDRowRenderer linksRowRenderer;     private final List<GDRowRenderer.Column> linkHoverColumns = new ArrayList<>();
@@ -391,14 +391,13 @@ public class HomeTab extends ConfigTabContent {
     }
     
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (mouseX >= area3X1 && mouseX <= area3X2 && mouseY >= area3Y1 && mouseY <= area3Y2) {
             targetScrollY3 -= amountY * GuiConstants.SCROLL_AMOUNT;
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-
     private static class ModStatus {
         final String nameKey;
         final String modId;

@@ -640,7 +640,7 @@ public class PlayerDataManager {
                     data.getDeath(),
                     data.getAssist(),
                     data.getRevive(),
-                    isOnline ? onlinePlayer.connection.latency() : -1,
+                    isOnline ? onlinePlayer.latency : -1,
                     isOnline,
                     isOnline && onlinePlayer.isSpectator()                 ));
             }

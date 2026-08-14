@@ -627,7 +627,7 @@ public class ElementConfigContent extends ConfigTabContent {
     protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         if (!configRows.isEmpty()) {
             if (useDefaultScroll) {
-                float dt = minecraft.getTimer().getGameTimeDeltaPartialTick(true) / 20.0f;
+                float dt = minecraft.getDeltaFrameTime() / 20.0f;
 
                 if (isDragging) {
                     double diff = mouseY - lastMouseY;
@@ -1435,22 +1435,21 @@ public class ElementConfigContent extends ConfigTabContent {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
-            return textureResetDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return textureResetDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (textureBindingDialog != null && textureBindingDialog.isVisible()) {
-            return textureBindingDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return textureBindingDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (promptDialog.isVisible()) {
-            return promptDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return promptDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (handleSecondaryTabScroll(mouseX, mouseY, amountY)) {
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {

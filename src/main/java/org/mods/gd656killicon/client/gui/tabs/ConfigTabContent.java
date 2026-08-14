@@ -495,18 +495,18 @@ public abstract class ConfigTabContent {
         return false;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (promptDialog.isVisible()) {
-            return promptDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return promptDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (textInputDialog.isVisible()) {
-            return textInputDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return textInputDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (colorPickerDialog.isVisible()) {
-            return colorPickerDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return colorPickerDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (choiceListDialog.isVisible()) {
-            return choiceListDialog.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return choiceListDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
 
         if (useDefaultScroll) {
@@ -519,7 +519,6 @@ public abstract class ConfigTabContent {
         }
         return false;
     }
-
     public boolean charTyped(char codePoint, int modifiers) {
         if (promptDialog.isVisible()) {
             return promptDialog.charTyped(codePoint, modifiers);

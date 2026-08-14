@@ -103,7 +103,7 @@ public class TextInputDialog {
     /**
      * Consumes scroll events to prevent background scrolling
      */
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         return visible;
     }
 
@@ -215,7 +215,6 @@ public class TextInputDialog {
         
         guiGraphics.pose().popPose();
     }
-    
     private void renderHoverTrail(GuiGraphics guiGraphics, int x, int y, int w, int h) {
         if (hoverProgress <= 0.001f) return;
         
@@ -302,7 +301,7 @@ public class TextInputDialog {
     public boolean charTyped(char codePoint, int modifiers) {
         if (!visible) return false;
         
-        if (net.minecraft.util.StringUtil.isAllowedChatCharacter(codePoint)) {
+        if (net.minecraft.SharedConstants.isAllowedChatCharacter(codePoint)) {
             replaceSelection(String.valueOf(codePoint));
             return true;
         }

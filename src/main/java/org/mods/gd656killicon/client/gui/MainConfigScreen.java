@@ -20,7 +20,7 @@ import java.net.URI;
 
 public class MainConfigScreen extends Screen {
     private final Screen parent;
-    private static final ResourceLocation BACKGROUND_TEXTURE = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/block/gilded_blackstone.png");
+    private static final ResourceLocation BACKGROUND_TEXTURE = new ResourceLocation("minecraft", "textures/block/gilded_blackstone.png");
     private final ConfigScreenHeader header;
     private boolean quickScoreboardMode = false;
     
@@ -211,7 +211,7 @@ public class MainConfigScreen extends Screen {
      * 模糊链每帧重跑会导致“后面的世界/背景”闪烁。这里对齐 1.20.1 Forge 行为：只用渐变遮罩。
      */
     @Override
-    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void renderBackground(GuiGraphics guiGraphics) {
         if (minecraft != null && minecraft.level != null) {
             guiGraphics.fillGradient(0, 0, this.width, this.height, GuiConstants.COLOR_SCREEN_DIM_TOP, GuiConstants.COLOR_SCREEN_DIM_BOTTOM);
         } else {
@@ -222,7 +222,7 @@ public class MainConfigScreen extends Screen {
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (showExitConfirmation) {
-            renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+            renderBackground(guiGraphics);
             
             int textHeight = font.lineHeight;
             int gap = 5;
@@ -237,7 +237,7 @@ public class MainConfigScreen extends Screen {
             return;
         }
 
-        renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        renderBackground(guiGraphics);
         
         header.render(guiGraphics, width, mouseX, mouseY, partialTick);
         
@@ -314,26 +314,25 @@ public class MainConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (showExitConfirmation) {
-            return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
+            return super.mouseScrolled(mouseX, mouseY, amountY);
         }
         ConfigTabContent activeTab = header.getSelectedTabContent();
         if (activeTab instanceof org.mods.gd656killicon.client.gui.tabs.ElementConfigContent elementContent
             && elementContent.isMouseInSecondaryTabArea(mouseX, mouseY)) {
-            if (activeTab.mouseScrolled(mouseX, mouseY, amountX, amountY)) {
+            if (activeTab.mouseScrolled(mouseX, mouseY, amountY)) {
                 return true;
             }
         }
-        if (header.mouseScrolled(mouseX, mouseY, amountX, amountY)) {
+        if (header.mouseScrolled(mouseX, mouseY, amountY)) {
             return true;
         }
-        if (activeTab != null && activeTab.mouseScrolled(mouseX, mouseY, amountX, amountY)) {
+        if (activeTab != null && activeTab.mouseScrolled(mouseX, mouseY, amountY)) {
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (showExitConfirmation) {
@@ -388,7 +387,7 @@ public class MainConfigScreen extends Screen {
         if (split.length != 2 || split[0].isEmpty() || split[1].isEmpty()) {
             return BACKGROUND_TEXTURE;
         }
-        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath(split[0], "textures/block/" + split[1] + ".png");
+        ResourceLocation texture = new ResourceLocation(split[0], "textures/block/" + split[1] + ".png");
         if (minecraft == null || minecraft.getResourceManager().getResource(texture).isEmpty()) {
             return BACKGROUND_TEXTURE;
         }

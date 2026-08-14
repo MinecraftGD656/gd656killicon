@@ -125,7 +125,7 @@ public class ConfigScreenHeader {
         return false;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (mouseX > splitPoint && mouseY <= HEADER_HEIGHT + HEADER_SCROLL_ZONE) {
             targetScrollX -= amountY * SCROLL_AMOUNT;
             clampScroll();
@@ -140,14 +140,13 @@ public class ConfigScreenHeader {
             scrollX = targetScrollX;
         }
     }
-
     public void render(GuiGraphics guiGraphics, int screenWidth, int mouseX, int mouseY, float partialTick) {
         long now = System.currentTimeMillis();
         float dt = (now - lastRenderTime) / 1000.0f;
         lastRenderTime = now;
         
         ConfigTabContent activeTab = getSelectedTabContent();
-        int screenHeight = guiGraphics.guiHeight();
+        int screenHeight = minecraft.getWindow().getGuiScaledHeight();
         if (activeTab != null) {
             activeTab.updateLayout(screenWidth, screenHeight);
         }

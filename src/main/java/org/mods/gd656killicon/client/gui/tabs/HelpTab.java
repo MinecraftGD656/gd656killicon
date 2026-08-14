@@ -433,7 +433,7 @@ public class HelpTab extends ConfigTabContent {
     }
     
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (mouseX >= area2X1 && mouseX <= area2X2 && mouseY >= area2Y1 && mouseY <= area2Y2) {
             targetScrollY -= amountY * GuiConstants.SCROLL_AMOUNT;
             return true;
@@ -468,7 +468,6 @@ public class HelpTab extends ConfigTabContent {
         
         return super.mouseClicked(mouseX, mouseY, button);
     }
-
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         isDragging = false;

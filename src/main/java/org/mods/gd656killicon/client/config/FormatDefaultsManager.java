@@ -79,7 +79,7 @@ public final class FormatDefaultsManager {
     /** 从 jar 资源加载某语言 format json(元素分组); 加载失败返回空表。 */
     private static Map<String, Map<String, String>> load(String language) {
         try {
-            ResourceLocation location = ResourceLocation.fromNamespaceAndPath("gd656killicon", FORMATS_PATH_PREFIX + language + ".json");
+            ResourceLocation location = new ResourceLocation("gd656killicon", FORMATS_PATH_PREFIX + language + ".json");
             var resourceOptional = net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(location);
             if (resourceOptional.isEmpty()) {
                 return Map.of();

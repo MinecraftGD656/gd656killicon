@@ -5,7 +5,6 @@ import dev.architectury.event.events.client.ClientGuiEvent;
 import dev.architectury.event.events.client.ClientPlayerEvent;
 import dev.architectury.event.events.client.ClientTickEvent;
 import dev.architectury.event.events.common.EntityEvent;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphics;
 import org.mods.gd656killicon.client.ClientEvents;
 import org.mods.gd656killicon.client.KeyBindings;
@@ -46,8 +45,7 @@ public final class FabricClientEvents {
         return EventResult.pass();
     }
 
-    private static void onRenderHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
-        float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
+    private static void onRenderHud(GuiGraphics guiGraphics, float partialTick) {
         HudElementManager.onRenderGuiOverlay(guiGraphics, partialTick, true);
     }
 }

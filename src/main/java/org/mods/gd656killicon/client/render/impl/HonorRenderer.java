@@ -294,7 +294,7 @@ public class HonorRenderer implements IHudRenderer {
         int centerX = ScreenAnchor.resolveCenterX(configScreenAnchor, configXOffset, screenWidth);
         int centerY = ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
 
-        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath("gd656killicon",
+        ResourceLocation texture = new ResourceLocation("gd656killicon",
                 "textures/honor/honor_" + currentDisplay.honorId + ".png");
 
         // 主图标: 顶点带 alpha 自绘(亚像素, 立即提交, 不依赖全局 shader color 时序, 根除击杀帧透明度失效)
@@ -369,7 +369,7 @@ public class HonorRenderer implements IHudRenderer {
             shakeY = shake[1];
         }
 
-        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath("gd656killicon",
+        ResourceLocation texture = new ResourceLocation("gd656killicon",
                 "textures/honor/honor_" + currentDisplay.honorId + ".png");
 
         // 主图标: 顶点带 alpha 自绘(亚像素, 立即提交)
@@ -551,14 +551,13 @@ public class HonorRenderer implements IHudRenderer {
         RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-        builder.addVertex(matrix, x1, y1, 0).setUv(0.0f, 0.0f).setColor(r, g, b, a);
-        builder.addVertex(matrix, x2, y1, 0).setUv(1.0f, 0.0f).setColor(r, g, b, a);
-        builder.addVertex(matrix, x2, y2, 0).setUv(1.0f, 1.0f).setColor(r, g, b, a);
-        builder.addVertex(matrix, x1, y2, 0).setUv(0.0f, 1.0f).setColor(r, g, b, a);
-        try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        BufferBuilder builder = tesselator.getBuilder();
+        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        builder.vertex(matrix, x1, y1, 0).uv(0.0f, 0.0f).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x2, y1, 0).uv(1.0f, 0.0f).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x2, y2, 0).uv(1.0f, 1.0f).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x1, y2, 0).uv(0.0f, 1.0f).color(r, g, b, a).endVertex();
+        BufferUploader.drawWithShader(builder.end());
         RenderSystem.enableCull();
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
@@ -636,16 +635,15 @@ public class HonorRenderer implements IHudRenderer {
         int b = argb & 0xFF;
         Matrix4f matrix = guiGraphics.pose().last().pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tesselator.getBuilder();
+        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableDepthTest();
         RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         quad(builder, matrix, x1, y1, x2, y2, r, g, b, a);
-        try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        BufferUploader.drawWithShader(builder.end());
         RenderSystem.enableCull();
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
@@ -653,10 +651,10 @@ public class HonorRenderer implements IHudRenderer {
 
     /** 浮点四边形顶点(与 IconEntranceBackground.quad 同款, 1.21.1 BufferBuilder 签名)。 */
     private static void quad(BufferBuilder builder, Matrix4f matrix, float x1, float y1, float x2, float y2, int r, int g, int b, int a) {
-        builder.addVertex(matrix, x1, y1, 0).setColor(r, g, b, a);
-        builder.addVertex(matrix, x2, y1, 0).setColor(r, g, b, a);
-        builder.addVertex(matrix, x2, y2, 0).setColor(r, g, b, a);
-        builder.addVertex(matrix, x1, y2, 0).setColor(r, g, b, a);
+        builder.vertex(matrix, x1, y1, 0).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x2, y1, 0).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x2, y2, 0).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x1, y2, 0).color(r, g, b, a).endVertex();
     }
 
     // ==================== 时序推进 ====================

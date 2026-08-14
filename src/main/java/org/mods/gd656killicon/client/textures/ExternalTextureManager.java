@@ -279,7 +279,7 @@ public class ExternalTextureManager {
         }
         String raw = path.substring("minecraft:".length());
         String normalized = normalizeVanillaTexturePath(raw);
-        return ResourceLocation.fromNamespaceAndPath("minecraft", normalized);
+        return new ResourceLocation("minecraft", normalized);
     }
 
     public static ResourceLocation getTexture(String path) {
@@ -306,7 +306,7 @@ public class ExternalTextureManager {
             return loaded;
         }
 
-        ResourceLocation fallback = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + resolvedPath);
+        ResourceLocation fallback = new ResourceLocation(Gd656killicon.MODID, "textures/" + resolvedPath);
         applyTextureFilter(fallback);
         return fallback;
     }
@@ -332,7 +332,7 @@ public class ExternalTextureManager {
             return Files.readAllBytes(file);
         }
 
-        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
+        ResourceLocation resourceLocation = new ResourceLocation(Gd656killicon.MODID, "textures/" + path);
         try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
             return stream.readAllBytes();
         } catch (Exception e) {
@@ -715,7 +715,7 @@ public class ExternalTextureManager {
         if (cached != null) {
             return cached;
         }
-        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + textureName);
+        ResourceLocation resourceLocation = new ResourceLocation(Gd656killicon.MODID, "textures/" + textureName);
         try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
             byte[] data = stream.readAllBytes();
             DEFAULT_TEXTURE_BYTES.put(textureName, data);
@@ -776,7 +776,7 @@ public class ExternalTextureManager {
              } catch (IOException ignored) {}
         }
         
-        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
+        ResourceLocation resourceLocation = new ResourceLocation(Gd656killicon.MODID, "textures/" + path);
         try {
              try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open();
                   NativeImage image = NativeImage.read(stream)) {
@@ -1054,7 +1054,7 @@ public class ExternalTextureManager {
                     Files.createDirectories(targetPath.getParent());
                 }
                 if (forceReset || !Files.exists(targetPath)) {
-                    ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + texturePath);
+                    ResourceLocation resourceLocation = new ResourceLocation(Gd656killicon.MODID, "textures/" + texturePath);
                     try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                         Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
                     } catch (Exception e) {

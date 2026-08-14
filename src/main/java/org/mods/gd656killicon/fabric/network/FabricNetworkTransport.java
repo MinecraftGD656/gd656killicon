@@ -2,14 +2,10 @@ package org.mods.gd656killicon.fabric.network;
 
 import dev.architectury.networking.NetworkManager;
 import dev.architectury.platform.Platform;
-import net.minecraft.core.RegistryAccess;
+import dev.architectury.utils.Env;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import org.mods.gd656killicon.fabric.network.FabricPacketContext;
 import org.mods.gd656killicon.network.IPacket;
 
 import java.util.HashMap;
@@ -36,12 +32,12 @@ public final class FabricNetworkTransport {
 
     private static void registerPacket(Class<? extends IPacket> clazz, boolean clientBound) {
         String name = clazz.getSimpleName().toLowerCase(java.util.Locale.ROOT);
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(org.mods.gd656killicon.Gd656killicon.MODID, name);
+        ResourceLocation id = new ResourceLocation(org.mods.gd656killicon.Gd656killicon.MODID, name);
         IDS.put(clazz, id);
         IS_CLIENT_BOUND.put(clazz, clientBound);
         try {
-            var constructor = clazz.getConstructor(net.minecraft.network.FriendlyByteBuf.class);
-            NetworkManager.NetworkReceiver<RegistryFriendlyByteBuf> receiver = (buf, ctx) -> {
+            var constructor = clazz.getConstructor(FriendlyByteBuf.class);
+            NetworkManager.NetworkReceiver receiver = (buf, ctx) -> {
                 IPacket packet;
                 try {
                     packet = constructor.newInstance(buf);
@@ -51,13 +47,8 @@ public final class FabricNetworkTransport {
                 packet.handle(new FabricPacketContext(ctx));
             };
             if (clientBound) {
-                if (Platform.getEnv() == net.fabricmc.api.EnvType.CLIENT) {
+                if (Platform.getEnvironment() == Env.CLIENT) {
                     NetworkManager.registerReceiver(NetworkManager.Side.S2C, id, receiver);
-                } else {
-                    // Architectury 已知问题(architectury-api#680): Fabric 专用服务器上 registerS2C 被
-                    // @Environment(CLIENT) 剔除, 服务端注册 S2C 接收器会 AbstractMethodError。
-                    // 服务端只需注册 payload 类型(用于协商与发送 S2C 包), 接收器仅存在于客户端。
-                    NetworkManager.registerS2CPayloadType(id);
                 }
             } else {
                 NetworkManager.registerReceiver(NetworkManager.Side.C2S, id, receiver);
@@ -72,7 +63,7 @@ public final class FabricNetworkTransport {
         if (id == null) {
             return;
         }
-        RegistryFriendlyByteBuf buf = encode(message);
+        FriendlyByteBuf buf = encode(message);
         NetworkManager.sendToServer(id, buf);
     }
 
@@ -81,7 +72,7 @@ public final class FabricNetworkTransport {
         if (id == null) {
             return;
         }
-        RegistryFriendlyByteBuf buf = encode(message);
+        FriendlyByteBuf buf = encode(message);
         NetworkManager.sendToPlayer(player, id, buf);
     }
 
@@ -90,28 +81,15 @@ public final class FabricNetworkTransport {
         if (id == null) {
             return;
         }
-        RegistryFriendlyByteBuf buf = encode(message);
+        FriendlyByteBuf buf = encode(message);
         java.util.List<ServerPlayer> players = ServerPlayerAccess.getOnlinePlayers();
         NetworkManager.sendToPlayers(players, id, buf);
     }
 
-    private static RegistryFriendlyByteBuf encode(IPacket message) {
-        RegistryAccess registryAccess = getRegistryAccess();
-        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), registryAccess);
+    private static FriendlyByteBuf encode(IPacket message) {
+        FriendlyByteBuf buf = new FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
         message.encode(buf);
         return buf;
-    }
-
-    private static RegistryAccess getRegistryAccess() {
-        MinecraftServer server = org.mods.gd656killicon.server.ServerCore.getServer();
-        if (server != null) {
-            return server.registryAccess();
-        }
-        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-        if (mc != null && mc.getConnection() != null) {
-            return mc.getConnection().registryAccess();
-        }
-        return RegistryAccess.EMPTY;
     }
 
     private static final class ServerPlayerAccess {

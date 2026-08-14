@@ -14,7 +14,7 @@ public class ClientEvents {
     private static boolean wasInGame = false;
     private static Class<?> taczGunSoundClass;
     private static boolean taczGunSoundResolved = false;
-    private static final ResourceLocation TACZ_KILL_SOUND = ResourceLocation.fromNamespaceAndPath("tacz", "kill");
+    private static final ResourceLocation TACZ_KILL_SOUND = new ResourceLocation("tacz", "kill");
 
     public static void onClientTickEnd() {
         while (KeyBindings.OPEN_CONFIG.consumeClick()) {

@@ -60,10 +60,7 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings loom.layered() {
-        officialMojangMappings()
-        parchment("org.parchmentmc.data:parchment-${project.parchment_minecraft_version}:${project.parchment_mappings_version}@zip")
-    }
+    mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
@@ -76,21 +73,11 @@ dependencies {
     // Forge Config API Port (TACZ/SuperbWarfare Fabric 版运行时依赖)
     modApi "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:${project.forgeconfigapiport_version}"
 
-    // 可选前置: TACZ-Refabricated (官方 1.21.1 发布版, 编译期依赖)
+    // 可选前置: TACZ-Refabricated (官方 1.20.1 发布版, 编译期依赖)
     modCompileOnly "maven.modrinth:tacz-refabricated:${project.tacz_version}"
 
     // 可选前置: SuperbWarfareReFabricated (社区 Fabric 移植版, 编译期依赖)
     modCompileOnly "maven.modrinth:superb-warfare-refabricated:${project.superbwarfare_version}"
-    // SuperbWarfare 的传递依赖 (仅编译期)
-    modCompileOnly "software.bernie.geckolib:geckolib-fabric-1.21.1:${project.geckolib_version}"
-    modCompileOnly "dev.emi:trinkets:${project.trinkets_version}"
-    modCompileOnly "org.ladysnake.cardinal-components-api:cardinal-components-base:${project.cardinal_components_version}"
-    modCompileOnly "org.ladysnake.cardinal-components-api:cardinal-components-entity:${project.cardinal_components_version}"
-    modCompileOnly "org.ladysnake.cardinal-components-api:cardinal-components-world:${project.cardinal_components_version}"
-    modCompileOnly "org.ladysnake.cardinal-components-api:cardinal-components-item:${project.cardinal_components_version}"
-    modCompileOnly "org.ladysnake.cardinal-components-api:cardinal-components-block:${project.cardinal_components_version}"
-    modCompileOnly "org.ladysnake.cardinal-components-api:cardinal-components-chunk:${project.cardinal_components_version}"
-    modCompileOnly "teamreborn:energy:4.1.0"
 
     modCompileOnly 'com.google.code.findbugs:jsr305:3.0.2'
 }
@@ -108,7 +95,7 @@ processResources {
     }
 }
 
-def targetJavaVersion = 21
+def targetJavaVersion = 17
 tasks.withType(JavaCompile).configureEach {
     it.options.encoding = "UTF-8"
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
@@ -125,8 +112,10 @@ java {
 }
 
 jar {
-    from("LICENSE") {
-        rename { "${it}_${project.base.archivesName.get()}" }
+    if (file("LICENSE").exists()) {
+        from("LICENSE") {
+            rename { "${it}_${project.base.archivesName.get()}" }
+        }
     }
 }
 

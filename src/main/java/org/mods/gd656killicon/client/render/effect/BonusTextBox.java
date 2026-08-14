@@ -61,7 +61,8 @@ public final class BonusTextBox {
         RenderSystem.disableDepthTest();
         RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tesselator.getBuilder();
+        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
 
         float leftOuter = x0 - halfThickness;
         float leftInner = x0 + halfThickness;
@@ -77,9 +78,7 @@ public final class BonusTextBox {
         quad(builder, matrix, leftOuter, topInner, leftInner, bottomInner, r, g, b, a);
         quad(builder, matrix, rightInner, topInner, rightOuter, bottomInner, r, g, b, a);
 
-        try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        BufferUploader.drawWithShader(builder.end());
         RenderSystem.enableCull();
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
@@ -88,9 +87,9 @@ public final class BonusTextBox {
     private static void quad(BufferBuilder builder, Matrix4f matrix,
                              float x1, float y1, float x2, float y2,
                              int r, int g, int b, int a) {
-        builder.addVertex(matrix, x1, y1, 0).setColor(r, g, b, a);
-        builder.addVertex(matrix, x2, y1, 0).setColor(r, g, b, a);
-        builder.addVertex(matrix, x2, y2, 0).setColor(r, g, b, a);
-        builder.addVertex(matrix, x1, y2, 0).setColor(r, g, b, a);
+        builder.vertex(matrix, x1, y1, 0).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x2, y1, 0).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x2, y2, 0).color(r, g, b, a).endVertex();
+        builder.vertex(matrix, x1, y2, 0).color(r, g, b, a).endVertex();
     }
 }
