@@ -1,0 +1,733 @@
+package org.mods.gd656killicon.client.config;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import org.mods.gd656killicon.client.bridge.ClientBridge;
+import org.mods.gd656killicon.client.gui.GuiConstants;
+import org.mods.gd656killicon.client.util.ClientMessageLogger;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+
+public class ClientConfigManager {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File CONFIG_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon").toFile();
+    private static final File GLOBAL_CONFIG_FILE = new File(CONFIG_DIR, "client_config.json");
+
+    /** 默认预设: 首次启动按客户端语言决定(中文→00007 战地五中文, 其它→00036 战地五英文) */
+    private static final String DEFAULT_CURRENT_PRESET = "00036";
+    private static final boolean DEFAULT_ENABLE_SOUND = true;
+    private static final boolean DEFAULT_SHOW_BONUS_MESSAGE = false;
+    private static final int DEFAULT_SOUND_VOLUME = 100;
+    private static final boolean DEFAULT_ENABLE_ACE_LAG = false;
+    private static final int DEFAULT_ACE_LAG_INTENSITY = 5;
+    private static final boolean DEFAULT_DISABLE_TACZ_KILL_SOUND = false;
+    private static final boolean DEFAULT_ENABLE_ICON_ANTIALIASING = true;
+    private static final boolean DEFAULT_SHOW_CONFIG_INTRO = true;
+    private static final boolean DEFAULT_SHOW_PRESET_INTRO = true;
+    private static final boolean DEFAULT_SHOW_ELEMENT_INTRO = true;
+    private static final boolean DEFAULT_SHOW_SOUND_INTRO = true;
+    private static final boolean DEFAULT_SHOW_SCOREBOARD_INTRO = true;
+    private static final boolean DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND = false;
+    private static final int DEFAULT_PRESET_TUTORIAL_STEP = 1;
+    private static final String DEFAULT_LAST_LANGUAGE = "";
+    private static final String DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE = "scroll";
+    private static final String DEFAULT_GUI_THEME_COLOR_PRIMARY = "#FFB840";
+    private static final String DEFAULT_GUI_BACKGROUND_MATERIAL = "minecraft:cut_copper";
+    private static final int DEFAULT_BONUS_FORMAT_MIGRATED = 0;
+
+    private static String currentPresetId = DEFAULT_CURRENT_PRESET;
+
+    /**
+     * 首次启动的默认预设：按客户端语言决定。
+     * 简体/繁体中文 → 战地五中文(00007)；其余语言(含英文/文言/其它) → 战地五英文(00036)。
+     */
+    public static String getInitialPresetByLanguage() {
+        try {
+            String lang = net.minecraft.client.Minecraft.getInstance().options.languageCode;
+            if ("zh_cn".equals(lang) || "zh_tw".equals(lang) || "lzh".equals(lang)) {
+                return "00007";
+            }
+        } catch (Exception ignored) {
+        }
+        return "00036";
+    }
+    private static boolean enableSound = DEFAULT_ENABLE_SOUND;
+    private static boolean showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
+    private static int soundVolume = DEFAULT_SOUND_VOLUME;
+    private static boolean enableAceLag = DEFAULT_ENABLE_ACE_LAG;
+    private static int aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+    private static boolean disableTaczKillSound = DEFAULT_DISABLE_TACZ_KILL_SOUND;
+    private static boolean enableIconAntialiasing = DEFAULT_ENABLE_ICON_ANTIALIASING;
+    private static boolean showConfigIntro = DEFAULT_SHOW_CONFIG_INTRO;
+    private static boolean showPresetIntro = DEFAULT_SHOW_PRESET_INTRO;
+    private static boolean showElementIntro = DEFAULT_SHOW_ELEMENT_INTRO;
+    private static boolean showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
+    private static boolean showSoundSelectIntro = true;
+    private static boolean showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
+    private static boolean enableElementPreviewSound = DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND;
+    private static int presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
+    private static String lastLanguageCode = DEFAULT_LAST_LANGUAGE;
+    private static String lastModVersion = "";
+    private static String singleLineSubtitleCompressionMode = DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
+    private static String guiThemeColorPrimary = DEFAULT_GUI_THEME_COLOR_PRIMARY;
+    private static String guiBackgroundMaterial = DEFAULT_GUI_BACKGROUND_MATERIAL;
+    private static int bonusFormatMigrated = DEFAULT_BONUS_FORMAT_MIGRATED;
+
+    private static String tempCurrentPresetId = null;
+    private static Boolean tempEnableSound = null;
+    private static Boolean tempShowBonusMessage = null;
+    private static Integer tempSoundVolume = null;
+    private static Boolean tempEnableAceLag = null;
+    private static Integer tempAceLagIntensity = null;
+    private static Boolean tempDisableTaczKillSound = null;
+    private static Boolean tempEnableIconAntialiasing = null;
+    private static String tempSingleLineSubtitleCompressionMode = null;
+    private static String tempGuiThemeColorPrimary = null;
+    private static String tempGuiBackgroundMaterial = null;
+    private static boolean isEditing = false;
+
+    public static void startEditing() {
+        tempCurrentPresetId = currentPresetId;
+        tempEnableSound = enableSound;
+        tempShowBonusMessage = showBonusMessage;
+        tempSoundVolume = soundVolume;
+        tempEnableAceLag = enableAceLag;
+        tempAceLagIntensity = aceLagIntensity;
+        tempDisableTaczKillSound = disableTaczKillSound;
+        tempEnableIconAntialiasing = enableIconAntialiasing;
+        tempSingleLineSubtitleCompressionMode = singleLineSubtitleCompressionMode;
+        tempGuiThemeColorPrimary = guiThemeColorPrimary;
+        tempGuiBackgroundMaterial = guiBackgroundMaterial;
+        isEditing = true;
+    }
+
+    public static void saveChanges() {
+        if (isEditing) {
+            currentPresetId = tempCurrentPresetId;
+            enableSound = tempEnableSound;
+            showBonusMessage = tempShowBonusMessage;
+            soundVolume = tempSoundVolume == null ? soundVolume : clampSoundVolume(tempSoundVolume);
+            enableAceLag = tempEnableAceLag != null ? tempEnableAceLag : enableAceLag;
+            aceLagIntensity = tempAceLagIntensity == null ? aceLagIntensity : clampAceLagIntensity(tempAceLagIntensity);
+            disableTaczKillSound = tempDisableTaczKillSound != null ? tempDisableTaczKillSound : disableTaczKillSound;
+            enableIconAntialiasing = tempEnableIconAntialiasing != null ? tempEnableIconAntialiasing : enableIconAntialiasing;
+            singleLineSubtitleCompressionMode = tempSingleLineSubtitleCompressionMode == null ? singleLineSubtitleCompressionMode : normalizeSingleLineSubtitleCompressionMode(tempSingleLineSubtitleCompressionMode);
+            guiThemeColorPrimary = tempGuiThemeColorPrimary == null ? guiThemeColorPrimary : normalizeHexColor(tempGuiThemeColorPrimary, DEFAULT_GUI_THEME_COLOR_PRIMARY);
+            guiBackgroundMaterial = tempGuiBackgroundMaterial == null ? guiBackgroundMaterial : normalizeGuiBackgroundMaterial(tempGuiBackgroundMaterial);
+            isEditing = false;
+            applyGuiThemeColors();
+            saveGlobalConfig();
+            
+            tempCurrentPresetId = null;
+            tempEnableSound = null;
+            tempShowBonusMessage = null;
+            tempSoundVolume = null;
+            tempEnableAceLag = null;
+            tempAceLagIntensity = null;
+            tempDisableTaczKillSound = null;
+            tempEnableIconAntialiasing = null;
+            tempSingleLineSubtitleCompressionMode = null;
+            tempGuiThemeColorPrimary = null;
+            tempGuiBackgroundMaterial = null;
+        }
+    }
+
+    public static void discardChanges() {
+        if (isEditing) {
+            isEditing = false;
+            tempCurrentPresetId = null;
+            tempEnableSound = null;
+            tempShowBonusMessage = null;
+            tempSoundVolume = null;
+            tempEnableAceLag = null;
+            tempAceLagIntensity = null;
+            tempDisableTaczKillSound = null;
+            tempEnableIconAntialiasing = null;
+            tempSingleLineSubtitleCompressionMode = null;
+            tempGuiThemeColorPrimary = null;
+            tempGuiBackgroundMaterial = null;
+            applyGuiThemeColors();
+        }
+    }
+
+    public static boolean hasUnsavedChanges() {
+        if (!isEditing) return false;
+        if (tempCurrentPresetId != null && !tempCurrentPresetId.equals(currentPresetId)) return true;
+        if (tempEnableSound != null && !tempEnableSound.equals(enableSound)) return true;
+        if (tempShowBonusMessage != null && !tempShowBonusMessage.equals(showBonusMessage)) return true;
+        if (tempSoundVolume != null && tempSoundVolume != soundVolume) return true;
+        if (tempEnableAceLag != null && !tempEnableAceLag.equals(enableAceLag)) return true;
+        if (tempAceLagIntensity != null && tempAceLagIntensity != aceLagIntensity) return true;
+        if (tempDisableTaczKillSound != null && !tempDisableTaczKillSound.equals(disableTaczKillSound)) return true;
+        if (tempEnableIconAntialiasing != null && !tempEnableIconAntialiasing.equals(enableIconAntialiasing)) return true;
+        if (tempSingleLineSubtitleCompressionMode != null && !tempSingleLineSubtitleCompressionMode.equals(singleLineSubtitleCompressionMode)) return true;
+        if (tempGuiThemeColorPrimary != null && !tempGuiThemeColorPrimary.equals(guiThemeColorPrimary)) return true;
+        if (tempGuiBackgroundMaterial != null && !tempGuiBackgroundMaterial.equals(guiBackgroundMaterial)) return true;
+        return false;
+    }
+
+    public static boolean isAceLagConfigChangedInEdit() {
+        if (!isEditing) return false;
+        if (tempEnableAceLag != null && !tempEnableAceLag.equals(enableAceLag)) return true;
+        if (tempAceLagIntensity != null && tempAceLagIntensity != aceLagIntensity) return true;
+        return false;
+    }
+
+    public static void init() {
+        if (!CONFIG_DIR.exists()) {
+            CONFIG_DIR.mkdirs();
+        }
+        loadGlobalConfig();
+    }
+
+    public static void loadGlobalConfig() {
+        if (!GLOBAL_CONFIG_FILE.exists()) {
+            createDefaultConfig();
+            return;
+        }
+
+        try {
+            JsonObject json = GSON.fromJson(org.mods.gd656killicon.client.util.ConfigFileUtil.readText(GLOBAL_CONFIG_FILE), JsonObject.class);
+            currentPresetId = json.has("current_preset") ? json.get("current_preset").getAsString() : getInitialPresetByLanguage();
+            enableSound = json.has("enable_sound") ? json.get("enable_sound").getAsBoolean() : DEFAULT_ENABLE_SOUND;
+            showBonusMessage = json.has("show_bonus_message") ? json.get("show_bonus_message").getAsBoolean() : DEFAULT_SHOW_BONUS_MESSAGE;
+            soundVolume = json.has("sound_volume") ? clampSoundVolume(json.get("sound_volume").getAsInt()) : DEFAULT_SOUND_VOLUME;
+            enableAceLag = json.has("enable_ace_lag") ? json.get("enable_ace_lag").getAsBoolean() : DEFAULT_ENABLE_ACE_LAG;
+            aceLagIntensity = json.has("ace_lag_intensity") ? clampAceLagIntensity(json.get("ace_lag_intensity").getAsInt()) : DEFAULT_ACE_LAG_INTENSITY;
+            disableTaczKillSound = json.has("disable_tacz_kill_sound") ? json.get("disable_tacz_kill_sound").getAsBoolean() : DEFAULT_DISABLE_TACZ_KILL_SOUND;
+            enableIconAntialiasing = json.has("enable_icon_antialiasing") ? json.get("enable_icon_antialiasing").getAsBoolean() : DEFAULT_ENABLE_ICON_ANTIALIASING;
+            showConfigIntro = json.has("show_config_intro") ? json.get("show_config_intro").getAsBoolean() : DEFAULT_SHOW_CONFIG_INTRO;
+            showPresetIntro = json.has("show_preset_intro") ? json.get("show_preset_intro").getAsBoolean() : DEFAULT_SHOW_PRESET_INTRO;
+            showElementIntro = json.has("show_element_intro") ? json.get("show_element_intro").getAsBoolean() : DEFAULT_SHOW_ELEMENT_INTRO;
+            showSoundIntro = json.has("show_sound_intro") ? json.get("show_sound_intro").getAsBoolean() : DEFAULT_SHOW_SOUND_INTRO;
+            showSoundSelectIntro = json.has("show_sound_select_intro") ? json.get("show_sound_select_intro").getAsBoolean() : true;
+            showScoreboardIntro = json.has("show_scoreboard_intro") ? json.get("show_scoreboard_intro").getAsBoolean() : DEFAULT_SHOW_SCOREBOARD_INTRO;
+            enableElementPreviewSound = json.has("enable_element_preview_sound") ? json.get("enable_element_preview_sound").getAsBoolean() : DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND;
+            presetTutorialStep = json.has("preset_tutorial_step") ? json.get("preset_tutorial_step").getAsInt() : DEFAULT_PRESET_TUTORIAL_STEP;
+            if (presetTutorialStep < 1) {
+                presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
+            }
+            lastLanguageCode = json.has("last_language") ? json.get("last_language").getAsString() : DEFAULT_LAST_LANGUAGE;
+            lastModVersion = json.has("last_mod_version") ? json.get("last_mod_version").getAsString() : "";
+            singleLineSubtitleCompressionMode = json.has("single_line_subtitle_compression_mode") ? normalizeSingleLineSubtitleCompressionMode(json.get("single_line_subtitle_compression_mode").getAsString()) : DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
+            guiThemeColorPrimary = json.has("gui_theme_color_primary") ? normalizeHexColor(json.get("gui_theme_color_primary").getAsString(), DEFAULT_GUI_THEME_COLOR_PRIMARY) : DEFAULT_GUI_THEME_COLOR_PRIMARY;
+            guiBackgroundMaterial = json.has("gui_background_material") ? normalizeGuiBackgroundMaterial(json.get("gui_background_material").getAsString()) : DEFAULT_GUI_BACKGROUND_MATERIAL;
+            bonusFormatMigrated = json.has("bonus_format_version") ? json.get("bonus_format_version").getAsInt() : DEFAULT_BONUS_FORMAT_MIGRATED;
+            applyGuiThemeColors();
+        } catch (Exception e) {
+            ClientMessageLogger.error("gd656killicon.client.config.load_fail", e.getMessage());
+            currentPresetId = getInitialPresetByLanguage();
+            enableSound = DEFAULT_ENABLE_SOUND;
+            showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
+            soundVolume = DEFAULT_SOUND_VOLUME;
+            enableAceLag = DEFAULT_ENABLE_ACE_LAG;
+            aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+            disableTaczKillSound = DEFAULT_DISABLE_TACZ_KILL_SOUND;
+            enableIconAntialiasing = DEFAULT_ENABLE_ICON_ANTIALIASING;
+            showConfigIntro = DEFAULT_SHOW_CONFIG_INTRO;
+            showPresetIntro = DEFAULT_SHOW_PRESET_INTRO;
+            showElementIntro = DEFAULT_SHOW_ELEMENT_INTRO;
+            showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
+            showSoundSelectIntro = true;
+            showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
+            enableElementPreviewSound = DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND;
+            presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
+            lastLanguageCode = DEFAULT_LAST_LANGUAGE;
+            lastModVersion = "";
+            singleLineSubtitleCompressionMode = DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
+            guiThemeColorPrimary = DEFAULT_GUI_THEME_COLOR_PRIMARY;
+            guiBackgroundMaterial = DEFAULT_GUI_BACKGROUND_MATERIAL;
+            applyGuiThemeColors();
+        }
+    }
+
+    public static void createDefaultConfig() {
+        JsonObject json = new JsonObject();
+        json.addProperty("current_preset", getInitialPresetByLanguage());
+        json.addProperty("enable_sound", DEFAULT_ENABLE_SOUND);
+        json.addProperty("show_bonus_message", DEFAULT_SHOW_BONUS_MESSAGE);
+        json.addProperty("sound_volume", DEFAULT_SOUND_VOLUME);
+        json.addProperty("enable_ace_lag", DEFAULT_ENABLE_ACE_LAG);
+        json.addProperty("ace_lag_intensity", DEFAULT_ACE_LAG_INTENSITY);
+        json.addProperty("disable_tacz_kill_sound", DEFAULT_DISABLE_TACZ_KILL_SOUND);
+        json.addProperty("enable_icon_antialiasing", DEFAULT_ENABLE_ICON_ANTIALIASING);
+        json.addProperty("show_config_intro", DEFAULT_SHOW_CONFIG_INTRO);
+        json.addProperty("show_preset_intro", DEFAULT_SHOW_PRESET_INTRO);
+        json.addProperty("show_element_intro", DEFAULT_SHOW_ELEMENT_INTRO);
+        json.addProperty("show_sound_intro", DEFAULT_SHOW_SOUND_INTRO);
+        json.addProperty("show_sound_select_intro", true);
+        json.addProperty("show_scoreboard_intro", DEFAULT_SHOW_SCOREBOARD_INTRO);
+        json.addProperty("enable_element_preview_sound", DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND);
+        json.addProperty("preset_tutorial_step", DEFAULT_PRESET_TUTORIAL_STEP);
+        json.addProperty("last_language", DEFAULT_LAST_LANGUAGE);
+        json.addProperty("last_mod_version", GuiConstants.MOD_VERSION);
+        json.addProperty("single_line_subtitle_compression_mode", DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE);
+        json.addProperty("gui_theme_color_primary", DEFAULT_GUI_THEME_COLOR_PRIMARY);
+        json.addProperty("gui_background_material", DEFAULT_GUI_BACKGROUND_MATERIAL);
+        json.addProperty("bonus_format_version", DEFAULT_BONUS_FORMAT_MIGRATED);
+        
+        currentPresetId = getInitialPresetByLanguage();
+        enableSound = DEFAULT_ENABLE_SOUND;
+        showBonusMessage = DEFAULT_SHOW_BONUS_MESSAGE;
+        soundVolume = DEFAULT_SOUND_VOLUME;
+        enableAceLag = DEFAULT_ENABLE_ACE_LAG;
+        aceLagIntensity = DEFAULT_ACE_LAG_INTENSITY;
+        disableTaczKillSound = DEFAULT_DISABLE_TACZ_KILL_SOUND;
+        enableIconAntialiasing = DEFAULT_ENABLE_ICON_ANTIALIASING;
+        showConfigIntro = DEFAULT_SHOW_CONFIG_INTRO;
+        showPresetIntro = DEFAULT_SHOW_PRESET_INTRO;
+        showElementIntro = DEFAULT_SHOW_ELEMENT_INTRO;
+        showSoundIntro = DEFAULT_SHOW_SOUND_INTRO;
+        showSoundSelectIntro = true;
+        showScoreboardIntro = DEFAULT_SHOW_SCOREBOARD_INTRO;
+        enableElementPreviewSound = DEFAULT_ENABLE_ELEMENT_PREVIEW_SOUND;
+        presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
+        lastLanguageCode = DEFAULT_LAST_LANGUAGE;
+        lastModVersion = GuiConstants.MOD_VERSION;
+        singleLineSubtitleCompressionMode = DEFAULT_SINGLE_LINE_SUBTITLE_COMPRESSION_MODE;
+        guiThemeColorPrimary = DEFAULT_GUI_THEME_COLOR_PRIMARY;
+        guiBackgroundMaterial = DEFAULT_GUI_BACKGROUND_MATERIAL;
+        applyGuiThemeColors();
+
+        try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE, java.nio.charset.StandardCharsets.UTF_8)) {
+            GSON.toJson(json, writer);
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.config.save_fail", e.getMessage());
+        }
+    }
+
+    public static void saveGlobalConfig() {
+        JsonObject root = new JsonObject();
+        root.addProperty("current_preset", currentPresetId);
+        root.addProperty("enable_sound", enableSound);
+        root.addProperty("show_bonus_message", showBonusMessage);
+        root.addProperty("sound_volume", soundVolume);
+        root.addProperty("enable_ace_lag", enableAceLag);
+        root.addProperty("ace_lag_intensity", aceLagIntensity);
+        root.addProperty("disable_tacz_kill_sound", disableTaczKillSound);
+        root.addProperty("enable_icon_antialiasing", enableIconAntialiasing);
+        root.addProperty("show_config_intro", showConfigIntro);
+        root.addProperty("show_preset_intro", showPresetIntro);
+        root.addProperty("show_element_intro", showElementIntro);
+        root.addProperty("show_sound_intro", showSoundIntro);
+        root.addProperty("show_sound_select_intro", showSoundSelectIntro);
+        root.addProperty("show_scoreboard_intro", showScoreboardIntro);
+        root.addProperty("enable_element_preview_sound", enableElementPreviewSound);
+        root.addProperty("preset_tutorial_step", presetTutorialStep);
+        root.addProperty("last_language", lastLanguageCode);
+        root.addProperty("last_mod_version", lastModVersion);
+        root.addProperty("single_line_subtitle_compression_mode", singleLineSubtitleCompressionMode);
+        root.addProperty("gui_theme_color_primary", guiThemeColorPrimary);
+        root.addProperty("gui_background_material", guiBackgroundMaterial);
+        root.addProperty("bonus_format_version", bonusFormatMigrated);
+
+        try (FileWriter writer = new FileWriter(GLOBAL_CONFIG_FILE, java.nio.charset.StandardCharsets.UTF_8)) {
+            GSON.toJson(root, writer);
+        } catch (IOException e) {
+            ClientMessageLogger.error("gd656killicon.client.config.save_fail", e.getMessage());
+        }
+    }
+
+    public static void resetToDefaults() {
+        createDefaultConfig();
+    }
+
+    public static boolean checkLanguageChangedAndUpdate(String currentLanguage) {
+        if (currentLanguage == null || currentLanguage.isEmpty()) return false;
+        if (lastLanguageCode == null || lastLanguageCode.isEmpty()) {
+            lastLanguageCode = currentLanguage;
+            saveGlobalConfig();
+            return false;
+        }
+        if (!currentLanguage.equals(lastLanguageCode)) {
+            lastLanguageCode = currentLanguage;
+            saveGlobalConfig();
+            return true;
+        }
+        return false;
+    }
+
+    public static String getCurrentPresetId() {
+        return isEditing && tempCurrentPresetId != null ? tempCurrentPresetId : currentPresetId;
+    }
+
+    public static void setCurrentPresetId(String id) {
+        if (isEditing) {
+            tempCurrentPresetId = id;
+        } else {
+            currentPresetId = id;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean isEnableSound() {
+        return isEditing && tempEnableSound != null ? tempEnableSound : enableSound;
+    }
+
+    public static void setEnableSound(boolean enable) {
+        if (isEditing) {
+            tempEnableSound = enable;
+        } else {
+            enableSound = enable;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean isShowBonusMessage() {
+        return isEditing && tempShowBonusMessage != null ? tempShowBonusMessage : showBonusMessage;
+    }
+
+    public static void setShowBonusMessage(boolean show) {
+        if (isEditing) {
+            tempShowBonusMessage = show;
+        } else {
+            showBonusMessage = show;
+            saveGlobalConfig();
+        }
+    }
+
+    public static int getSoundVolume() {
+        return isEditing && tempSoundVolume != null ? tempSoundVolume : soundVolume;
+    }
+
+    public static void setSoundVolume(int volume) {
+        int clamped = clampSoundVolume(volume);
+        if (isEditing) {
+            tempSoundVolume = clamped;
+        } else {
+            soundVolume = clamped;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean isElementPreviewSoundEnabled() {
+        return enableElementPreviewSound;
+    }
+
+    public static void setElementPreviewSoundEnabled(boolean enabled) {
+        enableElementPreviewSound = enabled;
+        saveGlobalConfig();
+    }
+
+    public static boolean isEnableAceLag() {
+        return isEditing && tempEnableAceLag != null ? tempEnableAceLag : enableAceLag;
+    }
+
+    public static void setEnableAceLag(boolean enable) {
+        if (isEditing) {
+            tempEnableAceLag = enable;
+        } else {
+            enableAceLag = enable;
+            saveGlobalConfig();
+        }
+    }
+
+    public static int getAceLagIntensity() {
+        return isEditing && tempAceLagIntensity != null ? tempAceLagIntensity : aceLagIntensity;
+    }
+
+    public static void setAceLagIntensity(int intensity) {
+        int clamped = clampAceLagIntensity(intensity);
+        if (isEditing) {
+            tempAceLagIntensity = clamped;
+        } else {
+            aceLagIntensity = clamped;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean isDisableTaczKillSound() {
+        return isEditing && tempDisableTaczKillSound != null ? tempDisableTaczKillSound : disableTaczKillSound;
+    }
+
+    public static void setDisableTaczKillSound(boolean disable) {
+        if (isEditing) {
+            tempDisableTaczKillSound = disable;
+        } else {
+            disableTaczKillSound = disable;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean isEnableIconAntialiasing() {
+        return isEditing && tempEnableIconAntialiasing != null ? tempEnableIconAntialiasing : enableIconAntialiasing;
+    }
+
+    public static void setEnableIconAntialiasing(boolean enable) {
+        if (isEditing) {
+            tempEnableIconAntialiasing = enable;
+        } else {
+            enableIconAntialiasing = enable;
+            saveGlobalConfig();
+        }
+    }
+
+    public static String getSingleLineSubtitleCompressionMode() {
+        return isEditing && tempSingleLineSubtitleCompressionMode != null ? tempSingleLineSubtitleCompressionMode : singleLineSubtitleCompressionMode;
+    }
+
+    public static void setSingleLineSubtitleCompressionMode(String mode) {
+        String normalized = normalizeSingleLineSubtitleCompressionMode(mode);
+        if (isEditing) {
+            tempSingleLineSubtitleCompressionMode = normalized;
+        } else {
+            singleLineSubtitleCompressionMode = normalized;
+            saveGlobalConfig();
+        }
+    }
+
+    public static String getGuiThemeColorPrimary() {
+        return isEditing && tempGuiThemeColorPrimary != null ? tempGuiThemeColorPrimary : guiThemeColorPrimary;
+    }
+
+    public static void setGuiThemeColorPrimary(String color) {
+        String normalized = normalizeHexColor(color, DEFAULT_GUI_THEME_COLOR_PRIMARY);
+        if (isEditing) {
+            tempGuiThemeColorPrimary = normalized;
+        } else {
+            guiThemeColorPrimary = normalized;
+            saveGlobalConfig();
+        }
+        applyGuiThemeColors();
+    }
+
+    public static String getGuiThemeColorSecondary() {
+        return deriveSecondaryThemeColor(getGuiThemeColorPrimary());
+    }
+
+    public static String getGuiThemeColorTertiary() {
+        return deriveTertiaryThemeColor(getGuiThemeColorPrimary());
+    }
+
+    public static String getGuiBackgroundMaterial() {
+        return isEditing && tempGuiBackgroundMaterial != null ? tempGuiBackgroundMaterial : guiBackgroundMaterial;
+    }
+
+    public static void setGuiBackgroundMaterial(String materialId) {
+        String normalized = normalizeGuiBackgroundMaterial(materialId);
+        if (isEditing) {
+            tempGuiBackgroundMaterial = normalized;
+        } else {
+            guiBackgroundMaterial = normalized;
+            saveGlobalConfig();
+        }
+    }
+
+    public static int getBonusFormatMigrated() {
+        return bonusFormatMigrated;
+    }
+
+    public static void setBonusFormatMigrated(int version) {
+        bonusFormatMigrated = version;
+        saveGlobalConfig();
+    }
+
+    public static boolean isGuiConfigChangedInEdit() {
+        if (!isEditing) {
+            return false;
+        }
+        if (tempGuiThemeColorPrimary != null && !tempGuiThemeColorPrimary.equals(guiThemeColorPrimary)) return true;
+        if (tempGuiBackgroundMaterial != null && !tempGuiBackgroundMaterial.equals(guiBackgroundMaterial)) return true;
+        return false;
+    }
+
+    public static boolean shouldShowConfigIntro() {
+        return showConfigIntro;
+    }
+
+    public static void markConfigIntroShown() {
+        if (showConfigIntro) {
+            showConfigIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowPresetIntro() {
+        return showPresetIntro;
+    }
+
+    public static void markPresetIntroShown() {
+        if (showPresetIntro) {
+            showPresetIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldRunPresetTutorial() {
+        return showPresetIntro && presetTutorialStep <= 8;
+    }
+
+    public static int getPresetTutorialStep() {
+        return presetTutorialStep;
+    }
+
+    public static void setPresetTutorialStep(int step) {
+        int next = Math.max(1, step);
+        if (next > 8) {
+            presetTutorialStep = 9;
+            showPresetIntro = false;
+        } else {
+            presetTutorialStep = next;
+        }
+        saveGlobalConfig();
+    }
+
+    public static boolean shouldShowElementIntro() {
+        return showElementIntro;
+    }
+
+    public static void markElementIntroShown() {
+        if (showElementIntro) {
+            showElementIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowSoundIntro() {
+        return showSoundIntro;
+    }
+
+    public static void markSoundIntroShown() {
+        if (showSoundIntro) {
+            showSoundIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowSoundSelectIntro() {
+        return showSoundSelectIntro;
+    }
+
+    public static void markSoundSelectIntroShown() {
+        if (showSoundSelectIntro) {
+            showSoundSelectIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static boolean shouldShowScoreboardIntro() {
+        return showScoreboardIntro;
+    }
+
+    public static void markScoreboardIntroShown() {
+        if (showScoreboardIntro) {
+            showScoreboardIntro = false;
+            saveGlobalConfig();
+        }
+    }
+
+    public static void resetIntroPrompts() {
+        showConfigIntro = true;
+        showPresetIntro = true;
+        showElementIntro = true;
+        showSoundIntro = true;
+        showSoundSelectIntro = true;
+        showScoreboardIntro = true;
+        presetTutorialStep = DEFAULT_PRESET_TUTORIAL_STEP;
+        saveGlobalConfig();
+    }
+
+    public static boolean checkModVersionChangedAndUpdate(String currentVersion) {
+        if (currentVersion == null || currentVersion.isEmpty()) {
+            return false;
+        }
+        if (lastModVersion == null || lastModVersion.isEmpty()) {
+            lastModVersion = currentVersion;
+            saveGlobalConfig();
+            return true;
+        }
+        if (!currentVersion.equals(lastModVersion)) {
+            lastModVersion = currentVersion;
+            saveGlobalConfig();
+            return true;
+        }
+        return false;
+    }
+
+    public static void setRecordedModVersion(String version) {
+        lastModVersion = version == null ? "" : version;
+        saveGlobalConfig();
+    }
+
+    private static int clampSoundVolume(int volume) {
+        return Math.max(0, Math.min(200, volume));
+    }
+
+    private static int clampAceLagIntensity(int intensity) {
+        return Math.max(1, Math.min(100, intensity));
+    }
+
+    private static String normalizeSingleLineSubtitleCompressionMode(String mode) {
+        if ("ellipsis".equalsIgnoreCase(mode)) {
+            return "ellipsis";
+        }
+        return "scroll";
+    }
+
+    private static String normalizeHexColor(String color, String fallback) {
+        if (color == null) {
+            return fallback;
+        }
+        String trimmed = color.trim();
+        if (!trimmed.matches("^#[0-9A-Fa-f]{6}$")) {
+            return fallback;
+        }
+        return "#" + trimmed.substring(1).toUpperCase();
+    }
+
+    private static String normalizeGuiBackgroundMaterial(String materialId) {
+        if (materialId == null) {
+            return DEFAULT_GUI_BACKGROUND_MATERIAL;
+        }
+        String trimmed = materialId.trim();
+        if (trimmed.isEmpty() || !trimmed.contains(":")) {
+            return DEFAULT_GUI_BACKGROUND_MATERIAL;
+        }
+        return trimmed.toLowerCase();
+    }
+
+    private static int parseRgbHexToArgb(String color, int fallback) {
+        String normalized = normalizeHexColor(color, null);
+        if (normalized == null) {
+            return fallback;
+        }
+        try {
+            int rgb = Integer.parseInt(normalized.substring(1), 16) & 0x00FFFFFF;
+            return 0xFF000000 | rgb;
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private static String deriveSecondaryThemeColor(String primary) {
+        return scaleThemeColor(primary, 0.9490196f, 0.8423913f, 0.9531250f, "#F29B3D");
+    }
+
+    private static String deriveTertiaryThemeColor(String primary) {
+        return scaleThemeColor(primary, 0.8941176f, 0.8369565f, 0.4375000f, "#E49A1C");
+    }
+
+    private static String scaleThemeColor(String primary, float rScale, float gScale, float bScale, String fallback) {
+        String normalized = normalizeHexColor(primary, null);
+        if (normalized == null) {
+            return fallback;
+        }
+        int r = Integer.parseInt(normalized.substring(1, 3), 16);
+        int g = Integer.parseInt(normalized.substring(3, 5), 16);
+        int b = Integer.parseInt(normalized.substring(5, 7), 16);
+        int rr = Math.max(0, Math.min(255, Math.round(r * rScale)));
+        int gg = Math.max(0, Math.min(255, Math.round(g * gScale)));
+        int bb = Math.max(0, Math.min(255, Math.round(b * bScale)));
+        return String.format("#%02X%02X%02X", rr, gg, bb);
+    }
+
+    private static void applyGuiThemeColors() {
+        GuiConstants.COLOR_GOLD = parseRgbHexToArgb(getGuiThemeColorPrimary(), 0xFFFFD700);
+        GuiConstants.COLOR_GOLD_ORANGE = parseRgbHexToArgb(getGuiThemeColorSecondary(), 0xFFFFA500);
+        GuiConstants.COLOR_DARK_GOLD_ORANGE = parseRgbHexToArgb(getGuiThemeColorTertiary(), 0xFFCC8400);
+        GuiConstants.COLOR_BLACK = 0xFF444444;
+    }
+}

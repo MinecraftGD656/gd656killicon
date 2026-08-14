@@ -1,0 +1,805 @@
+package org.mods.gd656killicon.client.gui.screens;
+
+import org.mods.gd656killicon.client.gui.tabs.ConfigTabContent;
+import org.mods.gd656killicon.client.gui.elements.entries.BooleanConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.StringConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.HexColorConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.FloatConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.IntegerConfigEntry;
+import org.mods.gd656killicon.client.gui.elements.entries.FixedChoiceConfigEntry;
+
+import org.mods.gd656killicon.client.gui.GuiConstants;
+import org.mods.gd656killicon.client.gui.tabs.ElementConfigContent;
+import org.mods.gd656killicon.client.config.ElementConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.common.bonus.BonusRegistry;
+import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonElement;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
+import org.mods.gd656killicon.client.textures.ExternalTextureManager;
+import org.mods.gd656killicon.client.gui.elements.PromptDialog;
+
+public class ElementConfigBuilderRegistry {
+    private static final Map<String, ElementConfigBuilder> builders = new HashMap<>();
+    private static final ElementConfigBuilder DEFAULT_BUILDER = new DefaultElementConfigBuilder();
+    
+    private static final Pattern HEX_PATTERN = Pattern.compile("^#[0-9A-Fa-f]{6}$");
+    private static final Set<String> TEAM_ELEMENT_IDS = Set.of("kill_icon/card", "kill_icon/card_bar");
+    private static List<FixedChoiceConfigEntry.Choice> cachedVanillaItemChoices = null;
+    private static String cachedVanillaItemLanguage = null;
+    
+    public static void register(String elementId, ElementConfigBuilder builder) {
+        builders.put(elementId, builder);
+    }
+
+    public static ElementConfigBuilder getBuilder(String elementId) {
+        return builders.getOrDefault(elementId, DEFAULT_BUILDER);
+    }
+
+    private static List<FixedChoiceConfigEntry.Choice> getCachedVanillaItemChoices() {
+        String languageCode = Minecraft.getInstance().options.languageCode;
+        if (cachedVanillaItemChoices != null && languageCode.equals(cachedVanillaItemLanguage)) {
+            return cachedVanillaItemChoices;
+        }
+        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+        List<net.minecraft.resources.ResourceLocation> itemIds = new ArrayList<>();
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (item == Items.AIR) continue;
+            net.minecraft.resources.ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            if (id != null && "minecraft".equals(id.getNamespace())) {
+                itemIds.add(id);
+            }
+        }
+        itemIds.sort((a, b) -> a.getPath().compareToIgnoreCase(b.getPath()));
+        for (net.minecraft.resources.ResourceLocation id : itemIds) {
+            Item item = BuiltInRegistries.ITEM.get(id);
+            String value = "minecraft:item/" + id.getPath();
+            if (ExternalTextureManager.isVanillaTextureAvailable(value)) {
+                String label = I18n.get(item.getDescriptionId());
+                choices.add(new FixedChoiceConfigEntry.Choice(value, label));
+            }
+        }
+        cachedVanillaItemChoices = choices;
+        cachedVanillaItemLanguage = languageCode;
+        return cachedVanillaItemChoices;
+    }
+
+    private static boolean isValorantMathParticleKey(String key) {
+        return "math_particle_density".equals(key)
+            || "math_particle_spread".equals(key)
+            || "math_particle_size".equals(key);
+    }
+
+    private static boolean isValorantStandardParticleKey(String key) {
+        if (key == null) {
+            return false;
+        }
+        if (key.startsWith("base_particle_")
+            || key.startsWith("hero_flame_")
+            || key.startsWith("large_sparks_")
+            || key.startsWith("x_sparks_")
+            || key.startsWith("color_base_particle")
+            || key.startsWith("color_hero_flame")
+            || key.startsWith("color_large_sparks")
+            || key.startsWith("color_x_sparks")
+            || key.startsWith("enable_custom_color_base_particle")
+            || key.startsWith("enable_custom_color_hero_flame")
+            || key.startsWith("enable_custom_color_large_sparks")
+            || key.startsWith("enable_custom_color_x_sparks")
+            || key.startsWith("enable_base_particle")
+            || key.startsWith("enable_hero_flame")
+            || key.startsWith("enable_large_sparks")
+            || key.startsWith("enable_x_sparks")) {
+            return true;
+        }
+        if (key.startsWith("anim_base_particle_")
+            || key.startsWith("anim_hero_flame_")
+            || key.startsWith("anim_large_sparks_")
+            || key.startsWith("anim_x_sparks_")) {
+            return true;
+        }
+        return key.equals("texture_mode_base_particle") || key.equals("texture_style_base_particle") || key.equals("custom_texture_base_particle") || key.equals("vanilla_texture_base_particle")
+            || key.equals("texture_mode_hero_flame") || key.equals("texture_style_hero_flame") || key.equals("custom_texture_hero_flame") || key.equals("vanilla_texture_hero_flame")
+            || key.equals("texture_mode_large_sparks") || key.equals("texture_style_large_sparks") || key.equals("custom_texture_large_sparks") || key.equals("vanilla_texture_large_sparks")
+            || key.equals("texture_mode_x_sparks") || key.equals("texture_style_x_sparks") || key.equals("custom_texture_x_sparks") || key.equals("vanilla_texture_x_sparks");
+    }
+
+    private static class DefaultElementConfigBuilder implements ElementConfigBuilder {
+        @Override
+        public void build(ConfigTabContent content) {
+            if (!(content instanceof ElementConfigContent)) return;
+            ElementConfigContent elementContent = (ElementConfigContent) content;
+            
+            String presetId = elementContent.getPresetId();
+            String elementId = elementContent.getElementId();
+            
+            Set<String> configKeys = ElementConfigManager.getConfigKeys(presetId, elementId);
+            JsonObject currentConfig = ElementConfigManager.getElementConfig(presetId, elementId);
+            JsonObject defaultConfig = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
+            
+            if (currentConfig == null) currentConfig = new JsonObject();
+            
+            java.util.function.Function<String, Boolean> getConfigBoolean = (k) -> {
+                JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
+                if (liveConfig != null && liveConfig.has(k)) return liveConfig.get(k).getAsBoolean();
+                JsonObject liveDefault = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
+                return liveDefault != null && liveDefault.has(k) && liveDefault.get(k).getAsBoolean();
+            };
+
+            java.util.function.Function<String, java.util.function.Supplier<Boolean>> getDependency = (k) -> {
+                if (!k.equals("visible") && configKeys.contains("visible")) {
+                     return () -> {
+                        if (!getConfigBoolean.apply("visible")) return false;
+                         
+                         
+                         if (k.equals("combo_reset_timeout")) {
+                             JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
+                             JsonObject liveDefault = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
+                             
+                             String killReset = liveConfig != null && liveConfig.has("reset_kill_combo") ? liveConfig.get("reset_kill_combo").getAsString() 
+                                                : (liveDefault != null && liveDefault.has("reset_kill_combo") ? liveDefault.get("reset_kill_combo").getAsString() : "death");
+                                                
+                             String assistReset = liveConfig != null && liveConfig.has("reset_assist_combo") ? liveConfig.get("reset_assist_combo").getAsString()
+                                                  : (liveDefault != null && liveDefault.has("reset_assist_combo") ? liveDefault.get("reset_assist_combo").getAsString() : "death");
+                                                  
+                             return "time".equals(killReset) || "time".equals(assistReset);
+                         }
+                        if ("kill_icon/valorant".equals(elementId) && !k.equals("enable_math_particle_effect")) {
+                            boolean mathEnabled = configKeys.contains("enable_math_particle_effect") && getConfigBoolean.apply("enable_math_particle_effect");
+                            if ("color_base_particle".equals(k) || "enable_custom_color_base_particle".equals(k)) {
+                                return true;
+                            }
+                            if (isValorantStandardParticleKey(k)) {
+                                return !mathEnabled;
+                            }
+                            if (isValorantMathParticleKey(k)) {
+                                return mathEnabled;
+                            }
+                        }
+                         
+                         if (k.startsWith("anim_")) {
+                             String matchingTexture = null;
+                             for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+                                 String prefix = "anim_" + texture + "_";
+                                 if (k.startsWith(prefix)) {
+                                     matchingTexture = texture;
+                                     break;
+                                 }
+                             }
+                             
+                             if (matchingTexture != null) {
+                                 String prefix = "anim_" + matchingTexture + "_";
+                                 String property = k.substring(prefix.length());
+                                 
+                                 if (property.equals("enable_texture_animation")) return true;
+                                if (property.equals("texture_scale")
+                                    || property.equals("texture_final_opacity")
+                                    || property.equals("texture_x_offset")
+                                    || property.equals("texture_y_offset")) {
+                                    return true;
+                                }
+                                if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
+                                    String enableKey = prefix + "enable_texture_animation";
+                                    if (configKeys.contains(enableKey)) {
+                                        return !getConfigBoolean.apply(enableKey);
+                                    }
+                                    return true;
+                                }
+                                
+                                String enableKey = prefix + "enable_texture_animation";
+                                 if (configKeys.contains(enableKey)) {
+                                     return getConfigBoolean.apply(enableKey);
+                                 }
+                             }
+                         }
+                         
+                         return true;
+                     };
+                }
+                
+                return () -> {
+                     
+                     if (k.equals("combo_reset_timeout")) {
+                         JsonObject liveConfig = ElementConfigManager.getElementConfig(presetId, elementId);
+                         JsonObject liveDefault = ElementConfigManager.getResetDefaultConfig(presetId, elementId);
+                         
+                         String killReset = liveConfig != null && liveConfig.has("reset_kill_combo") ? liveConfig.get("reset_kill_combo").getAsString() 
+                                            : (liveDefault != null && liveDefault.has("reset_kill_combo") ? liveDefault.get("reset_kill_combo").getAsString() : "death");
+                                            
+                         String assistReset = liveConfig != null && liveConfig.has("reset_assist_combo") ? liveConfig.get("reset_assist_combo").getAsString()
+                                              : (liveDefault != null && liveDefault.has("reset_assist_combo") ? liveDefault.get("reset_assist_combo").getAsString() : "death");
+                                              
+                         return "time".equals(killReset) || "time".equals(assistReset);
+                     }
+                    if ("kill_icon/valorant".equals(elementId) && !k.equals("enable_math_particle_effect")) {
+                        boolean mathEnabled = configKeys.contains("enable_math_particle_effect") && getConfigBoolean.apply("enable_math_particle_effect");
+                        if ("color_base_particle".equals(k) || "enable_custom_color_base_particle".equals(k)) {
+                            return true;
+                        }
+                        if (isValorantStandardParticleKey(k)) {
+                            return !mathEnabled;
+                        }
+                        if (isValorantMathParticleKey(k)) {
+                            return mathEnabled;
+                        }
+                    }
+
+                     if (k.startsWith("anim_")) {
+                         String matchingTexture = null;
+                         for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+                             String prefix = "anim_" + texture + "_";
+                             if (k.startsWith(prefix)) {
+                                 matchingTexture = texture;
+                                 break;
+                             }
+                         }
+                         
+                         if (matchingTexture != null) {
+                             String prefix = "anim_" + matchingTexture + "_";
+                             String property = k.substring(prefix.length());
+                             
+                             if (property.equals("enable_texture_animation")) return true;
+                            if (property.equals("texture_scale")
+                                || property.equals("texture_final_opacity")
+                                || property.equals("texture_x_offset")
+                                || property.equals("texture_y_offset")) {
+                                return true;
+                            }
+                             if (property.equals("texture_frame_width_ratio") || property.equals("texture_frame_height_ratio")) {
+                                 String enableKey = prefix + "enable_texture_animation";
+                                 if (configKeys.contains(enableKey)) {
+                                     return !getConfigBoolean.apply(enableKey);
+                                 }
+                                 return true;
+                             }
+                             
+                             String enableKey = prefix + "enable_texture_animation";
+                             if (configKeys.contains(enableKey)) {
+                                 return getConfigBoolean.apply(enableKey);
+                             }
+                         }
+                     }
+                     
+                     return true;
+                };
+            };
+
+            List<String> sortedKeys = new java.util.ArrayList<>(configKeys);
+            java.util.Collections.sort(sortedKeys);
+            
+            for (String key : sortedKeys) {
+                if ("kill_icon/valorant".equals(elementId) && key.equals("display_duration")) {
+                    continue;
+                }
+                if (key.startsWith("ring_effect_normal_") && configKeys.contains("ring_effect_crit_color")) {
+                    continue;
+                }
+                JsonElement defaultElement = defaultConfig.get(key);
+                if (defaultElement == null || !defaultElement.isJsonPrimitive()) {
+                    continue; 
+                }
+                
+                com.google.gson.JsonPrimitive primitive = defaultElement.getAsJsonPrimitive();
+                // 声明式配置注册表: 类型由注册表驱动(替代按 JsonPrimitive 猜测与整数键特判)
+                org.mods.gd656killicon.common.config.ConfigType registryType = org.mods.gd656killicon.common.config.ElementConfigRegistry.getType(elementId, key);
+                if (registryType == null) {
+                    continue;
+                }
+                String finalPresetId = presetId;
+                String finalElementId = elementId;
+                String finalKey = key;
+                
+                boolean isFormatConfigKey = BonusRegistry.isFormatKey(key);
+                int formatBonusType = isFormatConfigKey ? BonusRegistry.getTypeByFormatKey(key) : -1;
+                int killFeedType = "subtitle/kill_feed".equals(elementId) ? KillTypeRegistry.getKillTypeByFormatKey(key) : -1;
+                boolean isHonorFormatKey = "kill_icon/honor".equals(elementId)
+                        && org.mods.gd656killicon.common.honor.HonorRegistry.isFormatKey(key);
+                String honorFormatId = isHonorFormatKey
+                        ? org.mods.gd656killicon.common.honor.HonorRegistry.getHonorIdByFormatKey(key) : null;
+
+                String displayName;
+                if (isFormatConfigKey) {
+                    // 加分项格式键：显示名 = lang 键（gd656killicon.bonus.<ID>.name）
+                    displayName = I18n.get(BonusRegistry.nameKey(formatBonusType));
+                } else if (killFeedType != -1) {
+                    // kill_feed 格式键：显示名 = lang 键（gd656killicon.killtype.<ID>.name）
+                    displayName = I18n.get(KillTypeRegistry.get(killFeedType).displayName());
+                } else if (isHonorFormatKey && honorFormatId != null) {
+                    // 荣誉字幕键（format_<honor_id>）：显示名 = 荣誉 lang 键（gd656killicon.honor.<ID>.name）
+                    displayName = I18n.get(org.mods.gd656killicon.common.honor.HonorRegistry.get(honorFormatId).displayNameKey());
+                } else {
+                    String nameKey = "gd656killicon.client.gui.config.element." + elementId.replace("/", ".") + "." + key;
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey)) {
+                        displayName = I18n.get(nameKey);
+                    } else {
+                        String genericKey = "gd656killicon.client.gui.config.generic." + key;
+                        if (org.mods.gd656killicon.client.util.I18nCompat.exists(genericKey)) {
+                            displayName = I18n.get(genericKey);
+                        } else if (key.startsWith("anim_")) {
+                            String matchingTexture = null;
+                            for (String texture : ElementTextureDefinition.getTextures(elementId)) {
+                                if (key.startsWith("anim_" + texture + "_")) {
+                                    matchingTexture = texture;
+                                    break;
+                                }
+                            }
+                            
+                            if (matchingTexture != null) {
+                                String prefix = "anim_" + matchingTexture + "_";
+                                String actualProperty = key.substring(prefix.length());
+                                String animGenericKey = "gd656killicon.client.gui.config.generic." + actualProperty;
+                                if (org.mods.gd656killicon.client.util.I18nCompat.exists(animGenericKey)) {
+                                    displayName = I18n.get(animGenericKey);
+                                } else {
+                                    displayName = key;
+                                }
+                            } else {
+                                displayName = key;
+                            }
+                        } else {
+                            displayName = key;
+                        }
+                    }
+                }
+                
+                if (key.startsWith("texture_style_")) {
+                    String styleKey = "gd656killicon.client.gui.config.generic.official_texture_select";
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(styleKey)) {
+                        displayName = I18n.get(styleKey);
+                    }
+                }
+                if (key.startsWith("custom_texture_")) {
+                    String customKey = "gd656killicon.client.gui.config.generic.custom_texture_select";
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(customKey)) {
+                        displayName = I18n.get(customKey);
+                    }
+                }
+                if (key.startsWith("texture_mode_")) {
+                    String modeKey = "gd656killicon.client.gui.config.generic.texture_select_mode";
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(modeKey)) {
+                        displayName = I18n.get(modeKey);
+                    }
+                }
+                if (key.startsWith("vanilla_texture_")) {
+                    String vanillaKey = "gd656killicon.client.gui.config.generic.vanilla_texture_select";
+                    if (org.mods.gd656killicon.client.util.I18nCompat.exists(vanillaKey)) {
+                        displayName = I18n.get(vanillaKey);
+                    }
+                }
+
+                // 声明式配置注册表: 一级开关键依赖优先(未注册的键才走 getDependency 特判)
+                String registryDep = org.mods.gd656killicon.common.config.ElementConfigRegistry.getDependsOn(elementId, key);
+                java.util.function.Supplier<Boolean> activeCondition;
+                if (registryDep != null) {
+                    String depKey = registryDep;
+                    activeCondition = () -> !configKeys.contains(depKey) || getConfigBoolean.apply(depKey);
+                } else {
+                    activeCondition = getDependency.apply(key);
+                }
+                
+                if (registryType == org.mods.gd656killicon.common.config.ConfigType.BOOLEAN) {
+                    boolean defaultValue = primitive.getAsBoolean();
+                    boolean currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsBoolean() : defaultValue;
+                    
+                    BooleanConfigEntry entry = new BooleanConfigEntry(
+                        0, 0, 0, 0, 
+                        GuiConstants.COLOR_BG, 
+                        0.3f, 
+                        displayName,
+                        key,
+                        "gd656killicon.config.desc." + key,                         currentValue, 
+                        defaultValue, 
+                        (newValue) -> {
+                            ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, String.valueOf(newValue));
+                        },
+                        activeCondition
+                    );
+                    content.getConfigRows().add(entry);
+                } else if (registryType == org.mods.gd656killicon.common.config.ConfigType.INT) {
+                        int defaultValue = primitive.getAsInt();
+                        int currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsInt() : defaultValue;
+                        IntegerConfigEntry entry = new IntegerConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc." + key,
+                            currentValue,
+                            defaultValue,
+                            (newValue) -> {
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, String.valueOf(newValue));
+                            },
+                            content.getTextInputDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (registryType == org.mods.gd656killicon.common.config.ConfigType.FLOAT) {
+                        float defaultValue = primitive.getAsFloat();
+                        float currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsFloat() : defaultValue;
+                        FloatConfigEntry entry = new FloatConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc." + key,
+                            currentValue,
+                            defaultValue,
+                            (newValue) -> {
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, String.valueOf(newValue));
+                            },
+                            content.getTextInputDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    }
+                else {
+                    // 所见即所得：输入框直接显示 config 中的实际数据（不解析、不转换）
+                    // 默认值统一来自 getResetDefaultConfig: 官方预设 = jar json, 自定义预设 = 注册表+format json
+                    String defaultValue = primitive.getAsString();
+                    String currentValue = currentConfig.has(key) ? currentConfig.get(key).getAsString() : defaultValue;
+                    final String resolvedDefaultValue = defaultValue;
+                    final String resolvedCurrentValue = currentValue;
+                    final String resolvedDescription = isFormatConfigKey
+                        ? I18n.get(BonusRegistry.descKey(formatBonusType))
+                        : (isHonorFormatKey && honorFormatId != null
+                            ? I18n.get(org.mods.gd656killicon.common.honor.HonorRegistry.get(honorFormatId).descriptionKey())
+                            : "gd656killicon.config.desc." + key);
+
+                    boolean isColorConfig = registryType == org.mods.gd656killicon.common.config.ConfigType.COLOR;
+
+                    if ("screen_anchor".equals(key)) {
+                        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+                        for (String anchorId : org.mods.gd656killicon.client.render.ScreenAnchor.getAnchorIds()) {
+                            choices.add(new FixedChoiceConfigEntry.Choice(anchorId, I18n.get("gd656killicon.config.choice.screen_anchor." + anchorId)));
+                        }
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc." + key,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                if (newValue == null || newValue.equals(resolvedCurrentValue)) {
+                                    return;
+                                }
+                                // 锚点切换时同步调整 x_offset/y_offset, 使元素在当前分辨率下屏幕相对位置不变
+                                JsonObject live = ElementConfigManager.getElementConfig(finalPresetId, finalElementId);
+                                String oldAnchor = live != null && live.has("screen_anchor")
+                                        ? live.get("screen_anchor").getAsString() : org.mods.gd656killicon.client.render.ScreenAnchor.DEFAULT;
+                                int oldX = live != null && live.has("x_offset") ? live.get("x_offset").getAsInt() : 0;
+                                int oldY = live != null && live.has("y_offset") ? live.get("y_offset").getAsInt() : 0;
+                                int screenW = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+                                int screenH = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+                                int newX = org.mods.gd656killicon.client.render.ScreenAnchor.translateXOffset(oldAnchor, newValue, oldX, screenW);
+                                int newY = org.mods.gd656killicon.client.render.ScreenAnchor.translateYOffset(oldAnchor, newValue, oldY, screenH);
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, "screen_anchor", newValue);
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, "x_offset", String.valueOf(newX));
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, "y_offset", String.valueOf(newY));
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if ("scroll_direction".equals(key) || "direction".equals(key)) {
+                        List<FixedChoiceConfigEntry.Choice> choices = List.of(
+                            new FixedChoiceConfigEntry.Choice("left", I18n.get("gd656killicon.config.choice.scroll_direction.left")),
+                            new FixedChoiceConfigEntry.Choice("right", I18n.get("gd656killicon.config.choice.scroll_direction.right"))
+                        );
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc." + key,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
+                                    return;
+                                }
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.startsWith("texture_mode_")) {
+                        List<FixedChoiceConfigEntry.Choice> choices = List.of(
+                            new FixedChoiceConfigEntry.Choice("custom", I18n.get("gd656killicon.config.choice.texture_mode.custom")),
+                            new FixedChoiceConfigEntry.Choice("official", I18n.get("gd656killicon.config.choice.texture_mode.official")),
+                            new FixedChoiceConfigEntry.Choice("vanilla", I18n.get("gd656killicon.config.choice.texture_mode.vanilla"))
+                        );
+                        String textureKey = key.substring("texture_mode_".length());
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc.texture_select_mode",
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
+                                    return;
+                                }
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                                if ("vanilla".equalsIgnoreCase(newValue)) {
+                                    JsonObject updated = ElementConfigManager.getElementConfig(finalPresetId, finalElementId);
+                                    String vanillaKey = ElementTextureDefinition.getVanillaTextureKey(textureKey);
+                                    String vanillaValue = updated != null && updated.has(vanillaKey) ? updated.get(vanillaKey).getAsString() : null;
+                                    if (!ExternalTextureManager.isVanillaTextureAvailable(vanillaValue)) {
+                                        elementContent.getChoiceListDialog().hide();
+                                        elementContent.getPromptDialog().show(I18n.get("gd656killicon.client.gui.prompt.texture_unavailable"), PromptDialog.PromptType.ERROR, null);
+                                        ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, "official");
+                                        elementContent.rebuildUIFromConfig();
+                                        return;
+                                    }
+                                }
+                                String fileName = ElementTextureDefinition.getSelectedTextureFileName(finalPresetId, finalElementId, textureKey);
+                                boolean gifDerived = "custom".equalsIgnoreCase(newValue) && ExternalTextureManager.isGifDerivedCustomTexture(finalPresetId, fileName);
+                                elementContent.handleTextureBindingChanged(textureKey, fileName, gifDerived);
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.startsWith("vanilla_texture_")) {
+                        List<FixedChoiceConfigEntry.Choice> choices = getCachedVanillaItemChoices();
+                        String textureKey = key.substring("vanilla_texture_".length());
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc.vanilla_texture_select",
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
+                                    return;
+                                }
+                                if (!ExternalTextureManager.isVanillaTextureAvailable(newValue)) {
+                                    elementContent.getChoiceListDialog().hide();
+                                    elementContent.getPromptDialog().show(I18n.get("gd656killicon.client.gui.prompt.texture_unavailable"), PromptDialog.PromptType.ERROR, null);
+                                    ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, resolvedCurrentValue);
+                                    elementContent.rebuildUIFromConfig();
+                                    return;
+                                }
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                                elementContent.handleTextureBindingChanged(textureKey, newValue, false);
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.startsWith("texture_style_")) {
+                        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+                        String textureKey = key.substring("texture_style_".length());
+                        for (String fileName : ExternalTextureManager.getAllTextureFileNames()) {
+                            String baseName = fileName.endsWith(".png") ? fileName.substring(0, fileName.length() - 4) : fileName;
+                            String labelKey = "gd656killicon.client.gui.texture.file." + baseName;
+                            String label = org.mods.gd656killicon.client.util.I18nCompat.exists(labelKey) ? I18n.get(labelKey) : baseName;
+                            choices.add(new FixedChoiceConfigEntry.Choice(fileName, label));
+                        }
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc.official_texture_select",
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
+                                    return;
+                                }
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                                elementContent.handleTextureBindingChanged(textureKey, newValue, false);
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.startsWith("custom_texture_")) {
+                        List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
+                        Map<String, String> customLabels = ExternalTextureManager.getCustomTextureLabels(presetId);
+                        for (String fileName : ExternalTextureManager.getCustomTextureFileNames(presetId)) {
+                            String label = customLabels.getOrDefault(fileName, fileName);
+                            choices.add(new FixedChoiceConfigEntry.Choice(fileName, label));
+                        }
+                        if (choices.isEmpty()) {
+                            choices.add(new FixedChoiceConfigEntry.Choice("", I18n.get("gd656killicon.client.gui.config.choice.custom_texture_none")));
+                        }
+                        String textureKey = key.substring("custom_texture_".length());
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            "gd656killicon.config.desc.custom_texture_select",
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                if (newValue != null && newValue.equals(resolvedCurrentValue)) {
+                                    return;
+                                }
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                                if (newValue != null && !newValue.isEmpty()) {
+                                    boolean gifDerived = ExternalTextureManager.isGifDerivedCustomTexture(finalPresetId, newValue);
+                                    elementContent.handleTextureBindingChanged(textureKey, newValue, gifDerived);
+                                }
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if ("team".equals(key) && TEAM_ELEMENT_IDS.contains(elementId)) {
+                        List<FixedChoiceConfigEntry.Choice> choices = List.of(
+                            new FixedChoiceConfigEntry.Choice("ct", "CT"),
+                            new FixedChoiceConfigEntry.Choice("t", "T")
+                        );
+                        FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            resolvedDescription,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            choices,
+                            (newValue) -> {
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                            },
+                            content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.endsWith("texture_animation_orientation")) {
+                         List<FixedChoiceConfigEntry.Choice> choices = List.of(
+                             new FixedChoiceConfigEntry.Choice("horizontal", I18n.get("gd656killicon.config.choice.horizontal")),
+                             new FixedChoiceConfigEntry.Choice("vertical", I18n.get("gd656killicon.config.choice.vertical"))
+                         );
+                         FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                             0, 0, 0, 0,
+                             GuiConstants.COLOR_BG,
+                             0.3f,
+                             displayName,
+                             key,
+                             resolvedDescription,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
+                             choices,
+                             (newValue) -> {
+                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                             },
+                             content.getChoiceListDialog(),
+                             activeCondition
+                         );
+                         content.getConfigRows().add(entry);
+                    } else if (key.endsWith("texture_animation_play_style")) {
+                         List<FixedChoiceConfigEntry.Choice> choices = List.of(
+                             new FixedChoiceConfigEntry.Choice("sequential", I18n.get("gd656killicon.config.choice.sequential")),
+                             new FixedChoiceConfigEntry.Choice("reverse", I18n.get("gd656killicon.config.choice.reverse")),
+                             new FixedChoiceConfigEntry.Choice("pingpong", I18n.get("gd656killicon.config.choice.pingpong")),
+                             new FixedChoiceConfigEntry.Choice("random", I18n.get("gd656killicon.config.choice.random"))
+                         );
+                         FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                             0, 0, 0, 0,
+                             GuiConstants.COLOR_BG,
+                             0.3f,
+                             displayName,
+                             key,
+                             resolvedDescription,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
+                             choices,
+                             (newValue) -> {
+                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                             },
+                             content.getChoiceListDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else if (key.equals("reset_kill_combo") || key.equals("reset_assist_combo")) {
+                         List<FixedChoiceConfigEntry.Choice> choices = key.equals("reset_assist_combo")
+                             ? List.of(
+                                 new FixedChoiceConfigEntry.Choice("death", I18n.get("gd656killicon.config.choice.reset_death")),
+                                 new FixedChoiceConfigEntry.Choice("time", I18n.get("gd656killicon.config.choice.reset_time")),
+                                 new FixedChoiceConfigEntry.Choice("logout", I18n.get("gd656killicon.config.choice.reset_logout")),
+                                 new FixedChoiceConfigEntry.Choice("never", I18n.get("gd656killicon.config.choice.reset_never"))
+                             )
+                             : List.of(
+                                 new FixedChoiceConfigEntry.Choice("server", I18n.get("gd656killicon.config.choice.reset_server")),
+                                 new FixedChoiceConfigEntry.Choice("death", I18n.get("gd656killicon.config.choice.reset_death")),
+                                 new FixedChoiceConfigEntry.Choice("time", I18n.get("gd656killicon.config.choice.reset_time")),
+                                 new FixedChoiceConfigEntry.Choice("logout", I18n.get("gd656killicon.config.choice.reset_logout")),
+                                 new FixedChoiceConfigEntry.Choice("never", I18n.get("gd656killicon.config.choice.reset_never"))
+                             );
+                         FixedChoiceConfigEntry entry = new FixedChoiceConfigEntry(
+                             0, 0, 0, 0,
+                             GuiConstants.COLOR_BG,
+                             0.3f,
+                             displayName,
+                             key,
+                             resolvedDescription,
+                             resolvedCurrentValue,
+                             resolvedDefaultValue,
+                             choices,
+                             (newValue) -> {
+                                 ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                             },
+                             content.getChoiceListDialog(),
+                             activeCondition
+                         );
+                         content.getConfigRows().add(entry);
+                    } else if (isColorConfig) {
+                        HexColorConfigEntry entry = new HexColorConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            resolvedDescription,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            (newValue) -> {
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                            },
+                            content.getTextInputDialog(),
+                            content.getColorPickerDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    } else {
+                        StringConfigEntry entry = new StringConfigEntry(
+                            0, 0, 0, 0,
+                            GuiConstants.COLOR_BG,
+                            0.3f,
+                            displayName,
+                            key,
+                            resolvedDescription,
+                            resolvedCurrentValue,
+                            resolvedDefaultValue,
+                            (newValue) -> {
+                                // 所见即所得：输入什么存什么
+                                ElementConfigManager.updateConfigValue(finalPresetId, finalElementId, finalKey, newValue);
+                            },
+                            content.getTextInputDialog(),
+                            activeCondition
+                        );
+                        content.getConfigRows().add(entry);
+                    }
+                }
+            }
+
+        }
+    }
+}

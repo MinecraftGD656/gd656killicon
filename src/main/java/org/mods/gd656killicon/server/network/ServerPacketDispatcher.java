@@ -1,0 +1,97 @@
+package org.mods.gd656killicon.server.network;
+
+import net.minecraft.server.level.ServerPlayer;
+import org.mods.gd656killicon.common.KillType;
+import org.mods.gd656killicon.network.NetworkHandler;
+import org.mods.gd656killicon.network.packet.DamageSoundPacket;
+import org.mods.gd656killicon.network.packet.DeathPacket;
+import org.mods.gd656killicon.network.packet.KillDistancePacket;
+import org.mods.gd656killicon.network.packet.KillIconPacket;
+
+import java.util.function.Supplier;
+
+public final class ServerPacketDispatcher {
+    private ServerPacketDispatcher() {}
+
+    private static void dispatch(ServerPlayer player, ServerPacketType type, Supplier<Object> packetFactory) {
+        if (player == null) {
+            return;
+        }
+        NetworkHandler.sendToPlayer((org.mods.gd656killicon.network.IPacket) packetFactory.get(), player);
+    }
+
+    public static void sendDamageSound(ServerPlayer player, boolean headshotDamage) {
+        dispatch(player, ServerPacketType.DAMAGE_SOUND, () -> new DamageSoundPacket(headshotDamage));
+    }
+
+    /** 命中信息: 玩家对任意生物造成伤害(amount > 0)或击杀(killed = true), entityId = 受害实体 */
+    public static void sendHitInfo(ServerPlayer player, float amount, boolean killed, int entityId) {
+        if (player == null) {
+            return;
+        }
+        NetworkHandler.sendToPlayer(new org.mods.gd656killicon.network.packet.HitInfoPacket(amount, killed, entityId), player);
+    }
+
+    public static void sendDeath(ServerPlayer player, String playerName, String deathCause, String killerName) {
+        dispatch(player, ServerPacketType.PLAYER_DEATH, () -> new DeathPacket(playerName, deathCause, killerName));
+    }
+
+    public static void sendKillDistance(ServerPlayer player, double distance) {
+        dispatch(player, ServerPacketType.KILL_DISTANCE, () -> new KillDistancePacket(distance));
+    }
+
+    /**
+     * 救援(RESCUE): conquest 中玩家救援成功。
+     * 定向只发 subtitle/kill_feed(不发滚动图标), victimId = 被救援玩家实体 id(与加分项 score 关联)。
+     */
+    public static void sendRescueEffects(ServerPlayer reviver, net.minecraft.world.entity.LivingEntity target) {
+        if (reviver == null || target == null) {
+            return;
+        }
+        String victimName = target instanceof net.minecraft.world.entity.player.Player
+                ? target.getScoreboardName()
+                : (target.hasCustomName() ? target.getCustomName().getString() : target.getType().getDescriptionId());
+        int victimId = target.getId();
+        dispatch(reviver, ServerPacketType.SUBTITLE_KILL_FEED,
+                () -> new KillIconPacket("subtitle", "kill_feed", KillType.RESCUE, 0, victimId, 0, false, victimName, true, false, 0, 0.0f, 0.0f));
+    }
+
+    /**
+     * 标示助攻(SPOT_ASSIST): 索敌玩家标记的实体在 30s 内被同队队友击杀。
+     * 定向只发 kill_icon/scrolling 与 subtitle/kill_feed(不记击杀统计, 不触发其它元素)。
+     */
+    public static void sendSpotAssistEffects(ServerPlayer spotter, net.minecraft.world.entity.LivingEntity victim) {
+        if (spotter == null || victim == null) {
+            return;
+        }
+        String baseName = victim instanceof net.minecraft.world.entity.player.Player
+                ? victim.getScoreboardName()
+                : (victim.hasCustomName() ? victim.getCustomName().getString() : victim.getType().getDescriptionId());
+        boolean isVictimPlayer = victim instanceof net.minecraft.world.entity.player.Player;
+        int victimId = victim.getId();
+        dispatch(spotter, ServerPacketType.KILL_ICON_SCROLLING,
+                () -> new KillIconPacket("kill_icon", "scrolling", KillType.SPOT_ASSIST, 0, victimId, 0, false, baseName, isVictimPlayer, false, 0, 0.0f, 0.0f));
+        dispatch(spotter, ServerPacketType.SUBTITLE_KILL_FEED,
+                () -> new KillIconPacket("subtitle", "kill_feed", KillType.SPOT_ASSIST, 0, victimId, 0, false, baseName, isVictimPlayer, false, 0, 0.0f, 0.0f));
+    }
+
+    public static void sendKillEffects(ServerPlayer player, int killType, int combo, int victimId, double comboWindowSeconds, boolean hasHelmet, String victimName, boolean isVictimPlayer, float distance, float bonusMultiplier, float bonusScale) {
+        boolean recordStats = killType != KillType.ASSIST && killType != KillType.DESTROY_VEHICLE;
+
+        dispatch(player, ServerPacketType.KILL_ICON_SCROLLING, () -> new KillIconPacket("kill_icon", "scrolling", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, recordStats, distance));
+        dispatch(player, ServerPacketType.KILL_ICON_VALORANT, () -> new KillIconPacket("kill_icon", "valorant", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
+
+        if (combo > 0) {
+            dispatch(player, ServerPacketType.KILL_ICON_COMBO, () -> new KillIconPacket("kill_icon", "combo", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
+        }
+        dispatch(player, ServerPacketType.KILL_ICON_CARD, () -> new KillIconPacket("kill_icon", "card", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
+        dispatch(player, ServerPacketType.KILL_ICON_CARD_BAR, () -> new KillIconPacket("kill_icon", "card_bar", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
+        dispatch(player, ServerPacketType.KILL_ICON_BATTLEFIELD1, () -> new KillIconPacket("kill_icon", "battlefield1", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
+
+        // kill_feed 直带加分项表达式(bonusMultiplier)与附加数据(bonusScale), 客户端显示 <score> = bonusScale * bonusMultiplier
+        dispatch(player, ServerPacketType.SUBTITLE_KILL_FEED, () -> new KillIconPacket("subtitle", "kill_feed", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance, bonusMultiplier, bonusScale));
+        if ((combo > 0 || killType == KillType.ASSIST) && killType != KillType.DESTROY_VEHICLE) {
+            dispatch(player, ServerPacketType.SUBTITLE_COMBO, () -> new KillIconPacket("subtitle", "combo", killType, combo, victimId, comboWindowSeconds, hasHelmet, victimName, isVictimPlayer, false, distance));
+        }
+    }
+}

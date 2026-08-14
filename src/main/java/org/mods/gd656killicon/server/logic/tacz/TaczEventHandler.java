@@ -1,0 +1,417 @@
+package org.mods.gd656killicon.server.logic.tacz;
+
+import cn.sh1rocu.tacz.api.LogicalSide;
+import com.tacz.guns.api.TimelessAPI;
+import com.tacz.guns.api.event.common.EntityHurtByGunEvent;
+import com.tacz.guns.api.event.common.EntityKillByGunEvent;
+import com.tacz.guns.api.event.common.GunReloadEvent;
+import com.tacz.guns.api.event.server.AmmoHitBlockEvent;
+import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.entity.EntityKineticBullet;
+import dev.architectury.event.EventResult;
+import dev.architectury.event.events.common.EntityEvent;
+import dev.architectury.event.events.common.PlayerEvent;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import org.mods.gd656killicon.common.BonusType;
+import org.mods.gd656killicon.server.ServerCore;
+import org.mods.gd656killicon.server.bridge.ServerBridge;
+import org.mods.gd656killicon.server.logic.tacz.ITaczHandler;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class TaczEventHandler implements ITaczHandler {
+    private static final long COMBAT_FLAG_TTL_MS = 5000L;
+    private final Map<String, Long> headshotVictims = new ConcurrentHashMap<>();
+    private final Map<String, Long> headshotDamageVictims = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastBulletVictims = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> gunKillVictims = new ConcurrentHashMap<>();
+    private final Map<UUID, EntityKineticBullet> trackedBullets = new ConcurrentHashMap<>();
+    private final Map<UUID, Vec3> bulletLastPositions = new ConcurrentHashMap<>();
+    private final Map<UUID, UUID> bulletShooters = new ConcurrentHashMap<>();
+    private final Set<UUID> countedBullets = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> hitBullets = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Integer> suppressionCounts = new ConcurrentHashMap<>();
+
+    @Override
+    public void init() {
+        EntityKillByGunEvent.CALLBACK.register(this::onKill);
+        EntityHurtByGunEvent.POST.register(this::onHurt);
+        GunReloadEvent.CALLBACK.register(this::onReload);
+        AmmoHitBlockEvent.CALLBACK.register(this::onAmmoHitBlock);
+        EntityEvent.ADD.register(this::onBulletJoin);
+        ServerEntityEvents.ENTITY_UNLOAD.register(this::onBulletLeave);
+        PlayerEvent.PLAYER_QUIT.register(this::onPlayerLogout);
+    }
+
+    @Override
+    public void tick() {
+        long now = System.currentTimeMillis();
+        cleanupExpired(headshotVictims, now);
+        cleanupExpired(headshotDamageVictims, now);
+        cleanupExpired(lastBulletVictims, now);
+        cleanupExpired(gunKillVictims, now);
+        updateFireSuppressionTracking();
+    }
+
+    @Override
+    public boolean isHeadshotKill(UUID attackerId, UUID victimId) {
+        return consumeRecent(headshotVictims, attackerId, victimId);
+    }
+
+    @Override
+    public boolean isHeadshotDamage(UUID attackerId, UUID victimId) {
+        return consumeRecent(headshotDamageVictims, attackerId, victimId);
+    }
+
+    @Override
+    public boolean isLastBulletKill(UUID victimId) {
+        return consumeRecent(lastBulletVictims, victimId);
+    }
+
+    @Override
+    public boolean isGunKill(UUID victimId) {
+        return consumeRecent(gunKillVictims, victimId);
+    }
+
+    public void onKill(EntityKillByGunEvent event) {
+        LivingEntity victim = event.getKilledEntity();
+        if (victim == null) return;
+        UUID victimId = victim.getUUID();
+
+        markCombatFlag(gunKillVictims, victimId);
+
+        if (event.isHeadShot() && event.getAttacker() != null) {
+            UUID attackerId = event.getAttacker().getUUID();
+            markCombatFlag(headshotVictims, attackerId, victimId);
+        }
+
+        checkLastBullet(event);
+
+        // 对狙专家: 击杀手持 TACZ 狙击枪且正在开镜瞄准的玩家
+        if (event.getAttacker() instanceof ServerPlayer killer && victim instanceof net.minecraft.world.entity.player.Player victimPlayer
+                && isVictimSniperAiming(victimPlayer)) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onSniperDuel(killer);
+        }
+        // 势不可挡: TACZ 机枪击杀(非机枪击杀清零)
+        if (event.getAttacker() instanceof ServerPlayer killer) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onMachineGunKill(killer, isTaczMachineGun(killer.getMainHandItem()));
+        }
+        // 神射手: TACZ 狙击枪击杀
+        if (event.getAttacker() instanceof ServerPlayer killer && isTaczSniper(killer.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onSniperKill(killer);
+        }
+        // 弹头: TACZ 重型武器爆头击杀
+        if (event.isHeadShot() && event.getAttacker() instanceof ServerPlayer killer && isTaczHeavy(killer.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onWarheadKill(killer);
+        }
+        // 步枪手: TACZ 突击步枪击杀
+        if (event.getAttacker() instanceof ServerPlayer killer && isTaczRifle(killer.getMainHandItem())) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onRifleKill(killer);
+        }
+    }
+
+    /** 换弹开始(服务端): 中断机枪连续击杀(势不可挡)。 */
+    public void onReload(GunReloadEvent event) {
+        if (event.getLogicalSide() != LogicalSide.SERVER) {
+            return;
+        }
+        if (event.getEntity() instanceof ServerPlayer player) {
+            org.mods.gd656killicon.server.ServerCore.HONOR.onReload(player);
+        }
+    }
+
+    /** 手持是否为 TACZ 机枪(index type == "mg")。 */
+    private boolean isTaczMachineGun(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "mg".equals(index.getType()))
+                .orElse(false);
+    }
+
+    /** 手持是否为 TACZ 狙击枪(index type == "sniper")。 */
+    private boolean isTaczSniper(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "sniper".equals(index.getType()))
+                .orElse(false);
+    }
+
+    /** 手持是否为 TACZ 重型武器(index type == "rpg")。 */
+    private boolean isTaczHeavy(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "rpg".equals(index.getType()))
+                .orElse(false);
+    }
+
+    /** 手持是否为 TACZ 突击步枪(index type == "rifle")。 */
+    private boolean isTaczRifle(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        return TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "rifle".equals(index.getType()))
+                .orElse(false);
+    }
+
+    public void onHurt(EntityHurtByGunEvent event) {
+        if (!(event.getHurtEntity() instanceof LivingEntity victim)) return;
+
+        Entity bulletEntity = event.getBullet();
+        if (bulletEntity instanceof EntityKineticBullet bullet) {
+            hitBullets.add(bullet.getUUID());
+        }
+
+        if (event.isHeadShot() && event.getAttacker() != null) {
+            UUID attackerId = event.getAttacker().getUUID();
+            markCombatFlag(headshotDamageVictims, attackerId, victim.getUUID());
+        }
+    }
+
+    public void onAmmoHitBlock(AmmoHitBlockEvent event) {
+        if (event.getLevel().isClientSide()) return;
+        Entity owner = event.getAmmo().getOwner();
+        if (!(owner instanceof ServerPlayer player)) return;
+        if (event.getState().isAir()) return;
+        if (!event.getLevel().getBlockState(event.getHitResult().getBlockPos()).isAir()) return;
+        ServerCore.BONUS.add(player, BonusType.DESTROY_BLOCK, 1.0f, "");
+    }
+
+    public dev.architectury.event.EventResult onBulletJoin(Entity entity, net.minecraft.world.level.Level level) {
+        if (level.isClientSide) return dev.architectury.event.EventResult.pass();
+        if (!(entity instanceof EntityKineticBullet bullet)) return dev.architectury.event.EventResult.pass();
+        UUID bulletId = bullet.getUUID();
+        trackedBullets.put(bulletId, bullet);
+        bulletLastPositions.put(bulletId, bullet.position());
+        if (bullet.getOwner() instanceof ServerPlayer player) {
+            bulletShooters.put(bulletId, player.getUUID());
+        }
+        return dev.architectury.event.EventResult.pass();
+    }
+
+    public void onBulletLeave(Entity entity, net.minecraft.world.level.Level level) {
+        if (level.isClientSide) return;
+        if (!(entity instanceof EntityKineticBullet bullet)) return;
+        UUID bulletId = bullet.getUUID();
+        Vec3 lastPos = bulletLastPositions.get(bulletId);
+        Vec3 currentPos = lastPos == null ? bullet.position() : lastPos.add(bullet.getDeltaMovement());
+        if (lastPos != null && !countedBullets.contains(bulletId)) {
+            ServerPlayer shooter = resolveShooter(bullet, bulletId);
+            if (shooter != null) {
+                processSuppressionHit(shooter, bullet, bulletId, lastPos, currentPos);
+            }
+        }
+        trackedBullets.remove(bulletId);
+        bulletLastPositions.remove(bulletId);
+        bulletShooters.remove(bulletId);
+        countedBullets.remove(bulletId);
+        hitBullets.remove(bulletId);
+    }
+
+    public void onPlayerLogout(ServerPlayer player) {
+        suppressionCounts.remove(player.getUUID());
+    }
+
+    /** 受害者是否手持 TACZ 狙击枪且正在开镜瞄准(服务端同步状态)。 */
+    private boolean isVictimSniperAiming(net.minecraft.world.entity.player.Player victim) {
+        ItemStack stack = victim.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) return false;
+        net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(stack);
+        boolean isSniper = TimelessAPI.getCommonGunIndex(gunId)
+                .map(index -> "sniper".equals(index.getType()))
+                .orElse(false);
+        if (!isSniper) return false;
+        return com.tacz.guns.api.entity.IGunOperator.fromLivingEntity(victim).getSynIsAiming();
+    }
+
+    private void checkLastBullet(EntityKillByGunEvent event) {
+        if (!(event.getAttacker() instanceof Player player)) return;
+
+        ItemStack stack = player.getMainHandItem();
+        IGun iGun = IGun.getIGunOrNull(stack);
+        if (iGun == null) return;
+
+        int currentAmmo = iGun.getCurrentAmmoCount(stack);
+        
+        if (currentAmmo > 0) return;
+
+        if (iGun.hasBulletInBarrel(stack)) return;
+
+        TimelessAPI.getCommonGunIndex(event.getGunId()).ifPresent(index -> {
+            int maxAmmo = index.getGunData().getAmmoAmount();
+            if (maxAmmo >= 2 && event.getKilledEntity() != null) {
+                markCombatFlag(lastBulletVictims, event.getKilledEntity().getUUID());
+            }
+        });
+    }
+
+    private void markCombatFlag(Map<UUID, Long> map, UUID victimId) {
+        map.put(victimId, System.currentTimeMillis());
+    }
+
+    private void markCombatFlag(Map<String, Long> map, UUID attackerId, UUID victimId) {
+        map.put(attackerId.toString() + ":" + victimId.toString(), System.currentTimeMillis());
+    }
+
+    private boolean consumeRecent(Map<UUID, Long> map, UUID victimId) {
+        Long ts = map.remove(victimId);
+        return ts != null && System.currentTimeMillis() - ts <= COMBAT_FLAG_TTL_MS;
+    }
+
+    private boolean consumeRecent(Map<String, Long> map, UUID attackerId, UUID victimId) {
+        String key = attackerId.toString() + ":" + victimId.toString();
+        Long ts = map.remove(key);
+        return ts != null && System.currentTimeMillis() - ts <= COMBAT_FLAG_TTL_MS;
+    }
+
+    private void cleanupExpired(Map<?, Long> map, long now) {
+        map.entrySet().removeIf(entry -> now - entry.getValue() > COMBAT_FLAG_TTL_MS);
+    }
+
+    private ServerPlayer resolveShooter(EntityKineticBullet bullet, UUID bulletId) {
+        UUID shooterId = bulletShooters.get(bulletId);
+        if (shooterId == null && bullet.getOwner() instanceof ServerPlayer owner) {
+            shooterId = owner.getUUID();
+            bulletShooters.put(bulletId, shooterId);
+        }
+        if (shooterId == null) return null;
+        var server = ServerBridge.loader().getCurrentServer();
+        return server == null ? null : server.getPlayerList().getPlayer(shooterId);
+    }
+
+    private boolean isValidCoordinate(Vec3 vec) {
+        if (vec == null) return false;
+        if (!Double.isFinite(vec.x) || !Double.isFinite(vec.y) || !Double.isFinite(vec.z)) return false;
+        return Math.abs(vec.x) < 3.0E7 && Math.abs(vec.y) < 3.0E7 && Math.abs(vec.z) < 3.0E7;
+    }
+
+    private void updateFireSuppressionTracking() {
+        if (trackedBullets.isEmpty()) return;
+        var server = ServerBridge.loader().getCurrentServer();
+        if (server == null) return;
+
+        for (var entry : trackedBullets.entrySet()) {
+            UUID bulletId = entry.getKey();
+            EntityKineticBullet bullet = entry.getValue();
+            if (bullet == null || bullet.isRemoved()) {
+                trackedBullets.remove(bulletId);
+                bulletLastPositions.remove(bulletId);
+                bulletShooters.remove(bulletId);
+                countedBullets.remove(bulletId);
+                hitBullets.remove(bulletId);
+                continue;
+            }
+
+            Vec3 lastPos = bulletLastPositions.get(bulletId);
+            Vec3 currentPos;
+            if (lastPos == null) {
+                currentPos = bullet.position();
+                if (!isValidCoordinate(currentPos)) {
+                    trackedBullets.remove(bulletId);
+                    continue;
+                }
+                bulletLastPositions.put(bulletId, currentPos);
+                continue;
+            } else {
+                Vec3 delta = bullet.getDeltaMovement();
+                if (!isValidCoordinate(delta)) {
+                    trackedBullets.remove(bulletId);
+                    continue;
+                }
+                currentPos = lastPos.add(delta);
+                if (!isValidCoordinate(currentPos)) {
+                    trackedBullets.remove(bulletId);
+                    continue;
+                }
+                bulletLastPositions.put(bulletId, currentPos);
+            }
+            if (countedBullets.contains(bulletId)) continue;
+
+            ServerPlayer shooter = resolveShooter(bullet, bulletId);
+            if (shooter == null) continue;
+            processSuppressionHit(shooter, bullet, bulletId, lastPos, currentPos);
+        }
+    }
+
+    private void processSuppressionHit(ServerPlayer shooter, EntityKineticBullet bullet, UUID bulletId, Vec3 start, Vec3 end) {
+        if (hitBullets.contains(bulletId)) return;
+        if (!isBulletSuppressing(shooter, bullet, start, end)) return;
+        countedBullets.add(bulletId);
+        UUID shooterId = shooter.getUUID();
+        int count = suppressionCounts.getOrDefault(shooterId, 0) + 1;
+        if (count >= 35) {
+            ServerCore.BONUS.add(shooter, BonusType.FIRE_SUPPRESSION, 1.0f, "");
+            count -= 35;
+        }
+        suppressionCounts.put(shooterId, count);
+    }
+
+    private boolean isBulletSuppressing(ServerPlayer shooter, EntityKineticBullet bullet, Vec3 start, Vec3 end) {
+        if (!isValidCoordinate(start) || !isValidCoordinate(end)) return false;
+        
+        AABB area = new AABB(start, end).inflate(2.0);
+        var entities = bullet.level().getEntitiesOfClass(LivingEntity.class, area, LivingEntity::isAlive);
+        if (entities.isEmpty()) return false;
+
+        for (LivingEntity target : entities) {
+            if (target == shooter) continue;
+            if (target.isPassengerOfSameVehicle(shooter)) continue;
+            if (!isSuppressionTarget(target)) continue;
+            if (target instanceof Player targetPlayer) {
+                if (shooter.getTeam() != null && targetPlayer.getTeam() != null && shooter.getTeam() == targetPlayer.getTeam()) {
+                    continue;
+                }
+            }
+            AABB targetBox = target.getBoundingBox().inflate(2.0);
+            if (targetBox.clip(start, end).isPresent()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isSuppressionTarget(LivingEntity target) {
+        if (target instanceof Player) {
+            return true;
+        }
+        return target instanceof Mob mob && !mob.isNoAi();
+    }
+}

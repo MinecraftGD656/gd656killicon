@@ -1,0 +1,17 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "org.mods.gd656killicon.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "mixin.gd656killicon.refmap.json",
+  "mixins": [
+    "superbwarfare.VehicleEntityMixin",
+    "server.EntityRideMixin"
+  ],
+  "client": [
+    "client.SoundEngineMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

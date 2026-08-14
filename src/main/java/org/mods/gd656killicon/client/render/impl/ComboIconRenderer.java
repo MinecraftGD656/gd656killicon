@@ -1,0 +1,388 @@
+package org.mods.gd656killicon.client.render.impl;
+
+import com.google.gson.JsonObject;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.util.Mth;
+import org.mods.gd656killicon.client.config.ConfigManager;
+import org.mods.gd656killicon.client.config.ElementTextureDefinition;
+import org.mods.gd656killicon.client.gui.tabs.PreviewTextureFocusContext;
+import org.mods.gd656killicon.client.render.IHudRenderer;
+import org.mods.gd656killicon.client.render.PreviewRenderTimeContext;
+import org.mods.gd656killicon.client.render.effect.IconGlowRenderEffect;
+import org.mods.gd656killicon.client.render.effect.IconRingEffect;
+import org.mods.gd656killicon.client.textures.ModTextures;
+import org.mods.gd656killicon.client.util.ClientMessageLogger;
+import org.mods.gd656killicon.common.KillType;
+
+/**
+ * Renderer for the Combo Kill Icon.
+ * <p>
+ * Displays a combo kill icon with a ring progress effect.
+ * Handles configuration loading, animation, and rendering logic.
+ * </p>
+ */
+public class ComboIconRenderer implements IHudRenderer {
+
+
+    private static final long DEFAULT_DISPLAY_DURATION = 1500L;
+    private static final long ANIMATION_DURATION = 300L;
+    private static final float START_SCALE = 2.0f;
+    private static final int DEFAULT_HEADSHOT_COLOR = 0xD4B800;
+    private static final int DEFAULT_EXPLOSION_COLOR = 0xF77F00;
+    private static final int DEFAULT_CRIT_COLOR = 0x9CCC65;
+
+
+    private static volatile long serverComboWindowMs = -1L;
+
+
+    private float configScale = 1.0f;
+    private int configXOffset = 0;
+    private int configYOffset = 0;
+    private String configScreenAnchor = "bottom_center";
+    private long displayDuration = DEFAULT_DISPLAY_DURATION;
+    private boolean enableCritRing = true;
+    private boolean enableHeadshotRing = true;
+    private boolean enableExplosionRing = true;
+    private float ringCritRadius = 42.0f;
+    private float ringCritThickness = 1.8f;
+    private float ringHeadshotRadius = 42.0f;
+    private float ringHeadshotThickness = 3.0f;
+    private float ringExplosionRadius = 42.0f;
+    private float ringExplosionThickness = 5.4f;
+    private boolean configIconGlowEnabled = false;
+    private int configIconGlowColor = 0xFFFFFF;
+    private float configIconGlowIntensity = 0.45f;
+    private float configIconGlowSize = 4.0f;
+    private JsonObject currentConfig;
+
+    private long startTime = -1;
+    private boolean isVisible = false;
+    private long effectiveDisplayDuration = DEFAULT_DISPLAY_DURATION;
+    private int comboCount = 0;
+    private int currentKillType = KillType.NORMAL;
+    private final IconRingEffect ringEffect = new IconRingEffect();
+
+
+    /**
+     * Default constructor.
+     */
+    public ComboIconRenderer() {
+    }
+
+    /**
+     * Updates the server-side combo window duration.
+     *
+     * @param seconds The combo window duration in seconds.
+     */
+    public static void updateServerComboWindowSeconds(double seconds) {
+        if (seconds <= 0) {
+            return;
+        }
+        serverComboWindowMs = Math.max(100L, (long) (seconds * 1000.0));
+    }
+
+    public static long getServerComboWindowMs() {
+        return serverComboWindowMs;
+    }
+
+
+    @Override
+    public void trigger(TriggerContext context) {
+        this.currentKillType = context.type();
+        this.comboCount = context.comboCount();
+
+        JsonObject config = ConfigManager.getElementConfig("kill_icon", "combo");
+        if (config == null) {
+            return;
+        }
+
+        boolean visible = !config.has("visible") || config.get("visible").getAsBoolean();
+        if (!visible) {
+            this.isVisible = false;
+            return;
+        }
+
+        loadConfig(config);
+
+        if (this.displayDuration < ANIMATION_DURATION) {
+            this.displayDuration = ANIMATION_DURATION;
+        }
+        this.effectiveDisplayDuration = this.displayDuration + ANIMATION_DURATION;
+
+        this.startTime = PreviewRenderTimeContext.currentTimeMillis();
+        this.isVisible = true;
+
+        triggerRingEffect();
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, float partialTick) {
+        if (!isVisible || startTime == -1) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        int screenWidth = mc.getWindow().getGuiScaledWidth();
+        int screenHeight = mc.getWindow().getGuiScaledHeight();
+        float centerX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(configScreenAnchor, configXOffset, screenWidth);
+        float centerY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
+        renderAt(guiGraphics, partialTick, centerX, centerY);
+    }
+
+    public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+        if (!isVisible || startTime == -1) return;
+
+        long currentTime = PreviewRenderTimeContext.currentTimeMillis();
+        long elapsed = currentTime - startTime;
+
+        if (elapsed > effectiveDisplayDuration) {
+            isVisible = false;
+            startTime = -1;
+            return;
+        }
+
+        float endScale = 1.0f * configScale;
+        float initialScale = START_SCALE * configScale;
+        float currentScale = endScale;
+        float alpha = 1.0f;
+
+        if (elapsed < ANIMATION_DURATION) {
+            float progress = (float) elapsed / ANIMATION_DURATION;
+            progress = 1.0f - (float) Math.pow(1.0f - progress, 3);
+            currentScale = Mth.lerp(progress, initialScale, endScale);
+            alpha = Mth.clamp(progress, 0.0f, 1.0f);
+        }
+
+        if (elapsed > displayDuration) {
+            long fadeElapsed = elapsed - displayDuration;
+            float fadeProgress = (float) fadeElapsed / (float) ANIMATION_DURATION;
+            float fadeAlpha = 1.0f - fadeProgress;
+            alpha = Mth.clamp(alpha * fadeAlpha, 0.0f, 1.0f);
+        }
+
+        int displayCombo = Mth.clamp(this.comboCount, 1, 6);
+        String textureKey = "combo_" + displayCombo;
+        String texturePath = ElementTextureDefinition.getSelectedTextureFileName(
+            ConfigManager.getCurrentPresetId(),
+            "kill_icon/combo",
+            textureKey,
+            currentConfig
+        );
+        float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
+        float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
+        float drawWidth = 64.0f * frameWidthRatio;
+        float drawHeight = 64.0f * frameHeightRatio;
+        float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/combo", textureKey);
+
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
+        try {
+            guiGraphics.pose().pushPose();
+            guiGraphics.pose().translate(centerX, centerY, 0);
+            guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
+            guiGraphics.pose().translate(-drawWidth / 2.0f, -drawHeight / 2.0f, 0);
+            if (configIconGlowEnabled) {
+                IconGlowRenderEffect.drawGlowFrame(
+                    guiGraphics,
+                    ModTextures.get(texturePath),
+                    0,
+                    0,
+                    (int) drawWidth,
+                    (int) drawHeight,
+                    0,
+                    0,
+                    (int) drawWidth,
+                    (int) drawHeight,
+                    (int) drawWidth,
+                    (int) drawHeight,
+                    focusedAlpha,
+                    configIconGlowColor,
+                    configIconGlowIntensity,
+                    configIconGlowSize
+                );
+                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
+            }
+            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight);
+            guiGraphics.pose().popPose();
+            ringEffect.render(guiGraphics, centerX, centerY, currentTime);
+        } finally {
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+    }
+
+
+    /**
+     * Loads configuration values from the JsonObject.
+     *
+     * @param config The configuration object.
+     */
+    private void loadConfig(JsonObject config) {
+        try {
+            this.currentConfig = config;
+            this.configScale = config.has("scale") ? config.get("scale").getAsFloat() : 1.0f;
+            this.configXOffset = config.has("x_offset") ? config.get("x_offset").getAsInt() : 0;
+            this.configYOffset = config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
+            this.configScreenAnchor = config.has("screen_anchor") ? config.get("screen_anchor").getAsString() : "bottom_center";
+            this.displayDuration = resolveDisplayDuration(config);
+            boolean defaultRingEnable = !config.has("enable_icon_effect") || config.get("enable_icon_effect").getAsBoolean();
+            this.enableCritRing = config.has("enable_ring_effect_crit") ? config.get("enable_ring_effect_crit").getAsBoolean() : defaultRingEnable;
+            this.enableHeadshotRing = config.has("enable_ring_effect_headshot") ? config.get("enable_ring_effect_headshot").getAsBoolean() : defaultRingEnable;
+            this.enableExplosionRing = config.has("enable_ring_effect_explosion") ? config.get("enable_ring_effect_explosion").getAsBoolean() : defaultRingEnable;
+            this.ringCritRadius = resolveRingFloat(config, "ring_effect_crit_radius", "ring_effect_normal_radius", 42.0f);
+            this.ringCritThickness = resolveRingFloat(config, "ring_effect_crit_thickness", "ring_effect_normal_thickness", 1.8f);
+            this.ringHeadshotRadius = config.has("ring_effect_headshot_radius")
+                    ? config.get("ring_effect_headshot_radius").getAsFloat()
+                    : 42.0f;
+            this.ringHeadshotThickness = config.has("ring_effect_headshot_thickness")
+                    ? config.get("ring_effect_headshot_thickness").getAsFloat()
+                    : 3.0f;
+            this.ringExplosionRadius = config.has("ring_effect_explosion_radius")
+                    ? config.get("ring_effect_explosion_radius").getAsFloat()
+                    : 42.0f;
+            this.ringExplosionThickness = config.has("ring_effect_explosion_thickness")
+                    ? config.get("ring_effect_explosion_thickness").getAsFloat()
+                    : 5.4f;
+            this.configIconGlowEnabled = IconGlowRenderEffect.isEnabled(config);
+            this.configIconGlowColor = IconGlowRenderEffect.resolveColor(config);
+            this.configIconGlowIntensity = IconGlowRenderEffect.resolveIntensity(config);
+            this.configIconGlowSize = IconGlowRenderEffect.resolveSize(config);
+        } catch (Exception e) {
+            ClientMessageLogger.chatWarn("gd656killicon.client.combo.config_error");
+            this.currentConfig = null;
+            this.configScale = 1.0f;
+            this.configXOffset = 0;
+            this.configYOffset = 0;
+            this.configScreenAnchor = "bottom_center";
+            this.displayDuration = resolveDisplayDuration(null);
+            this.enableCritRing = true;
+            this.enableHeadshotRing = true;
+            this.enableExplosionRing = true;
+            this.ringCritRadius = 42.0f;
+            this.ringCritThickness = 1.8f;
+            this.ringHeadshotRadius = 42.0f;
+            this.ringHeadshotThickness = 3.0f;
+            this.ringExplosionRadius = 42.0f;
+            this.ringExplosionThickness = 5.4f;
+            this.configIconGlowEnabled = false;
+            this.configIconGlowColor = 0xFFFFFF;
+            this.configIconGlowIntensity = 0.45f;
+            this.configIconGlowSize = 4.0f;
+        }
+    }
+
+    private float resolveFrameRatio(String textureKey, String suffixKey) {
+        if (currentConfig == null || textureKey == null) {
+            return 1.0f;
+        }
+        String key = "anim_" + textureKey + "_" + suffixKey;
+        if (!currentConfig.has(key)) {
+            return 1.0f;
+        }
+        float value = currentConfig.get(key).getAsFloat();
+        return value > 0 ? value : 1.0f;
+    }
+
+    /**
+     * Resolves the display duration, prioritizing server settings.
+     *
+     * @param config The configuration object.
+     * @return The resolved display duration in milliseconds.
+     */
+    private long resolveDisplayDuration(JsonObject config) {
+        long serverDuration = serverComboWindowMs;
+        if (serverDuration > 0) {
+            return serverDuration;
+        }
+        if (config != null && config.has("display_duration")) {
+            return (long) (config.get("display_duration").getAsFloat() * 1000);
+        }
+        return DEFAULT_DISPLAY_DURATION;
+    }
+
+    /**
+     * Triggers the ring effect animation.
+     */
+    private void triggerRingEffect() {
+        if (isRingEnabledForKillType(this.currentKillType)) {
+            ringEffect.setRingParams(
+                    ringCritRadius,
+                    ringCritThickness,
+                    ringHeadshotRadius,
+                    ringHeadshotThickness,
+                    ringExplosionRadius,
+                    ringExplosionThickness
+            );
+            ringEffect.trigger(
+                    this.startTime,
+                    true,
+                    this.currentKillType,
+                    resolveHeadshotEffectRgb(),
+                    resolveExplosionEffectRgb(),
+                    resolveCritEffectRgb()
+            );
+        } else {
+            ringEffect.trigger(this.startTime, false, this.currentKillType, 0, 0, 0);
+        }
+    }
+
+    private int resolveHeadshotEffectRgb() {
+        return resolveEffectRgb("ring_effect_headshot_color", DEFAULT_HEADSHOT_COLOR);
+    }
+
+    private int resolveExplosionEffectRgb() {
+        return resolveEffectRgb("ring_effect_explosion_color", DEFAULT_EXPLOSION_COLOR);
+    }
+
+    private int resolveCritEffectRgb() {
+        if (currentConfig != null) {
+            if (currentConfig.has("ring_effect_crit_color")) {
+                return resolveEffectRgb("ring_effect_crit_color", DEFAULT_CRIT_COLOR);
+            }
+            if (currentConfig.has("ring_effect_normal_color")) {
+                return resolveEffectRgb("ring_effect_normal_color", DEFAULT_CRIT_COLOR);
+            }
+        }
+        return DEFAULT_CRIT_COLOR;
+    }
+
+    private int resolveEffectRgb(String key, int defaultValue) {
+        if (currentConfig == null) {
+            return defaultValue;
+        }
+        String hex = currentConfig.has(key) ? currentConfig.get(key).getAsString() : null;
+        return parseRgbHexOrDefault(hex, defaultValue);
+    }
+
+    private float resolveRingFloat(JsonObject config, String key, String legacyKey, float defaultValue) {
+        if (config == null) {
+            return defaultValue;
+        }
+        if (config.has(key)) {
+            return config.get(key).getAsFloat();
+        }
+        if (legacyKey != null && config.has(legacyKey)) {
+            return config.get(legacyKey).getAsFloat();
+        }
+        return defaultValue;
+    }
+
+    private boolean isRingEnabledForKillType(int type) {
+        return switch (type) {
+            case KillType.HEADSHOT -> enableHeadshotRing;
+            case KillType.EXPLOSION -> enableExplosionRing;
+            case KillType.CRIT -> enableCritRing;
+            default -> false;
+        };
+    }
+
+    private static int parseRgbHexOrDefault(String hex, int fallbackRgb) {
+        if (hex == null || hex.isEmpty()) {
+            return fallbackRgb;
+        }
+        try {
+            int rgb = Integer.parseInt(hex.replace("#", ""), 16);
+            return rgb & 0x00FFFFFF;
+        } catch (NumberFormatException e) {
+            return fallbackRgb;
+        }
+    }
+}

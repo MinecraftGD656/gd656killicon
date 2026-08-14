@@ -1,0 +1,38 @@
+# Gradle / Loom
+.gradle/
+gradle/gradle/
+build/
+out/
+classes/
+run/
+runs/
+remappedSrc/
+mappings/
+libs/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+bin/
+.vscode/
+*.launch
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local debug leftovers
+*.log
+build_err*.txt
+build_log.txt
+jstack*.txt
+
+# Jars (keep wrapper)
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
