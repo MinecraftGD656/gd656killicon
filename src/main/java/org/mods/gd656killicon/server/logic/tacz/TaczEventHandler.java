@@ -93,8 +93,10 @@ public class TaczEventHandler implements ITaczHandler {
 
         checkLastBullet(event);
 
-        // 对狙专家: 击杀手持 TACZ 狙击枪且正在开镜瞄准的玩家
-        if (event.getAttacker() instanceof ServerPlayer killer && victim instanceof net.minecraft.world.entity.player.Player victimPlayer
+        // 对狙专家: 手持 TACZ 狙击枪击杀一名也手持狙击枪且正在开镜瞄准的玩家
+        if (event.getAttacker() instanceof ServerPlayer killer
+                && isTaczSniper(killer.getMainHandItem())
+                && victim instanceof net.minecraft.world.entity.player.Player victimPlayer
                 && isVictimSniperAiming(victimPlayer)) {
             org.mods.gd656killicon.server.ServerCore.HONOR.onSniperDuel(killer);
         }
