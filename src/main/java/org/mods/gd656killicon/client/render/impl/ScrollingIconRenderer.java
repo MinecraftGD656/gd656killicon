@@ -1,9 +1,11 @@
 package org.mods.gd656killicon.client.render.impl;
 
+
+import net.minecraft.client.renderer.RenderPipelines;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
@@ -171,7 +173,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!isVisible || (activeIcons.isEmpty() && pendingIcons.isEmpty())) {
             isVisible = false;
             return;
@@ -255,11 +257,11 @@ public class ScrollingIconRenderer implements IHudRenderer {
             }
 
             float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/scrolling", textureKey);
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(icon.currentX, centerY, 0);
-            guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
-            guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
+        int aScroll1 = (int) (focusedAlpha * 255.0f); if (aScroll1 < 0) aScroll1 = 0; if (aScroll1 > 255) aScroll1 = 255;
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(icon.currentX,  centerY);
+            guiGraphics.pose().scale(currentScale,  currentScale);
+            guiGraphics.pose().translate(-drawWidth / 2f,  -drawHeight / 2f);
             if (configIconGlowEnabled) {
                 // 闪烁开启时发光层按 alpha 平方衰减: 半透明阶段发光急剧减弱, 放大闪烁对比
                 // (发光为加法混合, 会让半透明阶段过亮导致闪烁不明显)
@@ -282,11 +284,9 @@ public class ScrollingIconRenderer implements IHudRenderer {
                     configIconGlowIntensity,
                     configIconGlowSize
                 );
-                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
             }
-            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, (int)drawWidth, (int)drawHeight, frame.u, frame.v, frame.width, frame.height, frame.totalWidth, frame.totalHeight);
-            guiGraphics.pose().popPose();
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, ModTextures.get(texturePath), 0, 0, frame.u / (float) frame.totalWidth, frame.v / (float) frame.totalHeight, (int)drawWidth, (int)drawHeight, frame.width, frame.height, frame.totalWidth, frame.totalHeight, (aScroll1 << 24) | 0x00FFFFFF);
+            guiGraphics.pose().popMatrix();
 
             icon.ringEffect.render(guiGraphics, icon.currentX, centerY, currentTime);
         }
@@ -300,7 +300,7 @@ public class ScrollingIconRenderer implements IHudRenderer {
         }
     }
 
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float originX, float originY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float originX, float originY) {
         if (!isVisible || (activeIcons.isEmpty() && pendingIcons.isEmpty())) {
             isVisible = false;
             return;
@@ -380,11 +380,11 @@ public class ScrollingIconRenderer implements IHudRenderer {
             }
 
             float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/scrolling", textureKey);
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(icon.currentX, originY, 0);
-            guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
-            guiGraphics.pose().translate(-drawWidth / 2f, -drawHeight / 2f, 0);
+        int aScroll2 = (int) (focusedAlpha * 255.0f); if (aScroll2 < 0) aScroll2 = 0; if (aScroll2 > 255) aScroll2 = 255;
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(icon.currentX,  originY);
+            guiGraphics.pose().scale(currentScale,  currentScale);
+            guiGraphics.pose().translate(-drawWidth / 2f,  -drawHeight / 2f);
             if (configIconGlowEnabled) {
                 // 闪烁开启时发光层按 alpha 平方衰减: 半透明阶段发光急剧减弱, 放大闪烁对比
                 // (发光为加法混合, 会让半透明阶段过亮导致闪烁不明显)
@@ -407,11 +407,9 @@ public class ScrollingIconRenderer implements IHudRenderer {
                     configIconGlowIntensity,
                     configIconGlowSize
                 );
-                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
             }
-            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, (int)drawWidth, (int)drawHeight, frame.u, frame.v, frame.width, frame.height, frame.totalWidth, frame.totalHeight);
-            guiGraphics.pose().popPose();
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, ModTextures.get(texturePath), 0, 0, frame.u / (float) frame.totalWidth, frame.v / (float) frame.totalHeight, (int)drawWidth, (int)drawHeight, frame.width, frame.height, frame.totalWidth, frame.totalHeight, (aScroll2 << 24) | 0x00FFFFFF);
+            guiGraphics.pose().popMatrix();
 
             icon.ringEffect.render(guiGraphics, icon.currentX, originY, currentTime);
         }

@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
 import org.mods.gd656killicon.network.IPacket;
 import org.mods.gd656killicon.network.PacketContext;
@@ -16,12 +16,12 @@ public class DamageSoundPacket implements IPacket {
         this.headshotDamage = headshotDamage;
     }
 
-    public DamageSoundPacket(FriendlyByteBuf buffer) {
+    public DamageSoundPacket(RegistryFriendlyByteBuf buffer) {
         this.headshotDamage = buffer.readBoolean();
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeBoolean(headshotDamage);
     }
 

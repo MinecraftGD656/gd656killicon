@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.client.render;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * 客户端 HUD 渲染器接口。
@@ -13,7 +13,7 @@ public interface IHudRenderer {
      * @param guiGraphics 渲染画布
      * @param partialTick 渲染间隔偏移
      */
-    void render(GuiGraphics guiGraphics, float partialTick);
+    void render(GuiGraphicsExtractor guiGraphics, float partialTick);
 
     /**
      * 触发 HUD 元素的显示。

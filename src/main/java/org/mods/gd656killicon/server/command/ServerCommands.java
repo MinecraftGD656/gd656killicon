@@ -21,6 +21,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ServerCommands {
+
+    private static boolean hasLevel(net.minecraft.commands.CommandSourceStack s, int level) {
+        return s.permissions() instanceof net.minecraft.server.permissions.LevelBasedPermissionSet lbs
+            && lbs.level().isEqualOrHigherThan(net.minecraft.server.permissions.PermissionLevel.byId(level));
+    }
     private static final String[] SCOREBOARD_DEBUG_PREFIXES = {"Pro", "Noob", "God", "Master", "Legend", "Ghost", "Shadow", "Flame", "Ice", "Storm"};
     private static final String[] SCOREBOARD_DEBUG_SUFFIXES = {"Hunter", "Killer", "Player", "Warrior", "Seeker", "X", "Alpha", "Omega", "King", "Lord"};
 
@@ -36,8 +41,8 @@ public class ServerCommands {
     
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
-            Commands.literal("gd656killicon").then(Commands.literal("server").requires(s -> s.hasPermission(2))
-                .then(Commands.literal("bonus")
+            Commands.literal("gd656killicon").then(Commands.literal("server")
+                .then(Commands.literal("bonus").requires(s -> hasLevel(s, 2))
                     .then(Commands.literal("turnon")
                         .then(Commands.literal("all").executes(c -> toggleBonus(c, true, true)))
                         .then(Commands.argument("type", StringArgumentType.word())
@@ -70,11 +75,11 @@ public class ServerCommands {
                                 .then(Commands.argument("expr", StringArgumentType.string())
                                     .executes(ServerCommands::editBonusExpression)))))
                 )
-                .then(Commands.literal("reset").requires(s -> s.hasPermission(2))
+                .then(Commands.literal("reset").requires(s -> hasLevel(s, 2))
                     .then(Commands.literal("config").executes(ServerCommands::resetConfig))
                     .then(Commands.literal("bonus").executes(ServerCommands::resetBonusConfig))
                 )
-                .then(Commands.literal("config").requires(s -> s.hasPermission(2))
+                .then(Commands.literal("config").requires(s -> hasLevel(s, 2))
                         .then(Commands.literal("ComboWindow").then(Commands.argument("sec", DoubleArgumentType.doubleArg(0.1))
                             .executes(c -> setWindow(c, DoubleArgumentType.getDouble(c, "sec")))))
                         .then(Commands.literal("ScoreMaxLimit").then(Commands.argument("val", IntegerArgumentType.integer(0))
@@ -96,55 +101,55 @@ public class ServerCommands {
                         .then(Commands.argument("target", EntityArgument.player()).executes(ServerCommands::getTarget))))
                     .then(Commands.literal("list").then(Commands.literal("score")
                         .executes(ServerCommands::listScores)))
-                    .then(Commands.literal("add").requires(s -> s.hasPermission(2)).then(Commands.literal("score")
+                    .then(Commands.literal("add").requires(s -> hasLevel(s, 2)).then(Commands.literal("score")
                         .then(Commands.argument("targets", EntityArgument.players()).then(Commands.argument("amt", IntegerArgumentType.integer())
                             .executes(c -> modScore(c, true))))))
-                    .then(Commands.literal("set").requires(s -> s.hasPermission(2)).then(Commands.literal("score")
+                    .then(Commands.literal("set").requires(s -> hasLevel(s, 2)).then(Commands.literal("score")
                         .then(Commands.argument("targets", EntityArgument.players()).then(Commands.argument("amt", IntegerArgumentType.integer())
                             .executes(c -> modScore(c, false))))))
-                    .then(Commands.literal("dataset").requires(s -> s.hasPermission(2)).then(Commands.literal("score")
+                    .then(Commands.literal("dataset").requires(s -> hasLevel(s, 2)).then(Commands.literal("score")
                         .then(Commands.argument("amt", IntegerArgumentType.integer()).executes(ServerCommands::setAll))))
                     .then(Commands.literal("get").then(Commands.literal("kill")
                         .executes(ServerCommands::getKillSelf)
                         .then(Commands.argument("target", EntityArgument.player()).executes(ServerCommands::getKillTarget))))
                     .then(Commands.literal("list").then(Commands.literal("kill")
                         .executes(ServerCommands::listKills)))
-                    .then(Commands.literal("add").requires(s -> s.hasPermission(2)).then(Commands.literal("kill")
+                    .then(Commands.literal("add").requires(s -> hasLevel(s, 2)).then(Commands.literal("kill")
                         .then(Commands.argument("targets", EntityArgument.players()).then(Commands.argument("amt", IntegerArgumentType.integer())
                             .executes(c -> modKill(c, true))))))
-                    .then(Commands.literal("set").requires(s -> s.hasPermission(2)).then(Commands.literal("kill")
+                    .then(Commands.literal("set").requires(s -> hasLevel(s, 2)).then(Commands.literal("kill")
                         .then(Commands.argument("targets", EntityArgument.players()).then(Commands.argument("amt", IntegerArgumentType.integer())
                             .executes(c -> modKill(c, false))))))
-                    .then(Commands.literal("dataset").requires(s -> s.hasPermission(2)).then(Commands.literal("kill")
+                    .then(Commands.literal("dataset").requires(s -> hasLevel(s, 2)).then(Commands.literal("kill")
                         .then(Commands.argument("amt", IntegerArgumentType.integer()).executes(ServerCommands::setAllKills))))
                     .then(Commands.literal("get").then(Commands.literal("death")
                         .executes(ServerCommands::getDeathSelf)
                         .then(Commands.argument("target", EntityArgument.player()).executes(ServerCommands::getDeathTarget))))
                     .then(Commands.literal("list").then(Commands.literal("death")
                         .executes(ServerCommands::listDeaths)))
-                    .then(Commands.literal("add").requires(s -> s.hasPermission(2)).then(Commands.literal("death")
+                    .then(Commands.literal("add").requires(s -> hasLevel(s, 2)).then(Commands.literal("death")
                         .then(Commands.argument("targets", EntityArgument.players()).then(Commands.argument("amt", IntegerArgumentType.integer())
                             .executes(c -> modDeath(c, true))))))
-                    .then(Commands.literal("set").requires(s -> s.hasPermission(2)).then(Commands.literal("death")
+                    .then(Commands.literal("set").requires(s -> hasLevel(s, 2)).then(Commands.literal("death")
                         .then(Commands.argument("targets", EntityArgument.players()).then(Commands.argument("amt", IntegerArgumentType.integer())
                             .executes(c -> modDeath(c, false))))))
-                    .then(Commands.literal("dataset").requires(s -> s.hasPermission(2)).then(Commands.literal("death")
+                    .then(Commands.literal("dataset").requires(s -> hasLevel(s, 2)).then(Commands.literal("death")
                         .then(Commands.argument("amt", IntegerArgumentType.integer()).executes(ServerCommands::setAllDeaths))))
                     .then(Commands.literal("get").then(Commands.literal("assist")
                         .executes(ServerCommands::getAssistSelf)
                         .then(Commands.argument("target", EntityArgument.player()).executes(ServerCommands::getAssistTarget))))
                     .then(Commands.literal("list").then(Commands.literal("assist")
                         .executes(ServerCommands::listAssists)))
-                    .then(Commands.literal("add").requires(s -> s.hasPermission(2)).then(Commands.literal("assist")
+                    .then(Commands.literal("add").requires(s -> hasLevel(s, 2)).then(Commands.literal("assist")
                         .then(Commands.argument("targets", EntityArgument.players()).then(Commands.argument("amt", IntegerArgumentType.integer())
                             .executes(c -> modAssist(c, true))))))
-                    .then(Commands.literal("set").requires(s -> s.hasPermission(2)).then(Commands.literal("assist")
+                    .then(Commands.literal("set").requires(s -> hasLevel(s, 2)).then(Commands.literal("assist")
                         .then(Commands.argument("targets", EntityArgument.players()).then(Commands.argument("amt", IntegerArgumentType.integer())
                             .executes(c -> modAssist(c, false))))))
-                    .then(Commands.literal("dataset").requires(s -> s.hasPermission(2)).then(Commands.literal("assist")
+                    .then(Commands.literal("dataset").requires(s -> hasLevel(s, 2)).then(Commands.literal("assist")
                         .then(Commands.argument("amt", IntegerArgumentType.integer()).executes(ServerCommands::setAllAssists))))
                 )
-                .then(Commands.literal("honor").requires(s -> s.hasPermission(2))
+                .then(Commands.literal("honor").requires(s -> hasLevel(s, 2))
                     .then(Commands.literal("list")
                         .executes(ServerCommands::honorList))
                     .then(Commands.literal("set")
@@ -168,7 +173,7 @@ public class ServerCommands {
                             .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ServerCommands::honorPlayerGet))))
                 )
-                .then(Commands.literal("debug").requires(s -> s.hasPermission(2))
+                .then(Commands.literal("debug").requires(s -> hasLevel(s, 2))
                     .then(Commands.literal("scoreboarddebug")
                         .then(Commands.argument("count", IntegerArgumentType.integer(-1))
                             .executes(ServerCommands::scoreboardDebug)))
@@ -533,7 +538,7 @@ public class ServerCommands {
         int i = 1;
         for (Map.Entry<java.util.UUID, Float> e : sorted) {
             String name = e.getKey().toString();
-            try { name = c.getSource().getServer().getProfileCache().get(e.getKey()).orElseThrow().getName(); } catch (Exception ignored) {}
+            try { name = c.getSource().getServer().getPlayerList().getPlayer(e.getKey()).getName().getString(); } catch (Exception ignored) {}
             ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.score_list_entry", i++, name, e.getValue());
         }
         return Command.SINGLE_SUCCESS;
@@ -584,7 +589,7 @@ public class ServerCommands {
         int i = 1;
         for (Map.Entry<java.util.UUID, Integer> e : sorted) {
             String name = e.getKey().toString();
-            try { name = c.getSource().getServer().getProfileCache().get(e.getKey()).orElseThrow().getName(); } catch (Exception ignored) {}
+            try { name = c.getSource().getServer().getPlayerList().getPlayer(e.getKey()).getName().getString(); } catch (Exception ignored) {}
             ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.kill_list_entry", i++, name, e.getValue());
         }
         return Command.SINGLE_SUCCESS;
@@ -635,7 +640,7 @@ public class ServerCommands {
         int i = 1;
         for (Map.Entry<java.util.UUID, Integer> e : sorted) {
             String name = e.getKey().toString();
-            try { name = c.getSource().getServer().getProfileCache().get(e.getKey()).orElseThrow().getName(); } catch (Exception ignored) {}
+            try { name = c.getSource().getServer().getPlayerList().getPlayer(e.getKey()).getName().getString(); } catch (Exception ignored) {}
             ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.death_list_entry", i++, name, e.getValue());
         }
         return Command.SINGLE_SUCCESS;
@@ -686,7 +691,7 @@ public class ServerCommands {
         int i = 1;
         for (Map.Entry<java.util.UUID, Integer> e : sorted) {
             String name = e.getKey().toString();
-            try { name = c.getSource().getServer().getProfileCache().get(e.getKey()).orElseThrow().getName(); } catch (Exception ignored) {}
+            try { name = c.getSource().getServer().getPlayerList().getPlayer(e.getKey()).getName().getString(); } catch (Exception ignored) {}
             ServerLog.sendSuccess(c.getSource(), "gd656killicon.server.command.assist_list_entry", i++, name, e.getValue());
         }
         return Command.SINGLE_SUCCESS;

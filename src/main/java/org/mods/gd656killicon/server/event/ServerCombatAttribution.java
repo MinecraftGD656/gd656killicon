@@ -96,7 +96,7 @@ final class ServerCombatAttribution {
     }
 
     private static boolean isLrTacticalFireCloud(Entity entity) {
-        net.minecraft.resources.ResourceLocation key = net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
+        net.minecraft.resources.Identifier key = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
         return key != null && "lrtactical".equals(key.getNamespace()) && "sp_effect_cloud".equals(key.getPath());
     }
 

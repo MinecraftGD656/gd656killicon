@@ -3,7 +3,7 @@ package org.mods.gd656killicon.client.sounds;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.bridge.ClientBridge;
@@ -832,7 +832,7 @@ public class ExternalSoundManager {
                 Files.deleteIfExists(presetDir.resolve(baseName + ".ogg"));
                 Files.deleteIfExists(presetDir.resolve(baseName + ".wav"));
                 
-                ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+                Identifier resourceLocation = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
                 try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                     Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
                 } catch (Exception e) {
@@ -1193,7 +1193,7 @@ public class ExternalSoundManager {
         }
         byte[] bytes = null;
         try {
-            ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+            Identifier resourceLocation = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
             try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                 bytes = stream.readAllBytes();
             }
@@ -1512,7 +1512,7 @@ public class ExternalSoundManager {
                 String baseName = resolveBaseName(soundName);
                 Path targetPath = COMMON_SOUNDS_DIR.resolve(baseName + ".ogg");
                 if (forceReset || !Files.exists(targetPath)) {
-                    ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
+                    Identifier resourceLocation = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "sounds/" + soundName);
                     try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                         Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
                     } catch (Exception e) {

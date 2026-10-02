@@ -17,7 +17,7 @@ public final class ServerPacketDispatcher {
         if (player == null) {
             return;
         }
-        NetworkHandler.sendToPlayer(packetFactory.get(), player);
+        NetworkHandler.sendToPlayer((org.mods.gd656killicon.network.IPacket) packetFactory.get(), player);
     }
 
     public static void sendDamageSound(ServerPlayer player, boolean headshotDamage) {

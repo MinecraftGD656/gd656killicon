@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 import org.mods.gd656killicon.network.IPacket;
@@ -28,13 +28,13 @@ public class HonorPacket implements IPacket {
     }
 
     /** 解码(网络注册用)。 */
-    public HonorPacket(FriendlyByteBuf buffer) {
+    public HonorPacket(RegistryFriendlyByteBuf buffer) {
         this.honorId = buffer.readUtf();
         this.extraData = buffer.readUtf();
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeUtf(this.honorId);
         buffer.writeUtf(this.extraData);
     }

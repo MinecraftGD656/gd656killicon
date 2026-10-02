@@ -1,8 +1,10 @@
 package org.mods.gd656killicon.client.gui.elements;
 
+
+import net.minecraft.client.renderer.RenderPipelines;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
 import org.mods.gd656killicon.client.gui.GuiConstants;
@@ -90,7 +92,7 @@ public class InfiniteGridWidget {
         return height;
     }
 
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, List<ScrollingIcon> icons) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, List<ScrollingIcon> icons) {
         guiGraphics.fill(x, y, x + width, y + 1, BORDER_COLOR);
         guiGraphics.fill(x, y + height - 1, x + width, y + height, BORDER_COLOR);
         guiGraphics.fill(x, y, x + 1, y + height, BORDER_COLOR);
@@ -110,8 +112,8 @@ public class InfiniteGridWidget {
         float subPixelX = (float) (viewX - baseViewX);
         float subPixelY = (float) (viewY - baseViewY);
         
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(subPixelX, subPixelY, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(subPixelX,  subPixelY);
         
         for (int i = startCol; i <= endCol; i++) {
             int lineX = (int)(baseViewX + i * gridSize);
@@ -125,27 +127,25 @@ public class InfiniteGridWidget {
             guiGraphics.fill(x, lineY, x + width, lineY + 1, lineColor);
         }
         
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         
         if (icons != null && !icons.isEmpty()) {
             for (ScrollingIcon icon : icons) {
                 float iconX = (float) (viewX + icon.gridX);
                 float iconY = (float) (viewY + icon.gridY);
                 String texturePath = getTexturePath(icon.killType);
-                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-                guiGraphics.pose().pushPose();
-                guiGraphics.pose().translate(iconX, iconY, 0);
-                guiGraphics.pose().translate(-ICON_SIZE / 2f, -ICON_SIZE / 2f, 0);
-                guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);
-                guiGraphics.pose().popPose();
+                guiGraphics.pose().pushMatrix();
+                guiGraphics.pose().translate(iconX,  iconY);
+                guiGraphics.pose().translate(-ICON_SIZE / 2f,  -ICON_SIZE / 2f);
+                guiGraphics.blit(RenderPipelines.GUI_TEXTURED, ModTextures.get(texturePath), 0, 0, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);
+                guiGraphics.pose().popMatrix();
             }
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         }
 
-        guiGraphics.pose().pushPose();
+        guiGraphics.pose().pushMatrix();
         float scale = 0.5f;
-        guiGraphics.pose().translate(subPixelX, subPixelY, 0);
-        guiGraphics.pose().scale(scale, scale, 1.0f);
+        guiGraphics.pose().translate(subPixelX,  subPixelY);
+        guiGraphics.pose().scale(scale,  scale);
         
         Minecraft mc = Minecraft.getInstance();
         
@@ -162,12 +162,12 @@ public class InfiniteGridWidget {
                     float drawX = (px + 2) / scale;
                     float drawY = (py + 2) / scale;
                     
-                    guiGraphics.drawString(mc.font, coordText, (int)drawX, (int)drawY, TEXT_COLOR, false);
+                    guiGraphics.text(mc.font, coordText, (int)drawX, (int)drawY, TEXT_COLOR, false);
                 }
             }
         }
         
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         guiGraphics.disableScissor();
     }
 

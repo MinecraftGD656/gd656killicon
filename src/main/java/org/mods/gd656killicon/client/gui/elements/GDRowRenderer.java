@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.client.gui.elements;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.mods.gd656killicon.client.gui.GuiConstants;
@@ -42,7 +42,7 @@ public class GDRowRenderer {
     }
 
     public interface CellRenderer {
-        void render(GuiGraphics guiGraphics, int x, int y, int width, int height);
+        void render(GuiGraphicsExtractor guiGraphics, int x, int y, int width, int height);
     }
 
     public static class Column {
@@ -230,7 +230,7 @@ public class GDRowRenderer {
         this.clipY2 = y2;
     }
 
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (onHover != null) {
             onHover.accept(isHovered(mouseX, mouseY));
         }
@@ -282,13 +282,13 @@ public class GDRowRenderer {
             if (isHovered) col.hoverProgress = Math.min(1.0f, col.hoverProgress + dt * animSpeed);
             else col.hoverProgress = Math.max(0.0f, col.hoverProgress - dt * animSpeed);
 
-            float translateX = guiGraphics.pose().last().pose().m30();
-            float translateY = guiGraphics.pose().last().pose().m31();
+            float translateX = guiGraphics.pose().m20();
+            float translateY = guiGraphics.pose().m21();
             
-            int sX1 = (int)Math.round(Math.max(x1, currentX) + translateX);
-            int sX2 = (int)Math.round(Math.min(x2, currentX + colW) + translateX);
-            int sY1 = (int)Math.round(y1 + translateY);
-            int sY2 = (int)Math.round(y2 + translateY);
+            int sX1 = (int)Math.round(Math.max(x1, currentX) );
+            int sX2 = (int)Math.round(Math.min(x2, currentX + colW) );
+            int sY1 = (int)Math.round(y1 );
+            int sY2 = (int)Math.round(y2 );
 
             if (clipX1 != null) sX1 = Math.max(sX1, clipX1);
             if (clipY1 != null) sY1 = Math.max(sY1, clipY1);
@@ -319,11 +319,11 @@ public class GDRowRenderer {
                     float t = col.hoverProgress;
                     float ease = 1.0f - (float) Math.pow(1.0f - t, 3);                     float barWidth = drawW * ease;
 
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().translate(drawX, y2 - 1.0f, 0);
-                    guiGraphics.pose().scale(barWidth, 1.0f, 1.0f);
+                    guiGraphics.pose().pushMatrix();
+                    guiGraphics.pose().translate(drawX,  y2 - 1.0f);
+                    guiGraphics.pose().scale(barWidth,  1.0f);
                     guiGraphics.fill(0, 0, 1, 1, GuiConstants.COLOR_GOLD);
-                    guiGraphics.pose().popPose();
+                    guiGraphics.pose().popMatrix();
                 }
 
                 renderContent(guiGraphics, col, drawX, drawW, rowHeight, partialTick, dt, i);
@@ -334,7 +334,7 @@ public class GDRowRenderer {
         }
     }
 
-    private void renderReplacementColumns(GuiGraphics guiGraphics, List<Column> subColumns, int x, int y, int w, int h, int mouseX, int mouseY, float pt, float dt) {
+    private void renderReplacementColumns(GuiGraphicsExtractor guiGraphics, List<Column> subColumns, int x, int y, int w, int h, int mouseX, int mouseY, float pt, float dt) {
         int count = subColumns.size();
         int subW = w / count;
         int currentX = x;
@@ -350,13 +350,13 @@ public class GDRowRenderer {
                 subCol.hoverProgress = Math.max(0.0f, subCol.hoverProgress - dt * 8.0f);
             }
 
-            float translateX = guiGraphics.pose().last().pose().m30();
-            float translateY = guiGraphics.pose().last().pose().m31();
+            float translateX = guiGraphics.pose().m20();
+            float translateY = guiGraphics.pose().m21();
             
-            int sX1 = (int)Math.round(Math.max(x1, currentX) + translateX);
-            int sX2 = (int)Math.round(Math.min(x2, currentX + thisW) + translateX);
-            int sY1 = (int)Math.round(y1 + translateY);
-            int sY2 = (int)Math.round(y2 + translateY);
+            int sX1 = (int)Math.round(Math.max(x1, currentX) );
+            int sX2 = (int)Math.round(Math.min(x2, currentX + thisW) );
+            int sY1 = (int)Math.round(y1 );
+            int sY2 = (int)Math.round(y2 );
 
             if (clipX1 != null) sX1 = Math.max(sX1, clipX1);
             if (clipY1 != null) sY1 = Math.max(sY1, clipY1);
@@ -383,11 +383,11 @@ public class GDRowRenderer {
                     float t = subCol.hoverProgress;
                     float ease = 1.0f - (float) Math.pow(1.0f - t, 3);                     float barWidth = thisW * ease;
 
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().translate(currentX, y + h - 1.0f, 0);
-                    guiGraphics.pose().scale(barWidth, 1.0f, 1.0f);
+                    guiGraphics.pose().pushMatrix();
+                    guiGraphics.pose().translate(currentX,  y + h - 1.0f);
+                    guiGraphics.pose().scale(barWidth,  1.0f);
                     guiGraphics.fill(0, 0, 1, 1, GuiConstants.COLOR_GOLD);
-                    guiGraphics.pose().popPose();
+                    guiGraphics.pose().popMatrix();
                 }
 
                 guiGraphics.disableScissor();
@@ -401,7 +401,7 @@ public class GDRowRenderer {
         }
     }
 
-    protected void renderContent(GuiGraphics guiGraphics, Column col, int x, int w, int h, float pt, float dt, int colIndex) {
+    protected void renderContent(GuiGraphicsExtractor guiGraphics, Column col, int x, int w, int h, float pt, float dt, int colIndex) {
         if (col.customRenderer != null) {
             col.customRenderer.render(guiGraphics, x, y1, w, h);
             return;
@@ -410,12 +410,12 @@ public class GDRowRenderer {
         if (col.icon != null) {
             float scale = h / 16.0f * 0.8f;
             int size = (int)(16 * scale);
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(x + (w - size) / 2.0, y1 + (h - size) / 2.0, 0);
-            guiGraphics.pose().scale(scale, scale, 1.0f);
-            try { guiGraphics.renderItem(col.icon, 0, 0); } 
-            catch (Exception e) { guiGraphics.renderItem(Items.BARRIER.getDefaultInstance(), 0, 0); }
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(x + (w - size) / 2.0f, y1 + (h - size) / 2.0f);
+            guiGraphics.pose().scale(scale,  scale);
+            try { guiGraphics.item(col.icon, 0, 0); } 
+            catch (Exception e) { guiGraphics.item(Items.BARRIER.getDefaultInstance(), 0, 0); }
+            guiGraphics.pose().popMatrix();
         } else {
             int textY = y1 + (h - 9) / 2;
             int tx1 = col.isCentered ? x : x + 2;

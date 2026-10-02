@@ -1,9 +1,11 @@
 package org.mods.gd656killicon.client.render.impl;
 
+
+import net.minecraft.client.renderer.RenderPipelines;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
@@ -118,7 +120,7 @@ public class ComboIconRenderer implements IHudRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!isVisible || startTime == -1) return;
 
         Minecraft mc = Minecraft.getInstance();
@@ -129,7 +131,7 @@ public class ComboIconRenderer implements IHudRenderer {
         renderAt(guiGraphics, partialTick, centerX, centerY);
     }
 
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY) {
         if (!isVisible || startTime == -1) return;
 
         long currentTime = PreviewRenderTimeContext.currentTimeMillis();
@@ -174,12 +176,12 @@ public class ComboIconRenderer implements IHudRenderer {
         float drawHeight = 64.0f * frameHeightRatio;
         float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/combo", textureKey);
 
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
+        int aCombo = (int) (focusedAlpha * 255.0f); if (aCombo < 0) aCombo = 0; if (aCombo > 255) aCombo = 255;
         try {
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(centerX, centerY, 0);
-            guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
-            guiGraphics.pose().translate(-drawWidth / 2.0f, -drawHeight / 2.0f, 0);
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(centerX,  centerY);
+            guiGraphics.pose().scale(currentScale,  currentScale);
+            guiGraphics.pose().translate(-drawWidth / 2.0f,  -drawHeight / 2.0f);
             if (configIconGlowEnabled) {
                 IconGlowRenderEffect.drawGlowFrame(
                     guiGraphics,
@@ -199,13 +201,11 @@ public class ComboIconRenderer implements IHudRenderer {
                     configIconGlowIntensity,
                     configIconGlowSize
                 );
-                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
             }
-            guiGraphics.blit(ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight);
-            guiGraphics.pose().popPose();
+            guiGraphics.blit(RenderPipelines.GUI_TEXTURED, ModTextures.get(texturePath), 0, 0, 0, 0, (int) drawWidth, (int) drawHeight, (int) drawWidth, (int) drawHeight, (aCombo << 24) | 0x00FFFFFF);
+            guiGraphics.pose().popMatrix();
             ringEffect.render(guiGraphics, centerX, centerY, currentTime);
         } finally {
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         }
     }
 

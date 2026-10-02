@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
@@ -181,15 +181,17 @@ public class PromptDialog {
         return true;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         return visible;
     }
 
     public boolean charTyped(char codePoint, int modifiers) {
         return visible;
     }
-
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (!visible) return false;
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             confirm();
@@ -209,17 +211,16 @@ public class PromptDialog {
         this.dismissible = dismissible;
     }
 
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
 
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, 0, 500.0f);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0,  0);
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
 
-        int dimColor = 0x88444444;
-        guiGraphics.fill(0, 0, screenWidth, screenHeight, dimColor);
+        guiGraphics.fill(0, 0, screenWidth, screenHeight, GuiConstants.COLOR_DIALOG_DIM);
 
         int fontHeight = minecraft.font.lineHeight;
         int maxWidth = INPUT_WIDTH;
@@ -235,7 +236,7 @@ public class PromptDialog {
         int containerRight = inputX + INPUT_WIDTH + GuiConstants.DEFAULT_PADDING;
         int containerBottom = buttonsY + BUTTON_HEIGHT + GuiConstants.DEFAULT_PADDING;
 
-        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_BG);
+        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_DIALOG_BG);
 
         if (titleRenderer != null) {
             titleRenderer.setX1(inputX);
@@ -272,6 +273,6 @@ public class PromptDialog {
             secondaryButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
 
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 }

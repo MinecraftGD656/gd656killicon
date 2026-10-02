@@ -1,8 +1,8 @@
 package org.mods.gd656killicon.network;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 
 public interface IPacket {
-    void encode(FriendlyByteBuf buffer);
+    void encode(RegistryFriendlyByteBuf buffer);
     void handle(PacketContext context);
 }

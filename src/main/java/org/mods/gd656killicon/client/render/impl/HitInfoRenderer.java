@@ -3,7 +3,7 @@ package org.mods.gd656killicon.client.render.impl;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
@@ -303,7 +303,7 @@ public class HitInfoRenderer implements IHudRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (this.enableEntityLayers) {
             if (this.entityLines.isEmpty()) {
                 return;
@@ -329,7 +329,7 @@ public class HitInfoRenderer implements IHudRenderer {
     /**
      * 在指定坐标渲染(配置界面预览框复用; 传入坐标即元素中心/锚点位置)。
      */
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY) {
         if (this.enableEntityLayers) {
             renderLayered(guiGraphics, partialTick, centerX, centerY);
             return;
@@ -380,7 +380,7 @@ public class HitInfoRenderer implements IHudRenderer {
     }
 
     /** 分层模式渲染: 每实体一行(新在前, 老行向后排), 行位移动画 + 收起补位动画 + 每行独立滚动 */
-    private void renderLayered(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+    private void renderLayered(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY) {
         JsonObject liveConfig = getConfig();
         if (liveConfig != null) {
             if (!(liveConfig.has("visible") ? liveConfig.get("visible").getAsBoolean() : true)) {
@@ -445,7 +445,7 @@ public class HitInfoRenderer implements IHudRenderer {
     }
 
     /** 渲染单行伤害字幕(分色 + 发光 + 阴影 + 对齐) */
-    private void renderDamageLine(GuiGraphics guiGraphics, float centerX, float centerY, float displayDamage, boolean lineKilled, float alpha) {
+    private void renderDamageLine(GuiGraphicsExtractor guiGraphics, float centerX, float centerY, float displayDamage, boolean lineKilled, float alpha) {
         Minecraft mc = Minecraft.getInstance();
         Font font = mc.font;
 
@@ -467,18 +467,18 @@ public class HitInfoRenderer implements IHudRenderer {
             textX = Math.round(centerX - textWidth * this.scale / 2.0f);
         }
 
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(textX, centerY, 0.0f);
-        guiGraphics.pose().scale(this.scale, this.scale, 1.0f);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(textX,  centerY);
+        guiGraphics.pose().scale(this.scale,  this.scale);
         drawTextWithGlow(guiGraphics, font, text, 0, -font.lineHeight / 2, normalColor, this.enableTextShadow, lineKilled);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
     /**
      * 发光 + 主文本绘制(与 score/bonus_list/kill_feed 同款):
      * 发光开启时先以 8 个 ±glowSize 偏移绘制低透明度副本, 再叠主文本。
      */
-    private void drawTextWithGlow(GuiGraphics guiGraphics, Font font, Component text, int x, int y, int color, boolean dropShadow, boolean lineKilled) {
+    private void drawTextWithGlow(GuiGraphicsExtractor guiGraphics, Font font, Component text, int x, int y, int color, boolean dropShadow, boolean lineKilled) {
         if (this.enableGlowEffect) {
             int alpha = (color >> 24) & 0xFF;
             int glowAlpha = (int) (alpha * this.glowIntensity * this.glowAlphaMultiplier);
@@ -493,14 +493,14 @@ public class HitInfoRenderer implements IHudRenderer {
                     {-glowSize, glowSize}, {glowSize, glowSize}
             };
             for (float[] offset : offsets) {
-                guiGraphics.pose().pushPose();
-                guiGraphics.pose().translate(offset[0], offset[1], 0);
+                guiGraphics.pose().pushMatrix();
+                guiGraphics.pose().translate(offset[0],  offset[1]);
                 // 副本颜色完全来自配置: 递归清除主字符串各段样式色, 渲染颜色全由 drawString 传入
-                guiGraphics.drawString(font, stripColor(text), x, y, glowColor, false);
-                guiGraphics.pose().popPose();
+                guiGraphics.text(font, stripColor(text), x, y, glowColor, false);
+                guiGraphics.pose().popMatrix();
             }
         }
-        guiGraphics.drawString(font, text, x, y, color, dropShadow);
+        guiGraphics.text(font, text, x, y, color, dropShadow);
     }
 
     private Component buildTextComponent(Font font, String damageStr, int damageColor, int normalColor) {

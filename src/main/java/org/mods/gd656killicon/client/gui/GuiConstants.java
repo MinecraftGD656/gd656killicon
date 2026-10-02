@@ -13,7 +13,18 @@ public class GuiConstants {
     public static final int COLOR_WHITE = 0xFFFFFFFF;     
     public static final int COLOR_GRAY = 0xFFAAAAAA;     
     public static final int COLOR_DARK_GRAY = 0xFF666666;     
-    public static final int COLOR_BG = 0x4D444444;     
+    public static final int COLOR_BG = 0x4D444444;
+    /** 侧栏/主面板底色：接近不透明，避免预览层文字从面板后透出叠字/屏闪 */
+    public static final int COLOR_PANEL_BG = 0xF0181818;
+    /** 配置页全屏底色（有世界时），压住身后画面避免闪 */
+    public static final int COLOR_SCREEN_DIM_TOP = 0xF0101010;
+    public static final int COLOR_SCREEN_DIM_BOTTOM = 0xF0141414;
+    /** 弹窗全屏遮罩：足够压住背后列表文字 */
+    public static final int COLOR_DIALOG_DIM = 0xCC101010;
+    /** 弹窗面板底色：接近不透明，避免标题/输入与背后文字叠在一起 */
+    public static final int COLOR_DIALOG_BG = 0xF22A2A2A;
+    /** 弹窗内输入框底色 */
+    public static final int COLOR_DIALOG_INPUT_BG = 0xE0000000;
     public static final int COLOR_HOVER_BORDER = 0x40808080;     
     public static int COLOR_BLACK = 0xFF444444;     
     public static final int COLOR_RED = 0xFFFF0000;     
@@ -40,6 +51,6 @@ public class GuiConstants {
     public static final int ROW_HEADER_HEIGHT = 17;     
     public static final int FLEX_COLUMN_MIN_WIDTH = 60; 
     
-    public static final String MOD_VERSION = "Forge-1.20.1-1.3.0Alpha";
+    public static final String MOD_VERSION = "Fabric-26.1.2-1.3.2";
     public static final String MOD_ONLINE_VERSION = "https://modrinth.com/mod/gd656killicon/version/1.2.0-1.20.1-forge";
 }

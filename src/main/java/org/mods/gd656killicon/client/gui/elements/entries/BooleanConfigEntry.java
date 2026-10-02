@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.client.gui.elements.entries;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -55,7 +55,7 @@ public class BooleanConfigEntry extends GDRowRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 

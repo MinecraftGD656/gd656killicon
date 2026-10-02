@@ -2,7 +2,7 @@ package org.mods.gd656killicon.client.render.effect;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.textures.ExternalTextureManager;
 
@@ -16,7 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class IconGlowProcessor {
-    private static final Map<String, ResourceLocation> CACHE = new HashMap<>();
+    private static final Map<String, Identifier> CACHE = new HashMap<>();
 
     private IconGlowProcessor() {
     }
@@ -27,13 +27,13 @@ public final class IconGlowProcessor {
             CACHE.clear();
             return;
         }
-        for (ResourceLocation texture : CACHE.values()) {
+        for (Identifier texture : CACHE.values()) {
             minecraft.getTextureManager().release(texture);
         }
         CACHE.clear();
     }
 
-    public static ResourceLocation getOrCreateProcessedTexture(String presetId, String texturePath, boolean accentTintEnabled, int accentColor, float brightness, float contrast) {
+    public static Identifier getOrCreateProcessedTexture(String presetId, String texturePath, boolean accentTintEnabled, int accentColor, float brightness, float contrast) {
         String cacheKey = String.format(
             Locale.ROOT,
             "%s:%s:%b:%06X:%.3f:%.3f",
@@ -44,7 +44,7 @@ public final class IconGlowProcessor {
             brightness,
             contrast
         );
-        ResourceLocation cached = CACHE.get(cacheKey);
+        Identifier cached = CACHE.get(cacheKey);
         if (cached != null) {
             return cached;
         }
@@ -61,7 +61,7 @@ public final class IconGlowProcessor {
                     processed.setRGB(x, y, processTexturePixel(argb, accentTintEnabled, accentColor, brightness, contrast));
                 }
             }
-            ResourceLocation processedTexture = registerBufferedTexture("processed", cacheKey, processed);
+            Identifier processedTexture = registerBufferedTexture("processed", cacheKey, processed);
             CACHE.put(cacheKey, processedTexture);
             return processedTexture;
         } catch (IOException ignored) {
@@ -76,12 +76,12 @@ public final class IconGlowProcessor {
         return (red << 16) | (green << 8) | blue;
     }
 
-    private static ResourceLocation registerBufferedTexture(String prefix, String cacheKey, BufferedImage image) throws IOException {
+    private static Identifier registerBufferedTexture(String prefix, String cacheKey, BufferedImage image) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ImageIO.write(image, "png", output);
-        DynamicTexture texture = new DynamicTexture(com.mojang.blaze3d.platform.NativeImage.read(new ByteArrayInputStream(output.toByteArray())));
+        DynamicTexture texture = new DynamicTexture(() -> "gd656_glow", com.mojang.blaze3d.platform.NativeImage.read(new ByteArrayInputStream(output.toByteArray())));
         String dynamicName = "gd656killicon_" + prefix + "_" + Integer.toHexString(cacheKey.hashCode());
-        return Minecraft.getInstance().getTextureManager().register(dynamicName, texture);
+        Identifier id = Identifier.fromNamespaceAndPath("gd656killicon", dynamicName); Minecraft.getInstance().getTextureManager().register(id, texture); return id;
     }
 
     private static int processTexturePixel(int argb, boolean accentTintEnabled, int accentColor, float brightness, float contrast) {

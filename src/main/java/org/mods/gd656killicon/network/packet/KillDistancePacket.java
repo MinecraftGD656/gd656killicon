@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.network.IPacket;
 import org.mods.gd656killicon.network.PacketContext;
 
@@ -11,12 +11,12 @@ public class KillDistancePacket implements IPacket {
         this.distance = distance;
     }
 
-    public KillDistancePacket(FriendlyByteBuf buffer) {
+    public KillDistancePacket(RegistryFriendlyByteBuf buffer) {
         this.distance = buffer.readDouble();
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeDouble(this.distance);
     }
 

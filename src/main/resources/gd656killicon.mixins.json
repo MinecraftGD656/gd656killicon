@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "org.mods.gd656killicon.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "client": [
+    "client.SoundEngineMixin"
+  ],
+  "server": [
+    "server.EntityRideMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

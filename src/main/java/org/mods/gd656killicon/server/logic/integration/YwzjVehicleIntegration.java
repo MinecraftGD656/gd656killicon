@@ -1,18 +1,14 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.ywzj.DummyYwzjVehicleHandler;
 import org.mods.gd656killicon.server.logic.ywzj.IYwzjVehicleHandler;
-import org.mods.gd656killicon.server.util.ServerLog;
 
 public class YwzjVehicleIntegration {
     private static final YwzjVehicleIntegration INSTANCE = new YwzjVehicleIntegration();
-    private IYwzjVehicleHandler handler;
+    private final IYwzjVehicleHandler handler = new DummyYwzjVehicleHandler();
     private boolean initialized = false;
 
-    private YwzjVehicleIntegration() {
-        this.handler = new DummyYwzjVehicleHandler();
-    }
+    private YwzjVehicleIntegration() {}
 
     public static YwzjVehicleIntegration get() {
         return INSTANCE;
@@ -27,19 +23,7 @@ public class YwzjVehicleIntegration {
             return;
         }
         initialized = true;
-        try {
-            if (ServerBridge.loader().isModLoaded("ywzj_vehicle")) {
-                Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.ywzj.YwzjVehicleEventHandler");
-                handler = (IYwzjVehicleHandler) handlerClass.getDeclaredConstructor().newInstance();
-                handler.init();
-                ServerLog.info("YWZJ Vehicle mod detected.");
-            } else {
-                handler = new DummyYwzjVehicleHandler();
-            }
-        } catch (Exception e) {
-            ServerLog.error("Failed to initialize YWZJ Vehicle integration: %s", e.getMessage());
-            handler = new DummyYwzjVehicleHandler();
-        }
+        handler.init();
     }
 
     public void tick() {

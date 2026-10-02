@@ -53,17 +53,17 @@ public class ElementConfigBuilderRegistry {
             return cachedVanillaItemChoices;
         }
         List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
-        List<net.minecraft.resources.ResourceLocation> itemIds = new ArrayList<>();
+        List<net.minecraft.resources.Identifier> itemIds = new ArrayList<>();
         for (Item item : BuiltInRegistries.ITEM) {
             if (item == Items.AIR) continue;
-            net.minecraft.resources.ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            net.minecraft.resources.Identifier id = BuiltInRegistries.ITEM.getKey(item);
             if (id != null && "minecraft".equals(id.getNamespace())) {
                 itemIds.add(id);
             }
         }
         itemIds.sort((a, b) -> a.getPath().compareToIgnoreCase(b.getPath()));
-        for (net.minecraft.resources.ResourceLocation id : itemIds) {
-            Item item = BuiltInRegistries.ITEM.get(id);
+        for (net.minecraft.resources.Identifier id : itemIds) {
+            Item item = BuiltInRegistries.ITEM.get(id).map(net.minecraft.core.Holder::value).orElse(null);
             String value = "minecraft:item/" + id.getPath();
             if (ExternalTextureManager.isVanillaTextureAvailable(value)) {
                 String label = I18n.get(item.getDescriptionId());

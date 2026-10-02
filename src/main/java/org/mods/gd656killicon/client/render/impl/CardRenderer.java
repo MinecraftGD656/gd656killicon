@@ -1,13 +1,14 @@
 package org.mods.gd656killicon.client.render.impl;
 
+
+import net.minecraft.client.renderer.RenderPipelines;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.scores.Team;
 import org.mods.gd656killicon.client.config.ConfigManager;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.joml.Matrix3x2fStack;
 public class CardRenderer implements IHudRenderer {
 
     private float configScale = 1.0f;
@@ -49,7 +51,7 @@ public class CardRenderer implements IHudRenderer {
     private PendingTrigger pendingTrigger;
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "card");
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
             activeCards.clear();
@@ -68,7 +70,7 @@ public class CardRenderer implements IHudRenderer {
         renderInternal(guiGraphics, partialTick, standardX, standardY);
     }
 
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float standardX, float standardY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float standardX, float standardY) {
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "card");
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
             activeCards.clear();
@@ -80,7 +82,7 @@ public class CardRenderer implements IHudRenderer {
         renderInternal(guiGraphics, partialTick, standardX, standardY);
     }
 
-    public void renderPreviewAt(GuiGraphics guiGraphics, float partialTick, float standardX, float standardY, JsonObject config) {
+    public void renderPreviewAt(GuiGraphicsExtractor guiGraphics, float partialTick, float standardX, float standardY, JsonObject config) {
         if (config == null) {
             activeCards.clear();
             pendingTrigger = null;
@@ -90,7 +92,7 @@ public class CardRenderer implements IHudRenderer {
         renderInternal(guiGraphics, partialTick, standardX, standardY);
     }
 
-    private void renderInternal(GuiGraphics guiGraphics, float partialTick, float standardX, float standardY) {
+    private void renderInternal(GuiGraphicsExtractor guiGraphics, float partialTick, float standardX, float standardY) {
         long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         long displayDuration = resolveDisplayDuration();
         long animDurMs = (long) (animationDuration * 1000);
@@ -155,7 +157,7 @@ public class CardRenderer implements IHudRenderer {
         }
     }
 
-    private void renderCard(GuiGraphics guiGraphics, CardInstance card, long currentTime, float standardX, float standardY, long animDurMs, Minecraft mc) {
+    private void renderCard(GuiGraphicsExtractor guiGraphics, CardInstance card, long currentTime, float standardX, float standardY, long animDurMs, Minecraft mc) {
         long elapsed = currentTime - card.spawnTime;
         float maxDist = CARD_SIZE * configScale * MOVE_DISTANCE_MULTIPLIER;
         
@@ -259,14 +261,14 @@ public class CardRenderer implements IHudRenderer {
             currentConfig
         );
         
-        ResourceLocation cardTexture = ExternalTextureManager.getTexture(cardTextureName);
-        ResourceLocation lightTexture = ExternalTextureManager.getTexture(lightTextureName);
+        Identifier cardTexture = ExternalTextureManager.getTexture(cardTextureName);
+        Identifier lightTexture = ExternalTextureManager.getTexture(lightTextureName);
 
         if (cardTexture == null) return;
 
-        PoseStack poseStack = guiGraphics.pose();
-        poseStack.pushPose();
-        poseStack.translate(0, 0, activeCards.indexOf(card));
+        Matrix3x2fStack poseStack = guiGraphics.pose();
+        poseStack.pushMatrix();
+        poseStack.translate(0,  0);
 
         if (lightTexture != null && lightAlpha > 0.01f) {
             float lightWidthRatio = resolveFrameRatio(lightTextureKey, "texture_frame_width_ratio");
@@ -274,29 +276,25 @@ public class CardRenderer implements IHudRenderer {
             float lightW = CARD_SIZE * configScale * lightWidthRatio;
             float lightH = CARD_SIZE * configScale * lightHeightRatio; 
             
-            poseStack.pushPose();
-            poseStack.translate(renderX, renderY, 0); 
-            poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(currentAngle));
-            poseStack.translate(0, CARD_SIZE * configScale / 2.0f, 0);
+            poseStack.pushMatrix();
+            poseStack.translate(renderX,  renderY); 
+            poseStack.rotate((float) Math.toRadians(currentAngle));
+            poseStack.translate(0,  CARD_SIZE * configScale / 2.0f);
             
-            poseStack.scale(lightScale, lightScale, 1.0f);
+            poseStack.scale(lightScale,  lightScale);
             
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, lightAlpha * alpha * lightFocusMultiplier); 
+        int aLight = (int) (lightAlpha * alpha * lightFocusMultiplier * 255.0f); if (aLight < 0) aLight = 0; if (aLight > 255) aLight = 255;
             
-            guiGraphics.blit(lightTexture, (int)(-lightW / 2), (int)(-lightH), (int)lightW, (int)lightH, 0, 0, (int)lightW, (int)lightH, (int)lightW, (int)lightH);
-            poseStack.popPose();
+            guiGraphics.blit(RenderPipelines.GUI_TEXTURED, lightTexture, (int)(-lightW / 2), (int)(-lightH), 0, 0, (int)lightW, (int)lightH, (int)lightW, (int)lightH, (int)lightW, (int)lightH, (aLight << 24) | 0x00FFFFFF);
+            poseStack.popMatrix();
         }
 
-        poseStack.pushPose();
-        poseStack.translate(renderX, renderY, 0);
-        poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(currentAngle));
-        poseStack.scale(configScale, configScale, 1.0f);
+        poseStack.pushMatrix();
+        poseStack.translate(renderX,  renderY);
+        poseStack.rotate((float) Math.toRadians(currentAngle));
+        poseStack.scale(configScale,  configScale);
         
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha * cardFocusMultiplier);
+        int aCard = (int) (alpha * cardFocusMultiplier * 255.0f); if (aCard < 0) aCard = 0; if (aCard > 255) aCard = 255;
         
         float cardWidthRatio = resolveFrameRatio(cardTextureKey, "texture_frame_width_ratio");
         float cardHeightRatio = resolveFrameRatio(cardTextureKey, "texture_frame_height_ratio");
@@ -321,9 +319,8 @@ public class CardRenderer implements IHudRenderer {
                 iconGlowIntensity,
                 iconGlowSize
             );
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha * cardFocusMultiplier);
         }
-        guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, cardTexture, -drawWidth / 2, -drawHeight / 2, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight, drawWidth, drawHeight, (aCard << 24) | 0x00FFFFFF);
         
         float flashAlpha = 0.0f;
         long flashHold = animDurMs / 2;
@@ -338,18 +335,15 @@ public class CardRenderer implements IHudRenderer {
         }
         
         if (flashAlpha > 0.01f) {
-            RenderSystem.blendFunc(com.mojang.blaze3d.platform.GlStateManager.SourceFactor.SRC_ALPHA, com.mojang.blaze3d.platform.GlStateManager.DestFactor.ONE);
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, flashAlpha * alpha);
-            guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
+        int aFlash1 = (int) (flashAlpha * alpha * 255.0f); if (aFlash1 < 0) aFlash1 = 0; if (aFlash1 > 255) aFlash1 = 255;
+            guiGraphics.blit(RenderPipelines.GUI_TEXTURED, cardTexture, -drawWidth / 2, -drawHeight / 2, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight, drawWidth, drawHeight, (aFlash1 << 24) | 0x00FFFFFF);
              if (flashAlpha > 0.5f) {
-                 RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, (flashAlpha - 0.5f) * 2.0f * alpha);
-                 guiGraphics.blit(cardTexture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
+        int aFlash2 = (int) ((flashAlpha - 0.5f) * 2.0f * alpha * 255.0f); if (aFlash2 < 0) aFlash2 = 0; if (aFlash2 > 255) aFlash2 = 255;
+                 guiGraphics.blit(RenderPipelines.GUI_TEXTURED, cardTexture, -drawWidth / 2, -drawHeight / 2, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight, drawWidth, drawHeight, (aFlash2 << 24) | 0x00FFFFFF);
             }
-            RenderSystem.defaultBlendFunc();
         }
         
         if (card.comboCount > 0) {
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             String text = String.valueOf(card.comboCount);
             Font font = mc.font;
             String colorHex = isT ? colorTextT : colorTextCt;
@@ -357,15 +351,14 @@ public class CardRenderer implements IHudRenderer {
             int alphaInt = (int) (alpha * 255);
             int finalColor = (color & 0x00FFFFFF) | (alphaInt << 24);
             
-            poseStack.pushPose();
-            poseStack.scale(textScale, textScale, 1.0f);
+            poseStack.pushMatrix();
+            poseStack.scale(textScale,  textScale);
             int textWidth = font.width(text);
-            guiGraphics.drawString(font, text, -textWidth / 2, -font.lineHeight / 2, finalColor, true);
-            poseStack.popPose();
+            guiGraphics.text(font, text, -textWidth / 2, -font.lineHeight / 2, finalColor, true);
+            poseStack.popMatrix();
         }
 
-        poseStack.popPose();         poseStack.popPose();         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-    }
+        poseStack.popMatrix();         poseStack.popMatrix();    }
 
     private float calculateSegmentedEaseOut(float t) {
         if (t < 0.5f) {

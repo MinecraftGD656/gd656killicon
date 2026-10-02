@@ -1,11 +1,10 @@
 package org.mods.gd656killicon.client.render.impl;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -30,6 +29,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.joml.Matrix3x2fStack;
 /**
  * Renderer for the bonus list element.
  * Displays a list of bonus scores with support for merging identical items,
@@ -148,7 +148,7 @@ public class BonusListRenderer implements IHudRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         JsonObject config = ElementConfigManager.getElementConfig(ConfigManager.getCurrentPresetId(), "subtitle/bonus_list");
         if (config == null || !config.get("visible").getAsBoolean()) return;
         // 首次渲染时惰性加载一次配置(直接进游戏时联动配置立即生效; 之后由事件/配置界面驱动更新)
@@ -168,7 +168,7 @@ public class BonusListRenderer implements IHudRenderer {
         renderInternal(guiGraphics, config, centerX, startY);
     }
 
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY) {
         JsonObject config = ElementConfigManager.getElementConfig(ConfigManager.getCurrentPresetId(), "subtitle/bonus_list");
         if (config == null || !config.get("visible").getAsBoolean()) return;
         renderInternal(guiGraphics, config, centerX, centerY);
@@ -353,7 +353,7 @@ public class BonusListRenderer implements IHudRenderer {
         }
     }
 
-    private void renderInternal(GuiGraphics guiGraphics, JsonObject config, float baseCenterX, float baseBottomY) {
+    private void renderInternal(GuiGraphicsExtractor guiGraphics, JsonObject config, float baseCenterX, float baseBottomY) {
         loadConfig(config);
         float scale = config.get("scale").getAsFloat();
         int lineSpacing = config.get("line_spacing").getAsInt();
@@ -479,7 +479,7 @@ public class BonusListRenderer implements IHudRenderer {
         }
     }
 
-    private void renderItems(GuiGraphics guiGraphics, Minecraft mc, float scale, int centerX, int startY, 
+    private void renderItems(GuiGraphicsExtractor guiGraphics, Minecraft mc, float scale, int centerX, int startY, 
                              int lineSpacing, int maxLines, long now, float dt) {
         JsonObject config = ElementConfigManager.getElementConfig(ConfigManager.getCurrentPresetId(), "subtitle/bonus_list");
         boolean alignLeft = config != null && config.has("align_left") && config.get("align_left").getAsBoolean();
@@ -492,11 +492,9 @@ public class BonusListRenderer implements IHudRenderer {
                 && config.get("enable_horizontal_layout").getAsBoolean()
                 && (effectiveAlignLeft || effectiveAlignRight);
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
         
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().scale(scale, scale, 1.0f);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().scale(scale,  scale);
         float scaledCenterX = centerX / scale;
         float scaledStartY = startY / scale;
 
@@ -532,8 +530,7 @@ public class BonusListRenderer implements IHudRenderer {
             }
         }
 
-        guiGraphics.pose().popPose();
-        RenderSystem.disableBlend();
+        guiGraphics.pose().popMatrix();
     }
 
     private float calculateAlpha(BonusItem item, long now, int maxLines, int lineSpacing, boolean horizontal, int index) {
@@ -650,7 +647,7 @@ public class BonusListRenderer implements IHudRenderer {
         return baseY + this.linkedYOffset;
     }
 
-    private void drawComponentWithGlow(GuiGraphics guiGraphics, Font font, Component component, int x, int y, int alphaInt) {
+    private void drawComponentWithGlow(GuiGraphicsExtractor guiGraphics, Font font, Component component, int x, int y, int alphaInt) {
         if (this.enableGlowEffect) {
             int glowAlpha = (int)(alphaInt * this.glowIntensity * this.glowAlphaMultiplier);
             glowAlpha = Math.max((int) (TextFadeEffect.MIN_ALPHA * 255.0f), Math.min(255, glowAlpha));  // 副本最小透明度 0.1
@@ -660,7 +657,7 @@ public class BonusListRenderer implements IHudRenderer {
             // 渲染时 RGB/alpha 全部来自 drawString 传入的 glowColor(不受主字幕样式色影响)
             Component glowComponent = stripColor(component);
             
-            PoseStack poseStack = guiGraphics.pose();
+            Matrix3x2fStack poseStack = guiGraphics.pose();
             
             float[][] offsets = {
                 {-glowSize, 0}, {glowSize, 0}, {0, -glowSize}, {0, glowSize},
@@ -669,14 +666,14 @@ public class BonusListRenderer implements IHudRenderer {
             };
             
             for (float[] offset : offsets) {
-                poseStack.pushPose();
-                poseStack.translate(offset[0], offset[1], 0);
-                guiGraphics.drawString(font, glowComponent, x, y, glowColor, false);
-                poseStack.popPose();
+                poseStack.pushMatrix();
+                poseStack.translate(offset[0],  offset[1]);
+                guiGraphics.text(font, glowComponent, x, y, glowColor, false);
+                poseStack.popMatrix();
             }
         }
         int color = (alphaInt << 24) | (this.normalTextColor & 0xFFFFFF);
-        guiGraphics.drawString(font, component, x, y, color, this.enableTextShadow);
+        guiGraphics.text(font, component, x, y, color, this.enableTextShadow);
     }
 
     
@@ -940,7 +937,7 @@ public class BonusListRenderer implements IHudRenderer {
             this.currentXOffset = this.currentXOffset + (targetX - this.currentXOffset) * smoothFactor;
         }
 
-        public void render(GuiGraphics guiGraphics, Minecraft mc, float x, float y, float alpha, boolean alignLeft, boolean alignRight, float screenWidth, float globalScale, boolean horizontal) {
+        public void render(GuiGraphicsExtractor guiGraphics, Minecraft mc, float x, float y, float alpha, boolean alignLeft, boolean alignRight, float screenWidth, float globalScale, boolean horizontal) {
             Component component = getDisplayComponent();
             
             Component killFeedComponent = null;
@@ -960,7 +957,7 @@ public class BonusListRenderer implements IHudRenderer {
             long enterDuration = BonusListRenderer.this.enterAnimationDuration;
             boolean sweepEnabled = BonusListRenderer.this.enableTextSweepAnimation;
             
-            guiGraphics.pose().pushPose();
+            guiGraphics.pose().pushMatrix();
             
             float scaleOriginX = x;
             float scaleOriginY = y + this.currentY + (mc.font.lineHeight / 2.0f);
@@ -972,9 +969,9 @@ public class BonusListRenderer implements IHudRenderer {
                 currentScale *= animationScaleMultiplier;
             }
 
-            guiGraphics.pose().translate(scaleOriginX, scaleOriginY, 0);
-            guiGraphics.pose().scale(currentScale, currentScale, 1.0f);
-            guiGraphics.pose().translate(-scaleOriginX, -scaleOriginY, 0);
+            guiGraphics.pose().translate(scaleOriginX,  scaleOriginY);
+            guiGraphics.pose().scale(currentScale,  currentScale);
+            guiGraphics.pose().translate(-scaleOriginX, (float)-scaleOriginY);
             
             boolean renderOriginal = true;
             boolean renderFeed = false;
@@ -1018,23 +1015,23 @@ public class BonusListRenderer implements IHudRenderer {
                     
                     if (scRight > scLeft) {
                         guiGraphics.enableScissor(Math.max(0, scLeft), Math.max(0, scY), scRight, scY + scH + 2);
-                        guiGraphics.pose().pushPose();
-                        guiGraphics.pose().translate(drawX, drawY, 0);
+                        guiGraphics.pose().pushMatrix();
+                        guiGraphics.pose().translate(drawX,  drawY);
                         if (BonusListRenderer.this.enableTextBox) {
                             BonusTextBox.draw(guiGraphics, baseTextWidth, mc.font.lineHeight, BonusListRenderer.this.textBoxBorderWidth, BonusListRenderer.this.textBoxColorRgb, alphaInt);
                         }
                         BonusListRenderer.this.drawComponentWithGlow(guiGraphics, mc.font, component, 0, 0, alphaInt);
-                        guiGraphics.pose().popPose();
+                        guiGraphics.pose().popMatrix();
                         guiGraphics.disableScissor();
                     }
                 } else {
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().translate(drawX, drawY, 0);
+                    guiGraphics.pose().pushMatrix();
+                    guiGraphics.pose().translate(drawX,  drawY);
                     if (BonusListRenderer.this.enableTextBox) {
                         BonusTextBox.draw(guiGraphics, baseTextWidth, mc.font.lineHeight, BonusListRenderer.this.textBoxBorderWidth, BonusListRenderer.this.textBoxColorRgb, alphaInt);
                     }
                     BonusListRenderer.this.drawComponentWithGlow(guiGraphics, mc.font, component, 0, 0, alphaInt);
-                    guiGraphics.pose().popPose();
+                    guiGraphics.pose().popMatrix();
                 }
             }
             
@@ -1055,27 +1052,27 @@ public class BonusListRenderer implements IHudRenderer {
                     
                     if (scRight > scLeft) {
                         guiGraphics.enableScissor(Math.max(0, scLeft), Math.max(0, scY), scRight, scY + scH + 2);
-                        guiGraphics.pose().pushPose();
-                        guiGraphics.pose().translate(drawX, drawY, 0);
+                        guiGraphics.pose().pushMatrix();
+                        guiGraphics.pose().translate(drawX,  drawY);
                         if (BonusListRenderer.this.enableTextBox) {
                             BonusTextBox.draw(guiGraphics, feedTextWidth, mc.font.lineHeight, BonusListRenderer.this.textBoxBorderWidth, BonusListRenderer.this.textBoxColorRgb, alphaInt);
                         }
                         BonusListRenderer.this.drawComponentWithGlow(guiGraphics, mc.font, killFeedComponent, 0, 0, alphaInt);
-                        guiGraphics.pose().popPose();
+                        guiGraphics.pose().popMatrix();
                         guiGraphics.disableScissor();
                     }
                 } else {
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().translate(drawX, drawY, 0);
+                    guiGraphics.pose().pushMatrix();
+                    guiGraphics.pose().translate(drawX,  drawY);
                     if (BonusListRenderer.this.enableTextBox) {
                         BonusTextBox.draw(guiGraphics, feedTextWidth, mc.font.lineHeight, BonusListRenderer.this.textBoxBorderWidth, BonusListRenderer.this.textBoxColorRgb, alphaInt);
                     }
                     BonusListRenderer.this.drawComponentWithGlow(guiGraphics, mc.font, killFeedComponent, 0, 0, alphaInt);
-                    guiGraphics.pose().popPose();
+                    guiGraphics.pose().popMatrix();
                 }
             }
             
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().popMatrix();
         }
 
         private float calculateDrawX(float x, int width, boolean alignLeft, boolean alignRight) {

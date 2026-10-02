@@ -1,12 +1,17 @@
 package org.mods.gd656killicon.client.render.impl;
 
+
+
+
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import net.minecraft.client.renderer.RenderPipelines;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.scores.Team;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementTextureDefinition;
@@ -27,9 +32,11 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 
+import org.mods.gd656killicon.client.render.util.GDMesh;
+import org.joml.Matrix3x2fStack;
 public class CardBarRenderer implements IHudRenderer {
     
-    private static final Map<ResourceLocation, Float> ASPECT_RATIO_CACHE = new ConcurrentHashMap<>();
+    private static final Map<Identifier, Float> ASPECT_RATIO_CACHE = new ConcurrentHashMap<>();
     private static final float DEFAULT_ASPECT_RATIO = 1.0f;
     private static final int BASE_LOGICAL_HEIGHT = 40;     
     private static final float CENTER_FLASH_SPEED_MULTIPLIER = 3.0f;
@@ -42,7 +49,7 @@ public class CardBarRenderer implements IHudRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "card_bar");
 
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
@@ -93,7 +100,7 @@ public class CardBarRenderer implements IHudRenderer {
             config
         );
         
-        ResourceLocation texture = ExternalTextureManager.getTexture(textureName);
+        Identifier texture = ExternalTextureManager.getTexture(textureName);
         if (texture == null) return;
 
         float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
@@ -109,7 +116,7 @@ public class CardBarRenderer implements IHudRenderer {
         renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration, enableIconGlow, iconGlowColor, iconGlowIntensity, iconGlowSize, focusMultiplier);
     }
 
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY) {
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "card_bar");
 
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
@@ -153,7 +160,7 @@ public class CardBarRenderer implements IHudRenderer {
             textureName = "killicon_card_bar_t.png";
         }
         
-        ResourceLocation texture = ExternalTextureManager.getTexture(textureName);
+        Identifier texture = ExternalTextureManager.getTexture(textureName);
         if (texture == null) return;
 
         String textureKey = isT ? "bar_t" : "bar_ct";
@@ -166,7 +173,7 @@ public class CardBarRenderer implements IHudRenderer {
         renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration, enableIconGlow, iconGlowColor, iconGlowIntensity, iconGlowSize, focusMultiplier);
     }
 
-    public void renderPreviewAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY, JsonObject config) {
+    public void renderPreviewAt(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY, JsonObject config) {
         if (config == null || !config.has("visible") || !config.get("visible").getAsBoolean()) {
             return;
         }
@@ -207,7 +214,7 @@ public class CardBarRenderer implements IHudRenderer {
             textureName = "killicon_card_bar_t.png";
         }
         
-        ResourceLocation texture = ExternalTextureManager.getTexture(textureName);
+        Identifier texture = ExternalTextureManager.getTexture(textureName);
         if (texture == null) return;
 
         String textureKey = isT ? "bar_t" : "bar_ct";
@@ -220,16 +227,13 @@ public class CardBarRenderer implements IHudRenderer {
         renderInternal(guiGraphics, partialTick, centerX, centerY, scale, isT, texture, drawWidth, drawHeight, showLight, lightWidth, lightHeight, lightColorCt, lightColorT, animationDuration, enableIconGlow, iconGlowColor, iconGlowIntensity, iconGlowSize, focusMultiplier);
     }
 
-    private void renderInternal(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY, float scale, boolean isT, ResourceLocation texture, int drawWidth, int drawHeight, boolean showLight, float lightWidth, float lightHeight, String lightColorCt, String lightColorT, float animationDuration, boolean enableIconGlow, int iconGlowColor, float iconGlowIntensity, float iconGlowSize, float focusMultiplier) {
-        PoseStack poseStack = guiGraphics.pose();
-        poseStack.pushPose();
+    private void renderInternal(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY, float scale, boolean isT, Identifier texture, int drawWidth, int drawHeight, boolean showLight, float lightWidth, float lightHeight, String lightColorCt, String lightColorT, float animationDuration, boolean enableIconGlow, int iconGlowColor, float iconGlowIntensity, float iconGlowSize, float focusMultiplier) {
+        Matrix3x2fStack poseStack = guiGraphics.pose();
+        poseStack.pushMatrix();
         
-        poseStack.translate(centerX, centerY, 10.0f);
-        poseStack.scale(scale, scale, 1.0f);
+        poseStack.translate(centerX,  centerY);
+        poseStack.scale(scale,  scale);
         
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         
         float flashAlpha = 0.0f;
         long animDurMs = (long) (animationDuration * 1000);
@@ -274,9 +278,6 @@ public class CardBarRenderer implements IHudRenderer {
              waveSystem.updateAndRender(guiGraphics, lightWidth, isT ? lightColorT : lightColorCt, animationDuration, flashAlpha);
         }
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         if (enableIconGlow) {
             IconGlowRenderEffect.drawGlowFrame(
                 guiGraphics,
@@ -297,33 +298,28 @@ public class CardBarRenderer implements IHudRenderer {
                 iconGlowSize
             );
         }
-        guiGraphics.blit(texture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, -drawWidth / 2, -drawHeight / 2, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight, drawWidth, drawHeight);
         
         if (flashAlpha > 0.01f) {
-            RenderSystem.blendFunc(com.mojang.blaze3d.platform.GlStateManager.SourceFactor.SRC_ALPHA, com.mojang.blaze3d.platform.GlStateManager.DestFactor.ONE);
             
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, flashAlpha * focusMultiplier);
-            guiGraphics.blit(texture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
+            int aFlash1 = (int) (flashAlpha * focusMultiplier * 255.0f); if (aFlash1 < 0) aFlash1 = 0; if (aFlash1 > 255) aFlash1 = 255;
+            guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, -drawWidth / 2, -drawHeight / 2, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight, drawWidth, drawHeight, (aFlash1 << 24) | 0x00FFFFFF);
             
             if (flashAlpha > 0.5f) {
-                RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, (flashAlpha - 0.5f) * 2.0f * focusMultiplier);
-                guiGraphics.blit(texture, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
+                int aFlash2 = (int) ((flashAlpha - 0.5f) * 2.0f * focusMultiplier * 255.0f); if (aFlash2 < 0) aFlash2 = 0; if (aFlash2 > 255) aFlash2 = 255;
+                guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, -drawWidth / 2, -drawHeight / 2, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight, drawWidth, drawHeight, (aFlash2 << 24) | 0x00FFFFFF);
             }
             
-            RenderSystem.defaultBlendFunc();
         }
         
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        poseStack.popPose();
+        poseStack.popMatrix();
     }
     
     /**
      * Retrieves the aspect ratio (width / height) of the texture.
      * Caches the result to minimize I/O operations.
      */
-    private float getTextureAspectRatio(ResourceLocation texture) {
+    private float getTextureAspectRatio(Identifier texture) {
         if (ASPECT_RATIO_CACHE.containsKey(texture)) {
             return ASPECT_RATIO_CACHE.get(texture);
         }
@@ -347,7 +343,7 @@ public class CardBarRenderer implements IHudRenderer {
         return DEFAULT_ASPECT_RATIO;
     }
 
-    private void renderLightEffect(GuiGraphics guiGraphics, float width, float height, String colorHex, float alphaMultiplier) {
+    private void renderLightEffect(GuiGraphicsExtractor guiGraphics, float width, float height, String colorHex, float alphaMultiplier) {
         int color = parseColor(colorHex);
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
@@ -357,33 +353,40 @@ public class CardBarRenderer implements IHudRenderer {
         float halfHeight = height / 2.0f;
         
         com.mojang.blaze3d.vertex.Tesselator tesselator = com.mojang.blaze3d.vertex.Tesselator.getInstance();
-        com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.getBuilder();
         
-        RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
-        buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.TRIANGLE_STRIP, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
+        GDMesh.Builder buffer = GDMesh.begin();
+        Matrix3x2fStack pose = guiGraphics.pose();
         
         
         int segments = 50;
         float coreRatio = 0.5f;         
-        for (int i = 0; i <= segments; i++) {
-            float t = (float) i / segments;             float x = (t - 0.5f) * 2.0f * halfWidth;             float dist = Math.abs(x) / halfWidth;             
-            float alphaVal;
-            if (dist <= coreRatio) {
-                alphaVal = 1.0f;
-            } else {
-                float decayProgress = (dist - coreRatio) / (1.0f - coreRatio);
-                alphaVal = (float) Math.pow(1.0f - decayProgress, 2.0);
-            }
-            
-            int a = (int) (alphaVal * 255 * alphaMultiplier);
-            
-            buffer.vertex(guiGraphics.pose().last().pose(), x, -halfHeight, 0).color(r, g, b, a).endVertex();
-            buffer.vertex(guiGraphics.pose().last().pose(), x, halfHeight, 0).color(r, g, b, a).endVertex();
+        for (int i = 0; i < segments; i++) {
+            float t0 = (float) i / segments;
+            float t1 = (float) (i + 1) / segments;
+            float x0 = (t0 - 0.5f) * 2.0f * halfWidth;
+            float x1 = (t1 - 0.5f) * 2.0f * halfWidth;
+            int a0 = lightAlphaAt(x0, halfWidth, coreRatio, alphaMultiplier);
+            int a1 = lightAlphaAt(x1, halfWidth, coreRatio, alphaMultiplier);
+            buffer.addVertexWith2DPose(pose, x0, -halfHeight).setColor(r, g, b, a0);
+            buffer.addVertexWith2DPose(pose, x1, -halfHeight).setColor(r, g, b, a1);
+            buffer.addVertexWith2DPose(pose, x1, halfHeight).setColor(r, g, b, a1);
+            buffer.addVertexWith2DPose(pose, x0, halfHeight).setColor(r, g, b, a0);
         }
         
-        tesselator.end();
+        GDMesh.submit(guiGraphics, buffer);
     }
 
+    private static int lightAlphaAt(float x, float halfWidth, float coreRatio, float alphaMultiplier) {
+        float dist = Math.abs(x) / halfWidth;
+        float alphaVal;
+        if (dist <= coreRatio) {
+            alphaVal = 1.0f;
+        } else {
+            float decayProgress = (dist - coreRatio) / (1.0f - coreRatio);
+            alphaVal = (float) Math.pow(1.0f - decayProgress, 2.0);
+        }
+        return (int) (alphaVal * 255 * alphaMultiplier);
+    }
     private int parseColor(String hex) {
         try {
             return Integer.parseInt(hex.replace("#", ""), 16);
@@ -482,7 +485,7 @@ public class CardBarRenderer implements IHudRenderer {
             }
         }
         
-        public void updateAndRender(GuiGraphics guiGraphics, float width, String colorHex, float animationDuration, float flashAlpha) {
+        public void updateAndRender(GuiGraphicsExtractor guiGraphics, float width, String colorHex, float animationDuration, float flashAlpha) {
             long now = PreviewRenderTimeContext.currentTimeMillis();
             long interval = (long) ((animationDuration * 1000) / 2.0f);
             
@@ -509,7 +512,7 @@ public class CardBarRenderer implements IHudRenderer {
             renderWaves(guiGraphics, width, colorHex, animationDuration, flashAlpha, now, waveLifeTime);
         }
         
-        private void renderWaves(GuiGraphics guiGraphics, float width, String colorHex, float animationDuration, float flashAlpha, long now, long lifeTime) {
+        private void renderWaves(GuiGraphicsExtractor guiGraphics, float width, String colorHex, float animationDuration, float flashAlpha, long now, long lifeTime) {
             int color = parseColor(colorHex);
             int r = (color >> 16) & 0xFF;
             int g = (color >> 8) & 0xFF;
@@ -522,14 +525,10 @@ public class CardBarRenderer implements IHudRenderer {
             float speed = halfWidth / lifeTime; 
             
             com.mojang.blaze3d.vertex.Tesselator tesselator = com.mojang.blaze3d.vertex.Tesselator.getInstance();
-            com.mojang.blaze3d.vertex.BufferBuilder buffer = tesselator.getBuilder();
             
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
-            RenderSystem.disableDepthTest(); 
             
-            buffer.begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS, com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR);
+        GDMesh.Builder buffer = GDMesh.begin();
+            Matrix3x2fStack pose = guiGraphics.pose();
             
             for (float x = -halfWidth; x <= halfWidth; x += 1.0f) {
                 float distFromCenter = Math.abs(x);
@@ -573,27 +572,38 @@ public class CardBarRenderer implements IHudRenderer {
                 float xLeft = x;
                 float xRight = x + 1.0f;
                 
-                buffer.vertex(guiGraphics.pose().last().pose(), xRight, yBottom, 0).color(r, g, b, aBottom).endVertex();
-                buffer.vertex(guiGraphics.pose().last().pose(), xRight, yTop, 0).color(r, g, b, aTop).endVertex();
-                buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yTop, 0).color(r, g, b, aTop).endVertex();
-                buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yBottom, 0).color(r, g, b, aBottom).endVertex();
+                buffer.addVertexWith2DPose(pose, xRight, yBottom).setColor(r, g, b, aBottom);
+                buffer.addVertexWith2DPose(pose, xRight, yTop).setColor(r, g, b, aTop);
+                buffer.addVertexWith2DPose(pose, xLeft, yTop).setColor(r, g, b, aTop);
+                buffer.addVertexWith2DPose(pose, xLeft, yBottom).setColor(r, g, b, aBottom);
                 
                 if (flashAlpha > 0.01f) {
                     int faBottom = (int) (finalAlpha * flashAlpha * 255);
                     int faTop = 0;
                     if (faBottom > 0) {
-                        buffer.vertex(guiGraphics.pose().last().pose(), xRight, yBottom, 0).color(fr, fg, fb, faBottom).endVertex();
-                        buffer.vertex(guiGraphics.pose().last().pose(), xRight, yTop, 0).color(fr, fg, fb, faTop).endVertex();
-                        buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yTop, 0).color(fr, fg, fb, faTop).endVertex();
-                        buffer.vertex(guiGraphics.pose().last().pose(), xLeft, yBottom, 0).color(fr, fg, fb, faBottom).endVertex();
+                        buffer.addVertexWith2DPose(pose, xRight, yBottom).setColor(fr, fg, fb, faBottom);
+                        buffer.addVertexWith2DPose(pose, xRight, yTop).setColor(fr, fg, fb, faTop);
+                        buffer.addVertexWith2DPose(pose, xLeft, yTop).setColor(fr, fg, fb, faTop);
+                        buffer.addVertexWith2DPose(pose, xLeft, yBottom).setColor(fr, fg, fb, faBottom);
                     }
                 }
             }
             
-            tesselator.end();
-            RenderSystem.enableDepthTest();         }
+        GDMesh.submit(guiGraphics, buffer);
+}
 
-        private int parseColor(String hex) {
+        private static int lightAlphaAt(float x, float halfWidth, float coreRatio, float alphaMultiplier) {
+        float dist = Math.abs(x) / halfWidth;
+        float alphaVal;
+        if (dist <= coreRatio) {
+            alphaVal = 1.0f;
+        } else {
+            float decayProgress = (dist - coreRatio) / (1.0f - coreRatio);
+            alphaVal = (float) Math.pow(1.0f - decayProgress, 2.0);
+        }
+        return (int) (alphaVal * 255 * alphaMultiplier);
+    }
+    private int parseColor(String hex) {
             try {
                 return Integer.parseInt(hex.replace("#", ""), 16);
             } catch (NumberFormatException e) {

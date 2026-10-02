@@ -8,7 +8,7 @@ import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
@@ -113,6 +113,7 @@ public class ElementConfigContent extends ConfigTabContent {
     private final List<GDRowRenderer> allConfigRows = new ArrayList<>();
     private final Map<String, Boolean> generalFolderExpanded = new LinkedHashMap<>();
 
+
     private double secondaryScrollX = 0;
     private double secondaryTargetScrollX = 0;
     private double secondaryMaxScroll = 0;
@@ -163,6 +164,7 @@ public class ElementConfigContent extends ConfigTabContent {
     private GDButton previewSoundButton;
     private ConfirmDialog textureResetDialog;
     private ConfirmDialog textureBindingDialog;
+    
     
     private boolean isConfirmingReset = false;
     private long resetConfirmTime = 0;
@@ -531,7 +533,7 @@ public class ElementConfigContent extends ConfigTabContent {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         boolean resetDialogVisible = textureResetDialog != null && textureResetDialog.isVisible();
         boolean bindingDialogVisible = textureBindingDialog != null && textureBindingDialog.isVisible();
         boolean promptVisible = promptDialog.isVisible();
@@ -542,9 +544,9 @@ public class ElementConfigContent extends ConfigTabContent {
             updateLayout(screenWidth, screenHeight);
         }
         if (gridWidget != null) {
-            guiGraphics.pose().pushPose();
+            guiGraphics.pose().pushMatrix();
             gridWidget.render(guiGraphics, effectiveMouseX, effectiveMouseY, partialTick, Collections.emptyList());
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().popMatrix();
             if (isKillIconElement() && selectedSecondaryTab != null && !"general".equals(selectedSecondaryTab.elementId)) {
                 PreviewTextureFocusContext.activate(elementId, selectedSecondaryTab.elementId);
             } else {
@@ -624,10 +626,14 @@ public class ElementConfigContent extends ConfigTabContent {
     }
 
     @Override
-    protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    protected void renderContent(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         if (!configRows.isEmpty()) {
             if (useDefaultScroll) {
-                float dt = minecraft.getDeltaFrameTime() / 20.0f;
+                
+        
+        float dt = 0.016f;
+        
+        if (dt > 0.1f) dt = 0.1f;
 
                 if (isDragging) {
                     double diff = mouseY - lastMouseY;
@@ -644,14 +650,14 @@ public class ElementConfigContent extends ConfigTabContent {
                 int contentHeight = screenHeight - contentY - GuiConstants.DEFAULT_PADDING;
 
                 guiGraphics.enableScissor(contentX, contentY, contentX + contentWidth, contentY + contentHeight);
-                guiGraphics.pose().pushPose();
-                guiGraphics.pose().translate(0, -scrollY, 0);
+                guiGraphics.pose().pushMatrix();
+                guiGraphics.pose().translate(0f, (float) -scrollY);
 
                 for (GDRowRenderer row : configRows) {
                     row.render(guiGraphics, mouseX, (int)(mouseY + scrollY), partialTick);
                 }
 
-                guiGraphics.pose().popPose();
+                guiGraphics.pose().popMatrix();
                 guiGraphics.disableScissor();
             } else {
                 for (GDRowRenderer row : configRows) {
@@ -668,7 +674,7 @@ public class ElementConfigContent extends ConfigTabContent {
         int contentX = area1Right + GuiConstants.DEFAULT_PADDING + (screenWidth - area1Right - 2 * GuiConstants.DEFAULT_PADDING - textWidth) / 2;
         int contentY = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING + getContentTopOffset() + (screenHeight - (GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING + getContentTopOffset()) - 9) / 2;
 
-        guiGraphics.drawString(minecraft.font, noContent, contentX, contentY, GuiConstants.COLOR_GRAY, true);
+        guiGraphics.text(minecraft.font, noContent, contentX, contentY, GuiConstants.COLOR_GRAY, true);
     }
 
     @Override
@@ -697,7 +703,7 @@ public class ElementConfigContent extends ConfigTabContent {
         this.totalContentHeight = currentY - contentY;
     }
 
-    private void renderScrollingPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderScrollingPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"kill_icon/scrolling".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -733,14 +739,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> scrollingPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderComboPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderComboPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"kill_icon/combo".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -781,14 +784,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> comboPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderValorantPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderValorantPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"kill_icon/valorant".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -818,14 +818,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> valorantPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderCardPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderCardPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"kill_icon/card".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -877,14 +874,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> cardPreviewRenderer.renderPreviewAt(guiGraphics, partialTick, originX, originY, config));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderCardBarPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderCardBarPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"kill_icon/card_bar".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -925,14 +919,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> cardBarPreviewRenderer.renderPreviewAt(guiGraphics, partialTick, originX, originY, config));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderBattlefieldPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderBattlefieldPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"kill_icon/battlefield1".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -975,14 +966,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> battlefield1PreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderKillFeedPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderKillFeedPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"subtitle/kill_feed".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -1002,14 +990,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> subtitlePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderComboSubtitlePreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderComboSubtitlePreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"subtitle/combo".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -1028,18 +1013,12 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-        
-        
-        
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> comboSubtitlePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
         
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderScorePreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderScorePreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"subtitle/score".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -1056,14 +1035,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> scorePreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderBonusListPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderBonusListPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"subtitle/bonus_list".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -1092,14 +1068,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> bonusListPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderHonorPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderHonorPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"kill_icon/honor".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -1126,19 +1099,16 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         // 荣誉图标在代码中缩小到预览区域适配尺寸(110x61 的 0.8 倍)
         float baseW = 88.0f;
         float baseH = 49.0f;
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY,
                 () -> org.mods.gd656killicon.client.render.impl.HonorRenderer.getInstance()
                         .renderAt(guiGraphics, partialTick, originX, originY, baseW, baseH));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderHitInfoPreview(GuiGraphics guiGraphics, float partialTick) {
+    private void renderHitInfoPreview(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!"subtitle/hit_info".equals(elementId) || gridWidget == null) {
             return;
         }
@@ -1154,14 +1124,11 @@ public class ElementConfigContent extends ConfigTabContent {
         int scissorX2 = scissorX1 + gridWidget.getWidth();
         int scissorY2 = scissorY1 + gridWidget.getHeight();
         guiGraphics.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
         renderPreviewWithRotation(guiGraphics, partialTick, originX, originY, () -> hitInfoPreviewRenderer.renderAt(guiGraphics, partialTick, originX, originY));
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         guiGraphics.disableScissor();
-    }
+        }
 
-    private void renderPreviewWithRotation(GuiGraphics guiGraphics, float partialTick, float originX, float originY, Runnable renderTask) {
+    private void renderPreviewWithRotation(GuiGraphicsExtractor guiGraphics, float partialTick, float originX, float originY, Runnable renderTask) {
         JsonObject config = ElementConfigManager.getElementConfig(presetId, elementId);
         float rotationAngle = config != null && config.has("rotation_angle") ? config.get("rotation_angle").getAsFloat() : 0.0f;
         if (Math.abs(rotationAngle) <= 0.001f) {
@@ -1170,12 +1137,12 @@ public class ElementConfigContent extends ConfigTabContent {
         }
         float pivotX = originX;
         float pivotY = originY;
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(pivotX, pivotY, 0.0f);
-        guiGraphics.pose().mulPose(Axis.ZP.rotationDegrees(rotationAngle));
-        guiGraphics.pose().translate(-pivotX, -pivotY, 0.0f);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(pivotX,  pivotY);
+        guiGraphics.pose().rotate((float) Math.toRadians(rotationAngle));
+        guiGraphics.pose().translate(-pivotX, (float)-pivotY);
         renderTask.run();
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
     private void triggerPreviewSound(int killType, int comboCount) {
@@ -1232,14 +1199,17 @@ public class ElementConfigContent extends ConfigTabContent {
     }
     
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
-            return textureResetDialog.keyPressed(keyCode, scanCode, modifiers);
+            return textureResetDialog.keyPressed(event);
         }
         if (textureBindingDialog != null && textureBindingDialog.isVisible()) {
-            return textureBindingDialog.keyPressed(keyCode, scanCode, modifiers);
+            return textureBindingDialog.keyPressed(event);
         }
-        if (super.keyPressed(keyCode, scanCode, modifiers)) {
+        if (super.keyPressed(event)) {
             return true;
         }
 
@@ -1255,7 +1225,7 @@ public class ElementConfigContent extends ConfigTabContent {
     }
     
     @Override
-    protected void renderSideButtons(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
+    protected void renderSideButtons(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
         int padding = GuiConstants.DEFAULT_PADDING;
@@ -1423,22 +1393,21 @@ public class ElementConfigContent extends ConfigTabContent {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
-            return textureResetDialog.mouseScrolled(mouseX, mouseY, delta);
+            return textureResetDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (textureBindingDialog != null && textureBindingDialog.isVisible()) {
-            return textureBindingDialog.mouseScrolled(mouseX, mouseY, delta);
+            return textureBindingDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (promptDialog.isVisible()) {
-            return promptDialog.mouseScrolled(mouseX, mouseY, delta);
+            return promptDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
-        if (handleSecondaryTabScroll(mouseX, mouseY, delta)) {
+        if (handleSecondaryTabScroll(mouseX, mouseY, amountY)) {
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (textureResetDialog != null && textureResetDialog.isVisible()) {
@@ -1905,7 +1874,7 @@ public class ElementConfigContent extends ConfigTabContent {
         return org.mods.gd656killicon.client.util.I18nCompat.exists(nameKey) ? I18n.get(nameKey) : id;
     }
 
-    private void renderSecondaryTabs(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    private void renderSecondaryTabs(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!isKillIconElement() || secondaryTabs.isEmpty()) {
             return;
         }
@@ -1930,8 +1899,8 @@ public class ElementConfigContent extends ConfigTabContent {
         int borderColor = getRegionBorderColor();
 
         guiGraphics.enableScissor(secondaryAreaX1, secondaryAreaTop, secondaryAreaX2, secondaryAreaBottom);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate((float)(secondaryAreaX1 - secondaryScrollX), 0, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate((float)(secondaryAreaX1 - secondaryScrollX), 0);
 
         renderSecondaryBaseLine(guiGraphics, borderColor);
         JsonObject currentConfig = ElementConfigManager.getElementConfig(presetId, elementId);
@@ -1951,7 +1920,7 @@ public class ElementConfigContent extends ConfigTabContent {
             }
             int textX = tab.x + (tab.width - minecraft.font.width(tab.label)) / 2;
             int textY = secondaryAreaTop + (getSecondaryTabHeight() - 9) / 2;
-            guiGraphics.drawString(minecraft.font, tab.label, textX, textY, baseColor, true);
+            guiGraphics.text(minecraft.font, tab.label, textX, textY, baseColor, true);
 
             if (isSelected) {
                 int borderY = secondaryAreaTop;
@@ -1961,7 +1930,7 @@ public class ElementConfigContent extends ConfigTabContent {
             }
         }
 
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         guiGraphics.disableScissor();
     }
 
@@ -2180,7 +2149,7 @@ public class ElementConfigContent extends ConfigTabContent {
         return (0x80 << 24) | (GuiConstants.COLOR_GRAY & 0x00FFFFFF);
     }
 
-    private void renderSecondaryBaseLine(GuiGraphics guiGraphics, int color) {
+    private void renderSecondaryBaseLine(GuiGraphicsExtractor guiGraphics, int color) {
         int lineY = secondaryAreaBottom - 1;
         int drawEnd = Math.max((secondaryAreaX2 - secondaryAreaX1) + (int)secondaryMaxScroll, 5000);
         if (selectedSecondaryTab == null) {

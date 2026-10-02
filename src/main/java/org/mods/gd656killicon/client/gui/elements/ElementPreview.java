@@ -4,7 +4,7 @@ import com.google.gson.JsonObject;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
@@ -278,7 +278,7 @@ public class ElementPreview {
         this.externalHover = hover;
     }
 
-    public void render(GuiGraphics guiGraphics, float partialTick, int screenWidth, boolean isHovered, double mouseX, double mouseY) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick, int screenWidth, boolean isHovered, double mouseX, double mouseY) {
         boolean hovered = isHovered || externalHover;
         
         long now = System.currentTimeMillis();
@@ -317,11 +317,11 @@ public class ElementPreview {
         int targetClickColor = visible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
         int targetColor = (targetClickColor & 0x00FFFFFF) | (0x80 << 24);         
         int fillColor = interpolateColor(baseColor, targetColor, clickProgress);
-        guiGraphics.pose().pushPose();
+        guiGraphics.pose().pushMatrix();
         float centerX = x + width / 2.0f;
         float centerY = y + height / 2.0f;
-        guiGraphics.pose().translate(centerX, centerY, 0.0f);
-        guiGraphics.pose().mulPose(Axis.ZP.rotationDegrees(rotationAngle));
+        guiGraphics.pose().translate(centerX,  centerY);
+        guiGraphics.pose().rotate((float) Math.toRadians(rotationAngle));
         int localX = -width / 2;
         int localY = -height / 2;
         guiGraphics.fill(localX, localY, localX + width, localY + height, fillColor);
@@ -338,14 +338,14 @@ public class ElementPreview {
         }
         
         renderHandles(guiGraphics, mouseX, mouseY);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
 
         if (hovered) {
             renderSubtitle(guiGraphics, partialTick, screenWidth);
         }
     }
 
-    private void renderSubtitle(GuiGraphics guiGraphics, float partialTick, int screenWidth) {
+    private void renderSubtitle(GuiGraphicsExtractor guiGraphics, float partialTick, int screenWidth) {
             Minecraft mc = Minecraft.getInstance();
             int spaceWidth = mc.font.width(" ");
             int[] bounds = getRotatedBounds();
@@ -443,7 +443,7 @@ public class ElementPreview {
             }
     }
     
-    private void renderHandles(GuiGraphics guiGraphics, double mouseX, double mouseY) {
+    private void renderHandles(GuiGraphicsExtractor guiGraphics, double mouseX, double mouseY) {
         if ("kill_icon/battlefield1".equals(elementId)) return;
         
         int color = visible ? GuiConstants.COLOR_GOLD : GuiConstants.COLOR_GRAY;
@@ -462,7 +462,7 @@ public class ElementPreview {
         }
     }
     
-    private void drawHandle(GuiGraphics guiGraphics, int hx, int hy, double mx, double my, int color, ResizeHandle handleType) {
+    private void drawHandle(GuiGraphicsExtractor guiGraphics, int hx, int hy, double mx, double my, int color, ResizeHandle handleType) {
         double centerX = x + width / 2.0;
         double centerY = y + height / 2.0;
         double dx = mx - centerX;
@@ -738,7 +738,7 @@ public class ElementPreview {
         return true;
     }
     
-    private void renderHoverTrail(GuiGraphics guiGraphics, int x, int y, int w, int h, int color) {
+    private void renderHoverTrail(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int color) {
         if (hoverProgress <= 0.001f) return;
         float totalLength = w + h + w + h;
         float currentLength = totalLength * easeOut(hoverProgress);

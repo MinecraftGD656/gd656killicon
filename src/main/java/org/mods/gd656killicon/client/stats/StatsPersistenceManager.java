@@ -1,8 +1,8 @@
 package org.mods.gd656killicon.client.stats;
 
+import dev.architectury.platform.Platform;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.io.Reader;
 import java.io.Writer;
@@ -30,7 +30,7 @@ public class StatsPersistenceManager {
      * @return 统计文件路径
      */
     private static Path getStatsFilePath() {
-        Path gameDirectory = FMLPaths.GAMEDIR.get();
+        Path gameDirectory = Platform.getGameFolder();
         Path dataDirectory = gameDirectory.resolve("data").resolve("gd656killicon");
 
         try {

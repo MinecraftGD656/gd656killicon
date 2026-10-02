@@ -4,11 +4,9 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
+import dev.architectury.event.events.client.ClientCommandRegistrationEvent;
+import dev.architectury.event.events.client.ClientCommandRegistrationEvent.ClientCommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
-import org.mods.gd656killicon.client.bridge.ClientBridge;
-import org.mods.gd656killicon.forge.client.ForgeClientCommandEvents;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.BonusFormatMigrator;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
@@ -20,12 +18,12 @@ import org.mods.gd656killicon.client.util.ClientMessageLogger;
 
 public class ClientCommand {
 
-    public static final SuggestionProvider<CommandSourceStack> PRESET_SUGGESTIONS = (context, builder) -> {
+    public static final SuggestionProvider<ClientCommandSourceStack> PRESET_SUGGESTIONS = (context, builder) -> {
         ConfigManager.loadConfig();
         return SharedSuggestionProvider.suggest(ConfigManager.getPresetIds(), builder);
     };
 
-    public static final SuggestionProvider<CommandSourceStack> ELEMENT_SUGGESTIONS = (context, builder) -> {
+    public static final SuggestionProvider<ClientCommandSourceStack> ELEMENT_SUGGESTIONS = (context, builder) -> {
         String presetIdStr;
         try {
             presetIdStr = normalizePresetIdForLookup(StringArgumentType.getString(context, "presetId"));
@@ -39,7 +37,7 @@ public class ClientCommand {
         );
     };
 
-    public static final SuggestionProvider<CommandSourceStack> ADD_ELEMENT_SUGGESTIONS = (context, builder) -> {
+    public static final SuggestionProvider<ClientCommandSourceStack> ADD_ELEMENT_SUGGESTIONS = (context, builder) -> {
         String presetIdStr;
         try {
             presetIdStr = normalizePresetIdForLookup(StringArgumentType.getString(context, "presetId"));
@@ -53,7 +51,7 @@ public class ClientCommand {
         );
     };
 
-    public static final SuggestionProvider<CommandSourceStack> KEY_SUGGESTIONS = (context, builder) -> {
+    public static final SuggestionProvider<ClientCommandSourceStack> KEY_SUGGESTIONS = (context, builder) -> {
         String presetId = normalizePresetIdForLookup(StringArgumentType.getString(context, "presetId"));
         String elementId = StringArgumentType.getString(context, "elementId");
         if (elementId.startsWith("\"") && elementId.endsWith("\"")) {
@@ -62,7 +60,7 @@ public class ClientCommand {
         return SharedSuggestionProvider.suggest(ConfigManager.getConfigKeys(presetId, elementId), builder);
     };
 
-    public static int reload(CommandContext<CommandSourceStack> context) {
+    public static int reload(CommandContext<ClientCommandSourceStack> context) {
         ConfigManager.loadConfig();
         ExternalTextureManager.reloadAsync();
         ExternalSoundManager.reloadAsync();
@@ -70,7 +68,7 @@ public class ClientCommand {
     }
 
     /** 手动触发加分项系统大清洗升级器（通常由 loadConfig 自动执行一次）。 */
-    public static int migrateBonusFormat(CommandContext<CommandSourceStack> context) {
+    public static int migrateBonusFormat(CommandContext<ClientCommandSourceStack> context) {
         boolean changed = BonusFormatMigrator.migrate();
         ClientConfigManager.setBonusFormatMigrated(BonusFormatMigrator.TARGET_VERSION);
         if (changed) {
@@ -81,30 +79,30 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int reset(CommandContext<CommandSourceStack> context) {
+    public static int reset(CommandContext<ClientCommandSourceStack> context) {
         ConfigManager.resetFull();
         return 1;
     }
 
-    public static int info(CommandContext<CommandSourceStack> context) {
+    public static int info(CommandContext<ClientCommandSourceStack> context) {
         ClientMessageLogger.chatInfo("gd656killicon.client.command.info", GuiConstants.MOD_VERSION);
         return 1;
     }
 
-    public static int iamanew(CommandContext<CommandSourceStack> context) {
+    public static int iamanew(CommandContext<ClientCommandSourceStack> context) {
         ClientConfigManager.resetIntroPrompts();
         ClientMessageLogger.chatSuccess("gd656killicon.client.command.iamanew");
         return 1;
     }
 
-    public static int versionSet(CommandContext<CommandSourceStack> context) {
+    public static int versionSet(CommandContext<ClientCommandSourceStack> context) {
         String value = StringArgumentType.getString(context, "value");
         ClientConfigManager.setRecordedModVersion(value);
         ClientMessageLogger.chatSuccess("gd656killicon.client.command.versionset", value);
         return 1;
     }
 
-    public static int resetPresetConfig(CommandContext<CommandSourceStack> context) {
+    public static int resetPresetConfig(CommandContext<ClientCommandSourceStack> context) {
         String presetId = StringArgumentType.getString(context, "presetId");
         try {
             int idVal = Integer.parseInt(presetId);
@@ -120,7 +118,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int resetPresetTextures(CommandContext<CommandSourceStack> context) {
+    public static int resetPresetTextures(CommandContext<ClientCommandSourceStack> context) {
         String presetId = StringArgumentType.getString(context, "presetId");
         try {
             int idVal = Integer.parseInt(presetId);
@@ -134,7 +132,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int resetPresetSounds(CommandContext<CommandSourceStack> context) {
+    public static int resetPresetSounds(CommandContext<ClientCommandSourceStack> context) {
         String presetId = StringArgumentType.getString(context, "presetId");
         try {
             int idVal = Integer.parseInt(presetId);
@@ -148,7 +146,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int setPreset(CommandContext<CommandSourceStack> context) {
+    public static int setPreset(CommandContext<ClientCommandSourceStack> context) {
         String presetId = StringArgumentType.getString(context, "id");
         try {
             int idVal = Integer.parseInt(presetId);
@@ -163,7 +161,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int createPreset(CommandContext<CommandSourceStack> context) {
+    public static int createPreset(CommandContext<ClientCommandSourceStack> context) {
         String presetId = StringArgumentType.getString(context, "id");
         try {
             int idVal = Integer.parseInt(presetId);
@@ -179,7 +177,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int addElement(CommandContext<CommandSourceStack> context) {
+    public static int addElement(CommandContext<ClientCommandSourceStack> context) {
         String elementId = StringArgumentType.getString(context, "elementId");
         if (elementId.startsWith("\"") && elementId.endsWith("\"")) {
             elementId = elementId.substring(1, elementId.length() - 1);
@@ -197,7 +195,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int delElement(CommandContext<CommandSourceStack> context) {
+    public static int delElement(CommandContext<ClientCommandSourceStack> context) {
         String elementId = StringArgumentType.getString(context, "elementId");
         if (elementId.startsWith("\"") && elementId.endsWith("\"")) {
             elementId = elementId.substring(1, elementId.length() - 1);
@@ -215,7 +213,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int editConfig(CommandContext<CommandSourceStack> context) {
+    public static int editConfig(CommandContext<ClientCommandSourceStack> context) {
         String presetId = StringArgumentType.getString(context, "presetId");
         try {
             int idVal = Integer.parseInt(presetId);
@@ -235,7 +233,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int setGlobalConfig(CommandContext<CommandSourceStack> context) {
+    public static int setGlobalConfig(CommandContext<ClientCommandSourceStack> context) {
         String key = StringArgumentType.getString(context, "key");
         String value = StringArgumentType.getString(context, "value");
 
@@ -287,7 +285,7 @@ public class ClientCommand {
         return 1;
     }
 
-    public static int setPresetDisplayName(CommandContext<CommandSourceStack> context) {
+    public static int setPresetDisplayName(CommandContext<ClientCommandSourceStack> context) {
         String presetId = StringArgumentType.getString(context, "id");
         try {
             int idVal = Integer.parseInt(presetId);
@@ -312,87 +310,87 @@ public class ClientCommand {
         }
     }
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("gd656killicon")
-            .then(Commands.literal("client")
-                .then(Commands.literal("info").executes(ClientCommand::info))
-                .then(Commands.literal("debug")
-                    .then(Commands.literal("iamanew").executes(ClientCommand::iamanew))
-                    .then(Commands.literal("versionset")
-                        .then(Commands.argument("value", StringArgumentType.string())
+    public static void register(CommandDispatcher<ClientCommandSourceStack> dispatcher) {
+        dispatcher.register(ClientCommandRegistrationEvent.literal("gd656killicon")
+            .then(ClientCommandRegistrationEvent.literal("client")
+                .then(ClientCommandRegistrationEvent.literal("info").executes(ClientCommand::info))
+                .then(ClientCommandRegistrationEvent.literal("debug")
+                    .then(ClientCommandRegistrationEvent.literal("iamanew").executes(ClientCommand::iamanew))
+                    .then(ClientCommandRegistrationEvent.literal("versionset")
+                        .then(ClientCommandRegistrationEvent.argument("value", StringArgumentType.string())
                             .executes(ClientCommand::versionSet)
                         )
                     )
                 )
-                .then(Commands.literal("config")
-                    .then(Commands.literal("reload").executes(ClientCommand::reload))
-                    .then(Commands.literal("migrate").executes(ClientCommand::migrateBonusFormat))
-                    .then(Commands.literal("global")
-                        .then(Commands.argument("key", StringArgumentType.word())
+                .then(ClientCommandRegistrationEvent.literal("config")
+                    .then(ClientCommandRegistrationEvent.literal("reload").executes(ClientCommand::reload))
+                    .then(ClientCommandRegistrationEvent.literal("migrate").executes(ClientCommand::migrateBonusFormat))
+                    .then(ClientCommandRegistrationEvent.literal("global")
+                        .then(ClientCommandRegistrationEvent.argument("key", StringArgumentType.word())
                             .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"current_preset", "enable_sound", "sound_volume", "show_bonus_message"}, builder))
-                            .then(Commands.argument("value", StringArgumentType.string())
+                            .then(ClientCommandRegistrationEvent.argument("value", StringArgumentType.string())
                                 .executes(ClientCommand::setGlobalConfig)
                             )
                         )
                     )
                 )
-                .then(Commands.literal("reset").executes(ClientCommand::reset)
-                    .then(Commands.literal("element")
-                        .then(Commands.argument("presetId", StringArgumentType.word())
+                .then(ClientCommandRegistrationEvent.literal("reset").executes(ClientCommand::reset)
+                    .then(ClientCommandRegistrationEvent.literal("element")
+                        .then(ClientCommandRegistrationEvent.argument("presetId", StringArgumentType.word())
                             .suggests(PRESET_SUGGESTIONS)
-                            .then(Commands.literal("config").executes(ClientCommand::resetPresetConfig))
-                            .then(Commands.literal("textures").executes(ClientCommand::resetPresetTextures))
-                            .then(Commands.literal("sounds").executes(ClientCommand::resetPresetSounds))
+                            .then(ClientCommandRegistrationEvent.literal("config").executes(ClientCommand::resetPresetConfig))
+                            .then(ClientCommandRegistrationEvent.literal("textures").executes(ClientCommand::resetPresetTextures))
+                            .then(ClientCommandRegistrationEvent.literal("sounds").executes(ClientCommand::resetPresetSounds))
                         )
                     )
                 )
-                .then(Commands.literal("preset")
-                    .then(Commands.literal("choose")
-                        .then(Commands.argument("id", StringArgumentType.word())
+                .then(ClientCommandRegistrationEvent.literal("preset")
+                    .then(ClientCommandRegistrationEvent.literal("choose")
+                        .then(ClientCommandRegistrationEvent.argument("id", StringArgumentType.word())
                             .suggests(PRESET_SUGGESTIONS)
                             .executes(ClientCommand::setPreset)
                         )
                     )
-                    .then(Commands.literal("create")
-                        .then(Commands.argument("id", StringArgumentType.word())
+                    .then(ClientCommandRegistrationEvent.literal("create")
+                        .then(ClientCommandRegistrationEvent.argument("id", StringArgumentType.word())
                             .executes(ClientCommand::createPreset)
                         )
                     )
-                    .then(Commands.literal("displayname")
-                        .then(Commands.argument("id", StringArgumentType.word())
+                    .then(ClientCommandRegistrationEvent.literal("displayname")
+                        .then(ClientCommandRegistrationEvent.argument("id", StringArgumentType.word())
                             .suggests(PRESET_SUGGESTIONS)
-                            .then(Commands.argument("displayName", StringArgumentType.string())
+                            .then(ClientCommandRegistrationEvent.argument("displayName", StringArgumentType.string())
                                 .executes(ClientCommand::setPresetDisplayName)
                             )
                         )
                     )
-                    .then(Commands.literal("element")
-                        .then(Commands.literal("add")
-                            .then(Commands.argument("presetId", StringArgumentType.word())
+                    .then(ClientCommandRegistrationEvent.literal("element")
+                        .then(ClientCommandRegistrationEvent.literal("add")
+                            .then(ClientCommandRegistrationEvent.argument("presetId", StringArgumentType.word())
                                 .suggests(PRESET_SUGGESTIONS)
-                                .then(Commands.argument("elementId", StringArgumentType.string())
+                                .then(ClientCommandRegistrationEvent.argument("elementId", StringArgumentType.string())
                                     .suggests(ADD_ELEMENT_SUGGESTIONS)
                                     .executes(ClientCommand::addElement)
                                 )
                             )
                         )
-                        .then(Commands.literal("del")
-                            .then(Commands.argument("presetId", StringArgumentType.word())
+                        .then(ClientCommandRegistrationEvent.literal("del")
+                            .then(ClientCommandRegistrationEvent.argument("presetId", StringArgumentType.word())
                                 .suggests(PRESET_SUGGESTIONS)
-                                .then(Commands.argument("elementId", StringArgumentType.string())
+                                .then(ClientCommandRegistrationEvent.argument("elementId", StringArgumentType.string())
                                     .suggests(ELEMENT_SUGGESTIONS)
                                     .executes(ClientCommand::delElement)
                                 )
                             )
                         )
-                        .then(Commands.literal("edit")
-                            .then(Commands.argument("presetId", StringArgumentType.word())
+                        .then(ClientCommandRegistrationEvent.literal("edit")
+                            .then(ClientCommandRegistrationEvent.argument("presetId", StringArgumentType.word())
                                 .suggests(PRESET_SUGGESTIONS)
-                                .then(Commands.argument("elementId", StringArgumentType.string())
+                                .then(ClientCommandRegistrationEvent.argument("elementId", StringArgumentType.string())
                                     .suggests(ELEMENT_SUGGESTIONS)
-                                    .then(Commands.argument("key", StringArgumentType.word())
+                                    .then(ClientCommandRegistrationEvent.argument("key", StringArgumentType.word())
                                         .suggests(KEY_SUGGESTIONS)
-                                        .then(Commands.argument("value", StringArgumentType.string())
+                                        .then(ClientCommandRegistrationEvent.argument("value", StringArgumentType.string())
                                             .executes(ClientCommand::editConfig)
                                         )
                                     )
@@ -406,6 +404,6 @@ public class ClientCommand {
     }
 
     public static void init() {
-        ClientBridge.loader().registerForgeEventBusSubscriber(ForgeClientCommandEvents.class);
+        ClientCommandRegistrationEvent.EVENT.register((dispatcher, buildContext) -> register(dispatcher));
     }
 }

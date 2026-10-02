@@ -537,7 +537,7 @@ public class PlayerDataManager {
      * 使用快照缓存优化高频请求
      */
     public void handleScoreboardRequest(ServerPlayer player, int offset, int limit, long requestId) {
-        if (player == null || player.server == null) {
+        if (player == null || player.level().getServer() == null) {
             return;
         }
         ResolvedScoreboardData resolved = resolveScoreboardData(player);
@@ -562,7 +562,7 @@ public class PlayerDataManager {
             );
         }
         return new ResolvedScoreboardData(
-            buildPrioritizedEntries(requester, buildScoreboardEntries(requester.server)),
+            buildPrioritizedEntries(requester, buildScoreboardEntries(requester.level().getServer())),
             1,
             DEFAULT_PANEL_TEAMS
         );
@@ -640,7 +640,7 @@ public class PlayerDataManager {
                     data.getDeath(),
                     data.getAssist(),
                     data.getRevive(),
-                    isOnline ? onlinePlayer.latency : -1,
+                    isOnline ? 0 : -1,  // TODO(latency): 26.1 移除 latency 字段
                     isOnline,
                     isOnline && onlinePlayer.isSpectator()                 ));
             }

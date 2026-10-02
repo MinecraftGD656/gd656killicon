@@ -1,5 +1,7 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
+
+import net.minecraft.world.scores.ScoreHolder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -18,7 +20,7 @@ import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import org.mods.gd656killicon.client.gui.elements.GDButton;
 import org.mods.gd656killicon.network.packet.ScoreboardSyncPacket;
-import net.minecraftforge.fml.ModList;
+import dev.architectury.platform.Platform;
 
 import java.util.function.Consumer;
 
@@ -308,31 +310,30 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (promptDialog.isVisible()) {
-            return promptDialog.mouseScrolled(mouseX, mouseY, delta);
+            return promptDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (textInputDialog.isVisible()) {
-            return textInputDialog.mouseScrolled(mouseX, mouseY, delta);
+            return textInputDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (colorPickerDialog.isVisible()) {
-            return colorPickerDialog.mouseScrolled(mouseX, mouseY, delta);
+            return colorPickerDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (choiceListDialog.isVisible()) {
-            return choiceListDialog.mouseScrolled(mouseX, mouseY, delta);
+            return choiceListDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         int panelIndex = findPanelAt(mouseX, mouseY);
         if (panelIndex >= 0) {
-            panelTargetScrollY[panelIndex] -= delta * GuiConstants.SCROLL_AMOUNT;
+            panelTargetScrollY[panelIndex] -= amountY * GuiConstants.SCROLL_AMOUNT;
             return true;
         }
         if (mouseX >= area3X1 && mouseX <= area3X2 && mouseY >= area3Y1 && mouseY <= area3Y2) {
-            targetScrollY3 -= delta * GuiConstants.SCROLL_AMOUNT;
+            targetScrollY3 -= amountY * GuiConstants.SCROLL_AMOUNT;
             return true;
         }
         return false;
     }
-
     @Override
     protected void updateScroll(float dt, int screenHeight) {
         for (int i = 0; i < 4; i++) {
@@ -380,7 +381,7 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     @Override
-    protected void renderContent(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    protected void renderContent(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateAreaCoordinates(screenWidth, screenHeight);
 
         long currentTime = System.nanoTime();
@@ -637,7 +638,7 @@ public class ScoreboardTab extends ConfigTabContent {
         this.area3Y2 = area4Top - GuiConstants.DEFAULT_PADDING;
     }
 
-    private void renderArea3Stats(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
+    private void renderArea3Stats(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
         int x1 = area3X1;
         int yStart = area3Y1;
         int x2 = area3X2;
@@ -647,7 +648,7 @@ public class ScoreboardTab extends ConfigTabContent {
         stats.add(new String[]{" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_kills"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalKills())});
         stats.add(new String[]{" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_deaths"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalDeaths())});
         stats.add(new String[]{" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_assists"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalAssists())});
-        if (ModList.get().isLoaded("gd656conquest")) {
+        if (Platform.isModLoaded("gd656conquest")) {
             stats.add(new String[]{" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.total_revives"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getTotalRevives())});
         }
         stats.add(new String[]{" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.max_streak"), String.valueOf(org.mods.gd656killicon.client.stats.ClientStatsManager.getMaxKillStreak())});
@@ -659,8 +660,8 @@ public class ScoreboardTab extends ConfigTabContent {
         stats.add(new String[]{" " + net.minecraft.client.resources.language.I18n.get("gd656killicon.client.gui.config.scoreboard.stat.most_used_weapon"), org.mods.gd656killicon.client.stats.ClientStatsManager.getMostUsedWeapon()});
 
         guiGraphics.enableScissor(area3X1, area3Y1, area3X2, area3Y2);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -scrollY3, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0f, (float)-scrollY3);
 
         int currentY = yStart;
         int visualRowIndex = 0;
@@ -678,10 +679,10 @@ public class ScoreboardTab extends ConfigTabContent {
             renderer.resetColumnConfig();
 
             Consumer<Integer> callback = null;
-            int nemesisIndex = ModList.get().isLoaded("gd656conquest") ? 7 : 6;
-            int mobIndex = ModList.get().isLoaded("gd656conquest") ? 8 : 7;
-            int playerIndex = ModList.get().isLoaded("gd656conquest") ? 9 : 8;
-            int weaponIndex = ModList.get().isLoaded("gd656conquest") ? 10 : 9;
+            int nemesisIndex = Platform.isModLoaded("gd656conquest") ? 7 : 6;
+            int mobIndex = Platform.isModLoaded("gd656conquest") ? 8 : 7;
+            int playerIndex = Platform.isModLoaded("gd656conquest") ? 9 : 8;
+            int weaponIndex = Platform.isModLoaded("gd656conquest") ? 10 : 9;
             if (i == nemesisIndex) callback = (btn) -> { isNemesisExpanded = !isNemesisExpanded; };
             else if (i == mobIndex) callback = (btn) -> { isMobExpanded = !isMobExpanded; };
             else if (i == playerIndex) callback = (btn) -> { isPlayerExpanded = !isPlayerExpanded; };
@@ -810,11 +811,11 @@ public class ScoreboardTab extends ConfigTabContent {
             }
         }
 
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         guiGraphics.disableScissor();
     }
 
-    private void renderBoards(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int x1, int y1, int x2, int y2) {
+    private void renderBoards(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int x1, int y1, int x2, int y2) {
         int columns = ScoreboardLoadoutConfigManager.getEffectiveColumns(true);
         if (columns == 2) {
             int width = x2 - x1;
@@ -849,7 +850,7 @@ public class ScoreboardTab extends ConfigTabContent {
         renderSingleBoardPanel(guiGraphics, mouseX, mouseY, partialTick, 0, x1, y1, x2, y2);
     }
 
-    private void renderSingleBoardPanel(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int panelIndex, int x1, int y1, int x2, int y2) {
+    private void renderSingleBoardPanel(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int panelIndex, int x1, int y1, int x2, int y2) {
         panelX1[panelIndex] = x1;
         panelY1[panelIndex] = y1;
         panelX2[panelIndex] = x2;
@@ -868,8 +869,8 @@ public class ScoreboardTab extends ConfigTabContent {
         panelViewHeight[panelIndex] = viewHeight;
         ColumnLayout layout = computeColumnLayout(x2 - x1, shouldShowDedicatedReviveColumn());
         guiGraphics.enableScissor(x1, contentY1, x2, contentY2);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -panelScrollY[panelIndex], 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0, (float)-panelScrollY[panelIndex]);
         int visualIndex = 0;
         for (int i = 0; i < filtered.size(); i++) {
             ScoreboardSyncPacket.Entry entry = filtered.get(i);
@@ -882,11 +883,11 @@ public class ScoreboardTab extends ConfigTabContent {
             }
             visualIndex++;
         }
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         guiGraphics.disableScissor();
     }
 
-    private void renderPanelHeader(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int panelIndex, int x1, int y1, int x2, int y2) {
+    private void renderPanelHeader(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int panelIndex, int x1, int y1, int x2, int y2) {
         while (panelHeaderRenderers.size() <= panelIndex) {
             panelHeaderRenderers.add(new GDRowRenderer(x1, y1, x2, y2, GuiConstants.COLOR_GOLD, 0.75f, true));
         }
@@ -932,7 +933,7 @@ public class ScoreboardTab extends ConfigTabContent {
         renderer.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    private void renderRow(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int panelIndex, ScoreboardSyncPacket.Entry entry, int visualIndex, int x1, int y1, int x2, int y2, ColumnLayout layout) {
+    private void renderRow(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int panelIndex, ScoreboardSyncPacket.Entry entry, int visualIndex, int x1, int y1, int x2, int y2, ColumnLayout layout) {
         int ping = resolvePing(entry);
         boolean oddRow = (visualIndex % 2 == 1);
         int rowBgColor = 0x000000;
@@ -1123,7 +1124,7 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     private boolean shouldShowDedicatedReviveColumn() {
-        return ModList.get().isLoaded("gd656conquest") && !shouldUseReviveColumn();
+        return Platform.isModLoaded("gd656conquest") && !shouldUseReviveColumn();
     }
 
     private int findPanelAt(double mouseX, double mouseY) {
@@ -1553,24 +1554,14 @@ public class ScoreboardTab extends ConfigTabContent {
         if (minecraft.player == null) {
             return null;
         }
-        net.minecraft.world.scores.Scoreboard scoreboard = minecraft.player.getScoreboard();
+        net.minecraft.world.scores.Scoreboard scoreboard = minecraft.player.level().getScoreboard();
         if (scoreboard != null) {
             net.minecraft.world.scores.Objective objective = scoreboard.getObjective(GLOBAL_SCORE_OBJECTIVE);
             if (objective != null) {
                 try {
-                    Object scoreAccess = scoreboard.getOrCreatePlayerScore(minecraft.player.getScoreboardName(), objective);
-                    try {
-                        int score = ((Number) scoreAccess.getClass().getMethod("get").invoke(scoreAccess)).intValue();
-                        lastKnownGlobalScore = score;
-                        return score;
-                    } catch (Exception ignored) {
-                    }
-                    try {
-                        int score = ((Number) scoreAccess.getClass().getMethod("getScore").invoke(scoreAccess)).intValue();
-                        lastKnownGlobalScore = score;
-                        return score;
-                    } catch (Exception ignored) {
-                    }
+                    int score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(minecraft.player.getScoreboardName()), objective).get();
+                    lastKnownGlobalScore = score;
+                    return score;
                 } catch (Exception ignored) {
                 }
             }
@@ -1589,6 +1580,6 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     @Override
-    protected void renderSideButtons(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
+    protected void renderSideButtons(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
     }
 }

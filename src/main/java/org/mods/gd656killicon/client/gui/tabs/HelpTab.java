@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
@@ -267,7 +267,7 @@ public class HelpTab extends ConfigTabContent {
     }
 
     @Override
-    protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    protected void renderContent(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateAreaCoordinates(screenWidth, screenHeight);
         
         renderArea3(guiGraphics, mouseX, mouseY, partialTick);
@@ -324,7 +324,7 @@ public class HelpTab extends ConfigTabContent {
         }
     }
 
-    private void renderArea3(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    private void renderArea3(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (area3TextRenderer != null) {
             area3TextRenderer.render(guiGraphics, partialTick);
         }
@@ -345,13 +345,13 @@ public class HelpTab extends ConfigTabContent {
         }
     }
 
-    private void renderArea2(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenHeight) {
+    private void renderArea2(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenHeight) {
         int x1 = area2X1;
         int x2 = area2X2;
         
         guiGraphics.enableScissor(area2X1, area2Y1, area2X2, area2Y2);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -scrollY, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0f, (float) -scrollY);
 
         int currentY = area2Y1;
         
@@ -375,7 +375,7 @@ public class HelpTab extends ConfigTabContent {
             currentY += height + 1;
         }
 
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         guiGraphics.disableScissor();
     }
 
@@ -433,14 +433,14 @@ public class HelpTab extends ConfigTabContent {
     }
     
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (mouseX >= area2X1 && mouseX <= area2X2 && mouseY >= area2Y1 && mouseY <= area2Y2) {
-            targetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
+            targetScrollY -= amountY * GuiConstants.SCROLL_AMOUNT;
             return true;
         }
         
         if (mouseX >= area3X1 && mouseX <= area3X2 && mouseY >= area3Y1 && mouseY <= area3Y2) {
-            targetScrollY3 -= delta * GuiConstants.SCROLL_AMOUNT;
+            targetScrollY3 -= amountY * GuiConstants.SCROLL_AMOUNT;
             return true;
         }
         
@@ -468,7 +468,6 @@ public class HelpTab extends ConfigTabContent {
         
         return super.mouseClicked(mouseX, mouseY, button);
     }
-
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         isDragging = false;

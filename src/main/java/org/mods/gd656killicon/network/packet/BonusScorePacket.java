@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.impl.ScoreSubtitleRenderer;
@@ -43,7 +43,7 @@ public class BonusScorePacket implements IPacket {
         this.victimName = victimName;
     }
 
-    public BonusScorePacket(FriendlyByteBuf buffer) {
+    public BonusScorePacket(RegistryFriendlyByteBuf buffer) {
         this.bonusType = buffer.readInt();
         this.score = buffer.readFloat();
         this.extraData = buffer.readUtf(32767);
@@ -56,7 +56,7 @@ public class BonusScorePacket implements IPacket {
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeInt(this.bonusType);
         buffer.writeFloat(this.score);
         buffer.writeUtf(this.extraData != null ? this.extraData : "", 32767);

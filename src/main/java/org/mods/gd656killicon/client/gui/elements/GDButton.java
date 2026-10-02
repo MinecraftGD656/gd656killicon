@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 
@@ -38,7 +38,7 @@ public class GDButton {
         this.textRenderer.setCentered(true);
     }
 
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         long now = System.currentTimeMillis();
         float dt = (now - lastTime) / (float) GuiConstants.BUTTON_ANIM_DURATION_MS;
         lastTime = now;
@@ -58,11 +58,11 @@ public class GDButton {
         if (hoverProgress > 0.001f) {
             float ease = 1.0f - (float) Math.pow(1.0f - hoverProgress, 3);             float floatBarWidth = width * ease;
             
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(x, y + height - 1.0f, 0);
-            guiGraphics.pose().scale(floatBarWidth, 1.0f, 1.0f);
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(x,  y + height - 1.0f);
+            guiGraphics.pose().scale(floatBarWidth,  1.0f);
             guiGraphics.fill(0, 0, 1, 1, GuiConstants.COLOR_GOLD);
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().popMatrix();
         }
     }
 

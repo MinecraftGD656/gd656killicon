@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.network.IPacket;
 import org.mods.gd656killicon.network.PacketContext;
 
@@ -15,14 +15,14 @@ public class DeathPacket implements IPacket {
         this.killerName = killerName;
     }
 
-    public DeathPacket(FriendlyByteBuf buffer) {
+    public DeathPacket(RegistryFriendlyByteBuf buffer) {
         this.playerName = buffer.readUtf();
         this.deathCause = buffer.readUtf();
         this.killerName = buffer.readUtf();
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeUtf(this.playerName);
         buffer.writeUtf(this.deathCause);
         buffer.writeUtf(this.killerName);

@@ -1,20 +1,16 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.tacz.DummyTaczHandler;
 import org.mods.gd656killicon.server.logic.tacz.ITaczHandler;
-import org.mods.gd656killicon.server.util.ServerLog;
 
 import java.util.UUID;
 
 public class TaczIntegration {
     private static final TaczIntegration INSTANCE = new TaczIntegration();
-    private ITaczHandler handler;
+    private final ITaczHandler handler = new DummyTaczHandler();
     private boolean initialized = false;
 
-    private TaczIntegration() {
-        this.handler = new DummyTaczHandler();
-    }
+    private TaczIntegration() {}
 
     public static TaczIntegration get() {
         return INSTANCE;
@@ -29,19 +25,7 @@ public class TaczIntegration {
             return;
         }
         initialized = true;
-        try {
-            if (ServerBridge.loader().isModLoaded("tacz")) {
-                Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.tacz.TaczEventHandler");
-                handler = (ITaczHandler) handlerClass.getDeclaredConstructor().newInstance();
-                handler.init();
-                ServerLog.info("TACZ mod detected.");
-            } else {
-                handler = new DummyTaczHandler();
-            }
-        } catch (Exception e) {
-            ServerLog.error("Failed to initialize TACZ integration: %s", e.getMessage());
-            handler = new DummyTaczHandler();
-        }
+        handler.init();
     }
 
     public void tick() {

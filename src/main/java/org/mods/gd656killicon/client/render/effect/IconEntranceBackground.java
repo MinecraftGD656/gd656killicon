@@ -1,16 +1,16 @@
 package org.mods.gd656killicon.client.render.effect;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.util.Mth;
-import org.joml.Matrix4f;
-
+import org.mods.gd656killicon.client.render.util.GDMesh;
+import org.joml.Matrix3x2fStack;
 /**
  * 图标入场背景渲染器。
  *
@@ -45,7 +45,7 @@ public final class IconEntranceBackground {
      * @param fadeOutMs         出场(淡出+缩小)持续时间毫秒
      * @param peakTransparency  淡入完成时的透明度(0=不透明, 1=完全透明; 渲染 alpha 峰值 = 1 - 该值)
      */
-    public static void drawRect(GuiGraphics guiGraphics, long elapsedMs,
+    public static void drawRect(GuiGraphicsExtractor guiGraphics, long elapsedMs,
                                 float centerX, float centerY,
                                 float size, int color,
                                 long fadeInMs, long fadeOutMs,
@@ -75,12 +75,12 @@ public final class IconEntranceBackground {
         // 与滚动主图标相同的 pose 变换渲染: translate 到中心 → scale(浮点缩放) → 反平移半尺寸,
         // 顶点经矩阵变换为浮点坐标, 实现亚像素级平滑缩放(不再取整到单个像素)。
         int argb = (color & 0xFFFFFF) | ((int) (Mth.clamp(alpha, 0.0f, 1.0f) * 255.0f) << 24);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(centerX, centerY, 0);
-        guiGraphics.pose().scale(scale, scale, 1.0f);
-        guiGraphics.pose().translate(-size / 2f, -size / 2f, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(centerX,  centerY);
+        guiGraphics.pose().scale(scale,  scale);
+        guiGraphics.pose().translate(-size / 2f,  -size / 2f);
         guiGraphics.fill(0, 0, Math.round(size), Math.round(size), argb);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
     /**
@@ -93,7 +93,7 @@ public final class IconEntranceBackground {
      * @param borderWidth      边框宽度(像素, 浮点亚像素; ≤0 不绘制)
      * @param peakTransparency 边框淡入完成时的透明度(0=不透明, 1=完全透明; 渲染 alpha 峰值 = 1 - 该值)
      */
-    public static void drawBorder(GuiGraphics guiGraphics, long elapsedMs,
+    public static void drawBorder(GuiGraphicsExtractor guiGraphics, long elapsedMs,
                                   float centerX, float centerY,
                                   float size, int color,
                                   long fadeInMs, long fadeOutMs,
@@ -139,11 +139,11 @@ public final class IconEntranceBackground {
             diagLen = outProgress < twoThirdsZ ? maxDiag * (1.0f - outProgress / twoThirdsZ) : 0.0f;
         }
         // 边框在矩形外侧(外扩, 与矩形不重叠), 由图标随后 flush 盖住 → 位于主图标之下;
-        // 不调用 flush, 避免每帧打断 GuiGraphics 批量提交造成刷新率下降。
+        // 不调用 flush, 避免每帧打断 GuiGraphicsExtractor 批量提交造成刷新率下降。
         drawBorderQuads(guiGraphics, centerX, centerY, half, color, borderWidth, alpha, diagLen);
     }
 
-    private static void drawBorderQuads(GuiGraphics guiGraphics, float centerX, float centerY, float half, int color, float borderWidth, float alpha, float diagLen) {
+    private static void drawBorderQuads(GuiGraphicsExtractor guiGraphics, float centerX, float centerY, float half, int color, float borderWidth, float alpha, float diagLen) {
         float x1 = centerX - half;
         float x2 = centerX + half;
         float y1 = centerY - half;
@@ -167,38 +167,29 @@ public final class IconEntranceBackground {
         float bottomInner = y2 - halfThickness;
         float bottomOuter = y2 + halfThickness;
 
-        Matrix4f matrix = guiGraphics.pose().last().pose();
+        Matrix3x2fStack pose = guiGraphics.pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableCull();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        GDMesh.Builder builder = GDMesh.begin();
         // 上 / 下 / 左 / 右 四条细边(向外扩展厚度 t)
-        quad(builder, matrix, leftOuter, topOuter, rightOuter, topInner, r, g, b, a);
-        quad(builder, matrix, leftOuter, bottomInner, rightOuter, bottomOuter, r, g, b, a);
-        quad(builder, matrix, leftOuter, topInner, leftInner, bottomInner, r, g, b, a);
-        quad(builder, matrix, rightInner, topInner, rightOuter, bottomInner, r, g, b, a);
+        quad(builder, pose, leftOuter, topOuter, rightOuter, topInner, r, g, b, a);
+        quad(builder, pose, leftOuter, bottomInner, rightOuter, bottomOuter, r, g, b, a);
+        quad(builder, pose, leftOuter, topInner, leftInner, bottomInner, r, g, b, a);
+        quad(builder, pose, rightInner, topInner, rightOuter, bottomInner, r, g, b, a);
         // × 对角线动画: 以矩形中心为中点, 辐射出四条射线到四角方向, 当前长度为 diagLen
         // (射线端点沿 45° 方向, 在 x/y 轴上的投影 = diagLen / √2)
         float rayProj = diagLen * 0.70710678f;
-        lineQuad(builder, matrix, centerX, centerY, centerX - rayProj, centerY - rayProj, halfThickness, r, g, b, a); // 左上
-        lineQuad(builder, matrix, centerX, centerY, centerX + rayProj, centerY - rayProj, halfThickness, r, g, b, a); // 右上
-        lineQuad(builder, matrix, centerX, centerY, centerX + rayProj, centerY + rayProj, halfThickness, r, g, b, a); // 左下
-        lineQuad(builder, matrix, centerX, centerY, centerX - rayProj, centerY + rayProj, halfThickness, r, g, b, a); // 右下
-        BufferUploader.drawWithShader(builder.end());
-        RenderSystem.enableCull();
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        lineQuad(builder, pose, centerX, centerY, centerX - rayProj, centerY - rayProj, halfThickness, r, g, b, a); // 左上
+        lineQuad(builder, pose, centerX, centerY, centerX + rayProj, centerY - rayProj, halfThickness, r, g, b, a); // 右上
+        lineQuad(builder, pose, centerX, centerY, centerX + rayProj, centerY + rayProj, halfThickness, r, g, b, a); // 左下
+        lineQuad(builder, pose, centerX, centerY, centerX - rayProj, centerY + rayProj, halfThickness, r, g, b, a); // 右下
+        GDMesh.submit(guiGraphics, builder);
     }
 
     /**
      * 用薄 quad 模拟一条斜线(亚像素宽度), 用于绘制矩形对角线。
      * 以线段端点沿法线方向偏移半宽构成四边形, 顶点为连续浮点坐标(平滑无步进)。
      */
-    private static void lineQuad(BufferBuilder builder, Matrix4f matrix,
+    private static void lineQuad(VertexConsumer builder, Matrix3x2fStack pose,
                                  float ax, float ay, float bx, float by,
                                  float halfThickness, int r, int g, int b, int a) {
         float dx = bx - ax;
@@ -209,17 +200,17 @@ public final class IconEntranceBackground {
         }
         float nx = -dy / len * halfThickness;
         float ny = dx / len * halfThickness;
-        builder.vertex(matrix, ax + nx, ay + ny, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, ax - nx, ay - ny, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, bx - nx, by - ny, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, bx + nx, by + ny, 0).color(r, g, b, a).endVertex();
+        builder.addVertexWith2DPose(pose, ax + nx, ay + ny).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, ax - nx, ay - ny).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, bx - nx, by - ny).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, bx + nx, by + ny).setColor(r, g, b, a);
     }
 
-    private static void quad(BufferBuilder builder, Matrix4f matrix, float x1, float y1, float x2, float y2, int r, int g, int b, int a) {
-        builder.vertex(matrix, x1, y1, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x2, y1, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x2, y2, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x1, y2, 0).color(r, g, b, a).endVertex();
+    private static void quad(VertexConsumer builder, Matrix3x2fStack pose, float x1, float y1, float x2, float y2, int r, int g, int b, int a) {
+        builder.addVertexWith2DPose(pose, x1, y1).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x2, y1).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x2, y2).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x1, y2).setColor(r, g, b, a);
     }
 
     /**

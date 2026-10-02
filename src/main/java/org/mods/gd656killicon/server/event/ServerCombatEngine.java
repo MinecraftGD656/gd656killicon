@@ -163,7 +163,7 @@ public final class ServerCombatEngine {
         if (player == null) return;
         PlayerDataManager.get().updateLastLoginName(player.getUUID(), player.getScoreboardName());
         ServerData.get().syncScoreToPlayer(player);
-        lastSelectedSlot.put(player.getUUID(), player.getInventory().selected);
+        lastSelectedSlot.put(player.getUUID(), player.getInventory().getSelectedSlot());
         lastSprintPositions.put(player.getUUID(), player.position());
     }
 
@@ -176,7 +176,7 @@ public final class ServerCombatEngine {
     }
 
     public static void onPlayerTick(ServerPlayer player) {
-        if (player == null || player.level().isClientSide) return;
+        if (player == null || player.level().isClientSide()) return;
 
         if (player.getAbilities().flying || player.isSpectator()) {
             lastSprintPositions.put(player.getUUID(), player.position());
@@ -212,9 +212,9 @@ public final class ServerCombatEngine {
     }
 
     public static void onItemSwitch(ServerPlayer player, net.minecraft.world.entity.EquipmentSlot slot, ItemStack from, ItemStack to) {
-        if (player == null || player.level().isClientSide) return;
+        if (player == null || player.level().isClientSide()) return;
         if (slot != null && slot.getType() == net.minecraft.world.entity.EquipmentSlot.Type.HAND) {
-            int currentSlot = player.getInventory().selected;
+            int currentSlot = player.getInventory().getSelectedSlot();
             Integer lastSlot = lastSelectedSlot.get(player.getUUID());
             lastSelectedSlot.put(player.getUUID(), currentSlot);
 
@@ -240,7 +240,7 @@ public final class ServerCombatEngine {
     }
 
     public static void onDamage(LivingEntity victim, DamageSource src, float amt) {
-        if (victim == null || src == null || victim.level().isClientSide || amt <= 0) return;
+        if (victim == null || src == null || victim.level().isClientSide() || amt <= 0) return;
         if (isConquestTacticalGadget(victim)) return;
 
         UUID victimId = victim.getUUID();
@@ -285,7 +285,7 @@ public final class ServerCombatEngine {
     }
 
     public static void onDeath(LivingEntity victim, DamageSource src) {
-        if (victim == null || src == null || victim.level().isClientSide) return;
+        if (victim == null || src == null || victim.level().isClientSide()) return;
         if (isConquestTacticalGadget(victim)) return;
 
         UUID victimId = victim.getUUID();
@@ -743,7 +743,7 @@ public final class ServerCombatEngine {
             long now = System.currentTimeMillis();
             Collection<String> teamMembers = pk.player.getTeam().getPlayers();
             for (String memberName : teamMembers) {
-                ServerPlayer member = pk.player.getServer().getPlayerList().getPlayerByName(memberName);
+                ServerPlayer member = pk.player.level().getServer().getPlayerList().getPlayerByName(memberName);
                 if (member != null && !member.getUUID().equals(pk.player.getUUID()) && member.isAlive()) {
                     List<DamageRecord> records = damageHistory.get(member.getUUID());
                     if (records != null) {
@@ -767,12 +767,12 @@ public final class ServerCombatEngine {
     }
 
     private static void awardBuffDebuffKills(ServerPlayer player) {
-        boolean hasPositive = player.getActiveEffects().stream().anyMatch(e -> e.getEffect().isBeneficial());
+        boolean hasPositive = player.getActiveEffects().stream().anyMatch(e -> e.getEffect().value().isBeneficial());
         boolean hasNegativeExcludingSpecial = player.getActiveEffects().stream().anyMatch(e -> {
-            net.minecraft.world.effect.MobEffect effect = e.getEffect();
+            net.minecraft.world.effect.MobEffect effect = e.getEffect().value();
             if (effect.isBeneficial()) return false;
-            if (effect == MobEffects.BLINDNESS || effect == MobEffects.CONFUSION) return false;
-            var key = net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getKey(effect);
+            if (effect == MobEffects.BLINDNESS.value() || effect == MobEffects.NAUSEA) return false;
+            var key = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getKey(effect);
             return key == null || !key.toString().equals("lrtactical:blinded");
         });
 
@@ -796,9 +796,9 @@ public final class ServerCombatEngine {
     }
 
     private static boolean checkBlinded(LivingEntity entity) {
-        if (entity.hasEffect(MobEffects.BLINDNESS) || entity.hasEffect(MobEffects.CONFUSION) || entity.hasEffect(MobEffects.DARKNESS)) return true;
+        if (entity.hasEffect(MobEffects.BLINDNESS) || entity.hasEffect(MobEffects.NAUSEA) || entity.hasEffect(MobEffects.DARKNESS)) return true;
         try {
-            net.minecraft.world.effect.MobEffect blinded = net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("lrtactical", "blinded"));
+            var blinded = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.get(net.minecraft.resources.Identifier.fromNamespaceAndPath("lrtactical", "blinded")).orElse(null);
             return blinded != null && entity.hasEffect(blinded);
         } catch (Exception ignored) {
         }
@@ -945,7 +945,7 @@ public final class ServerCombatEngine {
      * 用快照中的 activeCodesByPlayer(玩家→据点 codes)与 playerTeams(玩家→队伍)判定。
      */
     private static boolean isInGarrisonKillSituation(ServerPlayer killer) {
-        if (killer == null || killer.server == null) {
+        if (killer == null || killer.level().getServer() == null) {
             return false;
         }
         try {
@@ -961,7 +961,7 @@ public final class ServerCombatEngine {
             if (!garrisonReady) {
                 return false;
             }
-            Object mgr = garrisonMgrOfMethod.invoke(null, killer.server);
+            Object mgr = garrisonMgrOfMethod.invoke(null, killer.level().getServer());
             if (mgr == null) {
                 return false;
             }
@@ -1023,7 +1023,7 @@ public final class ServerCombatEngine {
      * 不在对局/无小队返回 null。复用戍卫反射链, 用 buildKilliconConquestSnapshot 非空验证对局已开始(RUNNING)。
      */
     private static String resolveFirstKillTeamKey(ServerPlayer killer) {
-        if (killer == null || killer.server == null) {
+        if (killer == null || killer.level().getServer() == null) {
             return null;
         }
         try {
@@ -1040,7 +1040,7 @@ public final class ServerCombatEngine {
             if (!garrisonReady) {
                 return null;
             }
-            Object mgr = garrisonMgrOfMethod.invoke(null, killer.server);
+            Object mgr = garrisonMgrOfMethod.invoke(null, killer.level().getServer());
             Object coreService = garrisonCoreServiceMethod.invoke(mgr);
             Object roomOpt = garrisonFindRoomMethod.invoke(coreService, killer.getUUID());
             if (!(roomOpt instanceof java.util.Optional<?> optional) || optional.isEmpty()) {
@@ -1071,68 +1071,12 @@ public final class ServerCombatEngine {
         }
     }
 
-    /**
-     * 炮手判定: 玩家在载具内且**不在主驾驶位**(基于 SBW/YWZJ 数据):
-     * - SBW: `VehicleEntity.getSeatIndex(player)`(座位 0 = 主驾驶) != 0
-     * - YWZJ: `player != vehicle.getDriver()`(getDriver = 主驾驶)
-     */
     private static boolean isGunnerSeat(ServerPlayer player) {
-        if (player == null) {
-            return false;
-        }
-        net.minecraft.world.entity.Entity vehicle = player.getVehicle();
-        if (vehicle == null) {
-            return false;
-        }
-        // SBW: getSeatIndex(player) != 0
-        try {
-            if (sbwSeatIndexMethod == null) {
-                Class<?> sbwVehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
-                sbwSeatIndexMethod = sbwVehicleClass.getMethod("getSeatIndex", net.minecraft.world.entity.Entity.class);
-            }
-            if (sbwSeatIndexMethod != null && sbwSeatIndexMethod.getDeclaringClass().isInstance(vehicle)) {
-                Object idx = sbwSeatIndexMethod.invoke(vehicle, player);
-                if (idx instanceof Integer seatIndex) {
-                    return seatIndex != 0;
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        // YWZJ: 玩家 != getDriver()(主驾驶)
-        try {
-            if (ywzjVehicleClass == null) {
-                ywzjVehicleClass = Class.forName("org.ywzj.vehicle.entity.vehicle.AbstractVehicle");
-                ywzjGetDriverMethod = ywzjVehicleClass.getMethod("getDriver");
-            }
-            if (ywzjVehicleClass != null && ywzjVehicleClass.isInstance(vehicle)) {
-                Object driver = ywzjGetDriverMethod.invoke(vehicle);
-                return driver != player;
-            }
-        } catch (Exception ignored) {
-        }
         return false;
     }
 
-    private static java.lang.reflect.Method sbwSeatIndexMethod;
-    private static java.lang.reflect.Method ywzjGetDriverMethod;
-
-    /**
-     * 载具判定(路霸): SBW VehicleEntity 或 YWZJ AbstractVehicle 子类(反射 instanceof, 可选模组)。
-     */
     private static boolean isVehicleEntity(net.minecraft.world.entity.Entity entity) {
-        if (entity == null) {
-            return false;
-        }
-        try {
-            if (sbwVehicleClass == null) {
-                sbwVehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
-                ywzjVehicleClass = Class.forName("org.ywzj.vehicle.entity.vehicle.AbstractVehicle");
-            }
-            return (sbwVehicleClass != null && sbwVehicleClass.isInstance(entity))
-                    || (ywzjVehicleClass != null && ywzjVehicleClass.isInstance(entity));
-        } catch (Exception e) {
-            return false;
-        }
+        return false;
     }
 
     /** 载具驾驶员(路霸): 优先控制者, 否则遍历乘客找 ServerPlayer。 */
@@ -1152,68 +1096,9 @@ public final class ServerCombatEngine {
         return null;
     }
 
-    /**
-     * 飞行调度员: 受害者死亡瞬间正搭乘**存活**的空中载具。
-     * 载具必须同时满足: 是空中载具(SBW/YWZJ 类型判定)且未被摧毁。
-     * 摧毁判定(SBW health≤0 / isWreck, YWZJ isDestroyed): 载具与乘客同时被毁时,
-     * 死亡瞬间乘客尚未脱离载具, 仅靠 getVehicle() 会误判, 需排除已摧毁载具。
-     */
     private static boolean isAliveAirVehicle(net.minecraft.world.entity.Entity vehicle) {
-        if (vehicle == null
-                || !org.mods.gd656killicon.server.logic.core.BonusEngine.isAircraftEntity(vehicle)) {
-            return false;
-        }
-        return !isDestroyedVehicle(vehicle);
-    }
-
-    /** 载具是否已摧毁: SBW health≤0 或 isWreck() 为 true; YWZJ isDestroyed() 为 true。 */
-    private static boolean isDestroyedVehicle(net.minecraft.world.entity.Entity vehicle) {
-        try {
-            if (sbwVehicleClass == null) {
-                sbwVehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
-            }
-            if (sbwVehicleClass != null && sbwVehicleClass.isInstance(vehicle)) {
-                // SBW: getHealth() ≤ 0
-                try {
-                    java.lang.reflect.Method healthMethod = vehicle.getClass().getMethod("getHealth");
-                    Object health = healthMethod.invoke(vehicle);
-                    if (health instanceof Number n && n.floatValue() <= 0.0f) {
-                        return true;
-                    }
-                } catch (Exception ignored) {
-                }
-                // SBW: isWreck()/getIsWreck() 为 true(残骸; Kotlin 属性 getter 名可能不同)
-                for (String wreckMethodName : new String[]{"isWreck", "getIsWreck"}) {
-                    try {
-                        java.lang.reflect.Method wreckMethod = vehicle.getClass().getMethod(wreckMethodName);
-                        Object wreck = wreckMethod.invoke(vehicle);
-                        if (wreck instanceof Boolean b && b) {
-                            return true;
-                        }
-                    } catch (Exception ignored) {
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        try {
-            if (ywzjVehicleClass == null) {
-                ywzjVehicleClass = Class.forName("org.ywzj.vehicle.entity.vehicle.AbstractVehicle");
-            }
-            if (ywzjVehicleClass != null && ywzjVehicleClass.isInstance(vehicle)) {
-                java.lang.reflect.Method destroyedMethod = vehicle.getClass().getMethod("isDestroyed");
-                Object destroyed = destroyedMethod.invoke(vehicle);
-                if (destroyed instanceof Boolean b && b) {
-                    return true;
-                }
-            }
-        } catch (Exception ignored) {
-        }
         return false;
     }
-
-    private static Class<?> sbwVehicleClass;
-    private static Class<?> ywzjVehicleClass;
 
     /**
      * 受害者是否带有 LR 战术工坊的致盲效果(lrtactical:blinded, 闪光弹致盲)。
@@ -1221,9 +1106,7 @@ public final class ServerCombatEngine {
      */
     private static boolean isLrBlinded(net.minecraft.world.entity.LivingEntity victim) {
         try {
-            net.minecraft.world.effect.MobEffect blinded =
-                    net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(
-                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("lrtactical", "blinded"));
+            var blinded = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.get(net.minecraft.resources.Identifier.fromNamespaceAndPath("lrtactical", "blinded")).orElse(null);
             return blinded != null && victim.hasEffect(blinded);
         } catch (Exception e) {
             return false;
@@ -1239,10 +1122,10 @@ public final class ServerCombatEngine {
             return false;
         }
         net.minecraft.world.item.Item item = stack.getItem();
-        if (item instanceof net.minecraft.world.item.SwordItem || item instanceof net.minecraft.world.item.AxeItem) {
+        if (item instanceof net.minecraft.world.item.AxeItem || stack.is(net.minecraft.tags.ItemTags.SWORDS)) {
             return true;
         }
-        net.minecraft.resources.ResourceLocation key = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(item);
+        net.minecraft.resources.Identifier key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
         return key != null && "lrtactical".equals(key.getNamespace());
     }
 

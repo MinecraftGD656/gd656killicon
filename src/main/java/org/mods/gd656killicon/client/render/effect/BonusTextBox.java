@@ -1,15 +1,15 @@
 package org.mods.gd656killicon.client.render.effect;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.GameRenderer;
-import org.joml.Matrix4f;
-
+import org.mods.gd656killicon.client.render.util.GDMesh;
+import org.joml.Matrix3x2fStack;
 /**
  * 加分项字幕的文本框: 包裹单行文本的矩形边框。
  * <p>边框线位于文本外缘: 上下边框距文本上下边缘 1 像素, 左右边框距文本左右边缘 2 像素;
@@ -38,7 +38,7 @@ public final class BonusTextBox {
      * @param rgb         边框颜色 RGB(不含 alpha)
      * @param alpha       边框透明度(0~255, 与文本相同)
      */
-    public static void draw(GuiGraphics guiGraphics, float textWidth, float lineHeight,
+    public static void draw(GuiGraphicsExtractor guiGraphics, float textWidth, float lineHeight,
                             float borderWidth, int rgb, int alpha) {
         if (borderWidth <= 0.0f || alpha <= 0) {
             return;
@@ -54,15 +54,9 @@ public final class BonusTextBox {
         int g = (rgb >> 8) & 0xFF;
         int b = rgb & 0xFF;
 
-        Matrix4f matrix = guiGraphics.pose().last().pose();
+        Matrix3x2fStack pose = guiGraphics.pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableCull();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        GDMesh.Builder builder = GDMesh.begin();
 
         float leftOuter = x0 - halfThickness;
         float leftInner = x0 + halfThickness;
@@ -73,23 +67,20 @@ public final class BonusTextBox {
         float bottomInner = y1 - halfThickness;
         float bottomOuter = y1 + halfThickness;
         // 上 / 下 / 左 / 右 四条细边(沿边界向两侧扩展厚度 t)
-        quad(builder, matrix, leftOuter, topOuter, rightOuter, topInner, r, g, b, a);
-        quad(builder, matrix, leftOuter, bottomInner, rightOuter, bottomOuter, r, g, b, a);
-        quad(builder, matrix, leftOuter, topInner, leftInner, bottomInner, r, g, b, a);
-        quad(builder, matrix, rightInner, topInner, rightOuter, bottomInner, r, g, b, a);
+        quad(builder, pose, leftOuter, topOuter, rightOuter, topInner, r, g, b, a);
+        quad(builder, pose, leftOuter, bottomInner, rightOuter, bottomOuter, r, g, b, a);
+        quad(builder, pose, leftOuter, topInner, leftInner, bottomInner, r, g, b, a);
+        quad(builder, pose, rightInner, topInner, rightOuter, bottomInner, r, g, b, a);
 
-        BufferUploader.drawWithShader(builder.end());
-        RenderSystem.enableCull();
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        GDMesh.submit(guiGraphics, builder);
     }
 
-    private static void quad(BufferBuilder builder, Matrix4f matrix,
+    private static void quad(VertexConsumer builder, Matrix3x2fStack pose,
                              float x1, float y1, float x2, float y2,
                              int r, int g, int b, int a) {
-        builder.vertex(matrix, x1, y1, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x2, y1, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x2, y2, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x1, y2, 0).color(r, g, b, a).endVertex();
+        builder.addVertexWith2DPose(pose, x1, y1).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x2, y1).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x2, y2).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x1, y2).setColor(r, g, b, a);
     }
 }

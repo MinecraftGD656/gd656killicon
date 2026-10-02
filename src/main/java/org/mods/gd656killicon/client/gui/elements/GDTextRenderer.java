@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 
 import java.util.ArrayList;
@@ -82,11 +82,11 @@ public class GDTextRenderer {
         this.centered = centered;
     }
 
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         render(guiGraphics, partialTick, true);
     }
 
-    public void render(GuiGraphics guiGraphics, float partialTick, boolean useScissor) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick, boolean useScissor) {
         long now = System.currentTimeMillis();
         float dt = (now - lastTime) / 1000.0f;
         lastTime = now;
@@ -98,16 +98,16 @@ public class GDTextRenderer {
      * 内部渲染核心。
      * 无论是否使用外部 Scissor，只要不换行且宽度超限，就执行滚动逻辑。
      */
-    public void renderInternal(GuiGraphics guiGraphics, float partialTick, boolean useOwnScissorAndScroll, float dt) {
-        guiGraphics.pose().pushPose();
+    public void renderInternal(GuiGraphicsExtractor guiGraphics, float partialTick, boolean useOwnScissorAndScroll, float dt) {
+        guiGraphics.pose().pushMatrix();
         
         if (useOwnScissorAndScroll) {
             guiGraphics.enableScissor(x1, y1, x2, y2);
         }
 
         float scale = fontSize; 
-        guiGraphics.pose().translate(x1, y1, 0);
-        guiGraphics.pose().scale(scale, scale, 1.0f);
+        guiGraphics.pose().translate(x1,  y1);
+        guiGraphics.pose().scale(scale,  scale);
 
         float scaledWidth = width / scale;
 
@@ -117,18 +117,18 @@ public class GDTextRenderer {
             renderScrollingText(guiGraphics, dt, scaledWidth);
         }
 
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         
         if (useOwnScissorAndScroll) {
             guiGraphics.disableScissor();
         }
     }
 
-    private void renderWrappedText(GuiGraphics guiGraphics, float maxWidth) {
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -scrollY, 0);
+    private void renderWrappedText(GuiGraphicsExtractor guiGraphics, float maxWidth) {
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0f, (float) -scrollY);
         drawWrappedInternal(guiGraphics, maxWidth);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
     public void setScrollY(float scrollY) {
@@ -146,7 +146,7 @@ public class GDTextRenderer {
         return Math.max(0, contentHeight - containerHeight);
     }
 
-    private void drawWrappedInternal(GuiGraphics guiGraphics, float maxWidth) {
+    private void drawWrappedInternal(GuiGraphicsExtractor guiGraphics, float maxWidth) {
         if (coloredTexts != null) {
             renderMixedColorWrapped(guiGraphics, maxWidth);
             return;
@@ -158,11 +158,11 @@ public class GDTextRenderer {
             if (centered) {
                 lineX = (maxWidth - minecraft.font.width(line)) / 2.0f;
             }
-            guiGraphics.drawString(minecraft.font, line, (int)lineX, i * 9, overrideColor != null ? overrideColor : color, true);
+            guiGraphics.text(minecraft.font, line, (int)lineX, i * 9, overrideColor != null ? overrideColor : color, true);
         }
     }
 
-    private void renderMixedColorWrapped(GuiGraphics guiGraphics, float maxWidth) {
+    private void renderMixedColorWrapped(GuiGraphicsExtractor guiGraphics, float maxWidth) {
         int yOffset = 0;
         float currentX = 0;
         
@@ -179,7 +179,7 @@ public class GDTextRenderer {
                 }
                 
                 String part = remaining.substring(0, Math.max(1, count));
-                guiGraphics.drawString(minecraft.font, part, (int)currentX, yOffset, overrideColor != null ? overrideColor : ct.color, true);
+                guiGraphics.text(minecraft.font, part, (int)currentX, yOffset, overrideColor != null ? overrideColor : ct.color, true);
                 
                 currentX += minecraft.font.width(part);
                 remaining = remaining.substring(part.length());
@@ -221,7 +221,7 @@ public class GDTextRenderer {
         return lines;
     }
 
-    private void renderScrollingText(GuiGraphics guiGraphics, float dt, float maxWidth) {
+    private void renderScrollingText(GuiGraphicsExtractor guiGraphics, float dt, float maxWidth) {
         int textWidth = 0;
         if (coloredTexts == null) {
             textWidth = minecraft.font.width(text);
@@ -269,21 +269,21 @@ public class GDTextRenderer {
             }
         }
 
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(-scrollOffset, 0, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(-scrollOffset,  0);
         
         drawInternal(guiGraphics, 0, 0, textWidth); 
         
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
-    private void drawInternal(GuiGraphics guiGraphics, int x, int y, float containerWidth) {
+    private void drawInternal(GuiGraphicsExtractor guiGraphics, int x, int y, float containerWidth) {
         if (coloredTexts == null) {
             float drawX = x;
             if (centered && !isCurrentlyScrolling()) {
                 drawX += (containerWidth - minecraft.font.width(text)) / 2.0f;
             }
-            guiGraphics.drawString(minecraft.font, text, (int)drawX, y, overrideColor != null ? overrideColor : color, true);
+            guiGraphics.text(minecraft.font, text, (int)drawX, y, overrideColor != null ? overrideColor : color, true);
         } else {
             float currentX = x;
             if (centered && !isCurrentlyScrolling()) {
@@ -292,20 +292,20 @@ public class GDTextRenderer {
                 currentX += (containerWidth - totalWidth) / 2.0f;
             }
             for (ColoredText ct : coloredTexts) {
-                guiGraphics.drawString(minecraft.font, ct.text, (int)currentX, y, overrideColor != null ? overrideColor : ct.color, true);
+                guiGraphics.text(minecraft.font, ct.text, (int)currentX, y, overrideColor != null ? overrideColor : ct.color, true);
                 currentX += minecraft.font.width(ct.text);
             }
         }
     }
 
-    private void drawEllipsizedInternal(GuiGraphics guiGraphics, int x, int y, float maxWidth) {
+    private void drawEllipsizedInternal(GuiGraphicsExtractor guiGraphics, int x, int y, float maxWidth) {
         String ellipsis = "...";
         int ellipsisWidth = minecraft.font.width(ellipsis);
         int targetWidth = Math.max(0, (int) maxWidth - ellipsisWidth);
         if (coloredTexts == null) {
             String base = text == null ? "" : text;
             String clipped = minecraft.font.plainSubstrByWidth(base, targetWidth);
-            guiGraphics.drawString(minecraft.font, clipped + ellipsis, x, y, overrideColor != null ? overrideColor : color, true);
+            guiGraphics.text(minecraft.font, clipped + ellipsis, x, y, overrideColor != null ? overrideColor : color, true);
             return;
         }
         List<ColoredText> segments = buildEllipsizedColoredTexts(targetWidth);
@@ -313,11 +313,11 @@ public class GDTextRenderer {
         int lastColor = overrideColor != null ? overrideColor : (segments.isEmpty() ? color : segments.get(segments.size() - 1).color);
         for (ColoredText segment : segments) {
             int segmentColor = overrideColor != null ? overrideColor : segment.color;
-            guiGraphics.drawString(minecraft.font, segment.text, (int) currentX, y, segmentColor, true);
+            guiGraphics.text(minecraft.font, segment.text, (int) currentX, y, segmentColor, true);
             currentX += minecraft.font.width(segment.text);
             lastColor = segmentColor;
         }
-        guiGraphics.drawString(minecraft.font, ellipsis, (int) currentX, y, lastColor, true);
+        guiGraphics.text(minecraft.font, ellipsis, (int) currentX, y, lastColor, true);
     }
 
     private List<ColoredText> buildEllipsizedColoredTexts(int targetWidth) {

@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.network.IPacket;
 import org.mods.gd656killicon.network.PacketContext;
 
@@ -33,7 +33,7 @@ public class ScoreboardSyncPacket implements IPacket {
         };
     }
 
-    public ScoreboardSyncPacket(FriendlyByteBuf buffer) {
+    public ScoreboardSyncPacket(RegistryFriendlyByteBuf buffer) {
         this.offset = Math.max(0, buffer.readInt());
         this.totalCount = Math.max(0, buffer.readInt());
         this.requestId = buffer.readLong();
@@ -65,7 +65,7 @@ public class ScoreboardSyncPacket implements IPacket {
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeInt(offset);
         buffer.writeInt(totalCount);
         buffer.writeLong(requestId);

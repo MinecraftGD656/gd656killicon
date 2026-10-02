@@ -1,5 +1,7 @@
 package org.mods.gd656killicon.server.data;
 
+
+import net.minecraft.world.scores.ScoreHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.Gson;
@@ -446,7 +448,7 @@ public class ServerData {
             
             PlayerDataManager.get().getAllScores().forEach((uuid, score) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
-                scoreboard.getOrCreatePlayerScore(scoreHolderName, scoreObjective).setScore(Math.round(score));
+                scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), scoreObjective).set(Math.round(score));
             });
         }
         
@@ -456,7 +458,7 @@ public class ServerData {
             
             PlayerDataManager.get().getAllKills().forEach((uuid, kill) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
-                scoreboard.getOrCreatePlayerScore(scoreHolderName, killObjective).setScore(kill);
+                scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), killObjective).set(kill);
             });
         }
         
@@ -466,7 +468,7 @@ public class ServerData {
             
             PlayerDataManager.get().getAllDeaths().forEach((uuid, death) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
-                scoreboard.getOrCreatePlayerScore(scoreHolderName, deathObjective).setScore(death);
+                scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), deathObjective).set(death);
             });
         }
         
@@ -476,7 +478,7 @@ public class ServerData {
             
             PlayerDataManager.get().getAllAssists().forEach((uuid, assist) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
-                scoreboard.getOrCreatePlayerScore(scoreHolderName, assistObjective).setScore(assist);
+                scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), assistObjective).set(assist);
             });
         }
 
@@ -486,15 +488,15 @@ public class ServerData {
 
             PlayerDataManager.get().getAllRevives().forEach((uuid, revive) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
-                scoreboard.getOrCreatePlayerScore(scoreHolderName, reviveObjective).setScore(revive);
+                scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), reviveObjective).set(revive);
             });
         }
     }
 
     private void clearScoreboardScores(Scoreboard scoreboard, Objective objective) {
-        scoreboard.getPlayerScores(objective).forEach(score -> {
-            scoreboard.resetPlayerScore(score.getOwner(), objective);
-        });
+        for (var scoreEntry : scoreboard.listPlayerScores(objective)) {
+            scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly(scoreEntry.owner()), objective);
+        }
     }
 
     public static final String SCOREBOARD_OBJECTIVE = "gd656killicon.score";
@@ -508,7 +510,7 @@ public class ServerData {
         
         Objective scoreObjective = scoreboard.getObjective(SCOREBOARD_OBJECTIVE);
         if (scoreObjective == null) {
-            scoreObjective = scoreboard.addObjective(SCOREBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(scoreboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
+            scoreObjective = scoreboard.addObjective(SCOREBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(scoreboardDisplayName), ObjectiveCriteria.RenderType.INTEGER, false, null);
         } else {
             scoreObjective.setDisplayName(Component.literal(scoreboardDisplayName));
         }
@@ -516,12 +518,12 @@ public class ServerData {
         final Objective finalScoreObj = scoreObjective;
         PlayerDataManager.get().getAllScores().forEach((uuid, score) -> {
             String scoreHolderName = getScoreHolderName(server, uuid);
-            scoreboard.getOrCreatePlayerScore(scoreHolderName, finalScoreObj).setScore(Math.round(score));
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), finalScoreObj).set(Math.round(score));
         });
         
         Objective killObjective = scoreboard.getObjective(KILLBOARD_OBJECTIVE);
         if (killObjective == null) {
-            killObjective = scoreboard.addObjective(KILLBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(killboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
+            killObjective = scoreboard.addObjective(KILLBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(killboardDisplayName), ObjectiveCriteria.RenderType.INTEGER, false, null);
         } else {
             killObjective.setDisplayName(Component.literal(killboardDisplayName));
         }
@@ -529,12 +531,12 @@ public class ServerData {
         final Objective finalKillObj = killObjective;
         PlayerDataManager.get().getAllKills().forEach((uuid, kill) -> {
             String scoreHolderName = getScoreHolderName(server, uuid);
-            scoreboard.getOrCreatePlayerScore(scoreHolderName, finalKillObj).setScore(kill);
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), finalKillObj).set(kill);
         });
         
         Objective deathObjective = scoreboard.getObjective(DEATHBOARD_OBJECTIVE);
         if (deathObjective == null) {
-            deathObjective = scoreboard.addObjective(DEATHBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(deathboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
+            deathObjective = scoreboard.addObjective(DEATHBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(deathboardDisplayName), ObjectiveCriteria.RenderType.INTEGER, false, null);
         } else {
             deathObjective.setDisplayName(Component.literal(deathboardDisplayName));
         }
@@ -542,12 +544,12 @@ public class ServerData {
         final Objective finalDeathObj = deathObjective;
         PlayerDataManager.get().getAllDeaths().forEach((uuid, death) -> {
             String scoreHolderName = getScoreHolderName(server, uuid);
-            scoreboard.getOrCreatePlayerScore(scoreHolderName, finalDeathObj).setScore(death);
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), finalDeathObj).set(death);
         });
         
         Objective assistObjective = scoreboard.getObjective(ASSISTBOARD_OBJECTIVE);
         if (assistObjective == null) {
-            assistObjective = scoreboard.addObjective(ASSISTBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(assistboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
+            assistObjective = scoreboard.addObjective(ASSISTBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(assistboardDisplayName), ObjectiveCriteria.RenderType.INTEGER, false, null);
         } else {
             assistObjective.setDisplayName(Component.literal(assistboardDisplayName));
         }
@@ -555,13 +557,13 @@ public class ServerData {
         final Objective finalAssistObj = assistObjective;
         PlayerDataManager.get().getAllAssists().forEach((uuid, assist) -> {
             String scoreHolderName = getScoreHolderName(server, uuid);
-            scoreboard.getOrCreatePlayerScore(scoreHolderName, finalAssistObj).setScore(assist);
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), finalAssistObj).set(assist);
         });
 
         if (ServerBridge.loader().isModLoaded("gd656conquest")) {
             Objective reviveObjective = scoreboard.getObjective(REVIVEBOARD_OBJECTIVE);
             if (reviveObjective == null) {
-                reviveObjective = scoreboard.addObjective(REVIVEBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(reviveboardDisplayName), ObjectiveCriteria.RenderType.INTEGER);
+                reviveObjective = scoreboard.addObjective(REVIVEBOARD_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal(reviveboardDisplayName), ObjectiveCriteria.RenderType.INTEGER, false, null);
             } else {
                 reviveObjective.setDisplayName(Component.literal(reviveboardDisplayName));
             }
@@ -569,7 +571,7 @@ public class ServerData {
             final Objective finalReviveObj = reviveObjective;
             PlayerDataManager.get().getAllRevives().forEach((uuid, revive) -> {
                 String scoreHolderName = getScoreHolderName(server, uuid);
-                scoreboard.getOrCreatePlayerScore(scoreHolderName, finalReviveObj).setScore(revive);
+                scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(scoreHolderName), finalReviveObj).set(revive);
             });
         }
     }
@@ -578,8 +580,7 @@ public class ServerData {
         ServerPlayer player = server.getPlayerList().getPlayer(uuid);
         if (player != null) return player.getScoreboardName();
 
-        var profile = server.getProfileCache().get(uuid);
-        if (profile.isPresent()) return profile.get().getName();
+        
 
         return uuid.toString();
     }
@@ -648,42 +649,42 @@ public class ServerData {
     }
 
     private void updateScoreboard(ServerPlayer player, float score) {
-        Scoreboard scoreboard = player.getScoreboard();
+        Scoreboard scoreboard = player.level().getScoreboard();
         Objective objective = scoreboard.getObjective(SCOREBOARD_OBJECTIVE);
         if (objective != null) {
-            scoreboard.getOrCreatePlayerScore(player.getScoreboardName(), objective).setScore(Math.round(score));
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.getScoreboardName()), objective).set(Math.round(score));
         }
     }
 
     private void updateKillboard(ServerPlayer player, int kill) {
-        Scoreboard scoreboard = player.getScoreboard();
+        Scoreboard scoreboard = player.level().getScoreboard();
         Objective objective = scoreboard.getObjective(KILLBOARD_OBJECTIVE);
         if (objective != null) {
-            scoreboard.getOrCreatePlayerScore(player.getScoreboardName(), objective).setScore(kill);
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.getScoreboardName()), objective).set(kill);
         }
     }
 
     private void updateDeathboard(ServerPlayer player, int death) {
-        Scoreboard scoreboard = player.getScoreboard();
+        Scoreboard scoreboard = player.level().getScoreboard();
         Objective objective = scoreboard.getObjective(DEATHBOARD_OBJECTIVE);
         if (objective != null) {
-            scoreboard.getOrCreatePlayerScore(player.getScoreboardName(), objective).setScore(death);
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.getScoreboardName()), objective).set(death);
         }
     }
 
     private void updateAssistboard(ServerPlayer player, int assist) {
-        Scoreboard scoreboard = player.getScoreboard();
+        Scoreboard scoreboard = player.level().getScoreboard();
         Objective objective = scoreboard.getObjective(ASSISTBOARD_OBJECTIVE);
         if (objective != null) {
-            scoreboard.getOrCreatePlayerScore(player.getScoreboardName(), objective).setScore(assist);
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.getScoreboardName()), objective).set(assist);
         }
     }
 
     private void updateReviveboard(ServerPlayer player, int revive) {
-        Scoreboard scoreboard = player.getScoreboard();
+        Scoreboard scoreboard = player.level().getScoreboard();
         Objective objective = scoreboard.getObjective(REVIVEBOARD_OBJECTIVE);
         if (objective != null) {
-            scoreboard.getOrCreatePlayerScore(player.getScoreboardName(), objective).setScore(revive);
+            scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.getScoreboardName()), objective).set(revive);
         }
     }
 

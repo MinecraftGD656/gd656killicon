@@ -1,18 +1,14 @@
 package org.mods.gd656killicon.server.logic.integration;
 
-import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.logic.immersiveaircraft.DummyImmersiveAircraftHandler;
 import org.mods.gd656killicon.server.logic.immersiveaircraft.IImmersiveAircraftHandler;
-import org.mods.gd656killicon.server.util.ServerLog;
 
 public class ImmersiveAircraftIntegration {
     private static final ImmersiveAircraftIntegration INSTANCE = new ImmersiveAircraftIntegration();
-    private IImmersiveAircraftHandler handler;
+    private final IImmersiveAircraftHandler handler = new DummyImmersiveAircraftHandler();
     private boolean initialized = false;
 
-    private ImmersiveAircraftIntegration() {
-        this.handler = new DummyImmersiveAircraftHandler();
-    }
+    private ImmersiveAircraftIntegration() {}
 
     public static ImmersiveAircraftIntegration get() {
         return INSTANCE;
@@ -27,19 +23,7 @@ public class ImmersiveAircraftIntegration {
             return;
         }
         initialized = true;
-        try {
-            if (ServerBridge.loader().isModLoaded("immersive_aircraft")) {
-                Class<?> handlerClass = Class.forName("org.mods.gd656killicon.server.logic.immersiveaircraft.ImmersiveAircraftEventHandler");
-                handler = (IImmersiveAircraftHandler) handlerClass.getDeclaredConstructor().newInstance();
-                handler.init();
-                ServerLog.info("Immersive Aircraft mod detected.");
-            } else {
-                handler = new DummyImmersiveAircraftHandler();
-            }
-        } catch (Exception e) {
-            ServerLog.error("Failed to initialize Immersive Aircraft integration: %s", e.getMessage());
-            handler = new DummyImmersiveAircraftHandler();
-        }
+        handler.init();
     }
 
     public void tick() {

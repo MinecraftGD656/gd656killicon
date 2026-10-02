@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.network.packet;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.client.render.HudElementManager;
 import org.mods.gd656killicon.client.render.impl.ComboIconRenderer;
 import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
@@ -80,7 +80,7 @@ public class KillIconPacket implements IPacket {
         this.bonusScale = bonusScale;
     }
 
-    public KillIconPacket(FriendlyByteBuf buffer) {
+    public KillIconPacket(RegistryFriendlyByteBuf buffer) {
         this.category = buffer.readUtf();
         this.name = buffer.readUtf();
         this.killType = buffer.readInt();
@@ -97,7 +97,7 @@ public class KillIconPacket implements IPacket {
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeUtf(this.category);
         buffer.writeUtf(this.name);
         buffer.writeInt(this.killType);

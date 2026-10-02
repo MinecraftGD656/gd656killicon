@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "gd656killicon",
+  "version": "${version}",
+  "name": "GD656Killicon",
+  "description": "A simple Minecraft mod that adds icon sound effects similar to those in FPS games to the otherwise dull killing process.",
+  "authors": [
+    "Minecraft_GD656"
+  ],
+  "license": "MIT",
+  "icon": "assets/gd656killicon/icon/gd656killicon_icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "org.mods.gd656killicon.fabric.server.FabricModEntrypoint"
+    ],
+    "client": [
+      "org.mods.gd656killicon.fabric.client.FabricClientEntrypoint"
+    ],
+    "modmenu": [
+      "org.mods.gd656killicon.fabric.client.FabricModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    "gd656killicon.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "~26.1.2",
+    "java": ">=25",
+    "fabric-api": "*",
+    "architectury": "*",
+    "forgeconfigapiport": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}

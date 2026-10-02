@@ -25,20 +25,20 @@ public final class ConquestRuntimeStatsAdapter {
         int assistDelta,
         int reviveDelta
     ) {
-        if (player == null || player.server == null) {
+        if (player == null || player.level().getServer() == null) {
             return false;
         }
         if (scoreDelta == 0.0F && killDelta == 0 && deathDelta == 0 && assistDelta == 0 && reviveDelta == 0) {
             return false;
         }
-        if (!isConquestRuntimeAvailable(player.server)) {
+        if (!isConquestRuntimeAvailable(player.level().getServer())) {
             return false;
         }
         try {
             ensureInitialized();
             return routeStatDeltaMethod != null && Boolean.TRUE.equals(routeStatDeltaMethod.invoke(
                 null,
-                player.server,
+                player.level().getServer(),
                 player.getUUID(),
                 scoreDelta,
                 killDelta,
@@ -53,13 +53,13 @@ public final class ConquestRuntimeStatsAdapter {
     }
 
     public static boolean shouldBlockGlobalStatDelta(ServerPlayer player) {
-        if (player == null || player.server == null || !isConquestRuntimeAvailable(player.server)) {
+        if (player == null || player.level().getServer() == null || !isConquestRuntimeAvailable(player.level().getServer())) {
             return false;
         }
         try {
             ensureInitialized();
             return shouldBlockGlobalStatDeltaMethod != null && Boolean.TRUE.equals(
-                shouldBlockGlobalStatDeltaMethod.invoke(null, player.server, player.getUUID())
+                shouldBlockGlobalStatDeltaMethod.invoke(null, player.level().getServer(), player.getUUID())
             );
         } catch (Exception exception) {
             ServerLog.error("Failed to query conquest stat block state: %s", exception.getMessage());

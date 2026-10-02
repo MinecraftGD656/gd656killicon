@@ -1,11 +1,13 @@
 package org.mods.gd656killicon.server.logic.honor;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import org.mods.gd656killicon.common.honor.HonorDefinition;
 import org.mods.gd656killicon.common.honor.HonorRegistry;
 import org.mods.gd656killicon.network.NetworkHandler;
 import org.mods.gd656killicon.network.packet.HonorPacket;
+import dev.architectury.platform.Platform;
 
 import java.util.UUID;
 
@@ -149,7 +151,7 @@ public final class HonorEngine {
             return;
         }
         java.util.UUID id = player.getUUID();
-        boolean conquest = net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest");
+        boolean conquest = Platform.isModLoaded("gd656conquest");
         if (conquest) {
             if (!"recon".equals(getConquestClassType(player))) {
                 return;
@@ -189,7 +191,7 @@ public final class HonorEngine {
             return;
         }
         java.util.UUID id = player.getUUID();
-        boolean conquest = net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest");
+        boolean conquest = Platform.isModLoaded("gd656conquest");
         if (conquest) {
             if (!"assault".equals(getConquestClassType(player))) {
                 return;
@@ -232,8 +234,8 @@ public final class HonorEngine {
         double radiusSqr = SMOKE_RADIUS * SMOKE_RADIUS;
         net.minecraft.world.phys.AABB box = player.getBoundingBox().inflate(SMOKE_RADIUS);
         for (net.minecraft.world.entity.Entity e : player.level().getEntities(player, box)) {
-            net.minecraft.resources.ResourceLocation key =
-                    net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getKey(e.getType());
+            net.minecraft.resources.Identifier key =
+                    net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
             if (key == null) {
                 continue;
             }
@@ -355,7 +357,7 @@ public final class HonorEngine {
             return;
         }
         java.util.UUID id = player.getUUID();
-        boolean conquest = net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest");
+        boolean conquest = Platform.isModLoaded("gd656conquest");
         if (conquest) {
             int count = roundDestroyCounts.merge(id, 1, Integer::sum);
             if (count >= 7 && !roundAchieved.contains(id)) {
@@ -552,7 +554,7 @@ public final class HonorEngine {
             return;
         }
         java.util.UUID id = player.getUUID();
-        boolean conquest = net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest");
+        boolean conquest = Platform.isModLoaded("gd656conquest");
         if (conquest) {
             int total = roundArtilleryScores.merge(id, Math.round(score), Integer::sum);
             if (total >= 1500 && !roundArtilleryAchieved.contains(id)) {
@@ -811,7 +813,7 @@ public final class HonorEngine {
         if (player == null) {
             return;
         }
-        boolean hasSpeed = player.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED);
+        boolean hasSpeed = player.hasEffect(net.minecraft.world.effect.MobEffects.SPEED);
         boolean hasRegen = player.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
         if (!hasSpeed && !hasRegen) {
             return;
@@ -984,7 +986,7 @@ public final class HonorEngine {
     // ==================== 下发 ====================
 
     private void deliver(ServerPlayer player, HonorDefinition def) {
-        boolean conquestInstalled = net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest");
+        boolean conquestInstalled = Platform.isModLoaded("gd656conquest");
         boolean globalBest = false;
         boolean matchBest = false;
         if (conquestInstalled) {
@@ -1011,13 +1013,13 @@ public final class HonorEngine {
 
     /** 安装了 GD656Conquest 时返回玩家当前兵种 key(如 "support"/"recon"/"assault"/"engineer"), 否则返回 null。 */
     private static String getConquestClassType(ServerPlayer player) {
-        if (player == null || player.server == null) {
+        if (player == null || player.level().getServer() == null) {
             return null;
         }
         try {
             if (!conquestClassReady && !conquestClassChecked) {
                 conquestClassChecked = true;
-                if (net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest")) {
+                if (Platform.isModLoaded("gd656conquest")) {
                     try {
                         Class<?> dataManager = Class.forName("org.mods.gd656conquest.server.data.ConquestDataManager");
                         conquestClassOfMethod = dataManager.getMethod("of", net.minecraft.server.MinecraftServer.class);
@@ -1036,7 +1038,7 @@ public final class HonorEngine {
             if (!conquestClassReady) {
                 return null;
             }
-            Object dataManager = conquestClassOfMethod.invoke(null, player.server);
+            Object dataManager = conquestClassOfMethod.invoke(null, player.level().getServer());
             Object store = conquestClassPlayerDataMethod.invoke(dataManager);
             Object model = conquestClassGetPlayerDataMethod.invoke(store, player.getUUID());
             return (String) conquestClassGetClassTypeMethod.invoke(model);

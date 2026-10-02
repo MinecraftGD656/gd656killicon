@@ -1,9 +1,9 @@
 package org.mods.gd656killicon.server.bridge;
 
-import org.mods.gd656killicon.forge.server.ForgeServerLoaderBridge;
+import org.mods.gd656killicon.fabric.server.FabricServerLoaderBridge;
 
 public final class ServerBridge {
-    private static final ServerLoaderBridge LOADER = new ForgeServerLoaderBridge();
+    private static final ServerLoaderBridge LOADER = new FabricServerLoaderBridge();
 
     private ServerBridge() {
     }

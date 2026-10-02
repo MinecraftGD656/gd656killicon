@@ -7,7 +7,7 @@ import org.lwjgl.glfw.GLFW;
 import org.mods.gd656killicon.client.gui.MainConfigScreen;
 
 public class KeyBindings {
-    public static final String CATEGORY = "key.categories.gd656killicon";
+    public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(net.minecraft.resources.Identifier.fromNamespaceAndPath("gd656killicon", "main"));
     public static final String OPEN_CONFIG_KEY = "key.gd656killicon.open_config";
     public static final String OPEN_SCOREBOARD_KEY = "key.gd656killicon.open_scoreboard";
 
@@ -28,33 +28,61 @@ public class KeyBindings {
     /**
      * 检查给定的键码是否匹配指定的按键绑定
      */
-    public static boolean matches(KeyMapping mapping, int keyCode) {
-        return mapping.getKey().getValue() == keyCode;
+    public static boolean matches(KeyMapping mapping, net.minecraft.client.input.KeyEvent event) {
+        return mapping.matches(event);
     }
 
-    public static void onKeyInput(int key, int action) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
+    private static boolean scoreboardKeyPressed = false;
 
-        handleScoreboardKey(mc, key, action);
+    /**
+     * 客户端 tick 轮询按键状态（替代 Forge InputEvent.Key）
+     */
+    public static void onClientTick() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) {
+            scoreboardKeyPressed = false;
+            return;
+        }
+
+        handleScoreboardKey(mc);
 
         if (mc.screen == null) {
             handleConfigKey(mc);
         }
     }
 
-    private static void handleScoreboardKey(Minecraft mc, int key, int action) {
-        if (!matches(OPEN_SCOREBOARD, key)) return;
-
-        if (action == GLFW.GLFW_PRESS) {
+    private static void handleScoreboardKey(Minecraft mc) {
+        // 必须读 GLFW/原始键位：打开 Screen 后 KeyMapping.isDown() 会被清空或不更新，
+        // 用 isDown() 会导致按住 TAB 时反复开合 → 整页闪烁。
+        boolean down = isRawKeyDown(OPEN_SCOREBOARD);
+        if (down && !scoreboardKeyPressed) {
+            scoreboardKeyPressed = true;
             if (mc.screen == null) {
                 mc.setScreen(new MainConfigScreen(null, 3, true));
             }
-        } else if (action == GLFW.GLFW_RELEASE) {
+        } else if (!down && scoreboardKeyPressed) {
+            scoreboardKeyPressed = false;
             if (mc.screen instanceof MainConfigScreen screen && screen.isQuickScoreboardMode() && screen.shouldCloseQuickScoreboardOnRelease()) {
                 mc.setScreen(null);
             }
         }
+    }
+
+    private static boolean isRawKeyDown(KeyMapping mapping) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.getWindow() == null) {
+            return false;
+        }
+        // 1.21 Mojmap 无公开 getKey()；saveString() 返回当前绑定键名
+        InputConstants.Key key = InputConstants.getKey(mapping.saveString());
+        com.mojang.blaze3d.platform.Window window = mc.getWindow();
+        if (key.getType() == InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(window.handle(), key.getValue()) == GLFW.GLFW_PRESS;
+        }
+        if (key.getType() == InputConstants.Type.KEYSYM) {
+            return InputConstants.isKeyDown(window, key.getValue());
+        }
+        return false;
     }
 
     private static void handleConfigKey(Minecraft mc) {

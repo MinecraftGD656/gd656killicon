@@ -1,12 +1,13 @@
 package org.mods.gd656killicon.client.render.impl;
 
+
+import net.minecraft.client.renderer.RenderPipelines;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -26,6 +27,7 @@ import org.mods.gd656killicon.common.killtype.KillTypeRegistry;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
+import org.joml.Matrix3x2fStack;
 public class Battlefield1Renderer implements IHudRenderer {
 
     private static final String SOUND_NAME = "killsound_bf1";
@@ -238,7 +240,7 @@ public class Battlefield1Renderer implements IHudRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         long currentTime = PreviewRenderTimeContext.currentTimeMillis();
 
         if (!displayQueue.isEmpty()) {
@@ -267,13 +269,13 @@ public class Battlefield1Renderer implements IHudRenderer {
         renderInternal(guiGraphics, partialTick, currentTime, centerX, centerY);
     }
 
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY) {
         if (!isVisible || startTime == -1) return;
         long currentTime = PreviewRenderTimeContext.currentTimeMillis();
         renderInternal(guiGraphics, partialTick, currentTime, centerX, centerY);
     }
 
-    private void renderInternal(GuiGraphics guiGraphics, float partialTick, long currentTime, float centerX, float centerY) {
+    private void renderInternal(GuiGraphicsExtractor guiGraphics, float partialTick, long currentTime, float centerX, float centerY) {
         long elapsed = currentTime - startTime;
 
         float alpha = getAlpha(elapsed);
@@ -366,11 +368,11 @@ public class Battlefield1Renderer implements IHudRenderer {
         float iconBoxLeft = iconBoxRight - iconBoxSize;
         float iconBoxBottom = iconBoxTop + iconBoxSize;
 
-        PoseStack pose = guiGraphics.pose();
-        pose.pushPose();
+        Matrix3x2fStack pose = guiGraphics.pose();
+        pose.pushMatrix();
         
-        pose.translate(centerX, centerY, 0);
-        pose.scale(globalScale, globalScale, 1.0f);
+        pose.translate(centerX,  centerY);
+        pose.scale(globalScale,  globalScale);
         
         float subBoxFinalAlpha = alpha * textBoxAlpha;
         int subBoxColor = (int)(subBoxFinalAlpha * 255) << 24 | (backgroundColor & 0xFFFFFF);
@@ -401,11 +403,11 @@ public class Battlefield1Renderer implements IHudRenderer {
         
         drawScaledText(guiGraphics, font, healthText, healthX, healthY, scaleHealth, 0xFFFFFF, textAlpha);
 
-        pose.popPose();
+        pose.popMatrix();
     }
 
-    private void renderIcon(GuiGraphics guiGraphics, float x, float y, float size, float alpha) {
-        ResourceLocation texture = ExternalTextureManager.getTexture(this.currentIconPath);
+    private void renderIcon(GuiGraphicsExtractor guiGraphics, float x, float y, float size, float alpha) {
+        Identifier texture = ExternalTextureManager.getTexture(this.currentIconPath);
         String textureKey = getBattlefieldTextureKey();
         float frameWidthRatio = resolveFrameRatio(textureKey, "texture_frame_width_ratio");
         float frameHeightRatio = resolveFrameRatio(textureKey, "texture_frame_height_ratio");
@@ -414,8 +416,6 @@ public class Battlefield1Renderer implements IHudRenderer {
         float drawX = x + (size - drawWidth) / 2.0f;
         float drawY = y + (size - drawHeight) / 2.0f;
         float focusedAlpha = alpha * PreviewTextureFocusContext.alphaMultiplier("kill_icon/battlefield1", textureKey);
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
-        RenderSystem.enableBlend();
         if (enableIconGlow) {
             IconGlowRenderEffect.drawGlowFrame(
                 guiGraphics,
@@ -435,25 +435,23 @@ public class Battlefield1Renderer implements IHudRenderer {
                 iconGlowIntensity,
                 iconGlowSize
             );
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, focusedAlpha);
         }
-        guiGraphics.blit(texture, (int)drawX, (int)drawY, 0, 0, (int)drawWidth, (int)drawHeight, (int)drawWidth, (int)drawHeight);
+        int aBf = (int) (focusedAlpha * 255.0f); if (aBf < 0) aBf = 0; if (aBf > 255) aBf = 255;
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, (int)drawX, (int)drawY, 0, 0, (int)drawWidth, (int)drawHeight, (int)drawWidth, (int)drawHeight, (aBf << 24) | 0x00FFFFFF);
         
-        RenderSystem.disableBlend();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    private void drawScaledText(GuiGraphics guiGraphics, Font font, String text, float x, float y, float scale, int colorRGB, int alpha) {
-        PoseStack pose = guiGraphics.pose();
-        pose.pushPose();
+    private void drawScaledText(GuiGraphicsExtractor guiGraphics, Font font, String text, float x, float y, float scale, int colorRGB, int alpha) {
+        Matrix3x2fStack pose = guiGraphics.pose();
+        pose.pushMatrix();
         
-        pose.translate(x, y, 0);
-        pose.scale(scale, scale, 1.0f);
+        pose.translate(x,  y);
+        pose.scale(scale,  scale);
         
         int color = (alpha << 24) | (colorRGB & 0x00FFFFFF);
-        guiGraphics.drawString(font, text, 0, 0, color, true); 
+        guiGraphics.text(font, text, 0, 0, color, true); 
         
-        pose.popPose();
+        pose.popMatrix();
     }
 
     private void loadConfig(JsonObject config) {

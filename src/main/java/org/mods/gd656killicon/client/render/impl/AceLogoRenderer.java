@@ -1,17 +1,19 @@
 package org.mods.gd656killicon.client.render.impl;
 
 
+
+import net.minecraft.client.renderer.RenderPipelines;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
 
 public class AceLogoRenderer implements IHudRenderer {
-    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "icon/ace_logo.png");
+    private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "icon/ace_logo.png");
     private static final long DISPLAY_DURATION_MS = 10000L;
     private static final long FADE_OUT_DURATION_MS = 600L;
     private static final int LOGO_WIDTH = 74;
@@ -21,7 +23,7 @@ public class AceLogoRenderer implements IHudRenderer {
     private boolean isVisible = false;
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!isVisible || startTime < 0) {
             return;
         }
@@ -44,12 +46,8 @@ public class AceLogoRenderer implements IHudRenderer {
         int screenHeight = mc.getWindow().getGuiScaledHeight();
         int drawX = screenWidth - LOGO_WIDTH;
         int drawY = screenHeight - LOGO_HEIGHT;
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-        guiGraphics.blit(TEXTURE, drawX, drawY, 0, 0, LOGO_WIDTH, LOGO_HEIGHT, LOGO_WIDTH, LOGO_HEIGHT);
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        RenderSystem.disableBlend();
+        int aAce = (int) (alpha * 255.0f); if (aAce < 0) aAce = 0; if (aAce > 255) aAce = 255;
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, drawX, drawY, 0, 0, LOGO_WIDTH, LOGO_HEIGHT, LOGO_WIDTH, LOGO_HEIGHT, (aAce << 24) | 0x00FFFFFF);
     }
 
     @Override

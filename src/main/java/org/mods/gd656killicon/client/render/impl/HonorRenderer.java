@@ -2,16 +2,17 @@ package org.mods.gd656killicon.client.render.impl;
 
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import org.joml.Matrix4f;
+import org.mods.gd656killicon.client.render.util.GDMesh;
+import org.joml.Matrix3x2fStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
@@ -241,7 +242,7 @@ public class HonorRenderer implements IHudRenderer {
     // ==================== 渲染 ====================
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         JsonObject config = ConfigManager.getElementConfig("kill_icon", "honor");
         // 预设语义: 当前预设未包含 kill_icon/honor 元素时, 荣誉不渲染
         if (config == null) {
@@ -294,7 +295,7 @@ public class HonorRenderer implements IHudRenderer {
         int centerX = ScreenAnchor.resolveCenterX(configScreenAnchor, configXOffset, screenWidth);
         int centerY = ScreenAnchor.resolveCenterY(configScreenAnchor, configYOffset, screenHeight);
 
-        ResourceLocation texture =new ResourceLocation("gd656killicon",
+        Identifier texture = Identifier.fromNamespaceAndPath("gd656killicon",
                 "textures/honor/honor_" + currentDisplay.honorId + ".png");
 
         // 主图标: 顶点带 alpha 自绘(亚像素, 立即提交, 不依赖全局 shader color 时序, 根除击杀帧透明度失效)
@@ -332,7 +333,7 @@ public class HonorRenderer implements IHudRenderer {
      * @param baseW 预览基础宽度(未入场缩放的完整尺寸, 按预览区域缩小)
      * @param baseH 预览基础高度
      */
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float originX, float originY, float baseW, float baseH) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float originX, float originY, float baseW, float baseH) {
         loadConfig(ConfigManager.getElementConfig("kill_icon", "honor"));
         if (currentDisplay == null) {
             return;
@@ -369,7 +370,7 @@ public class HonorRenderer implements IHudRenderer {
             shakeY = shake[1];
         }
 
-        ResourceLocation texture = new ResourceLocation("gd656killicon",
+        Identifier texture = Identifier.fromNamespaceAndPath("gd656killicon",
                 "textures/honor/honor_" + currentDisplay.honorId + ".png");
 
         // 主图标: 顶点带 alpha 自绘(亚像素, 立即提交)
@@ -391,7 +392,7 @@ public class HonorRenderer implements IHudRenderer {
      * 入场 c 秒内透明度从完全透明平滑变为配置最大透明度; 淡出与主图标同曲线。
      * 字幕在 1/2 c 时显示, 右侧始终与主图标左边缘相距 h, 显示后 1/2 c 内渐显。
      */
-    private void drawHintBox(GuiGraphics guiGraphics, float centerX, float centerY, float iconW, long elapsed, float fadeAlpha) {
+    private void drawHintBox(GuiGraphicsExtractor guiGraphics, float centerX, float centerY, float iconW, long elapsed, float fadeAlpha) {
         if (!configHintBoxEnabled || currentDisplay == null) {
             return;
         }
@@ -432,11 +433,11 @@ public class HonorRenderer implements IHudRenderer {
             float textAlpha = Math.min(maxAlpha * easeOutCubic(tp), fadeAlpha);
             if (textAlpha > 0.01f) {
                 int textColor = ((int) (textAlpha * 255.0f) << 24) | (configHintBoxTextColor & 0xFFFFFF);
-                guiGraphics.pose().pushPose();
-                guiGraphics.pose().translate(textLeft, centerY, 0.0f);
-                guiGraphics.pose().scale(configHintBoxTextScale, configHintBoxTextScale, 1.0f);
-                guiGraphics.drawString(mc.font, subtitle, 0.0f, -mc.font.lineHeight / 2f, textColor, configHintBoxTextShadow);
-                guiGraphics.pose().popPose();
+                guiGraphics.pose().pushMatrix();
+                guiGraphics.pose().translate(textLeft,  centerY);
+                guiGraphics.pose().scale(configHintBoxTextScale,  configHintBoxTextScale);
+                guiGraphics.text(mc.font, subtitle, 0, -mc.font.lineHeight / 2, textColor, configHintBoxTextShadow);
+                guiGraphics.pose().popMatrix();
             }
         }
         // 新最佳主字幕: 提示框入场完成后在提示框上方渐入, 下边框紧贴提示框上边框, 随提示框隐藏同步隐藏
@@ -453,7 +454,7 @@ public class HonorRenderer implements IHudRenderer {
      * 出现时机 = 提示框入场动画完成之后, 随后 a 秒(best_text_fade_in_duration)内从全透明渐入;
      * 隐藏与提示框同步(直接复用提示框的 fadeAlpha 时序)。
      */
-    private void drawBestText(GuiGraphics guiGraphics, float boxLeft, float hintBoxTop, long elapsed, float fadeAlpha) {
+    private void drawBestText(GuiGraphicsExtractor guiGraphics, float boxLeft, float hintBoxTop, long elapsed, float fadeAlpha) {
         if (currentDisplay == null) {
             return;
         }
@@ -486,11 +487,11 @@ public class HonorRenderer implements IHudRenderer {
         fillRectF(guiGraphics, boxLeft, top, boxLeft + textW, bottom, boxColor);
         // 文本: 颜色同提示框内字幕颜色
         int textColor = ((int) (alpha * 255.0f) << 24) | (configHintBoxTextColor & 0xFFFFFF);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(boxLeft, textCenterY, 0.0f);
-        guiGraphics.pose().scale(configHintBoxTextScale, configHintBoxTextScale, 1.0f);
-        guiGraphics.drawString(mc.font, text, 0.0f, -mc.font.lineHeight / 2f, textColor, configHintBoxTextShadow);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(boxLeft,  textCenterY);
+        guiGraphics.pose().scale(configHintBoxTextScale,  configHintBoxTextScale);
+        guiGraphics.text(mc.font, text, 0, -mc.font.lineHeight / 2, textColor, configHintBoxTextShadow);
+        guiGraphics.pose().popMatrix();
     }
 
     /**
@@ -500,7 +501,7 @@ public class HonorRenderer implements IHudRenderer {
      * 之后不再移动; 透明度从 0(不透明) 线性升至 100(全透明), 于 c+e 秒时完全消失。
      * 绘制在文本框与文本之下(z 顺序靠前), 由上层文本框/文本覆盖, 仅超出文本左右两侧的部分可见。
      */
-    private void drawBestSweep(GuiGraphics guiGraphics, float textRight, float boxLeft, float centerY, long elapsed) {
+    private void drawBestSweep(GuiGraphicsExtractor guiGraphics, float textRight, float boxLeft, float centerY, long elapsed) {
         long sweepMs = Math.max(1L, (long) (configBestSweepDuration * 1000.0f));
         long fadeMs = Math.max(1L, (long) (configBestSweepFadeDuration * 1000.0f));
         float endRight = boxLeft - configBestSweepTextGap;      // 文本框左边框再往左 d 像素
@@ -528,7 +529,7 @@ public class HonorRenderer implements IHudRenderer {
      * 立即提交, 不依赖 RenderSystem.setShaderColor 的批次时序 —— 根除击杀瞬间
      * 其它渲染器增多导致 honor 的 blit 延迟提交、alpha 被全局 color 覆盖为不透明的 bug。
      */
-    private static void drawIcon(GuiGraphics guiGraphics, ResourceLocation texture,
+    private static void drawIcon(GuiGraphicsExtractor guiGraphics, Identifier texture,
                                  float centerX, float centerY, float iconScale, float alpha, int tintRgb) {
         if (alpha <= 0.001f || iconScale <= 0.001f) {
             return;
@@ -543,28 +544,18 @@ public class HonorRenderer implements IHudRenderer {
         float y1 = centerY - h / 2f;
         float x2 = centerX + w / 2f;
         float y2 = centerY + h / 2f;
-        Matrix4f matrix = guiGraphics.pose().last().pose();
-        RenderSystem.setShaderTexture(0, texture);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableCull();
-        RenderSystem.setShader(GameRenderer::getPositionColorTexShader);
+        Matrix3x2fStack pose = guiGraphics.pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_TEX);
-        builder.vertex(matrix, x1, y1, 0).color(r, g, b, a).uv(0.0f, 0.0f).endVertex();
-        builder.vertex(matrix, x2, y1, 0).color(r, g, b, a).uv(1.0f, 0.0f).endVertex();
-        builder.vertex(matrix, x2, y2, 0).color(r, g, b, a).uv(1.0f, 1.0f).endVertex();
-        builder.vertex(matrix, x1, y2, 0).color(r, g, b, a).uv(0.0f, 1.0f).endVertex();
-        BufferUploader.drawWithShader(builder.end());
-        RenderSystem.enableCull();
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        GDMesh.Builder builder = GDMesh.beginTextured(texture);
+        builder.addVertexWith2DPose(pose, x1, y1).setUv(0.0f, 0.0f).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x2, y1).setUv(1.0f, 0.0f).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x2, y2).setUv(1.0f, 1.0f).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x1, y2).setUv(0.0f, 1.0f).setColor(r, g, b, a);
+        GDMesh.submit(guiGraphics, builder);
     }
 
     /** 应用全局抗锯齿过滤(配置值缓存, 相同则跳过, 避免每帧 bind/setFilter GL 操作)。 */
-    private void applyTextureFilter(ResourceLocation texture) {
+    private void applyTextureFilter(Identifier texture) {
         boolean filter = ClientConfigManager.isEnableIconAntialiasing();
         if (hasAppliedFilter && filter == lastAppliedFilter) {
             return;
@@ -625,7 +616,7 @@ public class HonorRenderer implements IHudRenderer {
      * 亚像素填充矩形(浮点顶点, 连续平滑无 1px 步进)。
      * 参照 IconEntranceBackground 的浮点四边形方案, 避免展开动画按整像素跳变卡顿。
      */
-    private static void fillRectF(GuiGraphics guiGraphics, float x1, float y1, float x2, float y2, int argb) {
+    private static void fillRectF(GuiGraphicsExtractor guiGraphics, float x1, float y1, float x2, float y2, int argb) {
         if (x2 <= x1 || y2 <= y1) {
             return;
         }
@@ -633,28 +624,19 @@ public class HonorRenderer implements IHudRenderer {
         int r = (argb >> 16) & 0xFF;
         int g = (argb >> 8) & 0xFF;
         int b = argb & 0xFF;
-        Matrix4f matrix = guiGraphics.pose().last().pose();
+        Matrix3x2fStack pose = guiGraphics.pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableCull();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        quad(builder, matrix, x1, y1, x2, y2, r, g, b, a);
-        BufferUploader.drawWithShader(builder.end());
-        RenderSystem.enableCull();
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        GDMesh.Builder builder = GDMesh.begin();
+        quad(builder, pose, x1, y1, x2, y2, r, g, b, a);
+        GDMesh.submit(guiGraphics, builder);
     }
 
-    /** 浮点四边形顶点(与 IconEntranceBackground.quad 同款, 1.20.1 BufferBuilder 签名)。 */
-    private static void quad(BufferBuilder builder, Matrix4f matrix, float x1, float y1, float x2, float y2, int r, int g, int b, int a) {
-        builder.vertex(matrix, x1, y1, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x2, y1, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x2, y2, 0).color(r, g, b, a).endVertex();
-        builder.vertex(matrix, x1, y2, 0).color(r, g, b, a).endVertex();
+    /** 浮点四边形顶点(与 IconEntranceBackground.quad 同款, 1.21.1 BufferBuilder 签名)。 */
+    private static void quad(VertexConsumer builder, Matrix3x2fStack pose, float x1, float y1, float x2, float y2, int r, int g, int b, int a) {
+        builder.addVertexWith2DPose(pose, x1, y1).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x2, y1).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x2, y2).setColor(r, g, b, a);
+        builder.addVertexWith2DPose(pose, x1, y2).setColor(r, g, b, a);
     }
 
     // ==================== 时序推进 ====================

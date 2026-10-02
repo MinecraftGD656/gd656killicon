@@ -24,92 +24,13 @@ public class BonusEngine {
      */
     private final Map<UUID, List<Entry>> pending = new ConcurrentHashMap<>();
 
-    /**
-     * 空中载具判定(不联动 Conquest, 不靠名字猜):
-     * - SBW: 反射 `VehicleEntity.getVehicleType()`(VehicleType 枚举) ∈ {AIRPLANE, HELICOPTER, AIRSHIP}
-     * - YWZJ: 反射 instanceof `RotaryWingVehicle` / `FixedWingVehicle`(空中载具基类, 含直升机/无人机/固定翼)
-     */
     public static boolean isAircraftEntity(net.minecraft.world.entity.Entity entity) {
-        if (entity == null) {
-            return false;
-        }
-        if (isSbwAircraft(entity) || isYwzjAircraft(entity)) {
-            return true;
-        }
         return false;
     }
 
-    /** SBW 空中载具: VehicleEntity.getVehicleType() 返回 VehicleType 枚举。 */
-    private static boolean isSbwAircraft(net.minecraft.world.entity.Entity entity) {
-        try {
-            if (sbwVehicleTypeMethod == null) {
-                Class<?> vehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
-                sbwVehicleTypeMethod = vehicleClass.getMethod("getVehicleType");
-            }
-            if (sbwVehicleTypeMethod == null) {
-                return false;
-            }
-            Object type = sbwVehicleTypeMethod.invoke(entity);
-            if (type == null) {
-                return false;
-            }
-            String typeName = type.toString();
-            return "AIRPLANE".equalsIgnoreCase(typeName)
-                    || "HELICOPTER".equalsIgnoreCase(typeName)
-                    || "AIRSHIP".equalsIgnoreCase(typeName);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /** YWZJ 空中载具: RotaryWingVehicle(旋翼/直升机/无人机)或 FixedWingVehicle(固定翼飞机)子类。 */
-    private static boolean isYwzjAircraft(net.minecraft.world.entity.Entity entity) {
-        try {
-            if (ywzjRotaryClass == null) {
-                ywzjRotaryClass = Class.forName("org.ywzj.vehicle.entity.vehicle.RotaryWingVehicle");
-                ywzjFixedWingClass = Class.forName("org.ywzj.vehicle.entity.vehicle.FixedWingVehicle");
-            }
-            return (ywzjRotaryClass != null && ywzjRotaryClass.isInstance(entity))
-                    || (ywzjFixedWingClass != null && ywzjFixedWingClass.isInstance(entity));
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /** 坦克判定: SBW VehicleType.TANK 或 YWZJ TrackedVehicle(履带坦克基类, 含 M1a2/Ztz99a)。 */
     private static boolean isTankEntity(net.minecraft.world.entity.Entity entity) {
-        if (entity == null) {
-            return false;
-        }
-        // SBW: getVehicleType() == TANK
-        try {
-            if (sbwVehicleTypeMethod == null) {
-                Class<?> vehicleClass = Class.forName("com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity");
-                sbwVehicleTypeMethod = vehicleClass.getMethod("getVehicleType");
-            }
-            if (sbwVehicleTypeMethod != null) {
-                Object type = sbwVehicleTypeMethod.invoke(entity);
-                if (type != null && "TANK".equalsIgnoreCase(type.toString())) {
-                    return true;
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        // YWZJ: instanceof TrackedVehicle
-        try {
-            if (ywzjTrackedClass == null) {
-                ywzjTrackedClass = Class.forName("org.ywzj.vehicle.entity.vehicle.TrackedVehicle");
-            }
-            return ywzjTrackedClass != null && ywzjTrackedClass.isInstance(entity);
-        } catch (Exception e) {
-            return false;
-        }
+        return false;
     }
-
-    private static java.lang.reflect.Method sbwVehicleTypeMethod;
-    private static Class<?> ywzjRotaryClass;
-    private static Class<?> ywzjFixedWingClass;
-    private static Class<?> ywzjTrackedClass;
 
     public void add(ServerPlayer player, int type, float scale, String extra) {
         add(player, type, scale, extra, -1, null);

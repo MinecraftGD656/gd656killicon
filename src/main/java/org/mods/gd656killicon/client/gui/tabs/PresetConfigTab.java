@@ -1,11 +1,11 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
@@ -441,7 +441,7 @@ public class PresetConfigTab extends ConfigTabContent {
     private void openExportFolder() {
         try {
             java.io.File dir = PresetPackManager.getExportDir().toFile();
-            net.minecraft.Util.getPlatform().openFile(dir);
+            net.minecraft.util.Util.getPlatform().openFile(dir);
         } catch (Exception ignored) {
         }
     }
@@ -604,7 +604,7 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int panelWidth = area1Right + GuiConstants.DEFAULT_PADDING;
         
@@ -781,8 +781,16 @@ public class PresetConfigTab extends ConfigTabContent {
             }
         }
         
-        for (ElementPreview preview : renderList) {
-            preview.render(guiGraphics, partialTick, screenWidth, preview == hoveredElement, bgMouseX, bgMouseY);
+        // 预览只画在左右侧栏之间，避免半透明侧栏透出预览文字造成叠字/屏闪
+        int previewClipLeft = Math.max(0, (int) Math.ceil(Math.max(0f, currentTranslation + panelWidth)));
+        int previewClipRight = Math.min(screenWidth, (int) Math.floor(screenWidth - Math.max(0f, panelWidth - currentRightTranslation)));
+        int previewClipTop = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT;
+        if (previewClipRight > previewClipLeft) {
+            guiGraphics.enableScissor(previewClipLeft, previewClipTop, previewClipRight, screenHeight);
+            for (ElementPreview preview : renderList) {
+                preview.render(guiGraphics, partialTick, screenWidth, preview == hoveredElement, bgMouseX, bgMouseY);
+            }
+            guiGraphics.disableScissor();
         }
         renderTutorialOverlay(guiGraphics, partialTick, screenWidth, screenHeight);
         renderPanelDirectionArrows(guiGraphics, screenWidth, screenHeight);
@@ -807,10 +815,10 @@ public class PresetConfigTab extends ConfigTabContent {
             
             float currentY = startY;
             for (net.minecraft.util.FormattedCharSequence line : lines) {
-                guiGraphics.pose().pushPose();
-                guiGraphics.pose().translate(centerX, currentY, 0);
-                guiGraphics.drawCenteredString(font, line, 0, 0, GuiConstants.COLOR_GRAY);
-                guiGraphics.pose().popPose();
+                guiGraphics.pose().pushMatrix();
+                guiGraphics.pose().translate(centerX,  currentY);
+                guiGraphics.centeredText(font, line, 0, 0, GuiConstants.COLOR_GRAY);
+                guiGraphics.pose().popMatrix();
                 currentY += font.lineHeight;
             }
         }
@@ -823,10 +831,10 @@ public class PresetConfigTab extends ConfigTabContent {
         if (visibleWidth > 0) {
             guiGraphics.enableScissor(0, top, (int)Math.ceil(visibleWidth), screenHeight);
             
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(currentTranslation, 0, 0);
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(currentTranslation,  0);
             
-            guiGraphics.fill(0, top, panelWidth, screenHeight, GuiConstants.COLOR_BG);
+            guiGraphics.fill(0, top, panelWidth, screenHeight, GuiConstants.COLOR_PANEL_BG);
 
             if (titleRenderer != null) titleRenderer.render(guiGraphics, partialTick);
             if (subtitleRenderer != null) subtitleRenderer.render(guiGraphics, partialTick);
@@ -842,17 +850,17 @@ public class PresetConfigTab extends ConfigTabContent {
                 renderDynamicDescription(guiGraphics, hoveredRow, partialTick);
             }
             
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().popMatrix();
             guiGraphics.disableScissor(); 
             renderPresetList(guiGraphics, panelMouseX, panelMouseY, partialTick, panelWidth, screenHeight, deltaTime);
 
             int buttonsScissorWidth = (int)Math.ceil(visibleWidth);
             guiGraphics.enableScissor(0, top, buttonsScissorWidth, screenHeight);
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(currentTranslation, 0, 0);
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(currentTranslation,  0);
             int translatedMouseX = (int)(panelMouseX - currentTranslation);
             renderSideButtonsInPanel(guiGraphics, translatedMouseX, panelMouseY, partialTick, screenWidth, screenHeight);
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().popMatrix();
             guiGraphics.disableScissor();
         }
 
@@ -863,12 +871,12 @@ public class PresetConfigTab extends ConfigTabContent {
             int scissorX = (int)(screenWidth - rightVisibleWidth);
             guiGraphics.enableScissor(scissorX, top, screenWidth, screenHeight);
             
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(currentRightTranslation, 0, 0);
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(currentRightTranslation,  0);
             
-            guiGraphics.fill(rightPanelX, top, rightPanelX + rightPanelWidth, screenHeight, GuiConstants.COLOR_BG);
+            guiGraphics.fill(rightPanelX, top, rightPanelX + rightPanelWidth, screenHeight, GuiConstants.COLOR_PANEL_BG);
             
-            guiGraphics.pose().popPose(); 
+            guiGraphics.pose().popMatrix(); 
             int contentX = (int)(rightPanelX + currentRightTranslation + GuiConstants.DEFAULT_PADDING);
             int contentY = top + GuiConstants.DEFAULT_PADDING;
             int contentWidth = rightPanelWidth - 2 * GuiConstants.DEFAULT_PADDING;
@@ -953,10 +961,10 @@ public class PresetConfigTab extends ConfigTabContent {
                 guiGraphics.enableScissor(contentX + 1, listTop, contentX + contentWidth - 1, listBottom);
                 
                 if (availableElementRows.isEmpty()) {
-                    guiGraphics.drawCenteredString(Minecraft.getInstance().font, I18n.get("gd656killicon.client.gui.config.preset.all_elements_added"), contentX + contentWidth / 2, listTop + (listBottom - listTop) / 2 - 4, GuiConstants.COLOR_GRAY);
+                    guiGraphics.centeredText(Minecraft.getInstance().font, I18n.get("gd656killicon.client.gui.config.preset.all_elements_added"), contentX + contentWidth / 2, listTop + (listBottom - listTop) / 2 - 4, GuiConstants.COLOR_GRAY);
                 } else {
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().translate(0, (float)-elementListScrollY, 0);
+                    guiGraphics.pose().pushMatrix();
+                    guiGraphics.pose().translate(0, (float)-elementListScrollY);
     
                     int currentY = listTop;
                     for (GDRowRenderer row : availableElementRows) {
@@ -971,7 +979,7 @@ public class PresetConfigTab extends ConfigTabContent {
                         }
                         currentY += GuiConstants.ROW_HEADER_HEIGHT + 1;                     }
                     
-                    guiGraphics.pose().popPose();
+                    guiGraphics.pose().popMatrix();
                 }
                 guiGraphics.disableScissor();
                 
@@ -1046,8 +1054,8 @@ public class PresetConfigTab extends ConfigTabContent {
                     updateContentScroll(deltaTime, mouseY, contentListHeight);
                     
                     guiGraphics.enableScissor(contentX + 1, contentListTop, contentX + contentWidth - 1, contentListBottom);
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().translate(0, (float)-contentScrollY, 0);
+                    guiGraphics.pose().pushMatrix();
+                    guiGraphics.pose().translate(0, (float)-contentScrollY);
                     
                     int currentY = contentListTop;
                     for (GDRowRenderer row : currentElementRows) {
@@ -1063,12 +1071,12 @@ public class PresetConfigTab extends ConfigTabContent {
                         currentY += GuiConstants.ROW_HEADER_HEIGHT + 1;
                     }
                     
-                    guiGraphics.pose().popPose();
+                    guiGraphics.pose().popMatrix();
                     guiGraphics.disableScissor();
                     
                     guiGraphics.enableScissor(scissorX, top, screenWidth, screenHeight);
                 } else {
-                    guiGraphics.drawCenteredString(Minecraft.getInstance().font, Component.translatable("gd656killicon.client.gui.config.preset.no_elements"), contentX + contentWidth / 2, middleBoxY + middleBoxHeight / 2 - 4, GuiConstants.COLOR_GRAY);
+                    guiGraphics.centeredText(Minecraft.getInstance().font, Component.translatable("gd656killicon.client.gui.config.preset.no_elements"), contentX + contentWidth / 2, middleBoxY + middleBoxHeight / 2 - 4, GuiConstants.COLOR_GRAY);
                 }
             }
 
@@ -1079,7 +1087,7 @@ public class PresetConfigTab extends ConfigTabContent {
         promptDialog.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    private void renderSideButtonsInPanel(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
+    private void renderSideButtonsInPanel(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int buttonY = screenHeight - GuiConstants.DEFAULT_PADDING - GuiConstants.ROW_HEADER_HEIGHT - 1 - GuiConstants.ROW_HEADER_HEIGHT;
         
@@ -1317,7 +1325,7 @@ public class PresetConfigTab extends ConfigTabContent {
         return sb.toString();
     }
 
-    private void renderTutorialOverlay(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
+    private void renderTutorialOverlay(GuiGraphicsExtractor guiGraphics, float partialTick, int screenWidth, int screenHeight) {
         if (!ClientConfigManager.shouldRunPresetTutorial() || tutorialCurrentStep > 8) {
             return;
         }
@@ -1402,10 +1410,10 @@ public class PresetConfigTab extends ConfigTabContent {
         tutorialRenderer.setY1(0);
         tutorialRenderer.setX2(renderWidth);
         tutorialRenderer.setY2(renderHeight);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(tutorialRenderX, tutorialRenderY, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(tutorialRenderX,  tutorialRenderY);
         tutorialRenderer.render(guiGraphics, partialTick, false);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
     /**
@@ -1417,7 +1425,7 @@ public class PresetConfigTab extends ConfigTabContent {
      * 拖动切换锚点: 拖动元素时鼠标悬停到非当前锚点框 → 该框 2 秒内渐变金色(旧金色框渐变灰),
      * 持续 2 秒后切换元素锚点(含偏移补偿); 鼠标移开 → 0.5 秒内颜色回退。
      */
-    private void renderAnchorOverlay(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight, int panelWidth, int mouseX, int mouseY) {
+    private void renderAnchorOverlay(GuiGraphicsExtractor guiGraphics, float partialTick, int screenWidth, int screenHeight, int panelWidth, int mouseX, int mouseY) {
         long now = System.currentTimeMillis();
         // 触发条件 = 现有"长按元素变黄"机制: ElementPreview.isPressed(按住未松开)
         String pressedElementId = null;
@@ -1605,7 +1613,7 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     /** 1px 竖直边(x 固定): 端点夹取到限定区域内(自动排序), 边缘边与灰边框对齐 */
-    private static void fillVLine(GuiGraphics guiGraphics, float x, float y1, float y2, int color, int gx, int gy, int gw, int gh) {
+    private static void fillVLine(GuiGraphicsExtractor guiGraphics, float x, float y1, float y2, int color, int gx, int gy, int gw, int gh) {
         int xi = clampEdge(Math.round(x), gx, gx + gw);
         int y1i = clampEdge(Math.round(y1), gy, gy + gh);
         int y2i = clampEdge(Math.round(y2), gy, gy + gh);
@@ -1617,7 +1625,7 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     /** 1px 水平边(y 固定): 端点夹取到限定区域内(自动排序), 边缘边与灰边框对齐 */
-    private static void fillHLine(GuiGraphics guiGraphics, float x1, float x2, float y, int color, int gx, int gy, int gw, int gh) {
+    private static void fillHLine(GuiGraphicsExtractor guiGraphics, float x1, float x2, float y, int color, int gx, int gy, int gw, int gh) {
         int x1i = clampEdge(Math.round(x1), gx, gx + gw);
         int x2i = clampEdge(Math.round(x2), gx, gx + gw);
         int yi = clampEdge(Math.round(y), gy, gy + gh);
@@ -1672,7 +1680,7 @@ public class PresetConfigTab extends ConfigTabContent {
         return Math.abs(coord - gx) < 1.0f || Math.abs(coord - (gx + gw)) < 1.0f;
     }
 
-    private void renderPanelDirectionArrows(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
+    private void renderPanelDirectionArrows(GuiGraphicsExtractor guiGraphics, int screenWidth, int screenHeight) {
         int centerY = screenHeight / 2;
         int leftX = TRIGGER_ZONE_WIDTH / 2;
         int rightX = screenWidth - TRIGGER_ZONE_WIDTH / 2;
@@ -1680,8 +1688,8 @@ public class PresetConfigTab extends ConfigTabContent {
         String rightArrow = rightPanelState == PanelState.OPEN ? ">" : "<";
         // 长按元素时箭头变灰(边栏不可打开)
         int arrowColor = isAnyElementPressed() ? GuiConstants.COLOR_GRAY : GuiConstants.COLOR_GOLD;
-        guiGraphics.drawCenteredString(minecraft.font, leftArrow, leftX, centerY - minecraft.font.lineHeight / 2, arrowColor);
-        guiGraphics.drawCenteredString(minecraft.font, rightArrow, rightX, centerY - minecraft.font.lineHeight / 2, arrowColor);
+        guiGraphics.centeredText(minecraft.font, leftArrow, leftX, centerY - minecraft.font.lineHeight / 2, arrowColor);
+        guiGraphics.centeredText(minecraft.font, rightArrow, rightX, centerY - minecraft.font.lineHeight / 2, arrowColor);
     }
 
     /** 是否有元素正被长按(按住变黄; 长按期间左右边栏不可打开, 箭头变灰) */
@@ -1720,25 +1728,28 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (promptDialog.isVisible()) {
-            return promptDialog.keyPressed(keyCode, scanCode, modifiers);
+            return promptDialog.keyPressed(event);
         }
         if (textInputDialog.isVisible()) {
-            return textInputDialog.keyPressed(keyCode, scanCode, modifiers);
+            return textInputDialog.keyPressed(event);
         }
-        if (Screen.hasControlDown() && (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
+        if ((modifiers & org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL) != 0 && (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
             if (tryUndo()) {
                 markTutorialAction(6);
                 return true;
             }
         }
-        if (Screen.hasControlDown() && (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Y)) {
+        if ((modifiers & org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL) != 0 && (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Y)) {
             if (tryRedo()) {
                 return true;
             }
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
     
     @Override
@@ -1950,7 +1961,7 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     @Override
-    protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    protected void renderContent(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         if (!configRows.isEmpty()) {
             for (GDRowRenderer row : configRows) {
                 row.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -1958,7 +1969,7 @@ public class PresetConfigTab extends ConfigTabContent {
         }
     }
     
-    private void renderPresetList(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int panelWidth, int screenHeight, float dt) {
+    private void renderPresetList(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int panelWidth, int screenHeight, float dt) {
         int startY = this.area1Bottom + GuiConstants.DEFAULT_PADDING;
         
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
@@ -1977,8 +1988,8 @@ public class PresetConfigTab extends ConfigTabContent {
         if (visibleWidth > 0 && endY > startY) {
             guiGraphics.enableScissor(0, startY, visibleWidth, endY);
             
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(currentTranslation, -scrollY, 0);
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(currentTranslation, (float)-scrollY);
 
             int currentY = startY;
             
@@ -1999,7 +2010,7 @@ public class PresetConfigTab extends ConfigTabContent {
                 
                 currentY += rowHeight + 1;             }
             
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().popMatrix();
             guiGraphics.disableScissor();
         }
     }
@@ -2185,9 +2196,9 @@ public class PresetConfigTab extends ConfigTabContent {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (promptDialog.isVisible()) {
-            return promptDialog.mouseScrolled(mouseX, mouseY, delta);
+            return promptDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (textInputDialog.isVisible()) {
             return true;         }
@@ -2197,7 +2208,7 @@ public class PresetConfigTab extends ConfigTabContent {
         int panelWidth = area1Right + GuiConstants.DEFAULT_PADDING;
         
         if (state == PanelState.OPEN && mouseX <= panelWidth) {
-             targetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
+             targetScrollY -= amountY * GuiConstants.SCROLL_AMOUNT;
              return true;
         }
         
@@ -2208,18 +2219,17 @@ public class PresetConfigTab extends ConfigTabContent {
                  int bottomBoxY = minecraft.getWindow().getGuiScaledHeight() - GuiConstants.DEFAULT_PADDING - bottomBoxHeight;
                  
                  if (mouseY >= bottomBoxY) {
-                     targetElementListScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
+                     targetElementListScrollY -= amountY * GuiConstants.SCROLL_AMOUNT;
                      return true;
                  }
              }
              
-             targetContentScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
+             targetContentScrollY -= amountY * GuiConstants.SCROLL_AMOUNT;
              return true;
         }
         
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-    
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (promptDialog.isVisible()) {

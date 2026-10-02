@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.network.IPacket;
 import org.mods.gd656killicon.network.PacketContext;
 
@@ -22,14 +22,14 @@ public class ScoreboardRequestPacket implements IPacket {
         this.requestId = requestId;
     }
 
-    public ScoreboardRequestPacket(FriendlyByteBuf buffer) {
+    public ScoreboardRequestPacket(RegistryFriendlyByteBuf buffer) {
         this.offset = Math.max(0, buffer.readInt());
         this.limit = Math.max(1, buffer.readInt());
         this.requestId = buffer.readLong();
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeInt(offset);
         buffer.writeInt(limit);
         buffer.writeLong(requestId);

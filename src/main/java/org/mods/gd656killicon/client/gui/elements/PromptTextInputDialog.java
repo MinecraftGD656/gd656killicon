@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
@@ -113,23 +113,29 @@ public class PromptTextInputDialog {
         return true;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return false;
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         return visible;
     }
 
     public boolean charTyped(char codePoint, int modifiers) {
         if (!visible) return false;
         
-        if (SharedConstants.isAllowedChatCharacter(codePoint)) {
+        if (true) { // TODO(chat): 26.1 改由 CharacterEvent.isAllowedChatCharacter() 判断
             replaceSelection(String.valueOf(codePoint));
             return true;
         }
         return true;     }
-    
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (!visible) return false;
-        boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
-        boolean shiftDown = Screen.hasShiftDown() || (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+        boolean controlDown = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean shiftDown = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
         
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             confirm();
@@ -255,17 +261,16 @@ public class PromptTextInputDialog {
         return visible;
     }
     
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
         
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, 0, 500.0f);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0,  0);
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
         
-        int dimColor = 0x88444444;
-        guiGraphics.fill(0, 0, screenWidth, screenHeight, dimColor);
+        guiGraphics.fill(0, 0, screenWidth, screenHeight, GuiConstants.COLOR_DIALOG_DIM);
         
         int fontHeight = minecraft.font.lineHeight;
         int maxWidth = INPUT_WIDTH;
@@ -288,7 +293,7 @@ public class PromptTextInputDialog {
         int containerRight = inputX + INPUT_WIDTH + GuiConstants.DEFAULT_PADDING;
         int containerBottom = buttonsY + BUTTON_HEIGHT + GuiConstants.DEFAULT_PADDING;
         
-        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_BG); 
+        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_DIALOG_BG); 
         
         if (titleRenderer != null) {
             titleRenderer.setX1(inputX);
@@ -306,8 +311,7 @@ public class PromptTextInputDialog {
             messageRenderer.render(guiGraphics, partialTick);
         }
         
-        int inputBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int)(255 * 0.45f) << 24;
-        guiGraphics.fill(inputX, inputY, inputX + INPUT_WIDTH, inputY + INPUT_HEIGHT, inputBgColor);
+        guiGraphics.fill(inputX, inputY, inputX + INPUT_WIDTH, inputY + INPUT_HEIGHT, GuiConstants.COLOR_DIALOG_INPUT_BG);
         
         boolean isHovered = mouseX >= inputX && mouseX <= inputX + INPUT_WIDTH && 
                             mouseY >= inputY && mouseY <= inputY + INPUT_HEIGHT;
@@ -346,10 +350,10 @@ public class PromptTextInputDialog {
             confirmButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
-    private void renderHoverTrail(GuiGraphics guiGraphics, int x, int y, int w, int h) {
+    private void renderHoverTrail(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h) {
         if (hoverProgress <= 0.001f) return;
         
         int color = GuiConstants.COLOR_GOLD;
@@ -389,7 +393,7 @@ public class PromptTextInputDialog {
         return 1.0f - (float)Math.pow(1.0f - t, 3);
     }
     
-    private void renderInputText(GuiGraphics guiGraphics, int x, int y, int w, int h, boolean isValid) {
+    private void renderInputText(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, boolean isValid) {
         guiGraphics.enableScissor(x, y, x + w, y + h);
         
         int boxInnerWidth = w - 4;         
@@ -418,7 +422,7 @@ public class PromptTextInputDialog {
         }
         
         int textColor = isValid ? GuiConstants.COLOR_WHITE : GuiConstants.COLOR_RED;
-        guiGraphics.drawString(minecraft.font, text, drawX, drawY, textColor, false);
+        guiGraphics.text(minecraft.font, text, drawX, drawY, textColor, false);
         
         if ((System.currentTimeMillis() / 500) % 2 == 0) {
             int cx = drawX + cursorXRel;

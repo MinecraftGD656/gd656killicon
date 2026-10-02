@@ -59,7 +59,7 @@ public final class SpottingRewardTracker {
     }
 
     public void recordSpot(ServerPlayer spotter, LivingEntity target) {
-        if (spotter == null || target == null || spotter.level().isClientSide) {
+        if (spotter == null || target == null || spotter.level().isClientSide()) {
             return;
         }
 
@@ -81,7 +81,7 @@ public final class SpottingRewardTracker {
     }
 
     public void handleTargetKilled(LivingEntity victim, LivingEntity killerEntity) {
-        if (victim == null || victim.level().isClientSide) {
+        if (victim == null || victim.level().isClientSide()) {
             return;
         }
 
@@ -113,7 +113,7 @@ public final class SpottingRewardTracker {
         }
 
         for (UUID spotterId : spotters.keySet()) {
-            ServerPlayer spotter = killer.getServer().getPlayerList().getPlayer(spotterId);
+            ServerPlayer spotter = killer.level().getServer().getPlayerList().getPlayer(spotterId);
             if (spotter == null) {
                 continue;
             }

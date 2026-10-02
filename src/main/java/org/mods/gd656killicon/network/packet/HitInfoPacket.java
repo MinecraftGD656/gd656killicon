@@ -1,6 +1,6 @@
 package org.mods.gd656killicon.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import org.mods.gd656killicon.client.render.impl.HitInfoRenderer;
 import org.mods.gd656killicon.network.IPacket;
 import org.mods.gd656killicon.network.PacketContext;
@@ -27,14 +27,14 @@ public class HitInfoPacket implements IPacket {
         this.entityId = entityId;
     }
 
-    public HitInfoPacket(FriendlyByteBuf buffer) {
+    public HitInfoPacket(RegistryFriendlyByteBuf buffer) {
         this.amount = buffer.readFloat();
         this.killed = buffer.readBoolean();
         this.entityId = buffer.readInt();
     }
 
     @Override
-    public void encode(FriendlyByteBuf buffer) {
+    public void encode(RegistryFriendlyByteBuf buffer) {
         buffer.writeFloat(this.amount);
         buffer.writeBoolean(this.killed);
         buffer.writeInt(this.entityId);

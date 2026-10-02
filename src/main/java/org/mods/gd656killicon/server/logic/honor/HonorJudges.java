@@ -163,8 +163,8 @@ public final class HonorJudges {
         if (hand == null || hand.isEmpty()) {
             return false;
         }
-        net.minecraft.resources.ResourceLocation key =
-                net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(hand.getItem());
+        net.minecraft.resources.Identifier key =
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(hand.getItem());
         if (key == null) {
             return false;
         }
@@ -184,7 +184,7 @@ public final class HonorJudges {
         try {
             if (!conquestAssaultChecked) {
                 conquestAssaultChecked = true;
-                if (net.minecraftforge.fml.ModList.get().isLoaded("gd656conquest")) {
+                if (dev.architectury.platform.Platform.isModLoaded("gd656conquest")) {
                     Class<?> dataManager = Class.forName("org.mods.gd656conquest.server.data.ConquestDataManager");
                     conquestOfMethod = dataManager.getMethod("of", net.minecraft.server.MinecraftServer.class);
                     conquestPlayerDataMethod = dataManager.getMethod("playerData");
@@ -198,7 +198,7 @@ public final class HonorJudges {
             if (!conquestAssaultReady || evidence.killer() == null) {
                 return false;
             }
-            Object dataManager = conquestOfMethod.invoke(null, evidence.killer().server);
+            Object dataManager = conquestOfMethod.invoke(null, evidence.killer().level().getServer());
             Object store = conquestPlayerDataMethod.invoke(dataManager);
             Object model = conquestGetPlayerDataMethod.invoke(store, evidence.killer().getUUID());
             String classKey = (String) conquestGetClassTypeMethod.invoke(model);

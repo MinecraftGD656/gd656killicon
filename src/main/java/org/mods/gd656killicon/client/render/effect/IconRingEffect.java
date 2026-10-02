@@ -2,14 +2,14 @@ package org.mods.gd656killicon.client.render.effect;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.util.Mth;
-import org.joml.Matrix4f;
+import org.joml.Matrix3x2fStack;
+import org.mods.gd656killicon.client.render.util.GDMesh;
 import org.mods.gd656killicon.common.KillType;
 
 public final class IconRingEffect {
@@ -67,7 +67,7 @@ public final class IconRingEffect {
         this.effectStartTimeMs = triggerTimeMs + EFFECT_DELAY_MS;
     }
 
-    public void render(GuiGraphics guiGraphics, float centerX, float centerY, long currentTimeMs) {
+    public void render(GuiGraphicsExtractor guiGraphics, float centerX, float centerY, long currentTimeMs) {
         if (effectStartTimeMs <= 0) {
             return;
         }
@@ -86,7 +86,6 @@ public final class IconRingEffect {
         float effectAlpha = 1.0f - t;
         effectAlpha = effectAlpha * effectAlpha;
 
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         if (killType == KillType.HEADSHOT) {
             float radius = resolveRadius(headshotMaxRadius, eased);
@@ -128,7 +127,7 @@ public final class IconRingEffect {
         return (minRadius + (maxRadius - minRadius) * eased) * scale;
     }
 
-    private static void drawRing(GuiGraphics guiGraphics, float centerX, float centerY, float radius, float thickness, int rgb, float alpha) {
+    private static void drawRing(GuiGraphicsExtractor guiGraphics, float centerX, float centerY, float radius, float thickness, int rgb, float alpha) {
         if (thickness <= 0.0f || alpha <= 0.0f || radius <= 0.0f) {
             return;
         }
@@ -136,30 +135,23 @@ public final class IconRingEffect {
         float rOuter = radius + thickness * 0.5f;
         float rInner = Math.max(0.0f, radius - thickness * 0.5f);
 
-        int a = Mth.clamp((int) (alpha * 255.0f), 0, 255);
+        int a = 255;
         int red = (rgb >> 16) & 0xFF;
         int green = (rgb >> 8) & 0xFF;
         int blue = rgb & 0xFF;
 
-        Matrix4f matrix = guiGraphics.pose().last().pose();
-        Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        builder.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
-        for (int i = 0; i <= SEGMENTS; i++) {
-            float angle = (float) (Math.PI * 2.0 * i / SEGMENTS);
-            float cos = Mth.cos(angle);
-            float sin = Mth.sin(angle);
-
-            float xo = centerX + cos * rOuter;
-            float yo = centerY + sin * rOuter;
-            float xi = centerX + cos * rInner;
-            float yi = centerY + sin * rInner;
-
-            builder.vertex(matrix, xo, yo, 0.0f).color(red, green, blue, a).endVertex();
-            builder.vertex(matrix, xi, yi, 0.0f).color(red, green, blue, a).endVertex();
+        Matrix3x2fStack pose = guiGraphics.pose();
+        GDMesh.Builder builder = GDMesh.begin();
+        for (int i = 0; i < SEGMENTS; i++) {
+            float a0 = (float) (Math.PI * 2.0 * i / SEGMENTS);
+            float a1 = (float) (Math.PI * 2.0 * (i + 1) / SEGMENTS);
+            float c0 = Mth.cos(a0), s0 = Mth.sin(a0);
+            float c1 = Mth.cos(a1), s1 = Mth.sin(a1);
+            builder.addVertexWith2DPose(pose, centerX + c0 * rOuter, centerY + s0 * rOuter).setColor(red, green, blue, a);
+            builder.addVertexWith2DPose(pose, centerX + c1 * rOuter, centerY + s1 * rOuter).setColor(red, green, blue, a);
+            builder.addVertexWith2DPose(pose, centerX + c1 * rInner, centerY + s1 * rInner).setColor(red, green, blue, a);
+            builder.addVertexWith2DPose(pose, centerX + c0 * rInner, centerY + s0 * rInner).setColor(red, green, blue, a);
         }
-        BufferUploader.drawWithShader(builder.end());
+        GDMesh.submit(guiGraphics, builder);
     }
 }

@@ -1,270 +1,103 @@
-// 构建脚本配置
-buildscript {
-}
-
-// 插件配置
 plugins {
-    id 'eclipse'                          // Eclipse IDE支持
-    id 'idea'                             // IntelliJ IDEA支持
-    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'  // Forge Gradle插件
-    id 'org.parchmentmc.librarian.forgegradle' version '1.+'  // Parchment映射支持插件
+    // 26.1 起使用新的未混淆 Loom 插件 id（不再 remap）
+    id 'net.fabricmc.fabric-loom' version '1.16.3'
+    id 'maven-publish'
 }
 
-// 资源目录配置
-// 添加额外的资源包目录
-sourceSets.main.resources {
-    srcDirs += "src/main/resources/resourcepacks"
-}
-
-// 项目基本信息
-// 从gradle.properties读取配置
-group = mod_group_id                    // 项目组ID
-version = mod_version                   // 项目版本
+version = project.mod_version
+group = project.maven_group
 
 base {
-    archivesName = mod_id               // 构建产物名称
+    archivesName = "${archives_base_name}"
 }
 
-// Java配置
-// Forge 1.20.1要求Java 17
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(17)
-}
-
-// Minecraft/Forge配置
-minecraft {
-    // 映射配置，从gradle.properties读取
-    mappings channel: mapping_channel, version: mapping_version
-
-    // 复制IDE资源到运行目录
-    copyIdeResources = true
-
-    // 运行配置
-    runs {
-        // 所有运行配置的通用设置
-        configureEach {
-            workingDirectory project.file('run')  // 工作目录
-            property 'forge.logging.markers', 'REGISTRIES'  // 日志标记
-            property 'forge.logging.console.level', 'debug'  // 日志级别
-
-            // Mixin配置
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${buildDir}/createSrgToMcp/output.srg"
-
-            // 模组配置
-            mods {
-                "${mod_id}" {
-                    source sourceSets.main  // 模组源代码目录
-                }
-            }
-        }
-
-        // 客户端运行配置
-        client {
-            property 'forge.enabledGameTestNamespaces', mod_id  // 启用GameTest命名空间
-        }
-
-        // 双客户端联机调试: Dev1 / Dev2(各自独立游戏目录, 避免 run/ 配置/存档冲突)
-        clientDev1 {
-            parent runs.client
-            taskName 'runClientDev1'
-            workingDirectory project.file('run-dev1')
-            args '--username', 'Dev1'
-        }
-        clientDev2 {
-            parent runs.client
-            taskName 'runClientDev2'
-            workingDirectory project.file('run-dev2')
-            args '--username', 'Dev2'
-        }
-
-        // 服务器运行配置
-        server {
-            property 'forge.enabledGameTestNamespaces', mod_id  // 启用GameTest命名空间
-            args '--nogui'  // 无GUI模式
-        }
-
-        // GameTest服务器运行配置
-        gameTestServer {
-            property 'forge.enabledGameTestNamespaces', mod_id  // 启用GameTest命名空间
-        }
-
-        // 数据生成运行配置
-        data {
-            workingDirectory project.file('run-data')  // 数据生成工作目录
-            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-        }
-    }
-}
-
-// 同时启动 Dev1 与 Dev2 两个客户端(独立游戏目录 run-dev1/run-dev2)
-// 注意: 需使用 --parallel 才能真正同时运行; 否则 Gradle 会顺序启动(关闭 Dev1 后才启动 Dev2)
-tasks.register('runClients') {
-    group = 'minecraft'
-    description = '同时启动 Dev1 与 Dev2 两个客户端(需 ./gradlew runClients --parallel)'
-    dependsOn 'runClientDev1', 'runClientDev2'
-}
-
-// 添加生成的资源目录
-sourceSets.main.resources { srcDir 'src/generated/resources' }
-
-sourceSets.main.java {
-    srcDir 'src/main/java'
-    include '**/*.java'
-}
-
-// 依赖仓库配置
 repositories {
-
-    maven { url = "https://api.modrinth.com/maven" }
-    maven { url = "https://maven.parchmentmc.org/" }
-    maven { url = "https://cursemaven.com" }
-
+    maven {
+        name = 'Fabric'
+        url = 'https://maven.fabricmc.net/'
+    }
+    maven {
+        name = 'Architectury'
+        url = 'https://maven.architectury.dev'
+        content { includeGroup "dev.architectury" }
+    }
+    maven {
+        name = 'Fuzs Mod Resources'
+        url = 'https://raw.githubusercontent.com/Fuzss/modresources/main/maven/'
+    }
+    maven {
+        name = 'Terraformers'
+        url = 'https://maven.terraformersmc.com/'
+    }
+    mavenCentral()
+    flatDir { dirs 'libs' }
 }
 
-// 依赖项配置
 dependencies {
-    // Minecraft Forge依赖，从gradle.properties读取版本
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
 
-    //Cloth-Config-API前置依赖
-    implementation fg.deobf("maven.modrinth:cloth-config:11.1.136+forge")
+    // 26.1 已去混淆：不再声明 mappings（原 loom.officialMojangMappings() 已移除）
+    // 26.1 未混淆工作流：modXxx -> 标准 Gradle 配置
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    // 可选Tacz前置依赖
-    compileOnly fg.deobf("maven.modrinth:timeless-and-classics-zero:1.1.7-hotfix")
-    runtimeOnly fg.deobf("maven.modrinth:timeless-and-classics-zero:1.1.7-hotfix")
+    // Architectury（事件 / 网络 / 平台抽象）—— 本 mod 的核心依赖
+    implementation "dev.architectury:architectury-fabric:${project.architectury_version}"
 
-    // 运行时前置依赖
-    compileOnly fg.deobf("maven.modrinth:gd656motionhud:0.0.3-1.20.1-forge")
-    runtimeOnly fg.deobf("maven.modrinth:gd656motionhud:0.0.3-1.20.1-forge")
+    // Mod Menu（可选，配置界面入口）
+    implementation "com.terraformersmc:modmenu:${project.modmenu_version}"
 
-    compileOnly fg.deobf("maven.modrinth:gd656peek:0.0.5-1.20.1-forge")
-    runtimeOnly fg.deobf("maven.modrinth:gd656peek:0.0.5-1.20.1-forge")
-    
-    //lr-tactical前置依赖
-    compileOnly fg.deobf("maven.modrinth:lr-tactical:wMn7gapK")
-    runtimeOnly fg.deobf("maven.modrinth:lr-tactical:wMn7gapK")
+    // Forge Config API Port
+    api "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:${project.forgeconfigapiport_version}"
 
-    compileOnly fg.deobf("maven.modrinth:modern-ui:6ksT8CWg")
-    runtimeOnly fg.deobf("maven.modrinth:modern-ui:6ksT8CWg")
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
 
-    // 永无止境前置依赖
-    compileOnly fg.deobf("curse.maven:limitless-vehicle-1446269:8559766")
-    runtimeOnly fg.deobf("curse.maven:limitless-vehicle-1446269:8559766")
-
-    // 沉浸式飞机前置依赖
-    compileOnly fg.deobf("maven.modrinth:immersive-aircraft:jPZ0GRsN")
-    runtimeOnly fg.deobf("maven.modrinth:immersive-aircraft:jPZ0GRsN")
-
-    // 卓越前线前置依赖
-    compileOnly fg.deobf("maven.modrinth:superb-warfare:DdiwkiSV")
-    runtimeOnly fg.deobf("maven.modrinth:superb-warfare:DdiwkiSV")
-
-    // 卓越前线所需的前置依赖
-    compileOnly fg.deobf("maven.modrinth:curios:5.14.1+1.20.1")
-    runtimeOnly fg.deobf("maven.modrinth:curios:5.14.1+1.20.1")
-    compileOnly fg.deobf("maven.modrinth:geckolib:aVW7Z5da") //forge-4.8.2-1.20.1
-    runtimeOnly fg.deobf("maven.modrinth:geckolib:aVW7Z5da")
-
-    // 索敌前置依赖
-    compileOnly fg.deobf("curse.maven:spotting-869187:5168255")
-    runtimeOnly fg.deobf("curse.maven:spotting-869187:5168255")
-
-    // 索敌所需的前置依赖
-    compileOnly fg.deobf("curse.maven:vocalized-980660:5154514")
-    runtimeOnly fg.deobf("curse.maven:vocalized-980660:5154514")
-
-    // PINGWHEEL前置依赖
-    compileOnly fg.deobf("maven.modrinth:ping-wheel:OIvI752z")
-    runtimeOnly fg.deobf("maven.modrinth:ping-wheel:OIvI752z")
-
-    // CustomNPCs前置依赖
-    compileOnly fg.deobf("maven.modrinth:vFAmwl6B:CaWlRoYD")
-    runtimeOnly fg.deobf("maven.modrinth:vFAmwl6B:CaWlRoYD")
+    // 注意：TACZ / SuperbWarfare / GeckoLib / Trinkets / CCA 在 26.1.2 上均无发布版，
+    // 已从依赖中移除。相关代码请见 PORTING_GUIDE.md 第 4 阶段。
 }
 
-// 资源处理任务配置
-tasks.named('processResources', ProcessResources).configure {
-    // 替换属性映射
-    var replaceProperties = [
-            minecraft_version: minecraft_version,
-            minecraft_version_range: minecraft_version_range,
-            forge_version: forge_version,
-            forge_version_range: forge_version_range,
-            loader_version_range: loader_version_range,
-            mod_id: mod_id,
-            mod_name: mod_name,
-            mod_license: mod_license,
-            mod_version: mod_version,
-            mod_authors: mod_authors,
-            mod_description: mod_description,
-    ]
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.loader_version
+    filteringCharset "UTF-8"
 
-    inputs.properties replaceProperties  // 声明输入属性
-
-    // 处理指定文件，替换占位符
-    filesMatching(['META-INF/mods.toml', 'pack.mcmeta', 'mixin.gd656killicon.json']) {
-        expand replaceProperties + [project: project]
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "minecraft_version": project.minecraft_version,
+                "loader_version": project.loader_version
     }
 }
 
-// JAR打包任务配置
-tasks.named('jar', Jar).configure {
-    // 清单文件配置
-    manifest {
-        attributes([
-                "Specification-Title": mod_id,
-                "Specification-Vendor": mod_authors,
-                "Specification-Version": "1",
-                "Implementation-Title": project.name,
-                "Implementation-Version": project.jar.archiveVersion,
-                "Implementation-Vendor": mod_authors,
-                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
-                "MixinConfigs": "mixin.gd656killicon.json"
-        ])
-    }
-    finalizedBy 'reobfJar'  // 打包后执行重新混淆任务
-}
-
-tasks.register('noResourcesJar', Jar) {
-    archiveClassifier = 'nores'
-    dependsOn tasks.named('classes')
-    from(sourceSets.main.output)
-    exclude 'assets/**'
-    manifest {
-        attributes([
-                "Specification-Title": mod_id,
-                "Specification-Vendor": mod_authors,
-                "Specification-Version": "1",
-                "Implementation-Title": project.name,
-                "Implementation-Version": project.version,
-                "Implementation-Vendor": mod_authors,
-                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
-        ])
-    }
-    finalizedBy 'reobfNoResourcesJar'
-}
-
-reobf {
-    noResourcesJar {}
-}
-
-tasks.named('assemble').configure {
-    dependsOn tasks.named('noResourcesJar'), tasks.named('resourcesZip')
-}
-
-tasks.register('resourcesZip', Zip) {
-    archiveClassifier = 'resources'
-    dependsOn tasks.named('processResources')
-    from(layout.buildDirectory.dir('resources/main')) {
-        include 'assets/**'
-        include 'pack.mcmeta'
-    }
-    destinationDirectory = layout.buildDirectory.dir('libs')
-}
-
-// Java编译配置
+// 26.1 要求 Java 25
+def targetJavaVersion = 25
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'  // 设置编译编码为UTF-8
-    source("src/main/java/org/mods/gd656killicon/client/gui/tabs/PresetConfigTab.java")
+    it.options.encoding = "UTF-8"
+    it.options.release.set(targetJavaVersion)
+    it.options.compilerArgs << "-Xmaxerrs" << "10000"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    withSourcesJar()
+}
+
+jar {
+    if (file("LICENSE").exists()) {
+        from("LICENSE") {
+            rename { "${it}_${project.base.archivesName.get()}" }
+        }
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = "${project.archives_base_name}"
+            from components.java
+        }
+    }
+    repositories {
+        maven { url = "file://${project.projectDir}/mcmodsrepo" }
+    }
 }

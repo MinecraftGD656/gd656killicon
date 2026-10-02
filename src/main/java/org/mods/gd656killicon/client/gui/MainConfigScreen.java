@@ -1,13 +1,17 @@
 package org.mods.gd656killicon.client.gui;
 
+
+import net.minecraft.client.renderer.RenderPipelines;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.Util;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Util;
 import org.mods.gd656killicon.client.KeyBindings;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ConfigManager;
@@ -20,7 +24,7 @@ import java.net.URI;
 
 public class MainConfigScreen extends Screen {
     private final Screen parent;
-    private static final ResourceLocation BACKGROUND_TEXTURE = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/block/gilded_blackstone.png");
+    private static final Identifier BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath("minecraft", "textures/block/gilded_blackstone.png");
     private final ConfigScreenHeader header;
     private boolean quickScoreboardMode = false;
     
@@ -207,66 +211,60 @@ public class MainConfigScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+        if (minecraft != null && minecraft.level != null) {
+            guiGraphics.fillGradient(0, 0, this.width, this.height, GuiConstants.COLOR_SCREEN_DIM_TOP, GuiConstants.COLOR_SCREEN_DIM_BOTTOM);
+        } else {
+            renderGildedBlackstoneBackground(guiGraphics);
+        }
+
         if (showExitConfirmation) {
-            if (minecraft.level == null) {
-                renderGildedBlackstoneBackground(guiGraphics);
-            } else {
-                renderBackground(guiGraphics);
-            }
-            
             int textHeight = font.lineHeight;
             int gap = 5;
             int groupHeight = textHeight + gap + GuiConstants.ROW_HEADER_HEIGHT;
             int groupY = (height - groupHeight) / 2;
-            guiGraphics.drawCenteredString(font, Component.translatable("gd656killicon.client.gui.config.exit_dialog.title"), width / 2, groupY, GuiConstants.COLOR_WHITE);
+            guiGraphics.centeredText(font, Component.translatable("gd656killicon.client.gui.config.exit_dialog.title"), width / 2, groupY, GuiConstants.COLOR_WHITE);
             
-            if (btnExitNoSave != null) btnExitNoSave.render(guiGraphics, mouseX, mouseY, partialTick);
-            if (btnCancel != null) btnCancel.render(guiGraphics, mouseX, mouseY, partialTick);
-            if (btnSaveExit != null) btnSaveExit.render(guiGraphics, mouseX, mouseY, partialTick);
+            if (btnExitNoSave != null) btnExitNoSave.render(guiGraphics, mouseX, mouseY, delta);
+            if (btnCancel != null) btnCancel.render(guiGraphics, mouseX, mouseY, delta);
+            if (btnSaveExit != null) btnSaveExit.render(guiGraphics, mouseX, mouseY, delta);
             
             return;
         }
 
-        if (minecraft.level == null) {
-            renderGildedBlackstoneBackground(guiGraphics);
-        } else {
-            renderBackground(guiGraphics);
-        }
-        
-        header.render(guiGraphics, width, mouseX, mouseY, partialTick);
+        header.render(guiGraphics, width, mouseX, mouseY, delta);
         
         ConfigTabContent activeTab = header.getSelectedTabContent();
         if (activeTab != null) {
-            activeTab.render(guiGraphics, mouseX, mouseY, partialTick, width, height, GuiConstants.HEADER_HEIGHT);
+            activeTab.render(guiGraphics, mouseX, mouseY, delta, width, height, GuiConstants.HEADER_HEIGHT);
         }
         
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(guiGraphics, mouseX, mouseY, delta);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
         if (showExitConfirmation) {
-            if (btnExitNoSave != null && btnExitNoSave.mouseClicked(mouseX, mouseY, button)) return true;
-            if (btnCancel != null && btnCancel.mouseClicked(mouseX, mouseY, button)) return true;
-            if (btnSaveExit != null && btnSaveExit.mouseClicked(mouseX, mouseY, button)) return true;
+            if (btnExitNoSave != null && btnExitNoSave.mouseClicked(event.x(), event.y(), event.button())) return true;
+            if (btnCancel != null && btnCancel.mouseClicked(event.x(), event.y(), event.button())) return true;
+            if (btnSaveExit != null && btnSaveExit.mouseClicked(event.x(), event.y(), event.button())) return true;
             return true;
         }
-        if (header.mouseClicked(mouseX, mouseY, button)) {
+        if (header.mouseClicked(event.x(), event.y(), event.button())) {
             this.quickScoreboardMode = false;
             return true;
         }
         ConfigTabContent activeTab = header.getSelectedTabContent();
-        if (activeTab != null && activeTab.mouseClicked(mouseX, mouseY, button)) {
+        if (activeTab != null && activeTab.mouseClicked(event.x(), event.y(), event.button())) {
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, bl);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
         if (showExitConfirmation) {
-            if (pendingExitAction != null && button == 0) {
+            if (pendingExitAction != null && event.button() == 0) {
                 Runnable action = pendingExitAction;
                 pendingExitAction = null;
                 action.run();
@@ -274,29 +272,29 @@ public class MainConfigScreen extends Screen {
             }
             return true;
         }
-        if (header.mouseReleased(mouseX, mouseY, button)) {
+        if (header.mouseReleased(event.x(), event.y(), event.button())) {
             return true;
         }
         ConfigTabContent activeTab = header.getSelectedTabContent();
-        if (activeTab != null && activeTab.mouseReleased(mouseX, mouseY, button)) {
+        if (activeTab != null && activeTab.mouseReleased(event.x(), event.y(), event.button())) {
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
         if (showExitConfirmation) {
-            return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+            return super.mouseDragged(event, dragX, dragY);
         }
-        if (header.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+        if (header.mouseDragged(event.x(), event.y(), event.button(), dragX, dragY)) {
             return true;
         }
         ConfigTabContent activeTab = header.getSelectedTabContent();
-        if (activeTab != null && activeTab.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+        if (activeTab != null && activeTab.mouseDragged(event.x(), event.y(), event.button(), dragX, dragY)) {
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     @Override
@@ -309,72 +307,72 @@ public class MainConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
         if (showExitConfirmation) {
-            return super.mouseScrolled(mouseX, mouseY, delta);
+            return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
         }
         ConfigTabContent activeTab = header.getSelectedTabContent();
         if (activeTab instanceof org.mods.gd656killicon.client.gui.tabs.ElementConfigContent elementContent
             && elementContent.isMouseInSecondaryTabArea(mouseX, mouseY)) {
-            if (activeTab.mouseScrolled(mouseX, mouseY, delta)) {
+            if (activeTab.mouseScrolled(mouseX, mouseY, amountY)) {
                 return true;
             }
         }
-        if (header.mouseScrolled(mouseX, mouseY, delta)) {
+        if (header.mouseScrolled(mouseX, mouseY, amountY)) {
             return true;
         }
-        if (activeTab != null && activeTab.mouseScrolled(mouseX, mouseY, delta)) {
+        if (activeTab != null && activeTab.mouseScrolled(mouseX, mouseY, amountY)) {
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
     }
-
     @Override
-    public boolean charTyped(char codePoint, int modifiers) {
+    public boolean charTyped(CharacterEvent event) {
         if (showExitConfirmation) {
-            return super.charTyped(codePoint, modifiers);
+            return super.charTyped(event);
         }
         ConfigTabContent activeTab = header.getSelectedTabContent();
-        if (activeTab != null && activeTab.charTyped(codePoint, modifiers)) {
+        if (activeTab != null && activeTab.charTyped((char) event.codepoint(), 0)) {
             return true;
         }
-        return super.charTyped(codePoint, modifiers);
+        return super.charTyped(event);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (showExitConfirmation) {
             if (keyCode == 256) {                 showExitConfirmation = false;
                 return true;
             }
-            return super.keyPressed(keyCode, scanCode, modifiers);
+            return super.keyPressed(event);
         }
         ConfigTabContent activeTab = header.getSelectedTabContent();
-        if (activeTab != null && activeTab.keyPressed(keyCode, scanCode, modifiers)) {
+        if (activeTab != null && activeTab.keyPressed(event)) {
             return true;
         }
         if (quickScoreboardMode && keyCode == 256) {
             onClose();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
-    private void renderGildedBlackstoneBackground(GuiGraphics guiGraphics) {
-        RenderSystem.setShaderTexture(0, resolveBackgroundTexture());
-        RenderSystem.setShaderColor(0.25F, 0.25F, 0.25F, 1.0F);         
+    private void renderGildedBlackstoneBackground(GuiGraphicsExtractor guiGraphics) {
+        int bgTint = 0xFF3F3F3F;
         int size = 32;         int cols = width / size + 1;
         int rows = height / size + 1;
 
         for (int x = 0; x < cols; x++) {
             for (int y = 0; y < rows; y++) {
-                guiGraphics.blit(resolveBackgroundTexture(), x * size, y * size, 0, 0, size, size, size, size);
+                guiGraphics.blit(RenderPipelines.GUI_TEXTURED, resolveBackgroundTexture(), x * size, y * size, 0, 0, size, size, size, size, bgTint);
             }
         }
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
-    private ResourceLocation resolveBackgroundTexture() {
+    private Identifier resolveBackgroundTexture() {
         String material = ClientConfigManager.getGuiBackgroundMaterial();
         if (material == null || !material.contains(":")) {
             return BACKGROUND_TEXTURE;
@@ -383,7 +381,7 @@ public class MainConfigScreen extends Screen {
         if (split.length != 2 || split[0].isEmpty() || split[1].isEmpty()) {
             return BACKGROUND_TEXTURE;
         }
-        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath(split[0], "textures/block/" + split[1] + ".png");
+        Identifier texture = Identifier.fromNamespaceAndPath(split[0], "textures/block/" + split[1] + ".png");
         if (minecraft == null || minecraft.getResourceManager().getResource(texture).isEmpty()) {
             return BACKGROUND_TEXTURE;
         }

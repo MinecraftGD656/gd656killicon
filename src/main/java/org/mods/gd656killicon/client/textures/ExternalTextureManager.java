@@ -6,7 +6,7 @@ import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.Gd656killicon;
 import org.mods.gd656killicon.client.config.ConfigManager;
@@ -38,7 +38,7 @@ import java.util.concurrent.Executors;
 public class ExternalTextureManager {
     private static final Path CONFIG_ASSETS_DIR = ClientBridge.loader().getConfigDir().resolve("gd656killicon/assets");
     private static final Path COMMON_TEXTURES_DIR = CONFIG_ASSETS_DIR.resolve("common").resolve("textures");
-    private static final Map<String, ResourceLocation> TEXTURE_CACHE = new HashMap<>();
+    private static final Map<String, Identifier> TEXTURE_CACHE = new HashMap<>();
     private static final ExecutorService TEXTURE_THREAD_POOL = Executors.newCachedThreadPool();
     private static final Gson GSON = new Gson();
     private static final Pattern CUSTOM_TEXTURE_PATTERN = Pattern.compile("^custom_(\\d+)\\.png$");
@@ -135,9 +135,9 @@ public class ExternalTextureManager {
                         String path = entry.getKey();
                         NativeImage image = entry.getValue();
                         try {
-                            DynamicTexture texture = new DynamicTexture(image);
+                            DynamicTexture texture = new DynamicTexture(() -> "gd656_dynamic", image);
                             String dynamicName = "gd656killicon_external_" + currentPresetId + "_" + path.replace("/", "_").replace(".", "_");
-                            ResourceLocation dynamicLoc = Minecraft.getInstance().getTextureManager().register(dynamicName, texture);
+                            Identifier dynamicLoc = Identifier.fromNamespaceAndPath("gd656killicon", dynamicName); Minecraft.getInstance().getTextureManager().register(dynamicLoc, texture);
                             TEXTURE_CACHE.put(currentPresetId + ":" + path, dynamicLoc);
                             successCount++;
                         } catch (Exception e) {
@@ -266,25 +266,25 @@ public class ExternalTextureManager {
         if (!isVanillaTexturePath(path)) {
             return false;
         }
-        ResourceLocation vanilla = getVanillaTextureLocation(path);
+        Identifier vanilla = getVanillaTextureLocation(path);
         if (vanilla == null) {
             return false;
         }
         return Minecraft.getInstance().getResourceManager().getResource(vanilla).isPresent();
     }
 
-    public static ResourceLocation getVanillaTextureLocation(String path) {
+    public static Identifier getVanillaTextureLocation(String path) {
         if (!isVanillaTexturePath(path)) {
             return null;
         }
         String raw = path.substring("minecraft:".length());
         String normalized = normalizeVanillaTexturePath(raw);
-        return ResourceLocation.fromNamespaceAndPath("minecraft", normalized);
+        return Identifier.fromNamespaceAndPath("minecraft", normalized);
     }
 
-    public static ResourceLocation getTexture(String path) {
+    public static Identifier getTexture(String path) {
         if (isVanillaTexturePath(path)) {
-            ResourceLocation vanilla = getVanillaTextureLocation(path);
+            Identifier vanilla = getVanillaTextureLocation(path);
             if (vanilla != null) {
                 applyTextureFilter(vanilla);
                 return vanilla;
@@ -295,29 +295,29 @@ public class ExternalTextureManager {
         String cacheKey = presetId + ":" + resolvedPath;
         
         if (TEXTURE_CACHE.containsKey(cacheKey)) {
-            ResourceLocation cached = TEXTURE_CACHE.get(cacheKey);
+            Identifier cached = TEXTURE_CACHE.get(cacheKey);
             applyTextureFilter(cached);
             return cached;
         }
 
         if (loadExternalTexture(presetId, resolvedPath)) {
-            ResourceLocation loaded = TEXTURE_CACHE.get(cacheKey);
+            Identifier loaded = TEXTURE_CACHE.get(cacheKey);
             applyTextureFilter(loaded);
             return loaded;
         }
 
-        ResourceLocation fallback = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + resolvedPath);
+        Identifier fallback = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + resolvedPath);
         applyTextureFilter(fallback);
         return fallback;
     }
 
-    private static void applyTextureFilter(ResourceLocation textureLocation) {
+    private static void applyTextureFilter(Identifier textureLocation) {
         IconTextureFilterEffect.apply(textureLocation);
     }
 
     public static byte[] readTextureBytes(String presetId, String path) throws IOException {
         if (isVanillaTexturePath(path)) {
-            ResourceLocation vanilla = getVanillaTextureLocation(path);
+            Identifier vanilla = getVanillaTextureLocation(path);
             if (vanilla != null) {
                 try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(vanilla).get().open()) {
                     return stream.readAllBytes();
@@ -332,7 +332,7 @@ public class ExternalTextureManager {
             return Files.readAllBytes(file);
         }
 
-        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
+        Identifier resourceLocation = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
         try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
             return stream.readAllBytes();
         } catch (Exception e) {
@@ -652,9 +652,9 @@ public class ExternalTextureManager {
 
         try (InputStream stream = new FileInputStream(file.toFile())) {
             NativeImage image = NativeImage.read(stream);
-            DynamicTexture texture = new DynamicTexture(image);
+            DynamicTexture texture = new DynamicTexture(() -> "gd656_dynamic", image);
             String dynamicName = "gd656killicon_external_" + presetId + "_" + path.replace("/", "_").replace(".", "_");
-            ResourceLocation dynamicLoc = Minecraft.getInstance().getTextureManager().register(dynamicName, texture);
+            Identifier dynamicLoc = Identifier.fromNamespaceAndPath("gd656killicon", dynamicName); Minecraft.getInstance().getTextureManager().register(dynamicLoc, texture);
             
             TEXTURE_CACHE.put(presetId + ":" + path, dynamicLoc);
             return true;
@@ -665,7 +665,7 @@ public class ExternalTextureManager {
     }
 
     private static void clearCache() {
-        for (ResourceLocation loc : TEXTURE_CACHE.values()) {
+        for (Identifier loc : TEXTURE_CACHE.values()) {
             Minecraft.getInstance().getTextureManager().release(loc);
         }
         TEXTURE_CACHE.clear();
@@ -673,7 +673,7 @@ public class ExternalTextureManager {
 
     private static void refreshTextureCache(String presetId, String textureName) {
         String cacheKey = presetId + ":" + textureName;
-        ResourceLocation cached = TEXTURE_CACHE.remove(cacheKey);
+        Identifier cached = TEXTURE_CACHE.remove(cacheKey);
         if (cached != null) {
             Minecraft.getInstance().getTextureManager().release(cached);
         }
@@ -683,7 +683,7 @@ public class ExternalTextureManager {
     private static void refreshTextureCacheAsync(String presetId, String textureName) {
         String cacheKey = presetId + ":" + textureName;
         Minecraft.getInstance().execute(() -> {
-            ResourceLocation cached = TEXTURE_CACHE.remove(cacheKey);
+            Identifier cached = TEXTURE_CACHE.remove(cacheKey);
             if (cached != null) {
                 Minecraft.getInstance().getTextureManager().release(cached);
             }
@@ -697,9 +697,9 @@ public class ExternalTextureManager {
                 NativeImage image = NativeImage.read(stream);
                 Minecraft.getInstance().execute(() -> {
                     try {
-                        DynamicTexture texture = new DynamicTexture(image);
+                        DynamicTexture texture = new DynamicTexture(() -> "gd656_dynamic", image);
                         String dynamicName = "gd656killicon_external_" + presetId + "_" + textureName.replace("/", "_").replace(".", "_");
-                        ResourceLocation dynamicLoc = Minecraft.getInstance().getTextureManager().register(dynamicName, texture);
+                        Identifier dynamicLoc = Identifier.fromNamespaceAndPath("gd656killicon", dynamicName); Minecraft.getInstance().getTextureManager().register(dynamicLoc, texture);
                         TEXTURE_CACHE.put(cacheKey, dynamicLoc);
                     } catch (Exception e) {
                         image.close();
@@ -715,7 +715,7 @@ public class ExternalTextureManager {
         if (cached != null) {
             return cached;
         }
-        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + textureName);
+        Identifier resourceLocation = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + textureName);
         try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
             byte[] data = stream.readAllBytes();
             DEFAULT_TEXTURE_BYTES.put(textureName, data);
@@ -751,7 +751,7 @@ public class ExternalTextureManager {
         }
 
         if (isVanillaTexturePath(path)) {
-            ResourceLocation vanilla = getVanillaTextureLocation(path);
+            Identifier vanilla = getVanillaTextureLocation(path);
             if (vanilla != null) {
                 try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(vanilla).get().open();
                      NativeImage image = NativeImage.read(stream)) {
@@ -776,7 +776,7 @@ public class ExternalTextureManager {
              } catch (IOException ignored) {}
         }
         
-        ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
+        Identifier resourceLocation = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + path);
         try {
              try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open();
                   NativeImage image = NativeImage.read(stream)) {
@@ -1054,7 +1054,7 @@ public class ExternalTextureManager {
                     Files.createDirectories(targetPath.getParent());
                 }
                 if (forceReset || !Files.exists(targetPath)) {
-                    ResourceLocation resourceLocation = ResourceLocation.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + texturePath);
+                    Identifier resourceLocation = Identifier.fromNamespaceAndPath(Gd656killicon.MODID, "textures/" + texturePath);
                     try (InputStream stream = Minecraft.getInstance().getResourceManager().getResource(resourceLocation).get().open()) {
                         Files.copy(stream, targetPath, StandardCopyOption.REPLACE_EXISTING);
                     } catch (Exception e) {

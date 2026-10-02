@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.gui.elements;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import org.lwjgl.glfw.GLFW;
@@ -170,17 +170,16 @@ public class ChoiceListDialog {
         this.visible = false;
     }
 
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
 
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, 0, 500.0f);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0,  0);
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
 
-        int dimColor = 0x88444444;
-        guiGraphics.fill(0, 0, screenWidth, screenHeight, dimColor);
+        guiGraphics.fill(0, 0, screenWidth, screenHeight, GuiConstants.COLOR_DIALOG_DIM);
 
         int centerX = (screenWidth - PANEL_WIDTH) / 2;
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
@@ -194,7 +193,7 @@ public class ChoiceListDialog {
         int containerRight = centerX + PANEL_WIDTH + PAD;
         int containerBottom = buttonsY + BUTTON_HEIGHT + PAD;
 
-        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_BG);
+        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_DIALOG_BG);
 
         if (titleRenderer != null) {
             titleRenderer.setX1(centerX);
@@ -229,13 +228,11 @@ public class ChoiceListDialog {
 
         updateScroll(dt, listH);
 
-        int listBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int)(255 * 0.35f) << 24;
-        guiGraphics.fill(listX, listY, listX + listW, listY + listH, listBgColor);
+        guiGraphics.fill(listX, listY, listX + listW, listY + listH, GuiConstants.COLOR_DIALOG_INPUT_BG);
 
         renderList(guiGraphics, mouseX, mouseY, partialTick, listX, listY, listX + listW, listY + listH);
 
-        int inputBgColor = (GuiConstants.COLOR_BLACK & 0x00FFFFFF) | (int)(255 * 0.45f) << 24;
-        guiGraphics.fill(inputX, inputY, inputX + inputW, inputY + INPUT_HEIGHT, inputBgColor);
+        guiGraphics.fill(inputX, inputY, inputX + inputW, inputY + INPUT_HEIGHT, GuiConstants.COLOR_DIALOG_INPUT_BG);
 
         renderHoverTrail(guiGraphics, inputX, inputY, inputW, INPUT_HEIGHT, inputHoverProgress);
         renderInputText(guiGraphics, inputX, inputY, inputW, INPUT_HEIGHT);
@@ -255,7 +252,7 @@ public class ChoiceListDialog {
             confirmButton.render(guiGraphics, mouseX, mouseY, partialTick);
         }
 
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -323,7 +320,7 @@ public class ChoiceListDialog {
         return false;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (!visible) return false;
 
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
@@ -335,7 +332,7 @@ public class ChoiceListDialog {
         int listX = centerX;
 
         if (mouseX >= listX && mouseX <= listX + PANEL_WIDTH && mouseY >= listY && mouseY <= listY + LIST_HEIGHT) {
-            targetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
+            targetScrollY -= amountY * GuiConstants.SCROLL_AMOUNT;
             return true;
         }
         return true;
@@ -344,18 +341,20 @@ public class ChoiceListDialog {
     public boolean charTyped(char codePoint, int modifiers) {
         if (!visible) return false;
 
-        if (net.minecraft.SharedConstants.isAllowedChatCharacter(codePoint)) {
+        if (true) { // TODO(chat): 26.1 改由 CharacterEvent.isAllowedChatCharacter() 判断
             replaceSelection(String.valueOf(codePoint));
             applyFilter();
             return true;
         }
         return false;
     }
-
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (!visible) return false;
-        boolean controlDown = Screen.hasControlDown() || (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
-        boolean shiftDown = Screen.hasShiftDown() || (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+        boolean controlDown = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean shiftDown = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
 
         if (controlDown && keyCode == GLFW.GLFW_KEY_A) {
             selectionAnchor = 0;
@@ -461,12 +460,12 @@ public class ChoiceListDialog {
         return true;
     }
 
-    private void renderList(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int x1, int y1, int x2, int y2) {
+    private void renderList(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int x1, int y1, int x2, int y2) {
         if (y2 <= y1) return;
 
         guiGraphics.enableScissor(x1, y1, x2, y2);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -scrollY, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0f, (float) -scrollY);
 
         int rowHeight = GuiConstants.ROW_HEADER_HEIGHT;
         for (int i = 0; i < filteredChoices.size(); i++) {
@@ -481,11 +480,11 @@ public class ChoiceListDialog {
             }
         }
 
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         guiGraphics.disableScissor();
     }
 
-    private void renderChoiceRow(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int index, FixedChoiceConfigEntry.Choice choice, int x1, int y1, int x2, int y2) {
+    private void renderChoiceRow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int index, FixedChoiceConfigEntry.Choice choice, int x1, int y1, int x2, int y2) {
         int rowBgColor = GuiConstants.COLOR_BLACK & 0xFFFFFF;
         float alpha = (index % 2 == 1) ? 0.10f : 0.30f;
 
@@ -524,7 +523,7 @@ public class ChoiceListDialog {
         renderer.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    private void renderInputText(GuiGraphics guiGraphics, int x, int y, int w, int h) {
+    private void renderInputText(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h) {
         guiGraphics.enableScissor(x, y, x + w, y + h);
 
         int textWidth = minecraft.font.width(filterText);
@@ -552,7 +551,7 @@ public class ChoiceListDialog {
             guiGraphics.fill(sx, drawY - 1, ex, drawY + minecraft.font.lineHeight + 1, 0x66FFD700);
         }
 
-        guiGraphics.drawString(minecraft.font, filterText, drawX, drawY, GuiConstants.COLOR_WHITE, true);
+        guiGraphics.text(minecraft.font, filterText, drawX, drawY, GuiConstants.COLOR_WHITE, true);
 
         if (System.currentTimeMillis() / 500 % 2 == 0) {
             int cx = drawX + cursorXRel;
@@ -564,7 +563,7 @@ public class ChoiceListDialog {
         guiGraphics.disableScissor();
     }
 
-    private void renderHoverTrail(GuiGraphics guiGraphics, int x, int y, int w, int h, float progress) {
+    private void renderHoverTrail(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, float progress) {
         if (progress <= 0.001f) return;
 
         int color = GuiConstants.COLOR_GOLD;

@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.render.effect;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 
 /**
@@ -70,7 +70,7 @@ public final class SubtitleEntranceBackground {
      * @param mirror            为 true 时方向完全镜像: 右边框固定(距字幕右边缘 2 像素),
      *                          宽度从右侧向左侧扫动(右对齐字幕使用); false 为左边缘固定向右扫。
      */
-    public static void draw(GuiGraphics guiGraphics, long elapsedMs,
+    public static void draw(GuiGraphicsExtractor guiGraphics, long elapsedMs,
                             float textLeft, float textRight,
                             float midY, float textHeight,
                             long fadeInMs, long sweepMs, long fadeOutMs,
@@ -122,9 +122,6 @@ public final class SubtitleEntranceBackground {
         int t = Math.round(top);
         int b = Math.round(bottom);
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
         guiGraphics.fill(l, t, r, b, argb);
-        RenderSystem.disableBlend();
     }
 }

@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
@@ -124,7 +124,7 @@ public class SoundConfigContent extends ConfigTabContent {
     }
 
     @Override
-    protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    protected void renderContent(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         if (gridWidget != null) {
             gridWidget.render(guiGraphics, mouseX, mouseY, partialTick, null);
             
@@ -136,7 +136,7 @@ public class SoundConfigContent extends ConfigTabContent {
         super.renderContent(guiGraphics, mouseX, mouseY, partialTick, screenWidth, screenHeight, headerHeight);
     }
 
-    private void renderWaveform(GuiGraphics guiGraphics, int x, int y, int width, int height) {
+    private void renderWaveform(GuiGraphicsExtractor guiGraphics, int x, int y, int width, int height) {
         if (!selectedSoundName.equals(cachedSoundDataName)) {
             cachedSoundData = ExternalSoundManager.getSoundData(selectedSoundName);
             cachedSoundDataName = selectedSoundName;
@@ -232,7 +232,7 @@ public class SoundConfigContent extends ConfigTabContent {
     }
 
     @Override
-    protected void renderSideButtons(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
+    protected void renderSideButtons(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int buttonHeight = GuiConstants.ROW_HEADER_HEIGHT;
         int padding = GuiConstants.DEFAULT_PADDING;
@@ -328,12 +328,15 @@ public class SoundConfigContent extends ConfigTabContent {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (promptDialog.isVisible()) {
-            return promptDialog.keyPressed(keyCode, scanCode, modifiers);
+            return promptDialog.keyPressed(event);
         }
         if (textInputDialog.isVisible()) {
-            return textInputDialog.keyPressed(keyCode, scanCode, modifiers);
+            return textInputDialog.keyPressed(event);
         }
         if (keyCode == 256) {
             if (isSelectingSound) {
@@ -343,7 +346,7 @@ public class SoundConfigContent extends ConfigTabContent {
             }
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override

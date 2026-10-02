@@ -29,10 +29,10 @@ public final class ConquestHonorAdapter {
      * @return 0 = 未记录(未装 conquest / 非对局 / 调用失败); 1 = 已记录, 非本局最高; 2 = 已记录, 且该玩家当前为该 honor 本局最高。
      */
     public static int recordMatchHonor(ServerPlayer player, String honorId) {
-        if (player == null || player.server == null || honorId == null || honorId.isBlank()) {
+        if (player == null || player.level().getServer() == null || honorId == null || honorId.isBlank()) {
             return 0;
         }
-        if (!isConquestRuntimeAvailable(player.server)) {
+        if (!isConquestRuntimeAvailable(player.level().getServer())) {
             return 0;
         }
         try {

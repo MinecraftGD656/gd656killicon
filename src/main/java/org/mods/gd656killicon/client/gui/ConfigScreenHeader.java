@@ -2,7 +2,7 @@ package org.mods.gd656killicon.client.gui;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
@@ -125,9 +125,9 @@ public class ConfigScreenHeader {
         return false;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (mouseX > splitPoint && mouseY <= HEADER_HEIGHT + HEADER_SCROLL_ZONE) {
-            targetScrollX -= delta * SCROLL_AMOUNT;
+            targetScrollX -= amountY * SCROLL_AMOUNT;
             clampScroll();
             return true;
         }
@@ -140,14 +140,13 @@ public class ConfigScreenHeader {
             scrollX = targetScrollX;
         }
     }
-
-    public void render(GuiGraphics guiGraphics, int screenWidth, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int screenWidth, int mouseX, int mouseY, float partialTick) {
         long now = System.currentTimeMillis();
         float dt = (now - lastRenderTime) / 1000.0f;
         lastRenderTime = now;
         
         ConfigTabContent activeTab = getSelectedTabContent();
-        int screenHeight = guiGraphics.guiHeight();
+        int screenHeight = minecraft.getWindow().getGuiScaledHeight();
         if (activeTab != null) {
             activeTab.updateLayout(screenWidth, screenHeight);
         }
@@ -198,7 +197,7 @@ public class ConfigScreenHeader {
         saveExitButton.setHeight(height);
     }
     
-    private void renderRegionBorders(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
+    private void renderRegionBorders(GuiGraphicsExtractor guiGraphics, int screenWidth, int screenHeight) {
         int goldBarBottom = HEADER_HEIGHT + GOLD_BAR_HEIGHT;
         
         int area1Right = (screenWidth - 2 * DEFAULT_PADDING) / 3 + DEFAULT_PADDING;
@@ -239,10 +238,10 @@ public class ConfigScreenHeader {
         drawBorderRect(guiGraphics, sideX1, area4Top, sideX2, screenHeight - DEFAULT_PADDING, translucentGray);
     }
     
-    private void drawBorderRect(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int color) {
+    private void drawBorderRect(GuiGraphicsExtractor guiGraphics, int x1, int y1, int x2, int y2, int color) {
         guiGraphics.fill(x1, y1, x2, y1 + 1, color);         guiGraphics.fill(x1, y2 - 1, x2, y2, color);         guiGraphics.fill(x1, y1, x1 + 1, y2, color);         guiGraphics.fill(x2 - 1, y1, x2, y2, color);     }
 
-    private void drawBorderRectNoTop(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int color) {
+    private void drawBorderRectNoTop(GuiGraphicsExtractor guiGraphics, int x1, int y1, int x2, int y2, int color) {
         guiGraphics.fill(x1, y2 - 1, x2, y2, color);
         guiGraphics.fill(x1, y1, x1 + 1, y2, color);
         guiGraphics.fill(x2 - 1, y1, x2, y2, color);
@@ -283,7 +282,7 @@ public class ConfigScreenHeader {
         if (scrollX > maxScroll) scrollX = maxScroll;
     }
 
-    private void renderPart1(GuiGraphics guiGraphics, long now) {
+    private void renderPart1(GuiGraphicsExtractor guiGraphics, long now) {
         guiGraphics.fill(0, 0, splitPoint, HEADER_HEIGHT, COLOR_BG);
         guiGraphics.fill(0, HEADER_HEIGHT, splitPoint, HEADER_HEIGHT + GOLD_BAR_HEIGHT, COLOR_GOLD);
         
@@ -293,26 +292,26 @@ public class ConfigScreenHeader {
         float ease = getEaseOutCubic(Math.min(1.0f, elapsed / (float)INTRO_DURATION_MS));
         float animOffsetX = -TITLE_ANIM_OFFSET * (1.0f - ease);
         
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(animOffsetX + DEFAULT_PADDING, (float)DEFAULT_PADDING, 0);
-        guiGraphics.drawString(minecraft.font, title, 0, 0, COLOR_GOLD, true);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(animOffsetX + DEFAULT_PADDING, (float)DEFAULT_PADDING);
+        guiGraphics.text(minecraft.font, title, 0, 0, COLOR_GOLD, true);
+        guiGraphics.pose().popMatrix();
 
         float subtitleX = DEFAULT_PADDING + minecraft.font.width(title) + 5;
         float subtitleY = DEFAULT_PADDING + 9 - 11 * 0.5f;
         
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(animOffsetX + subtitleX, subtitleY, 0);
-        guiGraphics.pose().scale(0.5f, 0.5f, 1.0f);
-        guiGraphics.drawString(minecraft.font, subtitle, 0, 0, COLOR_GRAY, true);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(animOffsetX + subtitleX,  subtitleY);
+        guiGraphics.pose().scale(0.5f,  0.5f);
+        guiGraphics.text(minecraft.font, subtitle, 0, 0, COLOR_GRAY, true);
+        guiGraphics.pose().popMatrix();
     }
 
-    private void renderPart2(GuiGraphics guiGraphics, int screenWidth, int mouseX, int mouseY, long now, float dt) {
+    private void renderPart2(GuiGraphicsExtractor guiGraphics, int screenWidth, int mouseX, int mouseY, long now, float dt) {
         guiGraphics.enableScissor(splitPoint, 0, screenWidth, HEADER_HEIGHT + 10);
         
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate((float)(splitPoint - scrollX), 0, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate((float)(splitPoint - scrollX), 0);
         
         double localMouseX = mouseX - splitPoint + scrollX;
         
@@ -320,11 +319,11 @@ public class ConfigScreenHeader {
 
         renderTabs(guiGraphics, localMouseX, mouseY, now, dt);
         
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         guiGraphics.disableScissor();
     }
     
-    private void renderPart2Background(GuiGraphics guiGraphics, int screenWidth) {
+    private void renderPart2Background(GuiGraphicsExtractor guiGraphics, int screenWidth) {
         float drawEnd = Math.max(screenWidth + (float)maxScroll, 5000);
         
         if (selectedTab == null) {
@@ -348,13 +347,13 @@ public class ConfigScreenHeader {
         }
     }
     
-    private void renderPart2Glow(GuiGraphics guiGraphics, int startX, int endX) {
+    private void renderPart2Glow(GuiGraphicsExtractor guiGraphics, int startX, int endX) {
         int gradientStartY = HEADER_HEIGHT;
         int gradientEndY = HEADER_HEIGHT - 5;
         guiGraphics.fillGradient(startX, gradientEndY, endX, gradientStartY, 0x00000000, (0x99 << 24) | (COLOR_GOLD & 0x00FFFFFF));
     }
 
-    private void renderTabs(GuiGraphics guiGraphics, double localMouseX, int mouseY, long now, float dt) {
+    private void renderTabs(GuiGraphicsExtractor guiGraphics, double localMouseX, int mouseY, long now, float dt) {
         int selectedIndex = tabs.indexOf(selectedTab);
 
         for (int i = 0; i < tabs.size(); i++) {
@@ -387,10 +386,10 @@ public class ConfigScreenHeader {
             
             int textX = tab.x + (tab.width - minecraft.font.width(tab.content.getTitle())) / 2;
             
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(textX, textCurrentY + 8.0f, 0);
-            guiGraphics.drawString(minecraft.font, tab.content.getTitle(), 0, 0, colorWithAlpha, true);
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(textX,  textCurrentY + 8.0f);
+            guiGraphics.text(minecraft.font, tab.content.getTitle(), 0, 0, colorWithAlpha, true);
+            guiGraphics.pose().popMatrix();
             
             if (tab.selectionProgress > 0.01f) {
                 float borderEase = getEaseOutCubic(tab.selectionProgress);
@@ -405,16 +404,14 @@ public class ConfigScreenHeader {
                 float hoverEase = getEaseOutCubic(tab.hoverProgress);
                 int hoverCurrentY = (int)(HEADER_HEIGHT + (tab.finalY - HEADER_HEIGHT) * hoverEase);
                 
-                RenderSystem.enableBlend();
                 guiGraphics.fill(tab.x, hoverCurrentY, tab.x + tab.width, hoverCurrentY + 1, COLOR_HOVER_BORDER);
                 guiGraphics.fill(tab.x, hoverCurrentY, tab.x + 1, HEADER_HEIGHT, COLOR_HOVER_BORDER);
                 guiGraphics.fill(tab.x + tab.width - 1, hoverCurrentY, tab.x + tab.width, HEADER_HEIGHT, COLOR_HOVER_BORDER);
-                RenderSystem.disableBlend();
             }
         }
     }
 
-    private void renderIntroSlice(GuiGraphics guiGraphics, int screenWidth, long now) {
+    private void renderIntroSlice(GuiGraphicsExtractor guiGraphics, int screenWidth, long now) {
         long elapsed = now - openTime;
         if (elapsed > SLICE_DURATION_MS) return;
         
@@ -429,9 +426,7 @@ public class ConfigScreenHeader {
         
         int color = ((int)(alpha * 255) << 24) | (COLOR_GRAY & 0x00FFFFFF);
         
-        RenderSystem.enableBlend();
         guiGraphics.fill((int)currentX, 0, (int)(currentX + sliceWidth), HEADER_HEIGHT, color);
-        RenderSystem.disableBlend();
     }
     
     private float getEaseOutCubic(float t) {

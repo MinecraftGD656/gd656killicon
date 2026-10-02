@@ -5,11 +5,10 @@ import com.mojang.math.Axis;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.config.ElementConfigManager;
-import org.mods.gd656killicon.forge.client.ForgeHudOverlayEvents;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -57,10 +56,10 @@ public class HudElementManager {
     }
 
     public static void init() {
-        ClientBridge.loader().registerForgeEventBusSubscriber(ForgeHudOverlayEvents.class);
+        // HUD 渲染事件由 FabricClientEvents 通过 ClientGuiEvent.RENDER_HUD 驱动
     }
 
-    public static void onRenderGuiOverlay(GuiGraphics guiGraphics, float partialTick, boolean isMainOverlayPass) {
+    public static void onRenderGuiOverlay(GuiGraphicsExtractor guiGraphics, float partialTick, boolean isMainOverlayPass) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen != null && !(mc.screen instanceof ChatScreen)) {
             return;
@@ -70,9 +69,6 @@ public class HudElementManager {
             return;
         }
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         
         try {
             int screenWidth = mc.getWindow().getGuiScaledWidth();
@@ -95,17 +91,15 @@ public class HudElementManager {
                     int yOffset = config != null && config.has("y_offset") ? config.get("y_offset").getAsInt() : 0;
                     float pivotX = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterX(screenAnchor, xOffset, screenWidth);
                     float pivotY = org.mods.gd656killicon.client.render.ScreenAnchor.resolveCenterY(screenAnchor, yOffset, screenHeight);
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().translate(pivotX, pivotY, 0.0f);
-                    guiGraphics.pose().mulPose(Axis.ZP.rotationDegrees(rotationAngle));
-                    guiGraphics.pose().translate(-pivotX, -pivotY, 0.0f);
+                    guiGraphics.pose().pushMatrix();
+                    guiGraphics.pose().translate(pivotX,  pivotY);
+                    guiGraphics.pose().rotate((float) Math.toRadians(rotationAngle));
+                    guiGraphics.pose().translate(-pivotX, (float)-pivotY);
                     renderer.render(guiGraphics, partialTick);
-                    guiGraphics.pose().popPose();
+                    guiGraphics.pose().popMatrix();
                 }
             }
         } finally {
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-            RenderSystem.disableBlend();
         }
     }
 }

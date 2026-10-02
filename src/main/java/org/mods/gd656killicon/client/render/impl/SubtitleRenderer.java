@@ -1,9 +1,8 @@
 package org.mods.gd656killicon.client.render.impl;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -27,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.joml.Matrix3x2fStack;
 /**
  * Renderer for the kill feed subtitle element.
  * Displays a customizable message when a kill occurs, e.g., "You killed <target> with <weapon>".
@@ -359,7 +359,7 @@ public class SubtitleRenderer implements IHudRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         if (!this.isVisible) return;
         
         Minecraft mc = Minecraft.getInstance();
@@ -401,7 +401,7 @@ public class SubtitleRenderer implements IHudRenderer {
         }
     }
 
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY) {
         if (!this.isVisible) return;
         
         Minecraft mc = Minecraft.getInstance();
@@ -451,7 +451,7 @@ public class SubtitleRenderer implements IHudRenderer {
         return baseY + this.linkedYOffset;
     }
 
-    private void renderStacked(GuiGraphics guiGraphics, Font font, int centerX, float startY) {
+    private void renderStacked(GuiGraphicsExtractor guiGraphics, Font font, int centerX, float startY) {
         long now = PreviewRenderTimeContext.currentTimeMillis();
         
         if (!pendingQueue.isEmpty()) {
@@ -495,7 +495,7 @@ public class SubtitleRenderer implements IHudRenderer {
         renderStackItems(guiGraphics, font, centerX, startY);
     }
 
-    private void renderStackItems(GuiGraphics guiGraphics, Font font, int centerX, float startY) {
+    private void renderStackItems(GuiGraphicsExtractor guiGraphics, Font font, int centerX, float startY) {
         long now = PreviewRenderTimeContext.currentTimeMillis();
         
         for (int i = 0; i < stackedItems.size(); i++) {
@@ -571,7 +571,7 @@ public class SubtitleRenderer implements IHudRenderer {
     
     private boolean enableScaleAnimation = false;
 
-    private void renderInternal(GuiGraphics guiGraphics, Font font, int centerX, float textY, RenderState state, 
+    private void renderInternal(GuiGraphicsExtractor guiGraphics, Font font, int centerX, float textY, RenderState state, 
                               String fmt, int pColor, int eColor, String wName, String vName, float distance, int victimId, String scoreOverride, int killType) {
         // 亚像素平滑: 文本 y 的小数部分通过 pose 平移注入(MC drawString 坐标为 int),
         // 避免联动/动画时每帧整像素跳变产生颗粒感
@@ -593,8 +593,8 @@ public class SubtitleRenderer implements IHudRenderer {
             textX = centerX - textWidth / 2;
         }
 
-        PoseStack poseStack = guiGraphics.pose();
-        poseStack.pushPose();
+        Matrix3x2fStack poseStack = guiGraphics.pose();
+        poseStack.pushMatrix();
 
         float pivotX;
         if (alignLeft && !alignRight) {
@@ -621,7 +621,7 @@ public class SubtitleRenderer implements IHudRenderer {
                     configEntranceBgPeakTransparency, configEntranceBgColor, mirror);
         }
 
-        poseStack.translate(pivotX, pivotY, 0);
+        poseStack.translate(pivotX,  pivotY);
         
         float s = state.currentScale;
         if (this.enableScaleAnimation && state.elapsed < FADE_IN_DURATION) {
@@ -632,11 +632,11 @@ public class SubtitleRenderer implements IHudRenderer {
              s = this.scale;
         }
         
-        poseStack.scale(s, s, 1.0f);
-        poseStack.translate(-pivotX, -pivotY, 0);
+        poseStack.scale(s,  s);
+        poseStack.translate(-pivotX,  -pivotY);
         // 亚像素偏移: 文本 y 小数部分在 scale 后注入, 使最终绘制位置 = 浮点 textY(平滑无颗粒)
         if (textYFrac > 0.001f) {
-            poseStack.translate(0.0f, textYFrac, 0.0f);
+            poseStack.translate(0.0f,  textYFrac);
         }
 
         int alphaInt = (int) (state.alpha * 255.0f) << 24;
@@ -658,15 +658,15 @@ public class SubtitleRenderer implements IHudRenderer {
                 {-glowSize, glowSize}, {glowSize, glowSize}
             };
             for (float[] offset : offsets) {
-                poseStack.pushPose();
-                poseStack.translate(offset[0], offset[1], 0);
-                guiGraphics.drawString(font, glowComponent, textX, textYInt, glowColor, false);
-                poseStack.popPose();
+                poseStack.pushMatrix();
+                poseStack.translate(offset[0],  offset[1]);
+                guiGraphics.text(font, glowComponent, textX, textYInt, glowColor, false);
+                poseStack.popMatrix();
             }
         }
-        guiGraphics.drawString(font, fullText, textX, textYInt, colorWithAlpha, this.enableTextShadow);
+        guiGraphics.text(font, fullText, textX, textYInt, colorWithAlpha, this.enableTextShadow);
 
-        poseStack.popPose();
+        poseStack.popMatrix();
     }
 
     private static final class RenderState {

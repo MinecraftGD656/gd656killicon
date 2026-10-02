@@ -41,7 +41,7 @@ public final class ConquestScoreboardAdapter {
         }
         try {
             ensureInitialized();
-            Object payload = queryMethod.invoke(null, requester.server, requester.getUUID());
+            Object payload = queryMethod.invoke(null, requester.level().getServer(), requester.getUUID());
             if (payload == null) {
                 return null;
             }
@@ -100,7 +100,7 @@ public final class ConquestScoreboardAdapter {
 
     private static boolean isConquestScoreboardAvailable(ServerPlayer requester) {
         return requester != null
-            && requester.server != null
+            && requester.level().getServer() != null
             && ServerBridge.loader().isModLoaded("gd656conquest");
     }
 

@@ -2,14 +2,14 @@ package org.mods.gd656killicon.client.render.effect;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 
 public final class IconTextureFilterEffect {
     private IconTextureFilterEffect() {
     }
 
-    public static void apply(ResourceLocation textureLocation) {
+    public static void apply(Identifier textureLocation) {
         if (textureLocation == null) {
             return;
         }
@@ -19,7 +19,7 @@ public final class IconTextureFilterEffect {
         }
         AbstractTexture texture = minecraft.getTextureManager().getTexture(textureLocation);
         if (texture != null) {
-            texture.setFilter(ClientConfigManager.isEnableIconAntialiasing(), false);
+            // TODO(filter): 26.1 AbstractTexture.setFilter 已移除，需改用 GpuSampler
         }
     }
 }

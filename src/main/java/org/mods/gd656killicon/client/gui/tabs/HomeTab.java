@@ -1,15 +1,17 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
+
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import org.mods.gd656killicon.client.bridge.ClientBridge;
 import org.mods.gd656killicon.client.gui.GuiConstants;
 import org.mods.gd656killicon.client.gui.elements.GDRowRenderer;
 import org.mods.gd656killicon.client.gui.elements.GDTextRenderer;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,9 +30,9 @@ public class HomeTab extends ConfigTabContent {
     
     private long lastFrameTime = 0;
 
-    private static final ResourceLocation ICON_NORMAL = ResourceLocation.fromNamespaceAndPath("gd656killicon", "icon/gd656killicon_icon.png");
-    private static final ResourceLocation ICON_RARE = ResourceLocation.fromNamespaceAndPath("gd656killicon", "icon/gd656killicon_656de_shuai_zhao.png");
-    private ResourceLocation currentIcon = ICON_NORMAL;
+    private static final Identifier ICON_NORMAL = Identifier.fromNamespaceAndPath("gd656killicon", "icon/gd656killicon_icon.png");
+    private static final Identifier ICON_RARE = Identifier.fromNamespaceAndPath("gd656killicon", "icon/gd656killicon_656de_shuai_zhao.png");
+    private Identifier currentIcon = ICON_NORMAL;
     private int versionColor = GuiConstants.COLOR_WHITE;
     private GDRowRenderer linksRowRenderer;     private final List<GDRowRenderer.Column> linkHoverColumns = new ArrayList<>();
     
@@ -80,7 +82,7 @@ public class HomeTab extends ConfigTabContent {
     }
 
     @Override
-    protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    protected void renderContent(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateAreaCoordinates(screenWidth, screenHeight);
         
         long now = System.nanoTime();
@@ -188,7 +190,7 @@ public class HomeTab extends ConfigTabContent {
             int iconX = groupX;
             int iconY = groupY;
             
-            if (currentIcon == null) currentIcon = ICON_NORMAL;             guiGraphics.blit(currentIcon, iconX, iconY, 0, 0, iconSize, iconSize, iconSize, iconSize);
+            if (currentIcon == null) currentIcon = ICON_NORMAL;             guiGraphics.blit(RenderPipelines.GUI_TEXTURED, currentIcon, iconX, iconY, 0, 0, iconSize, iconSize, iconSize, iconSize);
             
             int textStartX = iconX + iconSize;
             
@@ -207,14 +209,14 @@ public class HomeTab extends ConfigTabContent {
              int contentHeight = screenHeight - contentY - GuiConstants.DEFAULT_PADDING;
              
              guiGraphics.enableScissor(contentX, contentY, contentX + contentWidth, contentY + contentHeight);
-             guiGraphics.pose().pushPose();
-             guiGraphics.pose().translate(0, -scrollY, 0);
+             guiGraphics.pose().pushMatrix();
+             guiGraphics.pose().translate(0f, (float) -scrollY);
              
              for (GDRowRenderer row : configRows) {
                  row.render(guiGraphics, mouseX, (int)(mouseY + scrollY), partialTick);
              }
              
-             guiGraphics.pose().popPose();
+             guiGraphics.pose().popMatrix();
              guiGraphics.disableScissor();
         }
     }
@@ -262,7 +264,7 @@ public class HomeTab extends ConfigTabContent {
         this.area3Y2 = screenHeight - GuiConstants.REGION_4_HEIGHT - 2 * GuiConstants.DEFAULT_PADDING;
     }
 
-    private void renderArea3(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    private void renderArea3(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         int x1 = area3X1;
         int yStart = area3Y1;
         int x2 = area3X2;
@@ -279,8 +281,8 @@ public class HomeTab extends ConfigTabContent {
         }
 
         guiGraphics.enableScissor(area3X1, area3Y1, area3X2, area3Y2);
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, -scrollY3, 0);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0f, (float)-scrollY3);
 
         for (int i = 0; i < modStatuses.size(); i++) {
             ModStatus status = modStatuses.get(i);
@@ -337,7 +339,7 @@ public class HomeTab extends ConfigTabContent {
             }
         }
         
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         guiGraphics.disableScissor();
     }
     
@@ -391,14 +393,13 @@ public class HomeTab extends ConfigTabContent {
     }
     
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (mouseX >= area3X1 && mouseX <= area3X2 && mouseY >= area3Y1 && mouseY <= area3Y2) {
-            targetScrollY3 -= delta * GuiConstants.SCROLL_AMOUNT;
+            targetScrollY3 -= amountY * GuiConstants.SCROLL_AMOUNT;
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-
     private static class ModStatus {
         final String nameKey;
         final String modId;

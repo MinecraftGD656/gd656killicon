@@ -1,16 +1,20 @@
 package org.mods.gd656killicon.client.gui.elements;
 
+
+
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
+import org.mods.gd656killicon.client.render.util.GDMesh;
 import org.mods.gd656killicon.client.gui.GuiConstants;
-import org.joml.Matrix4f;
-
+import org.joml.Matrix3x2fStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
@@ -142,17 +146,16 @@ public class ColorPickerDialog {
         return visible;
     }
     
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
         
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, 0, 500.0f);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0,  0);
         
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
         
-        int dimColor = 0x88444444;
-        guiGraphics.fill(0, 0, screenWidth, screenHeight, dimColor);
+        guiGraphics.fill(0, 0, screenWidth, screenHeight, GuiConstants.COLOR_DIALOG_DIM);
         
         int centerX = (screenWidth - PANEL_WIDTH) / 2;
         int centerY = (screenHeight - PANEL_HEIGHT) / 2 + 20;
@@ -166,7 +169,7 @@ public class ColorPickerDialog {
         int containerRight = centerX + PANEL_WIDTH + PAD;
         int containerBottom = buttonsY + BUTTON_HEIGHT + PAD;
         
-        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_BG);
+        guiGraphics.fill(containerLeft, containerTop, containerRight, containerBottom, GuiConstants.COLOR_DIALOG_BG);
         
         if (titleRenderer != null) {
             titleRenderer.setX1(centerX);
@@ -217,10 +220,10 @@ public class ColorPickerDialog {
         selX = Math.max(svX, Math.min(svX + svW, selX));
         selY = Math.max(svY, Math.min(svY + svH, selY));
 
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0, 0, 1);         guiGraphics.fill(selX - 2, selY - 2, selX + 2, selY + 2, 0xFFFFFFFF);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(0,  0);         guiGraphics.fill(selX - 2, selY - 2, selX + 2, selY + 2, 0xFFFFFFFF);
         guiGraphics.fill(selX - 1, selY - 1, selX + 1, selY + 1, 0xFF000000);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
         
         int hueSelY = hueY + (int)(h * hueH);
         hueSelY = Math.max(hueY, Math.min(hueY + hueH, hueSelY));
@@ -261,38 +264,32 @@ public class ColorPickerDialog {
             updateCurrentRGB();
         }
         
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
     
-    private void renderSVBox(GuiGraphics guiGraphics, int x, int y, int w, int h) {
+    private void renderSVBox(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h) {
         int hueColor = Color.HSBtoRGB(this.h, 1.0f, 1.0f);
         int r = (hueColor >> 16) & 0xFF;
         int g = (hueColor >> 8) & 0xFF;
         int b = hueColor & 0xFF;
         
-        Matrix4f matrix = guiGraphics.pose().last().pose();
+        Matrix3x2fStack pose = guiGraphics.pose();
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder bufferbuilder = tesselator.getBuilder();
+        GDMesh.Builder bufferbuilder = GDMesh.begin();
         
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
         
-        bufferbuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        bufferbuilder.addVertexWith2DPose(pose, x, y + h).setColor(0, 0, 0, 255);
         
-        bufferbuilder.vertex(matrix, x, y + h, 0).color(0, 0, 0, 255).endVertex();
+        bufferbuilder.addVertexWith2DPose(pose, x + w, y + h).setColor(0, 0, 0, 255);
         
-        bufferbuilder.vertex(matrix, x + w, y + h, 0).color(0, 0, 0, 255).endVertex();
+        bufferbuilder.addVertexWith2DPose(pose, x + w, y).setColor(r, g, b, 255);
         
-        bufferbuilder.vertex(matrix, x + w, y, 0).color(r, g, b, 255).endVertex();
+        bufferbuilder.addVertexWith2DPose(pose, x, y).setColor(255, 255, 255, 255);
         
-        bufferbuilder.vertex(matrix, x, y, 0).color(255, 255, 255, 255).endVertex();
-        
-        BufferUploader.drawWithShader(bufferbuilder.end());
-        RenderSystem.disableBlend();
+        GDMesh.submit(guiGraphics, bufferbuilder);
     }
     
-    private void renderHueBar(GuiGraphics guiGraphics, int x, int y, int w, int h) {
+    private void renderHueBar(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h) {
         int step = 1;
         for (int i = 0; i < h; i += step) {
             float hue = (float)i / h;
@@ -301,7 +298,7 @@ public class ColorPickerDialog {
         }
     }
     
-    private void renderHoverTrail(GuiGraphics guiGraphics, int x, int y, int w, int h, float progress) {
+    private void renderHoverTrail(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, float progress) {
         if (progress <= 0.001f) return;
         
         int color = GuiConstants.COLOR_GOLD;
@@ -376,11 +373,14 @@ public class ColorPickerDialog {
         return false;
     }
     
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         return visible;
     }
     
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (!visible) return false;
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             cancel();

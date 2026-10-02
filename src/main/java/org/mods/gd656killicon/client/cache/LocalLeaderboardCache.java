@@ -1,10 +1,10 @@
 package org.mods.gd656killicon.client.cache;
 
+import dev.architectury.platform.Platform;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.fml.loading.FMLPaths;
 import org.mods.gd656killicon.network.packet.ScoreboardSyncPacket;
 
 import java.io.Reader;
@@ -38,7 +38,7 @@ public final class LocalLeaderboardCache {
      * 获取缓存目录路径。
      */
     private static Path getCacheDir() {
-        Path dir = FMLPaths.GAMEDIR.get().resolve("data").resolve("gd656killicon").resolve(CACHE_DIR_NAME);
+        Path dir = Platform.getGameFolder().resolve("data").resolve("gd656killicon").resolve(CACHE_DIR_NAME);
         try {
             Files.createDirectories(dir);
         } catch (Exception ignored) {

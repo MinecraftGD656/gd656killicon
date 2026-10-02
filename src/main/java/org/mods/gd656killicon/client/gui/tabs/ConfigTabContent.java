@@ -1,7 +1,7 @@
 package org.mods.gd656killicon.client.gui.tabs;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 import org.mods.gd656killicon.client.gui.GuiConstants;
@@ -102,7 +102,7 @@ public abstract class ConfigTabContent {
     public void onFilesDrop(java.util.List<java.nio.file.Path> paths) {
     }
 
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         updateResetButtonState();
 
         boolean isDialogVisible = textInputDialog.isVisible() || colorPickerDialog.isVisible() || choiceListDialog.isVisible() || promptDialog.isVisible();
@@ -171,7 +171,7 @@ public abstract class ConfigTabContent {
         }
     }
 
-    protected void renderSideButtons(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
+    protected void renderSideButtons(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight) {
         int area1Right = (screenWidth - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int buttonY = screenHeight - GuiConstants.DEFAULT_PADDING - GuiConstants.ROW_HEADER_HEIGHT - 1 - GuiConstants.ROW_HEADER_HEIGHT;
         
@@ -226,7 +226,7 @@ public abstract class ConfigTabContent {
         cancelButton.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    protected void renderDynamicDescription(GuiGraphics guiGraphics, GDRowRenderer row, float partialTick) {
+    protected void renderDynamicDescription(GuiGraphicsExtractor guiGraphics, GDRowRenderer row, float partialTick) {
         int area1Right = (minecraft.getWindow().getGuiScaledWidth() - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
         int x1 = GuiConstants.DEFAULT_PADDING;
         
@@ -273,7 +273,7 @@ public abstract class ConfigTabContent {
         }
     }
 
-    protected void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    protected void renderContent(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         if (!configRows.isEmpty()) {
             if (useDefaultScroll) {
                 long now = System.nanoTime();
@@ -297,14 +297,14 @@ public abstract class ConfigTabContent {
                 int contentHeight = screenHeight - contentY - GuiConstants.DEFAULT_PADDING;
 
                 guiGraphics.enableScissor(contentX, contentY, contentX + contentWidth, contentY + contentHeight);
-                guiGraphics.pose().pushPose();
-                guiGraphics.pose().translate(0, -scrollY, 0);
+                guiGraphics.pose().pushMatrix();
+                guiGraphics.pose().translate(0f, (float) -scrollY);
 
                 for (GDRowRenderer row : configRows) {
                     row.render(guiGraphics, mouseX, (int)(mouseY + scrollY), partialTick);
                 }
 
-                guiGraphics.pose().popPose();
+                guiGraphics.pose().popMatrix();
                 guiGraphics.disableScissor();
             } else {
                 for (GDRowRenderer row : configRows) {
@@ -321,7 +321,7 @@ public abstract class ConfigTabContent {
         int contentX = area1Right + GuiConstants.DEFAULT_PADDING + (screenWidth - area1Right - 2 * GuiConstants.DEFAULT_PADDING - textWidth) / 2;
         int contentY = GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING + (screenHeight - (GuiConstants.HEADER_HEIGHT + GuiConstants.GOLD_BAR_HEIGHT + GuiConstants.DEFAULT_PADDING) - 9) / 2;
         
-        guiGraphics.drawString(minecraft.font, noContent, contentX, contentY, GuiConstants.COLOR_GRAY, true);
+        guiGraphics.text(minecraft.font, noContent, contentX, contentY, GuiConstants.COLOR_GRAY, true);
     }
     
     public Component getTitle() {
@@ -404,7 +404,7 @@ public abstract class ConfigTabContent {
         this.totalContentHeight = currentY - contentY;
     }
 
-    protected void renderTabHeader(GuiGraphics guiGraphics, int screenWidth, int screenHeight, float partialTick) {
+    protected void renderTabHeader(GuiGraphicsExtractor guiGraphics, int screenWidth, int screenHeight, float partialTick) {
         updateLayout(screenWidth, screenHeight);
     }
 
@@ -495,31 +495,30 @@ public abstract class ConfigTabContent {
         return false;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (promptDialog.isVisible()) {
-            return promptDialog.mouseScrolled(mouseX, mouseY, delta);
+            return promptDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (textInputDialog.isVisible()) {
-            return textInputDialog.mouseScrolled(mouseX, mouseY, delta);
+            return textInputDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (colorPickerDialog.isVisible()) {
-            return colorPickerDialog.mouseScrolled(mouseX, mouseY, delta);
+            return colorPickerDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
         if (choiceListDialog.isVisible()) {
-            return choiceListDialog.mouseScrolled(mouseX, mouseY, delta);
+            return choiceListDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
 
         if (useDefaultScroll) {
              int area1Right = (minecraft.getWindow().getGuiScaledWidth() - 2 * GuiConstants.DEFAULT_PADDING) / 3 + GuiConstants.DEFAULT_PADDING;
              int contentX = area1Right + GuiConstants.DEFAULT_PADDING;
              if (mouseX > contentX) {
-                 targetScrollY -= delta * GuiConstants.SCROLL_AMOUNT;
+                 targetScrollY -= amountY * GuiConstants.SCROLL_AMOUNT;
                  return true;
              }
         }
         return false;
     }
-
     public boolean charTyped(char codePoint, int modifiers) {
         if (promptDialog.isVisible()) {
             return promptDialog.charTyped(codePoint, modifiers);
@@ -533,18 +532,21 @@ public abstract class ConfigTabContent {
         return false;
     }
 
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (promptDialog.isVisible()) {
-            return promptDialog.keyPressed(keyCode, scanCode, modifiers);
+            return promptDialog.keyPressed(event);
         }
         if (textInputDialog.isVisible()) {
-            return textInputDialog.keyPressed(keyCode, scanCode, modifiers);
+            return textInputDialog.keyPressed(event);
         }
         if (colorPickerDialog.isVisible()) {
-            return colorPickerDialog.keyPressed(keyCode, scanCode, modifiers);
+            return colorPickerDialog.keyPressed(event);
         }
         if (choiceListDialog.isVisible()) {
-            return choiceListDialog.keyPressed(keyCode, scanCode, modifiers);
+            return choiceListDialog.keyPressed(event);
         }
         return false;
     }

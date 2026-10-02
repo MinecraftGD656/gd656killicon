@@ -1,9 +1,8 @@
 package org.mods.gd656killicon.client.render.impl;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 import org.mods.gd656killicon.client.config.ConfigManager;
 import org.mods.gd656killicon.client.render.IHudRenderer;
@@ -15,6 +14,7 @@ import org.mods.gd656killicon.client.sounds.SoundTriggerManager;
 import org.mods.gd656killicon.client.util.ClientMessageLogger;
 import com.google.gson.JsonObject;
 
+import org.joml.Matrix3x2fStack;
 /**
  * Renderer for the score subtitle element.
  * Displays a cumulative score with digital scroll animation and flicker effects.
@@ -72,7 +72,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, float partialTick) {
         RenderState state = resolveRenderState();
         if (state == null) {
             return;
@@ -88,7 +88,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         renderInternal(guiGraphics, font, centerX, textY, state);
     }
 
-    public void renderAt(GuiGraphics guiGraphics, float partialTick, float centerX, float centerY) {
+    public void renderAt(GuiGraphicsExtractor guiGraphics, float partialTick, float centerX, float centerY) {
         RenderState state = resolveRenderState();
         if (state == null) {
             return;
@@ -152,7 +152,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         return new RenderState(currentTime, currentScale, alpha);
     }
 
-    private void renderInternal(GuiGraphics guiGraphics, Font font, int centerX, int textY, RenderState state) {
+    private void renderInternal(GuiGraphicsExtractor guiGraphics, Font font, int centerX, int textY, RenderState state) {
         float displayScore;
         if (this.enableDigitalScroll) {
             displayScore = scrollEffect != null ? scrollEffect.getCurrentValue() : 0;
@@ -196,8 +196,8 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         }
         int currentX = textX;
 
-        PoseStack poseStack = guiGraphics.pose();
-        poseStack.pushPose();
+        Matrix3x2fStack poseStack = guiGraphics.pose();
+        poseStack.pushMatrix();
 
         float pivotX;
         float pivotY = textY + font.lineHeight / 2.0f;
@@ -225,9 +225,9 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
                     configEntranceBgPeakTransparency, configEntranceBgColor, false);
         }
 
-        poseStack.translate(pivotX, pivotY, 0);
-        poseStack.scale(state.currentScale, state.currentScale, 1.0f);
-        poseStack.translate(-pivotX, -pivotY, 0);
+        poseStack.translate(pivotX,  pivotY);
+        poseStack.scale(state.currentScale,  state.currentScale);
+        poseStack.translate(-pivotX,  -pivotY);
 
         if (!prefix.isEmpty()) {
             drawTextWithGlow(guiGraphics, font, prefix, currentX, textY, defaultColorWithAlpha, this.enableTextShadow);
@@ -243,7 +243,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             drawTextWithGlow(guiGraphics, font, suffix, currentX, textY, defaultColorWithAlpha, this.enableTextShadow);
         }
 
-        poseStack.popPose();
+        poseStack.popMatrix();
     }
 
     private static final class RenderState {
@@ -258,7 +258,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
         }
     }
 
-    private void drawTextWithGlow(GuiGraphics guiGraphics, Font font, String text, int x, int y, int color, boolean dropShadow) {
+    private void drawTextWithGlow(GuiGraphicsExtractor guiGraphics, Font font, String text, int x, int y, int color, boolean dropShadow) {
         if (this.enableGlowEffect) {
             int alpha = (color >> 24) & 0xFF;
             int glowAlpha = (int) (alpha * this.glowIntensity * this.glowAlphaMultiplier);
@@ -267,7 +267,7 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             
             int glowColor = (this.glowColorRgb & 0x00FFFFFF) | (glowAlpha << 24);
             
-            PoseStack poseStack = guiGraphics.pose();
+            Matrix3x2fStack poseStack = guiGraphics.pose();
             
             float[][] offsets = {
                 {-glowSize, 0}, {glowSize, 0}, {0, -glowSize}, {0, glowSize},
@@ -276,13 +276,13 @@ public class ScoreSubtitleRenderer implements IHudRenderer {
             };
             
             for (float[] offset : offsets) {
-                poseStack.pushPose();
-                poseStack.translate(offset[0], offset[1], 0);
-                guiGraphics.drawString(font, text, x, y, glowColor, false);
-                poseStack.popPose();
+                poseStack.pushMatrix();
+                poseStack.translate(offset[0],  offset[1]);
+                guiGraphics.text(font, text, x, y, glowColor, false);
+                poseStack.popMatrix();
             }
         }
-        guiGraphics.drawString(font, text, x, y, color, dropShadow);
+        guiGraphics.text(font, text, x, y, color, dropShadow);
     }
 
 

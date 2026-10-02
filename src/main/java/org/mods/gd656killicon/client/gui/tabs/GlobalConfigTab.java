@@ -4,7 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -209,7 +209,7 @@ public class GlobalConfigTab extends ConfigTabContent {
     }
 
     @Override
-    public void render(net.minecraft.client.gui.GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
+    public void render(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int screenWidth, int screenHeight, int headerHeight) {
         boolean dialogVisible = aceLagConfirmDialog != null && aceLagConfirmDialog.isVisible();
         int effectiveMouseX = dialogVisible ? -1 : mouseX;
         int effectiveMouseY = dialogVisible ? -1 : mouseY;
@@ -228,19 +228,21 @@ public class GlobalConfigTab extends ConfigTabContent {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amountY) {
         if (aceLagConfirmDialog != null && aceLagConfirmDialog.isVisible()) {
-            return aceLagConfirmDialog.mouseScrolled(mouseX, mouseY, delta);
+            return aceLagConfirmDialog.mouseScrolled(mouseX, mouseY, amountY);
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, amountY);
     }
-
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        int scanCode = event.scancode();
+        int modifiers = event.modifiers();
         if (aceLagConfirmDialog != null && aceLagConfirmDialog.isVisible()) {
-            return aceLagConfirmDialog.keyPressed(keyCode, scanCode, modifiers);
+            return aceLagConfirmDialog.keyPressed(event);
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
@@ -264,14 +266,14 @@ public class GlobalConfigTab extends ConfigTabContent {
         List<FixedChoiceConfigEntry.Choice> choices = new ArrayList<>();
         List<Block> blocks = new ArrayList<>();
         for (Block block : BuiltInRegistries.BLOCK) {
-            ResourceLocation key = BuiltInRegistries.BLOCK.getKey(block);
+            Identifier key = BuiltInRegistries.BLOCK.getKey(block);
             if (key != null && "minecraft".equals(key.getNamespace()) && !"minecraft:air".equals(key.toString())) {
                 blocks.add(block);
             }
         }
         blocks.sort(Comparator.comparing(block -> block.getName().getString()));
         for (Block block : blocks) {
-            ResourceLocation key = BuiltInRegistries.BLOCK.getKey(block);
+            Identifier key = BuiltInRegistries.BLOCK.getKey(block);
             if (key == null) {
                 continue;
             }
@@ -279,7 +281,7 @@ public class GlobalConfigTab extends ConfigTabContent {
             if (!state.canOcclude() || !state.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
                 continue;
             }
-            ResourceLocation textureLocation = ResourceLocation.fromNamespaceAndPath(key.getNamespace(), "textures/block/" + key.getPath() + ".png");
+            Identifier textureLocation = Identifier.fromNamespaceAndPath(key.getNamespace(), "textures/block/" + key.getPath() + ".png");
             if (minecraft.getResourceManager().getResource(textureLocation).isEmpty()) {
                 continue;
             }
