@@ -37,6 +37,7 @@ public class ClientEvents {
 
 
     public static void onClientPlayerLogout() {
+        org.mods.gd656killicon.client.gui.tabs.ScoreboardTab.clearSession();
         org.mods.gd656killicon.client.render.impl.ComboSubtitleRenderer.getInstance().onPlayerLogout();
     }
 

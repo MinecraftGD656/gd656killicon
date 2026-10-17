@@ -3,6 +3,7 @@ package org.mods.gd656killicon.network.packet;
 import net.minecraft.network.FriendlyByteBuf;
 import org.mods.gd656killicon.network.IPacket;
 import org.mods.gd656killicon.network.PacketContext;
+import org.mods.gd656killicon.common.scoreboard.ScoreboardType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,14 +17,26 @@ public class ScoreboardSyncPacket implements IPacket {
     private final int offset;
     private final int totalCount;
     private final long requestId;
+    private final long snapshotId;
+    private final int nextOffset;
+    private final boolean hasMore;
+    private final boolean snapshotExpired;
+    private final ScoreboardType scoreboardType;
     private final int serverLayoutColumns;
     private final String[] serverPanelTeams;
 
-    public ScoreboardSyncPacket(List<Entry> entries, int offset, int totalCount, long requestId, int serverLayoutColumns, String[] serverPanelTeams) {
+    public ScoreboardSyncPacket(List<Entry> entries, int offset, int totalCount, long requestId,
+                                long snapshotId, int nextOffset, boolean hasMore, boolean snapshotExpired,
+                                ScoreboardType scoreboardType, int serverLayoutColumns, String[] serverPanelTeams) {
         this.entries = entries;
         this.offset = Math.max(0, offset);
         this.totalCount = Math.max(0, totalCount);
         this.requestId = requestId;
+        this.snapshotId = snapshotId;
+        this.nextOffset = nextOffset;
+        this.hasMore = hasMore;
+        this.snapshotExpired = snapshotExpired;
+        this.scoreboardType = scoreboardType;
         this.serverLayoutColumns = serverLayoutColumns;
         this.serverPanelTeams = new String[]{
             teamAt(serverPanelTeams, 0),
@@ -37,6 +50,11 @@ public class ScoreboardSyncPacket implements IPacket {
         this.offset = Math.max(0, buffer.readInt());
         this.totalCount = Math.max(0, buffer.readInt());
         this.requestId = buffer.readLong();
+        this.snapshotId = buffer.readLong();
+        this.nextOffset = buffer.readInt();
+        this.hasMore = buffer.readBoolean();
+        this.snapshotExpired = buffer.readBoolean();
+        this.scoreboardType = buffer.readEnum(ScoreboardType.class);
         this.serverLayoutColumns = buffer.readInt();
         this.serverPanelTeams = new String[]{
             buffer.readUtf(),
@@ -69,6 +87,11 @@ public class ScoreboardSyncPacket implements IPacket {
         buffer.writeInt(offset);
         buffer.writeInt(totalCount);
         buffer.writeLong(requestId);
+        buffer.writeLong(snapshotId);
+        buffer.writeInt(nextOffset);
+        buffer.writeBoolean(hasMore);
+        buffer.writeBoolean(snapshotExpired);
+        buffer.writeEnum(scoreboardType);
         buffer.writeInt(serverLayoutColumns);
         buffer.writeUtf(serverPanelTeams[0]);
         buffer.writeUtf(serverPanelTeams[1]);
@@ -95,7 +118,9 @@ public class ScoreboardSyncPacket implements IPacket {
     @Override
     public void handle(PacketContext context) {
         context.enqueueWork(() -> {
-            org.mods.gd656killicon.client.gui.tabs.ScoreboardTab.updateData(this.entries, this.offset, this.totalCount, this.requestId, this.serverLayoutColumns, this.serverPanelTeams);
+            org.mods.gd656killicon.client.gui.tabs.ScoreboardTab.updateData(this.entries, this.offset,
+                this.totalCount, this.requestId, this.snapshotId, this.nextOffset, this.hasMore,
+                this.snapshotExpired, this.scoreboardType, this.serverLayoutColumns, this.serverPanelTeams);
         });
         context.setPacketHandled(true);
     }

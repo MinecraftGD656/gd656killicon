@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
 import org.mods.gd656killicon.network.NetworkHandler;
 import org.mods.gd656killicon.network.packet.ScoreboardSyncPacket;
+import org.mods.gd656killicon.common.scoreboard.ScoreboardType;
 import org.mods.gd656killicon.server.logic.conquest.ConquestScoreboardAdapter;
 import org.mods.gd656killicon.server.util.ServerLog;
 
@@ -31,6 +32,10 @@ public class PlayerDataManager {
     private static final String PLAYERDATA_DIR = "playerdata";
     private static final long AUTO_SAVE_INTERVAL_MINUTES = 5;
     private static final int SCOREBOARD_PAGE_LIMIT_MAX = 100;
+    private static final int SCOREBOARD_SNAPSHOT_LIMIT = 64;
+    private static final long SCOREBOARD_SNAPSHOT_CLEANUP_INTERVAL_MS = 1_000L;
+    private final ScoreboardSnapshotStore<ResolvedScoreboardData> scoreboardSnapshots = new ScoreboardSnapshotStore<>(60_000L, SCOREBOARD_SNAPSHOT_LIMIT);
+    private long nextScoreboardSnapshotCleanupAt;
     private static final String[] DEFAULT_PANEL_TEAMS = new String[]{"", "", "", ""};
     private final Map<UUID, PlayerData> playerDataCache;
     /** 每 honor 全服最高累计次数(内存缓存, 不落盘; 启动时从所有玩家 playerdata 构建, recordHonor 时更新)。 */
@@ -77,6 +82,8 @@ public class PlayerDataManager {
     }
 
     public void shutdown() {
+        scoreboardSnapshots.clear();
+        nextScoreboardSnapshotCleanupAt = 0L;
         if (autoSaveExecutor != null) {
             autoSaveExecutor.shutdown();
             try {
@@ -534,22 +541,52 @@ public class PlayerDataManager {
 
     /**
      * 处理客户端发来的排行榜请求
-     * 使用快照缓存优化高频请求
+     * 同一次加载的所有分页共享快照，避免分数、队伍或在线状态变化导致跨页遗漏。
      */
-    public void handleScoreboardRequest(ServerPlayer player, int offset, int limit, long requestId) {
+    public void handleScoreboardRequest(ServerPlayer player, int offset, int limit, long requestId, long snapshotId) {
         if (player == null || player.server == null) {
             return;
         }
-        ResolvedScoreboardData resolved = resolveScoreboardData(player);
+        long now = System.currentTimeMillis();
+        ScoreboardSnapshotStore.Snapshot<ResolvedScoreboardData> snapshot = snapshotId == 0L && offset == 0
+            ? scoreboardSnapshots.create(player.getUUID(), () -> resolveScoreboardData(player), now)
+            : scoreboardSnapshots.get(player.getUUID(), snapshotId, now);
+        if (snapshot == null) {
+            NetworkHandler.sendToPlayer(new ScoreboardSyncPacket(List.of(), offset, 0, requestId,
+                snapshotId, 0, false, true, ScoreboardType.TOTAL, 1, DEFAULT_PANEL_TEAMS), player);
+            return;
+        }
+        ResolvedScoreboardData resolved = snapshot.data();
         ScoreboardPage page = buildScoreboardPage(resolved.entries(), offset, limit);
+        int nextOffset = page.offset() + page.entries().size();
         NetworkHandler.sendToPlayer(new ScoreboardSyncPacket(
             page.entries(),
             page.offset(),
             resolved.entries().size(),
             requestId,
+            snapshot.id(),
+            nextOffset,
+            nextOffset < resolved.entries().size(),
+            false,
+            resolved.type(),
             resolved.columns(),
             resolved.panelTeams()
         ), player);
+        if (nextOffset >= resolved.entries().size()) {
+            scoreboardSnapshots.remove(player.getUUID());
+        }
+    }
+
+    /** Called by the server tick even when no player is requesting the scoreboard. */
+    public void tickScoreboardSnapshots(long now) {
+        if (now >= nextScoreboardSnapshotCleanupAt) {
+            scoreboardSnapshots.cleanupExpired(now);
+            nextScoreboardSnapshotCleanupAt = now + SCOREBOARD_SNAPSHOT_CLEANUP_INTERVAL_MS;
+        }
+    }
+
+    public void clearScoreboardSnapshot(UUID playerId) {
+        scoreboardSnapshots.remove(playerId);
     }
 
     private ResolvedScoreboardData resolveScoreboardData(ServerPlayer requester) {
@@ -558,13 +595,15 @@ public class PlayerDataManager {
             return new ResolvedScoreboardData(
                 buildPrioritizedEntries(requester, new ArrayList<>(conquestResult.entries())),
                 conquestResult.columns(),
-                conquestResult.panelTeams()
+                conquestResult.panelTeams(),
+                conquestResult.type()
             );
         }
         return new ResolvedScoreboardData(
             buildPrioritizedEntries(requester, buildScoreboardEntries(requester.server)),
             1,
-            DEFAULT_PANEL_TEAMS
+            DEFAULT_PANEL_TEAMS,
+            ScoreboardType.TOTAL
         );
     }
 
@@ -622,7 +661,12 @@ public class PlayerDataManager {
      */
     private List<ScoreboardSyncPacket.Entry> buildScoreboardEntries(MinecraftServer server) {
         List<ScoreboardSyncPacket.Entry> entries = new ArrayList<>();
-        playerDataCache.forEach((uuid, data) -> {
+        Map<UUID, PlayerData> scoreboardPlayers = new java.util.HashMap<>(playerDataCache);
+        // Online players must still appear if their zeroed statistics were removed from the cache.
+        for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
+            scoreboardPlayers.putIfAbsent(onlinePlayer.getUUID(), new PlayerData(onlinePlayer.getUUID()));
+        }
+        scoreboardPlayers.forEach((uuid, data) -> {
             String lastLoginName = data.getLastLoginName();
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayer(uuid);
             
@@ -677,10 +721,10 @@ public class PlayerDataManager {
             || playerData.hasAnyHonor();
     }
 
-    private record ResolvedScoreboardData(List<ScoreboardSyncPacket.Entry> entries, int columns, String[] panelTeams) {
+    private record ResolvedScoreboardData(List<ScoreboardSyncPacket.Entry> entries, int columns, String[] panelTeams, ScoreboardType type) {
         private ResolvedScoreboardData {
-            entries = entries == null ? List.of() : entries;
-            panelTeams = panelTeams == null ? DEFAULT_PANEL_TEAMS : panelTeams;
+            entries = entries == null ? List.of() : List.copyOf(entries);
+            panelTeams = (panelTeams == null ? DEFAULT_PANEL_TEAMS : panelTeams).clone();
         }
     }
 

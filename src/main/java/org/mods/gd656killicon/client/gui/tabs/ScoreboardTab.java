@@ -5,6 +5,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.client.resources.language.I18n;
 import org.mods.gd656killicon.client.cache.LocalLeaderboardCache;
+import org.mods.gd656killicon.client.cache.ScoreboardPageState;
+import org.mods.gd656killicon.common.scoreboard.ScoreboardType;
 import org.mods.gd656killicon.client.config.ClientConfigManager;
 import org.mods.gd656killicon.client.config.ScoreboardLoadoutConfigManager;
 import org.mods.gd656killicon.client.gui.GuiConstants;
@@ -34,25 +36,18 @@ public class ScoreboardTab extends ConfigTabContent {
     private static boolean hideOffline = false;
 
     private static List<ScoreboardSyncPacket.Entry> leaderboardData = new ArrayList<>();
-    private static long lastRefreshTime = 0;
-    private static int serverTotalCount = 0;
-    private static int lastPacketOffset = -1;
-    private static long lastPacketRequestId = -1L;
+    private static final ScoreboardPageState pageState = new ScoreboardPageState();
+    private static ScoreboardType scoreboardType = ScoreboardType.TOTAL;
     private static Integer lastKnownGlobalScore = null;
 
     private static final int PAGE_SIZE = 20;
     private static final String GLOBAL_SCORE_OBJECTIVE = "gd656killicon.score";
-    private static long requestIdSeed = 0L;
-
-    private boolean pageRequestInFlight = false;
-    private int pendingPageOffset = -1;
 
     private boolean refreshChecking = false;
-    private long refreshCheckStartAt = 0L;
-    private long refreshRequestId = -1L;
-    private boolean refreshReplyReceived = false;
     private long refreshStatusUntil = 0L;
     private boolean refreshStatusLocked = false;
+    private Component refreshStatusMessage;
+    private int refreshStatusColor = GuiConstants.COLOR_WHITE;
     
     private enum SortType {
         NAME, SCORE, KILL, DEATH, ASSIST, REVIVE, PING
@@ -93,8 +88,15 @@ public class ScoreboardTab extends ConfigTabContent {
         super(minecraft, "gd656killicon.client.gui.config.tab.scoreboard");
     }
 
-    public static void updateData(List<ScoreboardSyncPacket.Entry> entries, int offset, int totalCount, long requestId, int serverLayoutColumns, String[] serverPanelTeams) {
-        ScoreboardLoadoutConfigManager.clearServerSuggestions();
+    public static void updateData(List<ScoreboardSyncPacket.Entry> entries, int offset, int totalCount,
+                                  long requestId, long snapshotId, int nextOffset, boolean hasMore,
+                                  boolean snapshotExpired, ScoreboardType type,
+                                  int serverLayoutColumns, String[] serverPanelTeams) {
+        ScoreboardPageState.Reply reply = pageState.accept(snapshotId, offset, nextOffset, totalCount,
+            entries.size(), hasMore, requestId, snapshotExpired);
+        if (reply != ScoreboardPageState.Reply.ACCEPTED) {
+            return;
+        }
         if (offset <= 0) {
             leaderboardData = new ArrayList<>(entries);
         } else {
@@ -111,15 +113,22 @@ public class ScoreboardTab extends ConfigTabContent {
                 }
             }
         }
-        serverTotalCount = Math.max(totalCount, leaderboardData.size());
+        scoreboardType = type;
         ScoreboardLoadoutConfigManager.setServerSuggestedColumns(serverLayoutColumns);
         ScoreboardLoadoutConfigManager.setServerSuggestedPanelTeams(serverPanelTeams);
-        lastPacketOffset = offset;
-        lastPacketRequestId = requestId;
-        lastRefreshTime = System.currentTimeMillis();
+        // Persist only complete total boards; partial pages and room boards are not total-board caches.
+        if (pageState.isComplete() && type == ScoreboardType.TOTAL) {
+            LocalLeaderboardCache.replaceAndSave(leaderboardData);
+        }
+    }
 
-        // 将服务端数据合并到本地缓存
-        LocalLeaderboardCache.mergeAndSave(leaderboardData);
+    public static void clearSession() {
+        pageState.reset();
+        leaderboardData = new ArrayList<>();
+        scoreboardType = ScoreboardType.TOTAL;
+        lastKnownGlobalScore = null;
+        ScoreboardLoadoutConfigManager.clearServerSuggestions();
+        LocalLeaderboardCache.clear();
     }
 
     private void handleHeaderClick(int panelIndex, SortType type, int button) {
@@ -150,22 +159,22 @@ public class ScoreboardTab extends ConfigTabContent {
         refreshButton = null;
         columnModeButton = null;
         toggleOfflineButton = null;
-        pageRequestInFlight = false;
-        pendingPageOffset = -1;
         refreshChecking = false;
         refreshStatusLocked = false;
+        refreshStatusMessage = null;
+        scoreboardType = ScoreboardType.TOTAL;
+        lastKnownGlobalScore = null;
         ScoreboardLoadoutConfigManager.clearServerSuggestions();
 
         // 优先加载本地缓存
         String serverKey = LocalLeaderboardCache.resolveServerKey();
         List<ScoreboardSyncPacket.Entry> cached = LocalLeaderboardCache.load(serverKey);
-        if (!cached.isEmpty()) {
-            leaderboardData = new ArrayList<>(cached);
-            serverTotalCount = cached.size();
-            lastRefreshTime = System.currentTimeMillis();
+        leaderboardData = new ArrayList<>(cached);
+        if (minecraft.player != null && minecraft.level != null) {
+            startRefreshCheck();
+        } else {
+            pageState.reset();
         }
-
-        requestPage(0, nextRequestId());
     }
 
     @Override
@@ -438,6 +447,10 @@ public class ScoreboardTab extends ConfigTabContent {
         refreshButton.setY(buttonY);
         refreshButton.setWidth(buttonWidth);
         refreshButton.setHeight(GuiConstants.ROW_HEADER_HEIGHT);
+        if (refreshStatusMessage != null) {
+            refreshButton.setMessage(refreshStatusMessage);
+            refreshButton.setTextColor(refreshStatusColor);
+        }
         refreshButton.active = !refreshChecking && !refreshStatusLocked;
         refreshButton.render(guiGraphics, mouseX, mouseY, partialTick);
 
@@ -463,55 +476,55 @@ public class ScoreboardTab extends ConfigTabContent {
                 hideOffline = !hideOffline;
                 btn.setMessage(Component.translatable(hideOffline ? "gd656killicon.client.gui.button.show_offline" : "gd656killicon.client.gui.button.hide_offline"));
                 for (int i = 0; i < 4; i++) {
+                    panelScrollY[i] = 0;
                     panelTargetScrollY[i] = 0;
                 }
+                draggingPanelIndex = -1;
             });
         }
         toggleOfflineButton.setX(area3X1 + 2 * (buttonWidth + 1));
         toggleOfflineButton.setY(buttonY);
         toggleOfflineButton.setWidth(buttonWidth);
         toggleOfflineButton.setHeight(GuiConstants.ROW_HEADER_HEIGHT);
-        toggleOfflineButton.active = !refreshChecking && !refreshStatusLocked;
+        toggleOfflineButton.active = minecraft.player != null && minecraft.level != null;
         toggleOfflineButton.setMessage(Component.translatable(hideOffline ? "gd656killicon.client.gui.button.show_offline" : "gd656killicon.client.gui.button.hide_offline"));
         toggleOfflineButton.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void startRefreshCheck() {
+        pageState.start();
         refreshChecking = true;
-        refreshReplyReceived = false;
-        refreshCheckStartAt = System.currentTimeMillis();
-        refreshRequestId = nextRequestId();
         refreshStatusLocked = false;
         setRefreshButtonStatus(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.checking"), GuiConstants.COLOR_GRAY);
-        requestPage(0, refreshRequestId);
+        tryLoadNextPage();
     }
 
     private void updateRefreshState() {
-        if (refreshChecking && lastPacketRequestId == refreshRequestId && lastPacketOffset == 0) {
-            refreshReplyReceived = true;
-        }
-
         long now = System.currentTimeMillis();
-        if (refreshChecking && refreshReplyReceived) {
+        pageState.checkTimeout(now);
+        if (refreshChecking && pageState.isComplete()) {
             refreshChecking = false;
             int selfPing = getSelfPing();
             showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.success", selfPing), GuiConstants.COLOR_GRAY);
         }
 
-        if (refreshChecking && now - refreshCheckStartAt >= 2000) {
+        if (refreshChecking && pageState.hasFailed()) {
             refreshChecking = false;
             if (!isConnectedToVanillaServer()) {
                 showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.disconnected"), GuiConstants.COLOR_RED);
-            } else if (!refreshReplyReceived) {
-                showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.handshake_failed"), GuiConstants.COLOR_RED);
+            } else {
+                showRefreshResult(Component.translatable("gd656killicon.client.gui.scoreboard.refresh.load_failed"), GuiConstants.COLOR_RED);
             }
         }
 
         if (refreshStatusLocked && now >= refreshStatusUntil) {
             refreshStatusLocked = false;
-            refreshButton.active = true;
-            refreshButton.setMessage(Component.translatable("gd656killicon.client.gui.button.refresh"));
-            refreshButton.setTextColor(GuiConstants.COLOR_WHITE);
+            refreshStatusMessage = null;
+            if (refreshButton != null) {
+                refreshButton.active = true;
+                refreshButton.setMessage(Component.translatable("gd656killicon.client.gui.button.refresh"));
+                refreshButton.setTextColor(GuiConstants.COLOR_WHITE);
+            }
         }
     }
 
@@ -522,6 +535,8 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     private void setRefreshButtonStatus(Component text, int color) {
+        refreshStatusMessage = text;
+        refreshStatusColor = color;
         if (refreshButton != null) {
             refreshButton.active = false;
             refreshButton.setMessage(text);
@@ -543,51 +558,22 @@ public class ScoreboardTab extends ConfigTabContent {
         return info != null ? info.getLatency() : -1;
     }
 
-    private static long nextRequestId() {
-        requestIdSeed++;
-        return requestIdSeed;
-    }
-
-    private void requestPage(int offset, long requestId) {
-        if (minecraft.player == null || minecraft.getConnection() == null || !isConnectedToVanillaServer()) {
-            return;
-        }
-        int safeOffset = Math.max(0, offset);
-        int limit = resolvePreferredRequestLimit();
-        pendingPageOffset = safeOffset;
-        pageRequestInFlight = true;
-        try {
-            org.mods.gd656killicon.network.NetworkHandler.sendToServer(new org.mods.gd656killicon.network.packet.ScoreboardRequestPacket(safeOffset, limit, requestId));
-        } catch (Exception ignored) {
-            pageRequestInFlight = false;
-            pendingPageOffset = -1;
-        }
-    }
-
     private void tryLoadNextPage() {
-        if (pageRequestInFlight && lastPacketOffset == pendingPageOffset) {
-            pageRequestInFlight = false;
-            pendingPageOffset = -1;
-        }
-        if (refreshChecking || refreshStatusLocked || pageRequestInFlight) {
+        if (minecraft.player == null || minecraft.getConnection() == null || !isConnectedToVanillaServer()) {
+            pageState.fail();
             return;
         }
-        if (leaderboardData.size() >= serverTotalCount || serverTotalCount <= 0) {
+        ScoreboardPageState.Request request = pageState.nextRequest(resolvePreferredRequestLimit(), System.currentTimeMillis());
+        if (request == null) {
             return;
         }
-        boolean nearBottom = false;
-        for (int i = 0; i < 4; i++) {
-            double maxScroll = Math.max(0, panelContentHeight[i] - panelViewHeight[i]);
-            if (maxScroll > 0 && panelTargetScrollY[i] >= maxScroll - 1.0) {
-                nearBottom = true;
-                break;
-            }
+        try {
+            org.mods.gd656killicon.network.NetworkHandler.sendToServer(
+                new org.mods.gd656killicon.network.packet.ScoreboardRequestPacket(
+                    request.offset(), request.limit(), request.requestId(), request.snapshotId()));
+        } catch (Exception ignored) {
+            pageState.fail();
         }
-        boolean hasVisibleGap = hasAnyPanelVisibleGap();
-        if (!nearBottom && !hasVisibleGap) {
-            return;
-        }
-        requestPage(leaderboardData.size(), nextRequestId());
     }
 
     private int resolvePreferredRequestLimit() {
@@ -604,22 +590,6 @@ public class ScoreboardTab extends ConfigTabContent {
         }
         int desired = Math.max(PAGE_SIZE, visibleRows + (PAGE_SIZE / 2));
         return Math.min(100, desired);
-    }
-
-    private boolean hasAnyPanelVisibleGap() {
-        int rowHeight = GuiConstants.ROW_HEADER_HEIGHT + 1;
-        for (int i = 0; i < 4; i++) {
-            int view = panelViewHeight[i];
-            if (view <= 0) {
-                continue;
-            }
-            int visibleRows = Math.max(1, (int) Math.ceil(view / (double) rowHeight));
-            int loadedRows = panelContentHeight[i] <= 0 ? 0 : (int) Math.ceil(panelContentHeight[i] / (double) rowHeight);
-            if (loadedRows < visibleRows) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void updateAreaCoordinates(int screenWidth, int screenHeight) {
@@ -1038,26 +1008,7 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     private boolean isConquestMatchScoreboardJoined() {
-        if (isConquestSoloMatchScoreboardJoined()) {
-            return true;
-        }
-        if (minecraft.player == null || ScoreboardLoadoutConfigManager.getEffectiveColumns(true) != 2) {
-            return false;
-        }
-        String leftTeam = resolveBoundTeamName(ScoreboardLoadoutConfigManager.getEffectivePanelTeamBinding(0, true));
-        String rightTeam = resolveBoundTeamName(ScoreboardLoadoutConfigManager.getEffectivePanelTeamBinding(1, true));
-        if (!isConquestRuntimeTeamName(leftTeam) || !isConquestRuntimeTeamName(rightTeam)) {
-            return false;
-        }
-        String selfTeamName = getSelfTeamName();
-        if (selfTeamName.isBlank()) {
-            net.minecraft.world.scores.Team selfTeam = minecraft.player.getTeam();
-            selfTeamName = selfTeam == null || selfTeam.getName() == null ? "" : selfTeam.getName();
-        }
-        if (selfTeamName.isBlank()) {
-            return false;
-        }
-        return selfTeamName.equals(leftTeam) || selfTeamName.equals(rightTeam);
+        return minecraft.player != null && scoreboardType != ScoreboardType.TOTAL;
     }
 
     private boolean isTeamAll(String bind) {
@@ -1065,26 +1016,7 @@ public class ScoreboardTab extends ConfigTabContent {
     }
 
     private boolean isConquestSoloMatchScoreboardJoined() {
-        if (ScoreboardLoadoutConfigManager.isServerForcingSoloMode()) {
-            return true;
-        }
-        if (minecraft.player == null || ScoreboardLoadoutConfigManager.getEffectiveColumns(true) != 1) {
-            return false;
-        }
-        String teamBind = ScoreboardLoadoutConfigManager.getEffectivePanelTeamBinding(0, true);
-        if (!isTeamAll(teamBind)) {
-            return false;
-        }
-        for (ScoreboardSyncPacket.Entry item : leaderboardData) {
-            if (!item.online) {
-                continue;
-            }
-            String normalized = item.teamName == null ? "" : item.teamName.toLowerCase(java.util.Locale.ROOT);
-            if (normalized.startsWith("room_") && normalized.contains("_camp_")) {
-                return true;
-            }
-        }
-        return false;
+        return minecraft.player != null && scoreboardType == ScoreboardType.CONQUEST_SOLO;
     }
 
     private boolean isConquestRuntimeTeamName(String teamName) {

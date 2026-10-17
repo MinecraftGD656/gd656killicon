@@ -916,6 +916,7 @@
   "gd656killicon.client.gui.scoreboard.refresh.checking": "Checking...",
   "gd656killicon.client.gui.scoreboard.refresh.disconnected": "You have disconnected from a vanilla server",
   "gd656killicon.client.gui.scoreboard.refresh.handshake_failed": "Handshake with GDKI server failed",
+  "gd656killicon.client.gui.scoreboard.refresh.load_failed": "Scoreboard loading incomplete; please refresh again",
   "gd656killicon.client.gui.scoreboard.refresh.success": "Refresh complete. Current client latency: %s ms",
   "gd656killicon.client.gui.scoreboard.team_filter.all": "All",
   "gd656killicon.client.gui.scoreboard.team_filter.title": "Team Filter",

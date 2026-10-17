@@ -134,6 +134,7 @@ public final class ServerCombatEngine {
         explosionKillCounter.clear();
 
         long now = System.currentTimeMillis();
+        PlayerDataManager.get().tickScoreboardSnapshots(now);
         tickScoreboardRefresh(server, now);
         activeCombats.values().forEach(map -> map.values().removeIf(cs -> now - cs.lastInteractionTime > 30000));
         activeCombats.values().removeIf(Map::isEmpty);
@@ -173,6 +174,7 @@ public final class ServerCombatEngine {
     public static void onPlayerLogout(ServerPlayer player) {
         if (player == null) return;
         UUID playerId = player.getUUID();
+        PlayerDataManager.get().clearScoreboardSnapshot(playerId);
         PlayerDataManager.get().forceSave(playerId);
         lastSprintPositions.remove(playerId);
         sprintDistances.remove(playerId);

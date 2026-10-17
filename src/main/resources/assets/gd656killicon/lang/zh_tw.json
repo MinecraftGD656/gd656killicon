@@ -916,6 +916,7 @@
   "gd656killicon.client.gui.scoreboard.refresh.checking": "正在检测...",
   "gd656killicon.client.gui.scoreboard.refresh.disconnected": "您已与原版服务端断開链接",
   "gd656killicon.client.gui.scoreboard.refresh.handshake_failed": "与服务端GDKI握手失败",
+  "gd656killicon.client.gui.scoreboard.refresh.load_failed": "榜單載入未完成，請重新整理",
   "gd656killicon.client.gui.scoreboard.refresh.success": "已刷新表單 当前客户端延迟 %s 毫秒",
   "gd656killicon.client.gui.scoreboard.team_filter.all": "全部",
   "gd656killicon.client.gui.scoreboard.team_filter.title": "队伍筛选",

@@ -3,6 +3,7 @@ package org.mods.gd656killicon.server.logic.conquest;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.mods.gd656killicon.network.packet.ScoreboardSyncPacket;
+import org.mods.gd656killicon.common.scoreboard.ScoreboardType;
 import org.mods.gd656killicon.server.bridge.ServerBridge;
 import org.mods.gd656killicon.server.util.ServerLog;
 
@@ -56,7 +57,8 @@ public final class ConquestScoreboardAdapter {
                 return a.uuid.compareTo(b.uuid);
             });
             int normalizedColumns = columns == 2 || columns == 4 ? columns : 1;
-            return new Result(entries, normalizedColumns, normalizePanelTeams(panelTeams));
+            return new Result(entries, normalizedColumns, normalizePanelTeams(panelTeams),
+                ScoreboardType.fromConquestLayout(normalizedColumns, panelTeams));
         } catch (Exception exception) {
             ServerLog.error("Failed to resolve conquest scoreboard payload: %s", exception.getMessage());
             return null;
@@ -149,6 +151,6 @@ public final class ConquestScoreboardAdapter {
         return value == null ? "" : value;
     }
 
-    public record Result(List<ScoreboardSyncPacket.Entry> entries, int columns, String[] panelTeams) {
+    public record Result(List<ScoreboardSyncPacket.Entry> entries, int columns, String[] panelTeams, ScoreboardType type) {
     }
 }

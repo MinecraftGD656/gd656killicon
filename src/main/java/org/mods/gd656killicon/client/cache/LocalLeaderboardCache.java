@@ -22,7 +22,7 @@ import java.util.UUID;
  * 客户端本地排行榜缓存，以服务器/存档为单位持久化。
  *
  * <p>每次打开榜单时优先读取已有本地数据；收到服务端数据后，
- * 按 UUID 合并更新并写回本地缓存。</p>
+ * 完整总榜加载完成后替换本地缓存。</p>
  */
 public final class LocalLeaderboardCache {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -102,7 +102,9 @@ public final class LocalLeaderboardCache {
             if (data != null && data.entries != null) {
                 for (CachedEntry ce : data.entries) {
                     ScoreboardSyncPacket.Entry entry = ce.toEntry();
-                    entryMap.put(entry.uuid, entry);
+                    if (entry != null) {
+                        entryMap.put(entry.uuid, entry);
+                    }
                 }
             }
         } catch (Exception ignored) {
@@ -111,17 +113,15 @@ public final class LocalLeaderboardCache {
     }
 
     /**
-     * 用服务端传来的新数据合并更新本地缓存。
-     *
-     * <p>规则：以 UUID 为键，新数据覆盖已有条目；本地独有条目保留。
-     * 合并后自动写回本地文件。</p>
+     * 用服务端完整总榜替换本地缓存，删除已不在服务端名单中的旧条目。
      *
      * @param newEntries 服务端传来的条目列表
      */
-    public static void mergeAndSave(List<ScoreboardSyncPacket.Entry> newEntries) {
+    public static void replaceAndSave(List<ScoreboardSyncPacket.Entry> newEntries) {
         if (currentServerKey == null) {
             return;
         }
+        entryMap.clear();
         for (ScoreboardSyncPacket.Entry entry : newEntries) {
             entryMap.put(entry.uuid, entry);
         }
